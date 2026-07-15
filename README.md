@@ -8,6 +8,7 @@ Production-ready базовый backend на FastAPI для будущего API
 - Версионированный API prefix: `/api/v1`
 - OpenAI интеграция через `AsyncOpenAI`
 - Дефолтная модель: `gpt-5.4-nano`, самая дешевая GPT-5.4-class модель по цене токенов
+- Swagger UI/OpenAPI docs по рекомендациям FastAPI: metadata, tag descriptions, summaries, request duration и фильтр операций
 - Конфигурация через env и `.env`
 - Dockerfile + `docker-compose.yml`
 - Базовые async tests
@@ -50,7 +51,7 @@ uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 docker compose up --build
 ```
 
-OpenAPI UI доступен локально на `http://localhost:8000/docs`. В `APP_ENV=production` docs отключаются.
+Swagger UI доступен локально на `http://localhost:8000/docs`, ReDoc на `http://localhost:8000/redoc`, OpenAPI schema на `http://localhost:8000/openapi.json`. В `APP_ENV=production` документация отключается.
 
 ## Env configuration
 

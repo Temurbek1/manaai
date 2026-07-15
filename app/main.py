@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
 from app.services.openai_service import OpenAIService
 
 
@@ -21,7 +22,17 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
+        summary="AI integration API layer for ManaAI.",
+        description=API_DESCRIPTION,
         version=settings.app_version,
+        contact={
+            "name": "ManaAI API maintainers",
+        },
+        license_info={
+            "name": "Proprietary",
+        },
+        openapi_tags=OPENAPI_TAGS,
+        swagger_ui_parameters=SWAGGER_UI_PARAMETERS,
         docs_url="/docs" if settings.is_docs_enabled else None,
         redoc_url="/redoc" if settings.is_docs_enabled else None,
         openapi_url="/openapi.json" if settings.is_docs_enabled else None,
