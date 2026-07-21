@@ -9,7 +9,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - OpenAI интеграция через `AsyncOpenAI`
 - Дефолтная модель: `gpt-5.4-nano`, самая дешевая GPT-5.4-class модель по цене токенов
 - Meta Marketing API слой через официальный Graph API `v25.0`
-- Append-only raw storage в SQLite, чтобы не терять исходные данные Meta/экспортов
+- Append-only raw storage в SQLite, чтобы не терять исходные данные Meta/экспортов/developer-console evidence
 - Детерминированные KPI до вызова AI: spend, impressions, reach, clicks, conversions, CTR, frequency, CPC, CPM, CPA, ROAS
 - AI analytics output через OpenAI Structured Outputs
 - Swagger UI/OpenAPI docs по рекомендациям FastAPI: metadata, tag descriptions, summaries, request duration и фильтр операций
@@ -225,6 +225,35 @@ curl -X POST http://localhost:8000/api/v1/marketing/raw \
   }'
 ```
 
+Raw ingestion также подходит для sanitized Meta Developer Console evidence:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/raw \
+  -H "Content-Type: application/json" \
+  -d '{
+    "records": [
+      {
+        "source": "meta_developer_console",
+        "entity_type": "app",
+        "provider_record_id": "replace_with_meta_app_id",
+        "parent_id": "replace_with_business_id",
+        "payload": {
+          "id": "replace_with_meta_app_id",
+          "name": "MANA AI",
+          "business_id": "replace_with_business_id",
+          "business_name": "Mana App BM",
+          "publication_status": "not_published",
+          "use_cases": ["MARKETING_API_ADS_ANALYTICS"],
+          "permissions": ["ads_read", "business_management"],
+          "required_actions": ["business_verification", "app_review"]
+        }
+      }
+    ]
+  }'
+```
+
+Не загружайте в raw storage app secret, access token, cookies, `fb_dtsg` или browser session tokens. Developer-console records нужны как operational evidence: статус публикации, разрешения, review/business verification, use cases и ссылки на source pages.
+
 Поиск raw строк после найденной закономерности:
 
 ```bash
@@ -267,7 +296,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/graph \
   }'
 ```
 
-Graph endpoint строит nodes/edges из raw records: business owns ad account/pixel, pixel reports custom conversions, account contains campaigns/adsets/ads/creatives/custom conversions/custom audiences, ad sets target custom audiences, ads point to creatives, insight rows measure account/campaign/adset/ad objects.
+Graph endpoint строит nodes/edges из raw records: business owns app/ad account/pixel, pixel reports custom conversions, account contains campaigns/adsets/ads/creatives/custom conversions/custom audiences, ad sets target custom audiences, ads point to creatives, insight rows measure account/campaign/adset/ad objects.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/marketing/analyze \
@@ -280,7 +309,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/analyze \
   }'
 ```
 
-Ответ содержит `kpi_summary`, список KPI rows с `dimensions` для breakdown-сегментов, deterministic `patterns`, `graph`, полный evidence-набор `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups. При `include_raw_samples=true` AI context получает raw samples из этого evidence-набора, включая structure records, на которые ссылаются patterns/graph.
+Ответ содержит `kpi_summary`, список KPI rows с `dimensions` для breakdown-сегментов, deterministic `patterns`, `graph`, operational context, полный evidence-набор `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups. При `include_raw_samples=true` AI context получает raw samples из этого evidence-набора, включая structure/developer-console records, на которые ссылаются patterns/graph.
 
 Каждый AI отчет сохраняется в SQLite вместе с полным typed response. Историю можно использовать для аудита, повторного чтения backend/frontend-клиентами и сверки выводов с raw source records:
 

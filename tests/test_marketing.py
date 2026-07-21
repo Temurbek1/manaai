@@ -113,6 +113,49 @@ async def test_raw_marketing_ingestion_and_listing(
     get_settings.cache_clear()
 
 
+async def test_raw_marketing_ingestion_accepts_meta_developer_console_source(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "meta_developer_console",
+                        "entity_type": "app",
+                        "provider_record_id": "app-1",
+                        "parent_id": "business-1",
+                        "payload": {
+                            "id": "app-1",
+                            "name": "MANA AI",
+                            "business_id": "business-1",
+                            "publication_status": "not_published",
+                        },
+                    },
+                ],
+            },
+        )
+        list_response = await client.get(
+            "/api/v1/marketing/raw",
+            params={"entity_type": "app"},
+        )
+
+    assert ingest_response.status_code == 201
+    assert list_response.status_code == 200
+    record = list_response.json()["records"][0]
+    assert record["source"] == "meta_developer_console"
+    assert record["payload"]["publication_status"] == "not_published"
+    get_settings.cache_clear()
+
+
 async def test_raw_marketing_search_filters_payload_dimensions_and_provider_ids(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -1190,6 +1233,26 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
                 "records": [
                     {
                         "source": "manual_upload",
+                        "entity_type": "business",
+                        "provider_record_id": "business-1",
+                        "payload": {"id": "business-1", "name": "Mana App BM"},
+                    },
+                    {
+                        "source": "meta_developer_console",
+                        "entity_type": "app",
+                        "provider_record_id": "app-1",
+                        "parent_id": "business-1",
+                        "payload": {
+                            "id": "app-1",
+                            "name": "MANA AI",
+                            "business_id": "business-1",
+                            "publication_status": "not_published",
+                            "use_cases": ["MARKETING_API_ADS_ANALYTICS"],
+                            "permissions": ["ads_read", "business_management"],
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
                         "entity_type": "campaign",
                         "provider_record_id": "campaign-1",
                         "account_id": "act_100",
@@ -1305,6 +1368,7 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
     assert graph_response.status_code == 200
     body = graph_response.json()
     edge_pairs = {(edge["source_id"], edge["target_id"], edge["type"]) for edge in body["edges"]}
+    assert ("business:business-1", "app:app-1", "owns") in edge_pairs
     assert ("campaign:campaign-1", "adset:adset-1", "contains") in edge_pairs
     assert ("adset:adset-1", "ad:ad-1", "contains") in edge_pairs
     assert ("ad:ad-1", "creative:creative-1", "created_from") in edge_pairs
@@ -1324,6 +1388,9 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
         node for node in body["nodes"] if node["id"] == "custom_audience:audience-1"
     )
     assert audience_node["attributes"]["subtype"] == "CUSTOM"
+    app_node = next(node for node in body["nodes"] if node["id"] == "app:app-1")
+    assert app_node["attributes"]["publication_status"] == "not_published"
+    assert app_node["attributes"]["permissions"] == ["ads_read", "business_management"]
     get_settings.cache_clear()
 
 
@@ -1741,6 +1808,94 @@ async def test_marketing_analysis_uses_full_evidence_source_records(
         "insight",
     }
     assert any(pattern["type"] == "creative_waste" for pattern in context["deterministic_patterns"])
+    get_settings.cache_clear()
+
+
+async def test_marketing_analysis_includes_developer_console_operational_context(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    metrics_builder = MarketingMetricsBuilder(
+        conversion_action_types=["lead"],
+        value_action_types=["purchase"],
+    )
+    pattern_service = MarketingPatternService(
+        repository=repository,
+        metrics_builder=metrics_builder,
+        measurement_stale_after_days=14,
+    )
+    graph_service = MarketingGraphService(repository=repository)
+    fake_openai = CapturingOpenAIService()
+    analysis_service = MarketingAnalysisService(
+        repository=repository,
+        metrics_builder=metrics_builder,
+        pattern_service=pattern_service,
+        graph_service=graph_service,
+        openai_service=cast(OpenAIService, fake_openai),
+    )
+    inserted = await repository.insert_raw_records(
+        [
+            RawMarketingRecordInput(
+                source="meta_developer_console",
+                entity_type="app",
+                provider_record_id="app-1",
+                parent_id="business-1",
+                payload={
+                    "id": "app-1",
+                    "name": "MANA AI",
+                    "business_id": "business-1",
+                    "business_name": "Mana App BM",
+                    "publication_status": "not_published",
+                    "use_cases": ["MARKETING_API_ADS_ANALYTICS"],
+                    "permissions": ["ads_read", "business_management"],
+                    "required_actions": ["business_verification", "app_review"],
+                },
+            ),
+            RawMarketingRecordInput(
+                source="meta_developer_console",
+                entity_type="business",
+                provider_record_id="business-1",
+                payload={
+                    "id": "business-1",
+                    "name": "Mana App BM",
+                    "business_verification_status": "required",
+                },
+            ),
+            RawMarketingRecordInput(
+                source="manual_upload",
+                entity_type="insight",
+                account_id="act_100",
+                payload={
+                    "_meta_level": "ad",
+                    "ad_id": "ad-1",
+                    "ad_name": "Ad",
+                    "date_start": "2026-07-01",
+                    "date_stop": "2026-07-01",
+                    "spend": "25",
+                    "impressions": "1000",
+                    "clicks": "50",
+                    "actions": [{"action_type": "lead", "value": "5"}],
+                },
+            ),
+        ],
+    )
+
+    response = await analysis_service.analyze(
+        MarketingAnalysisRequest(account_ids=["act_100"], max_records=20),
+    )
+
+    context = json.loads(fake_openai.user_inputs[0])
+    app_context = next(
+        item for item in context["operational_context"] if item["entity_type"] == "app"
+    )
+    assert app_context["source"] == "meta_developer_console"
+    assert app_context["business_id"] == "business-1"
+    assert app_context["attributes"]["publication_status"] == "not_published"
+    assert app_context["attributes"]["permissions"] == ["ads_read", "business_management"]
+    assert set(response.source_record_ids) == {record.id for record in inserted}
     get_settings.cache_clear()
 
 

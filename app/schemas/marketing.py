@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
-MarketingSource = Literal["meta_marketing_api", "manual_upload"]
+MarketingSource = Literal["meta_marketing_api", "meta_developer_console", "manual_upload"]
 MarketingEntityType = Literal[
     "app",
     "business",

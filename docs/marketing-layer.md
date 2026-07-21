@@ -93,7 +93,7 @@ auditable back to `source_record_ids`.
 
 Raw records are append-only snapshots with:
 
-- source: `meta_marketing_api` or `manual_upload`
+- source: `meta_marketing_api`, `meta_developer_console`, or `manual_upload`
 - entity type: app, business, pixel, custom conversion, custom audience, ad account, campaign, ad set, ad, creative, insight, or custom
 - provider record id when available
 - account id and parent id when available
@@ -103,8 +103,8 @@ Raw records are append-only snapshots with:
 - stable payload hash for deduplication and debugging
 
 The API exposes raw ingestion separately from Meta sync so exports from Meta Ads
-Manager, CSV-to-JSON pipelines, or future connectors can be analyzed without
-requiring a live Meta token.
+Manager, sanitized Meta Developer Console snapshots, CSV-to-JSON pipelines, or
+future connectors can be analyzed without requiring a live Meta token.
 
 The raw search endpoint exposes exact filters over account ids, entity types,
 provider record ids, date windows, and top-level payload/dimension fields. This
@@ -143,10 +143,14 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
   waste/efficiency rollups, custom audience targeting rollups, delivery/status
   issues, unmapped Meta action signals, measurement health issues from
   pixels/custom conversions, trend movements, and data quality gaps.
-- Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
+- Entity graph: raw-record-backed nodes and edges for Meta hierarchy, app to
+  business ownership, and insight measurements.
 
-The model receives only this compact KPI evidence plus selected metadata by
-default. Raw record ids remain attached to the response for audit and deeper
+The model receives only this compact KPI evidence, operational context, and
+selected metadata by default. Operational context covers app publication,
+permissions, review, business verification, measurement, and async job readiness
+constraints; it is not treated as media-performance evidence unless KPI rows
+support it. Raw record ids remain attached to the response for audit and deeper
 follow-up analysis.
 
 Segment patterns aggregate KPI rows across the same dimension key/value, such as
@@ -221,6 +225,12 @@ The model also receives a compact entity graph so recommendations can refer to
 campaign/ad set/ad relationships rather than treating every insight row as an
 isolated metric.
 
+The model also receives compact operational context from raw app, business, ad
+account, measurement, custom audience, and async job records. This lets the
+report explain readiness blockers such as unpublished apps, missing review,
+business verification needs, stale pixels, archived conversions, or incomplete
+async jobs without mixing those facts into KPI calculations.
+
 ## Implementation Stages
 
 1. Add environment-driven Meta/OpenAI marketing configuration.
@@ -234,3 +244,4 @@ isolated metric.
 9. Add tests with fakes; tests must never call Meta or OpenAI.
 10. Persist generated analysis reports for audit/reuse.
 11. Expose saved report evidence bundles for raw-data audit workflows.
+12. Add developer-console operational context for app readiness and permissions.

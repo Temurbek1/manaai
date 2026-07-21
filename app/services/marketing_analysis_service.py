@@ -2,6 +2,8 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+from pydantic import JsonValue
+
 from app.schemas.marketing import (
     MarketingAnalysisReport,
     MarketingAnalysisRequest,
@@ -15,6 +17,12 @@ from app.schemas.marketing import (
 )
 from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_metrics import MarketingMetricsBuilder
+from app.services.marketing_operational_context import (
+    GLOBAL_OPERATIONAL_CONTEXT_ENTITY_TYPES,
+    OPERATIONAL_CONTEXT_ENTITY_TYPES,
+    build_operational_context,
+    dedupe_raw_records,
+)
 from app.services.marketing_pattern_service import MarketingPatternService
 from app.services.marketing_repository import MarketingRepository
 from app.services.openai_service import OpenAIService
@@ -25,6 +33,10 @@ You are a senior performance marketing analyst for Meta Ads data.
 Use only the supplied KPI evidence and raw samples. Do not invent spend,
 conversion, audience, creative, or attribution facts. When evidence is missing,
 state what is missing and suggest the next raw-data pull or breakdown.
+
+Use operational context only for access, readiness, publication, review,
+measurement, and data-availability constraints. Do not treat operational context
+as media-performance evidence unless KPI rows support it.
 
 Return a concise analytics report for operators: explain what changed, what is
 working, what is wasting budget, what should be tested next, and which raw data
@@ -57,6 +69,8 @@ class MarketingAnalysisService:
             limit=request.max_records,
             offset=0,
         )
+        operational_records = await self._load_operational_context_records(request)
+        operational_context = build_operational_context(operational_records)
         kpis = self._metrics_builder.build_rows(records)
         kpi_summary = self._metrics_builder.summarize(kpis)
         pattern_response = await self._pattern_service.detect(
@@ -78,6 +92,7 @@ class MarketingAnalysisService:
         )
         source_record_ids = collect_analysis_source_record_ids(
             records=records,
+            operational_records=operational_records,
             patterns=pattern_response.patterns,
             graph=graph_response,
         )
@@ -89,7 +104,7 @@ class MarketingAnalysisService:
         generated_at = datetime.now(UTC)
 
         if not records or not kpis:
-            report = _empty_report(total=total)
+            report = _empty_report(total=total, operational_context=operational_context)
             model = "deterministic"
         else:
             report = await self._openai_service.create_structured_response(
@@ -104,6 +119,7 @@ class MarketingAnalysisService:
                     patterns=[
                         pattern.model_dump(mode="json") for pattern in pattern_response.patterns
                     ],
+                    operational_context=operational_context,
                     graph={
                         "nodes": [
                             node.model_dump(mode="json") for node in graph_response.nodes[:100]
@@ -142,15 +158,40 @@ class MarketingAnalysisService:
         await self._repository.save_analysis_report(request=request, response=response)
         return response
 
+    async def _load_operational_context_records(
+        self,
+        request: MarketingAnalysisRequest,
+    ) -> list[RawMarketingRecord]:
+        records, _ = await self._repository.list_raw_records(
+            account_ids=request.account_ids,
+            entity_types=OPERATIONAL_CONTEXT_ENTITY_TYPES,
+            date_start=request.date_start,
+            date_stop=request.date_stop,
+            limit=min(request.max_records, 500),
+            offset=0,
+        )
+        if request.account_ids:
+            global_records, _ = await self._repository.list_raw_records(
+                entity_types=GLOBAL_OPERATIONAL_CONTEXT_ENTITY_TYPES,
+                date_start=request.date_start,
+                date_stop=request.date_stop,
+                limit=min(request.max_records, 500),
+                offset=0,
+            )
+            records = dedupe_raw_records([*records, *global_records])
+        return records
+
 
 def collect_analysis_source_record_ids(
     *,
     records: list[RawMarketingRecord],
+    operational_records: list[RawMarketingRecord],
     patterns: list[MarketingPattern],
     graph: MarketingGraphResponse,
 ) -> list[str]:
     record_ids: list[str] = []
     _extend_unique(record_ids, [record.id for record in records])
+    _extend_unique(record_ids, [record.id for record in operational_records])
 
     for pattern in patterns:
         _extend_unique(record_ids, pattern.evidence_record_ids)
@@ -172,6 +213,7 @@ def _analysis_context_json(
     kpi_summary: dict[str, object],
     kpis: list[dict[str, object]],
     patterns: list[dict[str, object]],
+    operational_context: list[dict[str, JsonValue]],
     graph: dict[str, object],
     raw_samples: list[dict[str, object]],
 ) -> str:
@@ -184,12 +226,17 @@ def _analysis_context_json(
             "kpi_summary": kpi_summary,
             "top_kpis_by_spend": top_kpis,
             "deterministic_patterns": patterns,
+            "operational_context": operational_context,
             "entity_graph": graph,
             "raw_samples": raw_samples,
             "analysis_rules": [
                 "Use KPI rows as the source of truth.",
                 "Use deterministic_patterns as precomputed evidence, not as final truth.",
                 "Use entity_graph to understand Meta object relationships.",
+                (
+                    "Use operational_context for app publication, permission, business "
+                    "verification, measurement, and API job readiness constraints."
+                ),
                 (
                     "Use KPI row dimensions to identify breakdown segments such as "
                     "placement or device."
@@ -253,9 +300,14 @@ def _spend_sort_value(row: dict[str, object]) -> float:
     return 0.0
 
 
-def _empty_report(*, total: int) -> MarketingAnalysisReport:
+def _empty_report(
+    *,
+    total: int,
+    operational_context: list[dict[str, JsonValue]],
+) -> MarketingAnalysisReport:
+    operational_notes = _empty_report_operational_notes(operational_context)
     return MarketingAnalysisReport(
-        executive_summary="No Meta Ads insight records matched the requested filters.",
+        executive_summary=_empty_report_summary(operational_context),
         health_score=0,
         key_findings=[
             MarketingFinding(
@@ -279,8 +331,62 @@ def _empty_report(*, total: int) -> MarketingAnalysisReport:
         ],
         data_quality_notes=[
             "No KPI-bearing insight rows are available for this analysis request.",
+            *operational_notes,
         ],
         raw_data_followups=[
             "Pull /insights with spend, impressions, clicks, actions, and action_values.",
+            *_empty_report_operational_followups(operational_context),
         ],
     )
+
+
+def _empty_report_summary(operational_context: list[dict[str, JsonValue]]) -> str:
+    app_context = next(
+        (item for item in operational_context if item.get("entity_type") == "app"),
+        None,
+    )
+    if app_context is None:
+        return "No Meta Ads insight records matched the requested filters."
+
+    app_name = app_context.get("name") or app_context.get("entity_id") or "Meta app"
+    attributes = app_context.get("attributes")
+    publication_status = (
+        attributes.get("publication_status")
+        if isinstance(attributes, dict)
+        else None
+    )
+    if publication_status is None:
+        return (
+            f"{app_name} operational context is available, but no Meta Ads insight records "
+            "matched the requested filters."
+        )
+    return (
+        f"{app_name} operational context is available with publication_status="
+        f"{publication_status}, but no Meta Ads insight records matched the requested filters."
+    )
+
+
+def _empty_report_operational_notes(
+    operational_context: list[dict[str, JsonValue]],
+) -> list[str]:
+    if not operational_context:
+        return []
+    return [
+        (
+            "Operational raw records are available and should be used to audit app "
+            "publication, permissions, business verification, and measurement readiness."
+        ),
+    ]
+
+
+def _empty_report_operational_followups(
+    operational_context: list[dict[str, JsonValue]],
+) -> list[str]:
+    if not operational_context:
+        return []
+    return [
+        (
+            "Search raw app/business records before launch decisions to confirm Meta "
+            "Developer Console readiness and required review actions."
+        ),
+    ]

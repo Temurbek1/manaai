@@ -47,7 +47,7 @@ class MarketingGraphService:
         )
         if request.account_ids and _should_include_global_assets(entity_types):
             global_records, _ = await self._repository.list_raw_records(
-                entity_types=["business", "pixel"],
+                entity_types=["app", "business", "pixel"],
                 date_start=request.date_start,
                 date_stop=request.date_stop,
                 limit=request.max_records,
@@ -117,6 +117,17 @@ class _MarketingGraphBuilder:
 
     def _add_known_parent_edges(self, *, record: RawMarketingRecord, node_id: str) -> None:
         payload = record.payload
+
+        if record.entity_type == "app":
+            business_id = _app_business_id(payload) or record.parent_id
+            if business_id:
+                self._edge_from_parent(
+                    parent_type="business",
+                    parent_id=business_id,
+                    child_id=node_id,
+                    record=record,
+                    edge_type="owns",
+                )
 
         if record.entity_type == "ad_account":
             business_id = nested_id(payload.get("business"))
@@ -331,7 +342,7 @@ def _record_entity_id(record: RawMarketingRecord) -> str:
 
 
 def _should_include_global_assets(entity_types: list[MarketingEntityType] | None) -> bool:
-    return entity_types is None or bool({"business", "pixel"} & set(entity_types))
+    return entity_types is None or bool({"app", "business", "pixel"} & set(entity_types))
 
 
 def _dedupe_records(records: list[RawMarketingRecord]) -> list[RawMarketingRecord]:
@@ -390,6 +401,15 @@ def _record_attributes(record: RawMarketingRecord) -> dict[str, JsonValue]:
         "delivery_status",
         "operation_status",
         "permission_for_actions",
+        "publication_status",
+        "app_review_status",
+        "business_verification_status",
+        "technology_provider_status",
+        "use_cases",
+        "permissions",
+        "required_actions",
+        "developer_console_urls",
+        "profile_hint",
         "approximate_count",
         "lookalike_spec",
         "retention_days",
@@ -409,11 +429,26 @@ def _payload_id(payload: dict[str, JsonValue]) -> str | None:
 
 
 def _entity_name(payload: dict[str, JsonValue]) -> str | None:
-    for key in ("ad_name", "adset_name", "campaign_name", "account_name"):
+    for key in (
+        "app_name",
+        "business_name",
+        "ad_name",
+        "adset_name",
+        "campaign_name",
+        "account_name",
+    ):
         value = payload.get(key)
         if value is not None:
             return str(value)
     return None
+
+
+def _app_business_id(payload: dict[str, JsonValue]) -> str | None:
+    return (
+        nested_id(payload.get("business"))
+        or json_str(payload.get("business_id"))
+        or json_str(payload.get("_meta_business_id"))
+    )
 
 
 def _insight_parent(payload: dict[str, JsonValue]) -> tuple[MarketingEntityType, str] | None:
