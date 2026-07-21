@@ -252,7 +252,26 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
                         "provider_record_id": "ad-1",
                         "account_id": "act_100",
                         "parent_id": "adset-1",
-                        "payload": {"id": "ad-1", "name": "Ad", "adset_id": "adset-1"},
+                        "payload": {
+                            "id": "ad-1",
+                            "name": "Ad",
+                            "adset_id": "adset-1",
+                            "creative": {"id": "creative-1"},
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "creative",
+                        "provider_record_id": "creative-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "creative-1",
+                            "name": "Creative",
+                            "title": "Creative headline",
+                            "body": "Creative primary text",
+                            "object_type": "SHARE",
+                            "call_to_action_type": "LEARN_MORE",
+                        },
                     },
                     {
                         "source": "manual_upload",
@@ -281,7 +300,11 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
     edge_pairs = {(edge["source_id"], edge["target_id"], edge["type"]) for edge in body["edges"]}
     assert ("campaign:campaign-1", "adset:adset-1", "contains") in edge_pairs
     assert ("adset:adset-1", "ad:ad-1", "contains") in edge_pairs
+    assert ("ad:ad-1", "creative:creative-1", "created_from") in edge_pairs
     assert any(edge_type == "measures" for _, _, edge_type in edge_pairs)
+    creative_node = next(node for node in body["nodes"] if node["id"] == "creative:creative-1")
+    assert creative_node["attributes"]["title"] == "Creative headline"
+    assert creative_node["attributes"]["call_to_action_type"] == "LEARN_MORE"
     get_settings.cache_clear()
 
 
@@ -414,22 +437,24 @@ async def test_meta_sync_service_stores_structure_and_insights(
     )
     records, total = await repository.list_raw_records(limit=100)
 
-    assert response.inserted_count == 6
+    assert response.inserted_count == 7
     assert response.records_by_entity_type == {
         "ad": 1,
         "ad_account": 1,
         "adset": 1,
         "app": 1,
         "campaign": 1,
+        "creative": 1,
         "insight": 1,
     }
-    assert total == 6
+    assert total == 7
     assert {record.entity_type for record in records} == {
         "ad",
         "ad_account",
         "adset",
         "app",
         "campaign",
+        "creative",
         "insight",
     }
     get_settings.cache_clear()
@@ -615,6 +640,19 @@ class FakeMetaMarketingClient:
                 "name": f"Ad for {account_id}",
                 "campaign_id": "campaign-1",
                 "adset_id": "adset-1",
+                "creative": {"id": "creative-1"},
+            },
+        ]
+
+    async def fetch_ad_creatives(self, account_id: str) -> list[dict[str, object]]:
+        return [
+            {
+                "id": "creative-1",
+                "name": f"Creative for {account_id}",
+                "title": "Creative headline",
+                "body": "Creative primary text",
+                "object_type": "SHARE",
+                "call_to_action_type": "LEARN_MORE",
             },
         ]
 

@@ -276,6 +276,18 @@ def _record_attributes(record: RawMarketingRecord) -> dict[str, JsonValue]:
         "timezone_name",
         "date_start",
         "date_stop",
+        "title",
+        "body",
+        "object_type",
+        "object_url",
+        "call_to_action_type",
+        "thumbnail_url",
+        "image_url",
+        "object_story_id",
+        "effective_object_story_id",
+        "object_story_spec",
+        "asset_feed_spec",
+        "instagram_permalink_url",
     ]
     return {key: value for key in keys if (value := record.payload.get(key)) is not None}
 

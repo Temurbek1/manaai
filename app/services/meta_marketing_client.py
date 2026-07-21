@@ -82,6 +82,12 @@ class MetaMarketingClient:
             params={"fields": ",".join(self._settings.meta_ad_fields)},
         )
 
+    async def fetch_ad_creatives(self, account_id: str) -> list[dict[str, JsonValue]]:
+        return await self._get_paginated(
+            f"{normalize_ad_account_id(account_id)}/adcreatives",
+            params={"fields": ",".join(self._settings.meta_creative_fields)},
+        )
+
     async def fetch_insights(
         self,
         *,

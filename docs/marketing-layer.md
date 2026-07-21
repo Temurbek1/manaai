@@ -39,6 +39,12 @@ business
       -> insights
 ```
 
+Structure sync reads ad creatives from the ad account `adcreatives` edge in
+addition to campaigns, ad sets, and ads. Ads point to creatives through their
+`creative` field, while creative records keep text, call-to-action, story spec,
+asset feed spec, and media URLs as raw JSON for later creative-performance
+analysis.
+
 Insights can be requested at multiple levels:
 
 - `account`: macro health, spend pace, broad efficiency.

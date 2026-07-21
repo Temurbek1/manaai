@@ -100,6 +100,24 @@ class Settings(BaseSettings):
             "updated_time",
         ],
     )
+    meta_creative_fields: list[str] = Field(
+        default_factory=lambda: [
+            "id",
+            "name",
+            "title",
+            "body",
+            "object_type",
+            "object_url",
+            "call_to_action_type",
+            "thumbnail_url",
+            "image_url",
+            "object_story_id",
+            "effective_object_story_id",
+            "object_story_spec",
+            "asset_feed_spec",
+            "instagram_permalink_url",
+        ],
+    )
     meta_ad_account_fields: list[str] = Field(
         default_factory=lambda: [
             "id",

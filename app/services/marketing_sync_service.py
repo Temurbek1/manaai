@@ -272,6 +272,7 @@ class MarketingSyncService:
         campaigns = await self._meta_client.fetch_campaigns(account_id)
         adsets = await self._meta_client.fetch_adsets(account_id)
         ads = await self._meta_client.fetch_ads(account_id)
+        creatives = await self._meta_client.fetch_ad_creatives(account_id)
 
         records: list[RawMarketingRecordInput] = []
         records.extend(
@@ -305,6 +306,16 @@ class MarketingSyncService:
                 observed_at=observed_at,
             )
             for payload in ads
+        )
+        records.extend(
+            self._record_input(
+                entity_type="creative",
+                payload=payload,
+                provider_record_id=_payload_id(payload),
+                account_id=account_id,
+                observed_at=observed_at,
+            )
+            for payload in creatives
         )
         return records
 

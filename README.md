@@ -94,7 +94,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `META_BUSINESS_ID` | no | - | Business id для owned/client ad accounts |
 | `META_ACCESS_TOKEN` | yes for Meta sync | - | System user access token |
 | `META_AD_ACCOUNT_IDS` | no | `[]` | JSON list ad account ids, например `["act_123"]` |
-| `META_*_FIELDS` | no | JSON lists | Явные fields для campaigns/adsets/ads/ad accounts/insights |
+| `META_*_FIELDS` | no | JSON lists | Явные fields для campaigns/adsets/ads/ad creatives/ad accounts/insights |
 | `META_ACTION_ATTRIBUTION_WINDOWS` | no | `["1d_click","7d_click"]` | Attribution windows для insights |
 
 ## Meta Marketing workflow
@@ -133,6 +133,8 @@ curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
     "include_insights": true
   }'
 ```
+
+При `include_structure=true` backend сохраняет raw payloads для campaigns, ad sets, ads и ad creatives. Ad creatives подтягиваются через Meta ad account `adcreatives` edge; набор полей задается через `META_CREATIVE_FIELDS`.
 
 Для больших отчетов используйте async Insights job, как рекомендует Meta:
 
