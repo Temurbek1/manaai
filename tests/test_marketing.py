@@ -129,6 +129,8 @@ async def test_marketing_metrics_builder_computes_kpis(
                     "inline_link_clicks": "450",
                     "actions": [{"action_type": "purchase", "value": "10"}],
                     "action_values": [{"action_type": "purchase", "value": "1000"}],
+                    "publisher_platform": "facebook",
+                    "platform_position": "feed",
                 },
             ),
         ],
@@ -146,6 +148,10 @@ async def test_marketing_metrics_builder_computes_kpis(
     assert rows[0].cpc == 0.4
     assert rows[0].cpa == 20
     assert rows[0].roas == 5
+    assert rows[0].dimensions == {
+        "platform_position": "feed",
+        "publisher_platform": "facebook",
+    }
     assert summary.total_spend == 200
     get_settings.cache_clear()
 
@@ -178,6 +184,8 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
                             "spend": "100",
                             "impressions": "10000",
                             "clicks": "200",
+                            "publisher_platform": "facebook",
+                            "platform_position": "feed",
                         },
                     },
                     {
@@ -209,6 +217,13 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
     body = pattern_response.json()
     assert body["source_record_count"] == 2
     assert "wasted_spend" in {pattern["type"] for pattern in body["patterns"]}
+    wasted_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "wasted_spend"
+    )
+    assert wasted_pattern["dimensions"] == {
+        "platform_position": "feed",
+        "publisher_platform": "facebook",
+    }
     get_settings.cache_clear()
 
 
@@ -491,9 +506,13 @@ async def test_meta_sync_service_stores_structure_and_insights(
             date_start="2026-07-01",
             date_stop="2026-07-01",
             levels=["campaign"],
+            breakdowns=["publisher_platform", "platform_position"],
+            action_breakdowns=["action_type"],
+            time_increment=1,
         ),
     )
     records, total = await repository.list_raw_records(limit=100)
+    insight_record = next(record for record in records if record.entity_type == "insight")
 
     assert response.inserted_count == 11
     assert response.records_by_entity_type == {
@@ -523,6 +542,18 @@ async def test_meta_sync_service_stores_structure_and_insights(
         "insight",
         "pixel",
     }
+    assert insight_record.payload["_meta_breakdowns"] == [
+        "publisher_platform",
+        "platform_position",
+    ]
+    assert insight_record.payload["_meta_action_breakdowns"] == ["action_type"]
+    assert insight_record.payload["_meta_time_increment"] == "1"
+    assert insight_record.payload["_requested_breakdowns"] == [
+        "publisher_platform",
+        "platform_position",
+    ]
+    assert insight_record.provider_record_id is not None
+    assert ":dim-" in insight_record.provider_record_id
     get_settings.cache_clear()
 
 
@@ -782,6 +813,9 @@ class FakeMetaMarketingClient:
         level: MetaInsightLevel,
         date_start: object,
         date_stop: object,
+        breakdowns: list[str] | None = None,
+        action_breakdowns: list[str] | None = None,
+        time_increment: int | str = 1,
     ) -> list[dict[str, object]]:
         return [
             {
@@ -795,6 +829,11 @@ class FakeMetaMarketingClient:
                 "clicks": "250",
                 "actions": [{"action_type": "lead", "value": "20"}],
                 "_requested_level": level,
+                "_requested_breakdowns": breakdowns or [],
+                "_requested_action_breakdowns": action_breakdowns or [],
+                "_requested_time_increment": str(time_increment),
+                "publisher_platform": "facebook",
+                "platform_position": "feed",
             },
         ]
 

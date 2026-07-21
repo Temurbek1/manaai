@@ -68,6 +68,15 @@ Insights can be requested at multiple levels:
 - `adset`: audience, placement, schedule, and delivery diagnostics.
 - `ad`: creative/message-level performance diagnostics.
 
+Insights sync also accepts Meta `breakdowns`, `action_breakdowns`, and
+`time_increment`. This is the main path for granular rows such as
+platform/placement/device/demographic slices. The requested reporting shape is
+preserved in raw payload provenance fields (`_meta_breakdowns`,
+`_meta_action_breakdowns`, `_meta_time_increment`) so later analysis can audit
+why a row exists and which segment it represents. Breakdown insight provider ids
+include a compact dimension hash, which prevents rows for different segments of
+the same entity/date from collapsing in the runtime graph.
+
 The backend stores every fetched or uploaded payload as a raw record before
 deriving KPIs. This protects the project from premature modeling choices and
 allows re-analysis when new relationships or fields become useful.
@@ -110,6 +119,8 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - CPM
 - CPA
 - ROAS
+- dimensions extracted from known Meta insight breakdown fields, such as
+  platform, placement, device, geography, demographic, product, and hourly slices
 - Deterministic patterns: spend concentration, wasted spend, efficiency opportunities, cost/engagement outliers, trend movements, and data quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 

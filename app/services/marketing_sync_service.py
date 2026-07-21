@@ -1,3 +1,5 @@
+import hashlib
+import json
 import uuid
 from collections import Counter
 from datetime import UTC, datetime
@@ -16,6 +18,7 @@ from app.schemas.marketing import (
     MetaSyncResponse,
     RawMarketingRecordInput,
 )
+from app.services.marketing_dimensions import extract_insight_dimensions
 from app.services.marketing_repository import MarketingRepository
 from app.services.meta_marketing_client import MetaMarketingClient, normalize_ad_account_id
 
@@ -70,6 +73,9 @@ class MarketingSyncService:
                         level=level,
                         date_start=request.date_start,
                         date_stop=request.date_stop,
+                        breakdowns=request.breakdowns,
+                        action_breakdowns=request.action_breakdowns,
+                        time_increment=request.time_increment,
                     )
                     raw_inputs.extend(
                         self._record_input(
@@ -77,6 +83,11 @@ class MarketingSyncService:
                             payload={
                                 **payload,
                                 "_meta_level": level,
+                                "_meta_breakdowns": _json_str_list(request.breakdowns),
+                                "_meta_action_breakdowns": _json_str_list(
+                                    request.action_breakdowns,
+                                ),
+                                "_meta_time_increment": str(request.time_increment),
                             },
                             provider_record_id=_insight_provider_id(payload=payload, level=level),
                             account_id=account_id,
@@ -471,6 +482,13 @@ def _payload_str(payload: dict[str, JsonValue], key: str) -> str | None:
     return str(value) if value is not None else None
 
 
+def _json_str_list(values: list[str] | None) -> list[JsonValue]:
+    result: list[JsonValue] = []
+    for value in values or []:
+        result.append(value)
+    return result
+
+
 def _custom_conversion_pixel_id(payload: dict[str, JsonValue]) -> str | None:
     pixel = payload.get("pixel")
     if isinstance(pixel, dict):
@@ -503,7 +521,25 @@ def _insight_provider_id(payload: dict[str, JsonValue], level: str) -> str | Non
     date_stop = _payload_str(payload, "date_stop")
     if entity_id is None:
         return None
-    return ":".join(part for part in [level, entity_id, date_start, date_stop] if part)
+    return ":".join(
+        part
+        for part in [
+            level,
+            entity_id,
+            date_start,
+            date_stop,
+            _insight_dimension_hash(payload),
+        ]
+        if part
+    )
+
+
+def _insight_dimension_hash(payload: dict[str, JsonValue]) -> str | None:
+    dimensions = extract_insight_dimensions(payload)
+    if not dimensions:
+        return None
+    serialized = json.dumps(dimensions, sort_keys=True, separators=(",", ":"))
+    return f"dim-{hashlib.sha1(serialized.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _insight_parent_id(payload: dict[str, JsonValue], level: str) -> str | None:

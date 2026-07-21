@@ -109,7 +109,8 @@ async def list_raw_records(
     summary="Sync Meta Marketing API data",
     description=(
         "Fetches configured Meta app/ad account structure and insights through the official "
-        "Graph/Marketing API and stores every response as raw records."
+        "Graph/Marketing API and stores every response as raw records. Insights sync supports "
+        "breakdowns, action_breakdowns, and time_increment for granular segment analysis."
     ),
 )
 async def sync_meta_marketing(

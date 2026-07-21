@@ -134,7 +134,28 @@ curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
   }'
 ```
 
+Для поиска закономерностей по сегментам можно сразу синхронизировать granular
+Insights rows с breakdowns. Эти строки сохраняются как raw payloads, а KPI rows
+получают поле `dimensions`, например `publisher_platform` и `platform_position`:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date_start": "2026-07-01",
+    "date_stop": "2026-07-21",
+    "levels": ["ad"],
+    "breakdowns": ["publisher_platform", "platform_position"],
+    "action_breakdowns": ["action_type"],
+    "time_increment": 1,
+    "include_structure": false,
+    "include_insights": true
+  }'
+```
+
 При `include_structure=true` backend сохраняет raw payloads для business, pixels, custom conversions, custom audiences, campaigns, ad sets, ads и ad creatives. Ad creatives подтягиваются через Meta ad account `adcreatives` edge; custom conversions - через `customconversions`; custom audiences - через `customaudiences`; pixels - через business `owned_pixels`. Наборы полей задаются через `META_CREATIVE_FIELDS`, `META_CUSTOM_CONVERSION_FIELDS`, `META_CUSTOM_AUDIENCE_FIELDS` и `META_PIXEL_FIELDS`.
+
+`breakdowns`, `action_breakdowns` и `time_increment` сохраняются в insight payload как `_meta_breakdowns`, `_meta_action_breakdowns` и `_meta_time_increment`. Это помогает аудитить, каким отчетным срезом была получена каждая строка. Для breakdown rows `provider_record_id` получает compact dimension hash, чтобы разные сегменты одного entity/date не склеивались в графе.
 
 Для больших отчетов используйте async Insights job, как рекомендует Meta:
 
@@ -230,7 +251,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/analyze \
   }'
 ```
 
-Ответ содержит `kpi_summary`, список KPI rows, deterministic `patterns`, `graph`, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
+Ответ содержит `kpi_summary`, список KPI rows с `dimensions` для breakdown-сегментов, deterministic `patterns`, `graph`, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
 
 Каждый AI отчет сохраняется в SQLite вместе с полным typed response. Историю можно использовать для аудита, повторного чтения backend/frontend-клиентами и сверки выводов с raw source records:
 

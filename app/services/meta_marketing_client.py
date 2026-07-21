@@ -123,25 +123,34 @@ class MetaMarketingClient:
         level: MetaInsightLevel,
         date_start: date,
         date_stop: date,
+        breakdowns: list[str] | None = None,
+        action_breakdowns: list[str] | None = None,
+        time_increment: int | str = 1,
     ) -> list[dict[str, JsonValue]]:
+        params = {
+            "fields": ",".join(self._settings.meta_insights_fields),
+            "level": level,
+            "time_increment": str(time_increment),
+            "time_range": json.dumps(
+                {
+                    "since": date_start.isoformat(),
+                    "until": date_stop.isoformat(),
+                },
+                separators=(",", ":"),
+            ),
+            "action_attribution_windows": json.dumps(
+                self._settings.meta_action_attribution_windows,
+                separators=(",", ":"),
+            ),
+        }
+        if breakdowns:
+            params["breakdowns"] = ",".join(breakdowns)
+        if action_breakdowns:
+            params["action_breakdowns"] = ",".join(action_breakdowns)
+
         return await self._get_paginated(
             f"{normalize_ad_account_id(account_id)}/insights",
-            params={
-                "fields": ",".join(self._settings.meta_insights_fields),
-                "level": level,
-                "time_increment": "1",
-                "time_range": json.dumps(
-                    {
-                        "since": date_start.isoformat(),
-                        "until": date_stop.isoformat(),
-                    },
-                    separators=(",", ":"),
-                ),
-                "action_attribution_windows": json.dumps(
-                    self._settings.meta_action_attribution_windows,
-                    separators=(",", ":"),
-                ),
-            },
+            params=params,
         )
 
     async def create_insights_async_job(

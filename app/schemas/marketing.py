@@ -104,6 +104,9 @@ class MetaSyncRequest(BaseModel):
     date_stop: date
     account_ids: list[str] | None = Field(default=None, max_length=100)
     levels: list[MetaInsightLevel] = Field(default_factory=default_meta_insight_levels)
+    breakdowns: list[str] | None = Field(default=None, max_length=50)
+    action_breakdowns: list[str] | None = Field(default=None, max_length=50)
+    time_increment: int | Literal["all_days"] = Field(default=1)
     include_structure: bool = True
     include_insights: bool = True
 
@@ -111,6 +114,8 @@ class MetaSyncRequest(BaseModel):
     def validate_range(self) -> "MetaSyncRequest":
         if self.date_start > self.date_stop:
             raise ValueError("date_start must be before or equal to date_stop")
+        if isinstance(self.time_increment, int) and self.time_increment < 1:
+            raise ValueError("time_increment must be at least 1")
         if not self.include_structure and not self.include_insights:
             raise ValueError("at least one of include_structure or include_insights must be true")
         return self
@@ -233,6 +238,7 @@ class MarketingKpiRow(BaseModel):
     cpm: float | None
     cpa: float | None
     roas: float | None
+    dimensions: dict[str, str] = Field(default_factory=dict)
 
 
 class MarketingKpiSummary(BaseModel):
@@ -268,6 +274,7 @@ class MarketingPattern(BaseModel):
     confidence: ConfidenceLevel
     evidence_record_ids: list[str] = Field(max_length=20)
     suggested_raw_queries: list[str] = Field(max_length=8)
+    dimensions: dict[str, str] = Field(default_factory=dict)
 
 
 class MarketingPatternsRequest(BaseModel):

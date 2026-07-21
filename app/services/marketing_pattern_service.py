@@ -77,6 +77,7 @@ def detect_marketing_patterns(
                     "Sync Meta insights for the target date range.",
                     "Upload raw insight exports through /api/v1/marketing/raw.",
                 ],
+                dimensions={},
             ),
         ]
 
@@ -339,6 +340,7 @@ def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:
                     "Compare budget changes against campaign/adset delivery status by day.",
                     "Pull daily conversion action breakdowns for the same date range.",
                 ],
+                dimensions={},
             ),
         ]
 
@@ -367,6 +369,7 @@ def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:
                     "Identify which campaigns/adsets drove the daily conversion lift.",
                     "Check whether conversion quality/value moved with volume.",
                 ],
+                dimensions={},
             ),
         ]
 
@@ -401,6 +404,7 @@ def _data_quality_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern
                 "Verify MARKETING_VALUE_ACTION_TYPES against Meta action_values.action_type.",
                 "Pull action_values for purchase and offsite conversion events.",
             ],
+            dimensions={},
         ),
     ]
 
@@ -456,6 +460,7 @@ def _pattern(
         confidence=confidence,
         evidence_record_ids=[row.record_id],
         suggested_raw_queries=suggested_raw_queries,
+        dimensions=row.dimensions,
     )
 
 
@@ -467,7 +472,11 @@ def _pattern_sort_key(pattern: MarketingPattern) -> tuple[float, float]:
 
 def _row_label(row: MarketingKpiRow) -> str:
     name = row.entity_name or row.entity_id or "selected entity"
-    return f"{row.level} {name}"
+    if not row.dimensions:
+        return f"{row.level} {name}"
+
+    dimension_label = ", ".join(f"{key}={value}" for key, value in row.dimensions.items())
+    return f"{row.level} {name} ({dimension_label})"
 
 
 def _safe_change(first: float, last: float) -> float | None:

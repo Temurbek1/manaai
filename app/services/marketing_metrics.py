@@ -3,6 +3,7 @@ from datetime import date
 from pydantic import JsonValue
 
 from app.schemas.marketing import MarketingKpiRow, MarketingKpiSummary, RawMarketingRecord
+from app.services.marketing_dimensions import extract_insight_dimensions
 
 
 class MarketingMetricsBuilder:
@@ -55,6 +56,7 @@ class MarketingMetricsBuilder:
                     cpm=_safe_ratio(spend * 1000, impressions),
                     cpa=_safe_ratio(spend, conversions),
                     roas=_safe_ratio(conversion_value, spend),
+                    dimensions=extract_insight_dimensions(payload),
                 ),
             )
         return rows

@@ -158,6 +158,10 @@ def _analysis_context_json(
                 "Use KPI rows as the source of truth.",
                 "Use deterministic_patterns as precomputed evidence, not as final truth.",
                 "Use entity_graph to understand Meta object relationships.",
+                (
+                    "Use KPI row dimensions to identify breakdown segments such as "
+                    "placement or device."
+                ),
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "
