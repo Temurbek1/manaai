@@ -3,6 +3,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Request
 
 from app.services.marketing_analysis_service import MarketingAnalysisService
+from app.services.marketing_pattern_service import MarketingPatternService
 from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_sync_service import MarketingSyncService
 from app.services.openai_service import OpenAIService
@@ -24,10 +25,18 @@ def get_marketing_analysis_service(request: Request) -> MarketingAnalysisService
     return cast(MarketingAnalysisService, request.app.state.marketing_analysis_service)
 
 
+def get_marketing_pattern_service(request: Request) -> MarketingPatternService:
+    return cast(MarketingPatternService, request.app.state.marketing_pattern_service)
+
+
 OpenAIServiceDep = Annotated[OpenAIService, Depends(get_openai_service)]
 MarketingRepositoryDep = Annotated[MarketingRepository, Depends(get_marketing_repository)]
 MarketingSyncServiceDep = Annotated[MarketingSyncService, Depends(get_marketing_sync_service)]
 MarketingAnalysisServiceDep = Annotated[
     MarketingAnalysisService,
     Depends(get_marketing_analysis_service),
+]
+MarketingPatternServiceDep = Annotated[
+    MarketingPatternService,
+    Depends(get_marketing_pattern_service),
 ]

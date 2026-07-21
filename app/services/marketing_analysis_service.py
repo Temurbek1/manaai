@@ -7,8 +7,10 @@ from app.schemas.marketing import (
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
     MarketingFinding,
+    MarketingPatternsRequest,
 )
 from app.services.marketing_metrics import MarketingMetricsBuilder
+from app.services.marketing_pattern_service import MarketingPatternService
 from app.services.marketing_repository import MarketingRepository
 from app.services.openai_service import OpenAIService
 
@@ -31,10 +33,12 @@ class MarketingAnalysisService:
         *,
         repository: MarketingRepository,
         metrics_builder: MarketingMetricsBuilder,
+        pattern_service: MarketingPatternService,
         openai_service: OpenAIService,
     ) -> None:
         self._repository = repository
         self._metrics_builder = metrics_builder
+        self._pattern_service = pattern_service
         self._openai_service = openai_service
 
     async def analyze(self, request: MarketingAnalysisRequest) -> MarketingAnalysisResponse:
@@ -48,6 +52,14 @@ class MarketingAnalysisService:
         )
         kpis = self._metrics_builder.build_rows(records)
         kpi_summary = self._metrics_builder.summarize(kpis)
+        pattern_response = await self._pattern_service.detect(
+            MarketingPatternsRequest(
+                account_ids=request.account_ids,
+                date_start=request.date_start,
+                date_stop=request.date_stop,
+                max_records=request.max_records,
+            ),
+        )
         generated_at = datetime.now(UTC)
 
         if not records or not kpis:
@@ -63,6 +75,9 @@ class MarketingAnalysisService:
                     response_record_limit=request.max_records,
                     kpi_summary=kpi_summary.model_dump(mode="json"),
                     kpis=[row.model_dump(mode="json") for row in kpis],
+                    patterns=[
+                        pattern.model_dump(mode="json") for pattern in pattern_response.patterns
+                    ],
                     raw_samples=[
                         {
                             "id": record.id,
@@ -87,6 +102,7 @@ class MarketingAnalysisService:
             source_record_ids=[record.id for record in records],
             kpi_summary=kpi_summary,
             kpis=kpis,
+            patterns=pattern_response.patterns,
             report=report,
         )
         await self._repository.save_analysis_report(request=request, response=response)
@@ -100,6 +116,7 @@ def _analysis_context_json(
     response_record_limit: int,
     kpi_summary: dict[str, object],
     kpis: list[dict[str, object]],
+    patterns: list[dict[str, object]],
     raw_samples: list[dict[str, object]],
 ) -> str:
     top_kpis = sorted(kpis, key=_spend_sort_value, reverse=True)[:100]
@@ -110,9 +127,11 @@ def _analysis_context_json(
             "response_record_limit": response_record_limit,
             "kpi_summary": kpi_summary,
             "top_kpis_by_spend": top_kpis,
+            "deterministic_patterns": patterns,
             "raw_samples": raw_samples,
             "analysis_rules": [
                 "Use KPI rows as the source of truth.",
+                "Use deterministic_patterns as precomputed evidence, not as final truth.",
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

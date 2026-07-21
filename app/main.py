@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
 from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_metrics import MarketingMetricsBuilder
+from app.services.marketing_pattern_service import MarketingPatternService
 from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_sync_service import MarketingSyncService
 from app.services.meta_marketing_client import MetaMarketingClient
@@ -35,9 +36,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         meta_client=meta_client,
         repository=marketing_repository,
     )
+    app.state.marketing_pattern_service = MarketingPatternService(
+        repository=marketing_repository,
+        metrics_builder=metrics_builder,
+    )
     app.state.marketing_analysis_service = MarketingAnalysisService(
         repository=marketing_repository,
         metrics_builder=metrics_builder,
+        pattern_service=app.state.marketing_pattern_service,
         openai_service=openai_service,
     )
     yield

@@ -148,6 +148,68 @@ async def test_marketing_metrics_builder_computes_kpis(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_wasted_spend(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-waste",
+                            "ad_name": "Expensive ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "impressions": "10000",
+                            "clicks": "200",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-efficient",
+                            "ad_name": "Efficient ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "10",
+                            "impressions": "2000",
+                            "clicks": "100",
+                            "actions": [{"action_type": "lead", "value": "5"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 10},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["source_record_count"] == 2
+    assert "wasted_spend" in {pattern["type"] for pattern in body["patterns"]}
+    get_settings.cache_clear()
+
+
 async def test_meta_sync_service_stores_structure_and_insights(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -299,6 +361,7 @@ class FakeMarketingAnalysisService:
                 roas=None,
             ),
             kpis=[],
+            patterns=[],
             report=MarketingAnalysisReport(
                 executive_summary=f"Answered: {request.question}",
                 health_score=72,

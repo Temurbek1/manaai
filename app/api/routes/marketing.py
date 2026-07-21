@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.api.dependencies import (
     MarketingAnalysisServiceDep,
+    MarketingPatternServiceDep,
     MarketingRepositoryDep,
     MarketingSyncServiceDep,
 )
@@ -13,6 +14,8 @@ from app.schemas.marketing import (
     MarketingAnalysisResponse,
     MarketingEntityType,
     MarketingIntegrationConfigResponse,
+    MarketingPatternsRequest,
+    MarketingPatternsResponse,
     MetaDiscoveryResponse,
     MetaInsightsAsyncJobCreateResponse,
     MetaInsightsAsyncJobIngestRequest,
@@ -236,3 +239,19 @@ async def analyze_marketing(
         ) from exc
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/patterns",
+    response_model=MarketingPatternsResponse,
+    summary="Detect deterministic marketing patterns",
+    description=(
+        "Builds KPI rows from stored raw insights and returns deterministic patterns before "
+        "any AI interpretation."
+    ),
+)
+async def detect_marketing_patterns(
+    payload: MarketingPatternsRequest,
+    pattern_service: MarketingPatternServiceDep,
+) -> MarketingPatternsResponse:
+    return await pattern_service.detect(payload)

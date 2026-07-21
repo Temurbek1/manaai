@@ -83,6 +83,7 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - CPM
 - CPA
 - ROAS
+- Deterministic patterns: spend concentration, wasted spend, efficiency opportunities, cost/engagement outliers, trend movements, and data quality gaps.
 
 The model receives only this compact KPI evidence plus selected metadata by
 default. Raw record ids remain attached to the response for audit and deeper
@@ -102,6 +103,11 @@ The marketing AI layer returns a typed report:
 The model must not invent missing fields. When source data is insufficient, the
 report should say which additional Meta dimensions, breakdowns, or conversion
 events are needed.
+
+Before the AI report is generated, the backend runs deterministic pattern
+detection over KPI rows. The model receives those patterns as evidence, but the
+patterns remain available through a separate endpoint so analytics workflows can
+inspect them without model interpretation.
 
 ## Implementation Stages
 

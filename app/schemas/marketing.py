@@ -19,6 +19,16 @@ MarketingEntityType = Literal[
 MetaInsightLevel = Literal["account", "campaign", "adset", "ad"]
 FindingType = Literal["opportunity", "risk", "trend", "anomaly", "next_step"]
 ConfidenceLevel = Literal["low", "medium", "high"]
+MarketingPatternType = Literal[
+    "spend_concentration",
+    "wasted_spend",
+    "efficiency_opportunity",
+    "cost_outlier",
+    "engagement_outlier",
+    "trend",
+    "data_quality",
+]
+MarketingPatternDirection = Literal["positive", "negative", "neutral"]
 
 
 def default_meta_insight_levels() -> list[MetaInsightLevel]:
@@ -231,6 +241,56 @@ class MarketingKpiSummary(BaseModel):
     roas: float | None
 
 
+class MarketingPattern(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: MarketingPatternType
+    direction: MarketingPatternDirection
+    title: str = Field(min_length=1, max_length=160)
+    explanation: str = Field(min_length=1, max_length=1_200)
+    entity_id: str | None
+    entity_name: str | None
+    level: str | None
+    metric: str = Field(min_length=1, max_length=80)
+    value: float | None
+    benchmark: float | None
+    confidence: ConfidenceLevel
+    evidence_record_ids: list[str] = Field(max_length=20)
+    suggested_raw_queries: list[str] = Field(max_length=8)
+
+
+class MarketingPatternsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    account_ids: list[str] | None = Field(default=None, max_length=100)
+    date_start: date | None = None
+    date_stop: date | None = None
+    max_records: int = Field(default=500, ge=1, le=5_000)
+    max_patterns: int = Field(default=20, ge=1, le=100)
+    min_spend: float = Field(default=1.0, ge=0.0)
+    spend_concentration_threshold: float = Field(default=0.4, ge=0.05, le=1.0)
+    outlier_multiplier: float = Field(default=2.0, ge=1.1, le=10.0)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "MarketingPatternsRequest":
+        if (
+            self.date_start is not None
+            and self.date_stop is not None
+            and self.date_start > self.date_stop
+        ):
+            raise ValueError("date_start must be before or equal to date_stop")
+        return self
+
+
+class MarketingPatternsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    generated_at: datetime
+    source_record_count: int
+    kpi_summary: MarketingKpiSummary
+    patterns: list[MarketingPattern]
+
+
 class MarketingFinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -284,4 +344,5 @@ class MarketingAnalysisResponse(BaseModel):
     source_record_ids: list[str]
     kpi_summary: MarketingKpiSummary
     kpis: list[MarketingKpiRow]
+    patterns: list[MarketingPattern]
     report: MarketingAnalysisReport

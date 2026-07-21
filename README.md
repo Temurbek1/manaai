@@ -32,6 +32,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `POST /api/v1/marketing/meta/insights/jobs` - создание Meta async Insights job
 - `GET /api/v1/marketing/meta/insights/jobs/{report_run_id}` - статус async job
 - `POST /api/v1/marketing/meta/insights/jobs/{report_run_id}/ingest` - загрузка результатов async job в raw storage
+- `POST /api/v1/marketing/patterns` - детерминированный поиск закономерностей в raw insights
 - `POST /api/v1/marketing/analyze` - KPI + структурированный AI отчет
 
 Пример:
@@ -188,6 +189,18 @@ curl -X POST http://localhost:8000/api/v1/marketing/raw \
 AI analytics report:
 
 ```bash
+curl -X POST http://localhost:8000/api/v1/marketing/patterns \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date_start": "2026-07-01",
+    "date_stop": "2026-07-21",
+    "max_patterns": 20
+  }'
+```
+
+Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, простые тренды и data quality gaps. Это deterministic слой до AI, чтобы закономерности были проверяемыми.
+
+```bash
 curl -X POST http://localhost:8000/api/v1/marketing/analyze \
   -H "Content-Type: application/json" \
   -d '{
@@ -198,7 +211,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/analyze \
   }'
 ```
 
-Ответ содержит `kpi_summary`, список KPI rows, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
+Ответ содержит `kpi_summary`, список KPI rows, deterministic `patterns`, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
 
 ## Прод-распаковка на сервере
 
