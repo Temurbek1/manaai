@@ -622,6 +622,147 @@ async def test_marketing_patterns_endpoint_detects_audience_rollup_waste(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_hierarchy_rollup_waste(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "campaign",
+                        "provider_record_id": "campaign-1",
+                        "account_id": "act_100",
+                        "payload": {"id": "campaign-1", "name": "Prospecting"},
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "adset",
+                        "provider_record_id": "adset-1",
+                        "account_id": "act_100",
+                        "parent_id": "campaign-1",
+                        "payload": {
+                            "id": "adset-1",
+                            "name": "Broad ad set",
+                            "campaign_id": "campaign-1",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-1",
+                        "account_id": "act_100",
+                        "parent_id": "adset-1",
+                        "payload": {
+                            "id": "ad-1",
+                            "name": "Ad 1",
+                            "adset_id": "adset-1",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-2",
+                        "account_id": "act_100",
+                        "parent_id": "adset-1",
+                        "payload": {
+                            "id": "ad-2",
+                            "name": "Ad 2",
+                            "adset_id": "adset-1",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-1",
+                            "ad_name": "Ad 1",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "80",
+                            "impressions": "8000",
+                            "clicks": "160",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-2",
+                            "ad_name": "Ad 2",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "40",
+                            "impressions": "4000",
+                            "clicks": "80",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-control",
+                            "ad_name": "Control ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "40",
+                            "impressions": "6000",
+                            "clicks": "100",
+                            "actions": [{"action_type": "lead", "value": "4"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["source_record_count"] == 7
+    adset_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "adset_rollup_waste"
+    )
+    campaign_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "campaign_rollup_waste"
+    )
+    assert adset_pattern["entity_id"] == "adset-1"
+    assert adset_pattern["entity_name"] == "Broad ad set"
+    assert adset_pattern["dimensions"] == {
+        "adset_id": "adset-1",
+        "rollup_level": "adset",
+    }
+    assert adset_pattern["value"] == 120
+    assert len(adset_pattern["evidence_record_ids"]) == 3
+    assert campaign_pattern["entity_id"] == "campaign-1"
+    assert campaign_pattern["entity_name"] == "Prospecting"
+    assert campaign_pattern["dimensions"] == {
+        "campaign_id": "campaign-1",
+        "rollup_level": "campaign",
+    }
+    assert campaign_pattern["value"] == 120
+    assert len(campaign_pattern["evidence_record_ids"]) == 3
+    get_settings.cache_clear()
+
+
 async def test_marketing_graph_endpoint_builds_entity_edges(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

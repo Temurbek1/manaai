@@ -32,6 +32,17 @@ class AudiencePerformanceContext:
     adset_record_ids: dict[str, str]
 
 
+@dataclass(frozen=True)
+class HierarchyPerformanceContext:
+    ad_to_adset_id: dict[str, str]
+    ad_to_campaign_id: dict[str, str]
+    adset_to_campaign_id: dict[str, str]
+    adset_names: dict[str, str]
+    campaign_names: dict[str, str]
+    adset_record_ids: dict[str, str]
+    campaign_record_ids: dict[str, str]
+
+
 class MarketingPatternService:
     def __init__(
         self,
@@ -53,7 +64,7 @@ class MarketingPatternService:
         )
         structure_records, _ = await self._repository.list_raw_records(
             account_ids=request.account_ids,
-            entity_types=["adset", "ad", "creative", "custom_audience"],
+            entity_types=["campaign", "adset", "ad", "creative", "custom_audience"],
             limit=request.max_records,
             offset=0,
         )
@@ -64,6 +75,9 @@ class MarketingPatternService:
             summary=summary,
             creative_context=build_creative_performance_context(structure_records),
             audience_context=build_audience_performance_context(
+                [*records, *structure_records],
+            ),
+            hierarchy_context=build_hierarchy_performance_context(
                 [*records, *structure_records],
             ),
             max_patterns=request.max_patterns,
@@ -86,6 +100,7 @@ def detect_marketing_patterns(
     summary: MarketingKpiSummary,
     creative_context: CreativePerformanceContext | None = None,
     audience_context: AudiencePerformanceContext | None = None,
+    hierarchy_context: HierarchyPerformanceContext | None = None,
     max_patterns: int,
     min_spend: float,
     spend_concentration_threshold: float,
@@ -178,6 +193,15 @@ def detect_marketing_patterns(
                 summary=summary,
                 min_spend=min_spend,
                 creative_context=creative_context,
+            ),
+        )
+    if hierarchy_context is not None:
+        patterns.extend(
+            _hierarchy_rollup_patterns(
+                rows=spend_rows,
+                summary=summary,
+                min_spend=min_spend,
+                hierarchy_context=hierarchy_context,
             ),
         )
     patterns.extend(_trend_patterns(rows=rows))
@@ -274,6 +298,78 @@ def build_audience_performance_context(
         audience_names=audience_names,
         audience_record_ids=audience_record_ids,
         adset_record_ids=adset_record_ids,
+    )
+
+
+def build_hierarchy_performance_context(
+    records: list[RawMarketingRecord],
+) -> HierarchyPerformanceContext:
+    ad_to_adset_id: dict[str, str] = {}
+    ad_to_campaign_id: dict[str, str] = {}
+    adset_to_campaign_id: dict[str, str] = {}
+    adset_names: dict[str, str] = {}
+    campaign_names: dict[str, str] = {}
+    adset_record_ids: dict[str, str] = {}
+    campaign_record_ids: dict[str, str] = {}
+
+    for record in records:
+        payload = record.payload
+        if record.entity_type == "campaign":
+            campaign_id = json_str(payload.get("id")) or record.provider_record_id
+            if campaign_id is None:
+                continue
+            campaign_names.setdefault(campaign_id, _hierarchy_label(record=record))
+            campaign_record_ids.setdefault(campaign_id, record.id)
+
+        if record.entity_type == "adset":
+            adset_id = json_str(payload.get("id")) or record.provider_record_id
+            campaign_id = json_str(payload.get("campaign_id")) or record.parent_id
+            if adset_id is None:
+                continue
+            adset_names.setdefault(adset_id, _hierarchy_label(record=record))
+            adset_record_ids.setdefault(adset_id, record.id)
+            if campaign_id is not None and adset_id not in adset_to_campaign_id:
+                adset_to_campaign_id[adset_id] = campaign_id
+
+        if record.entity_type == "ad":
+            ad_id = json_str(payload.get("id")) or record.provider_record_id
+            adset_id = json_str(payload.get("adset_id")) or record.parent_id
+            campaign_id = json_str(payload.get("campaign_id"))
+            if ad_id is None:
+                continue
+            if adset_id is not None and ad_id not in ad_to_adset_id:
+                ad_to_adset_id[ad_id] = adset_id
+            if campaign_id is not None and ad_id not in ad_to_campaign_id:
+                ad_to_campaign_id[ad_id] = campaign_id
+
+        if record.entity_type == "insight":
+            ad_id = json_str(payload.get("ad_id"))
+            adset_id = json_str(payload.get("adset_id"))
+            campaign_id = json_str(payload.get("campaign_id"))
+            if ad_id is not None:
+                if adset_id is not None and ad_id not in ad_to_adset_id:
+                    ad_to_adset_id[ad_id] = adset_id
+                if campaign_id is not None and ad_id not in ad_to_campaign_id:
+                    ad_to_campaign_id[ad_id] = campaign_id
+            if adset_id is not None:
+                adset_name = json_str(payload.get("adset_name"))
+                if adset_name is not None:
+                    adset_names.setdefault(adset_id, adset_name)
+                if campaign_id is not None and adset_id not in adset_to_campaign_id:
+                    adset_to_campaign_id[adset_id] = campaign_id
+            if campaign_id is not None:
+                campaign_name = json_str(payload.get("campaign_name"))
+                if campaign_name is not None:
+                    campaign_names.setdefault(campaign_id, campaign_name)
+
+    return HierarchyPerformanceContext(
+        ad_to_adset_id=ad_to_adset_id,
+        ad_to_campaign_id=ad_to_campaign_id,
+        adset_to_campaign_id=adset_to_campaign_id,
+        adset_names=adset_names,
+        campaign_names=campaign_names,
+        adset_record_ids=adset_record_ids,
+        campaign_record_ids=campaign_record_ids,
     )
 
 
@@ -519,6 +615,160 @@ def _dimension_segment_patterns(
                     suggested_raw_queries=[
                         f"Filter raw insights where {dimension_key}={dimension_value}.",
                         "Check frequency, audience saturation, and creative mix before scaling.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
+
+
+def _hierarchy_rollup_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    summary: MarketingKpiSummary,
+    min_spend: float,
+    hierarchy_context: HierarchyPerformanceContext,
+) -> list[MarketingPattern]:
+    patterns: list[MarketingPattern] = []
+    native_adset_ids = {row.entity_id for row in rows if row.level == "adset" and row.entity_id}
+    native_campaign_ids = {
+        row.entity_id for row in rows if row.level == "campaign" and row.entity_id
+    }
+
+    adset_groups: dict[str, list[MarketingKpiRow]] = defaultdict(list)
+    ad_rows = [row for row in rows if row.level == "ad" and row.entity_id is not None]
+    for row in ad_rows:
+        adset_id = hierarchy_context.ad_to_adset_id.get(str(row.entity_id))
+        if adset_id is not None and adset_id not in native_adset_ids:
+            adset_groups[adset_id].append(row)
+
+    patterns.extend(
+        _parent_rollup_patterns(
+            grouped=adset_groups,
+            parent_level="adset",
+            summary=summary,
+            min_spend=min_spend,
+            parent_names=hierarchy_context.adset_names,
+            parent_record_ids=hierarchy_context.adset_record_ids,
+        ),
+    )
+
+    campaign_rows = ad_rows if ad_rows else [
+        row for row in rows if row.level == "adset" and row.entity_id is not None
+    ]
+    campaign_groups: dict[str, list[MarketingKpiRow]] = defaultdict(list)
+    for row in campaign_rows:
+        campaign_id = _row_campaign_id(row=row, hierarchy_context=hierarchy_context)
+        if campaign_id is not None and campaign_id not in native_campaign_ids:
+            campaign_groups[campaign_id].append(row)
+
+    patterns.extend(
+        _parent_rollup_patterns(
+            grouped=campaign_groups,
+            parent_level="campaign",
+            summary=summary,
+            min_spend=min_spend,
+            parent_names=hierarchy_context.campaign_names,
+            parent_record_ids=hierarchy_context.campaign_record_ids,
+        ),
+    )
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
+
+
+def _parent_rollup_patterns(
+    *,
+    grouped: dict[str, list[MarketingKpiRow]],
+    parent_level: str,
+    summary: MarketingKpiSummary,
+    min_spend: float,
+    parent_names: dict[str, str],
+    parent_record_ids: dict[str, str],
+) -> list[MarketingPattern]:
+    if not grouped:
+        return []
+
+    spend_floor = max(min_spend, summary.total_spend * 0.05)
+    patterns: list[MarketingPattern] = []
+    for parent_id, child_rows in grouped.items():
+        parent_summary = _aggregate_rows(child_rows)
+        if parent_summary.total_spend < spend_floor:
+            continue
+
+        parent_name = parent_names.get(parent_id) or parent_id
+        evidence_record_ids = _parent_evidence_record_ids(
+            parent_id=parent_id,
+            rows=child_rows,
+            parent_record_ids=parent_record_ids,
+        )
+        dimensions = {"rollup_level": parent_level, f"{parent_level}_id": parent_id}
+
+        if parent_summary.total_conversions == 0 and parent_summary.total_clicks > 0:
+            patterns.append(
+                MarketingPattern(
+                    type=f"{parent_level}_rollup_waste",
+                    direction="negative",
+                    title=f"{parent_level.title()} rollup spends without conversions",
+                    explanation=(
+                        f"{parent_level.title()} {parent_name} aggregates "
+                        f"{len(child_rows)} lower-level KPI row(s), spent "
+                        f"{parent_summary.total_spend:.2f}, and generated "
+                        f"{parent_summary.total_clicks} clicks without tracked conversions."
+                    ),
+                    entity_id=parent_id,
+                    entity_name=parent_name,
+                    level=parent_level,
+                    metric=f"{parent_level}_rollup_spend_without_conversions",
+                    value=parent_summary.total_spend,
+                    benchmark=spend_floor,
+                    confidence="high" if len(child_rows) > 1 else "medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={parent_id}.",
+                        f"Compare child rows inside this {parent_level} before budget changes.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+        efficient_cpa = (
+            summary.cpa is not None
+            and parent_summary.cpa is not None
+            and parent_summary.cpa <= summary.cpa * 0.7
+        )
+        efficient_roas = (
+            summary.roas is not None
+            and parent_summary.roas is not None
+            and parent_summary.roas >= summary.roas * 1.3
+        )
+        if parent_summary.total_conversions > 0 and (efficient_cpa or efficient_roas):
+            metric = f"{parent_level}_rollup_cpa" if efficient_cpa else (
+                f"{parent_level}_rollup_roas"
+            )
+            value = parent_summary.cpa if efficient_cpa else parent_summary.roas
+            benchmark = summary.cpa if efficient_cpa else summary.roas
+            patterns.append(
+                MarketingPattern(
+                    type=f"{parent_level}_rollup_efficiency_opportunity",
+                    direction="positive",
+                    title=f"{parent_level.title()} rollup is more efficient than average",
+                    explanation=(
+                        f"{parent_level.title()} {parent_name} aggregates "
+                        f"{len(child_rows)} lower-level KPI row(s) with stronger efficiency "
+                        "than the selected average."
+                    ),
+                    entity_id=parent_id,
+                    entity_name=parent_name,
+                    level=parent_level,
+                    metric=metric,
+                    value=value,
+                    benchmark=benchmark,
+                    confidence="medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={parent_id}.",
+                        f"Validate child ads/ad sets inside this {parent_level} before scaling.",
                     ],
                     dimensions=dimensions,
                 ),
@@ -906,6 +1156,26 @@ def _audience_evidence_record_ids(
     return evidence_record_ids
 
 
+def _parent_evidence_record_ids(
+    *,
+    parent_id: str,
+    rows: list[MarketingKpiRow],
+    parent_record_ids: dict[str, str],
+) -> list[str]:
+    evidence_record_ids: list[str] = []
+    parent_record_id = parent_record_ids.get(parent_id)
+    if parent_record_id is not None:
+        evidence_record_ids.append(parent_record_id)
+
+    for row in rows:
+        if row.record_id not in evidence_record_ids:
+            evidence_record_ids.append(row.record_id)
+        if len(evidence_record_ids) >= 20:
+            break
+
+    return evidence_record_ids
+
+
 def _row_adset_id(
     *,
     row: MarketingKpiRow,
@@ -918,11 +1188,37 @@ def _row_adset_id(
     return None
 
 
+def _row_campaign_id(
+    *,
+    row: MarketingKpiRow,
+    hierarchy_context: HierarchyPerformanceContext,
+) -> str | None:
+    if row.level == "campaign":
+        return row.entity_id
+    if row.level == "adset" and row.entity_id is not None:
+        return hierarchy_context.adset_to_campaign_id.get(row.entity_id)
+    if row.level == "ad" and row.entity_id is not None:
+        campaign_id = hierarchy_context.ad_to_campaign_id.get(row.entity_id)
+        if campaign_id is not None:
+            return campaign_id
+        adset_id = hierarchy_context.ad_to_adset_id.get(row.entity_id)
+        if adset_id is not None:
+            return hierarchy_context.adset_to_campaign_id.get(adset_id)
+    return None
+
+
 def _creative_label(*, record: RawMarketingRecord) -> str:
     for key in ("name", "title", "body"):
         value = json_str(record.payload.get(key))
         if value is not None:
             return value
+    return record.provider_record_id or record.id
+
+
+def _hierarchy_label(*, record: RawMarketingRecord) -> str:
+    value = json_str(record.payload.get("name"))
+    if value is not None:
+        return value
     return record.provider_record_id or record.id
 
 

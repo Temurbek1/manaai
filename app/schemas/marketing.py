@@ -35,6 +35,10 @@ MarketingPatternType = Literal[
     "creative_efficiency_opportunity",
     "audience_waste",
     "audience_efficiency_opportunity",
+    "adset_rollup_waste",
+    "adset_rollup_efficiency_opportunity",
+    "campaign_rollup_waste",
+    "campaign_rollup_efficiency_opportunity",
     "trend",
     "data_quality",
 ]

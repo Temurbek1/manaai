@@ -166,6 +166,10 @@ def _analysis_context_json(
                     "Treat custom audience rollup patterns as targeting diagnostics, not "
                     "exclusive causal attribution."
                 ),
+                (
+                    "Treat hierarchy rollup patterns as derived parent-level evidence from "
+                    "lower-level KPI rows; prefer native parent insights when present."
+                ),
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

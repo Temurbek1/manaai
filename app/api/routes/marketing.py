@@ -367,8 +367,9 @@ async def build_marketing_graph(
     summary="Detect deterministic marketing patterns",
     description=(
         "Builds KPI rows from stored raw insights, enriches rows with stored creative and "
-        "custom audience targeting relationships when available, and returns deterministic "
-        "patterns before any AI interpretation."
+        "custom audience targeting relationships, rolls lower-level rows up through the Meta "
+        "campaign/ad set/ad hierarchy when available, and returns deterministic patterns "
+        "before any AI interpretation."
     ),
 )
 async def detect_marketing_patterns(
