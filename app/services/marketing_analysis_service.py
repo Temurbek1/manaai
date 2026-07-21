@@ -170,6 +170,10 @@ def _analysis_context_json(
                     "Treat hierarchy rollup patterns as derived parent-level evidence from "
                     "lower-level KPI rows; prefer native parent insights when present."
                 ),
+                (
+                    "Treat unmapped_action_signal patterns as measurement mapping issues to "
+                    "resolve before calling spend non-converting."
+                ),
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

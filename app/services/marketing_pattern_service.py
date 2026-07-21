@@ -43,6 +43,13 @@ class HierarchyPerformanceContext:
     campaign_record_ids: dict[str, str]
 
 
+@dataclass(frozen=True)
+class ActionSignalContext:
+    configured_conversion_action_types: set[str]
+    action_totals: dict[str, float]
+    action_record_ids: dict[str, list[str]]
+
+
 class MarketingPatternService:
     def __init__(
         self,
@@ -80,6 +87,10 @@ class MarketingPatternService:
             hierarchy_context=build_hierarchy_performance_context(
                 [*records, *structure_records],
             ),
+            action_signal_context=build_action_signal_context(
+                records=records,
+                configured_conversion_action_types=self._metrics_builder.conversion_action_types,
+            ),
             max_patterns=request.max_patterns,
             min_spend=request.min_spend,
             spend_concentration_threshold=request.spend_concentration_threshold,
@@ -101,6 +112,7 @@ def detect_marketing_patterns(
     creative_context: CreativePerformanceContext | None = None,
     audience_context: AudiencePerformanceContext | None = None,
     hierarchy_context: HierarchyPerformanceContext | None = None,
+    action_signal_context: ActionSignalContext | None = None,
     max_patterns: int,
     min_spend: float,
     spend_concentration_threshold: float,
@@ -212,6 +224,13 @@ def detect_marketing_patterns(
                 summary=summary,
                 min_spend=min_spend,
                 audience_context=audience_context,
+            ),
+        )
+    if action_signal_context is not None:
+        patterns.extend(
+            _unmapped_action_signal_patterns(
+                rows=rows,
+                action_signal_context=action_signal_context,
             ),
         )
     patterns.extend(_data_quality_patterns(rows=rows))
@@ -370,6 +389,37 @@ def build_hierarchy_performance_context(
         campaign_names=campaign_names,
         adset_record_ids=adset_record_ids,
         campaign_record_ids=campaign_record_ids,
+    )
+
+
+def build_action_signal_context(
+    *,
+    records: list[RawMarketingRecord],
+    configured_conversion_action_types: set[str],
+) -> ActionSignalContext:
+    action_totals: dict[str, float] = defaultdict(float)
+    action_record_ids: dict[str, list[str]] = defaultdict(list)
+
+    for record in records:
+        if record.entity_type != "insight":
+            continue
+        actions = record.payload.get("actions")
+        if not isinstance(actions, list):
+            continue
+        for item in actions:
+            if not isinstance(item, dict):
+                continue
+            action_type = json_str(item.get("action_type"))
+            if action_type is None:
+                continue
+            action_totals[action_type] += _float_value(item.get("value"))
+            if record.id not in action_record_ids[action_type]:
+                action_record_ids[action_type].append(record.id)
+
+    return ActionSignalContext(
+        configured_conversion_action_types=set(configured_conversion_action_types),
+        action_totals=dict(action_totals),
+        action_record_ids={key: value[:20] for key, value in action_record_ids.items()},
     )
 
 
@@ -990,6 +1040,67 @@ def _audience_rollup_patterns(
     return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
 
 
+def _unmapped_action_signal_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    action_signal_context: ActionSignalContext,
+) -> list[MarketingPattern]:
+    unmapped_totals = {
+        action_type: total
+        for action_type, total in action_signal_context.action_totals.items()
+        if action_type not in action_signal_context.configured_conversion_action_types
+        and total > 0
+    }
+    if not unmapped_totals:
+        return []
+
+    top_actions = sorted(unmapped_totals.items(), key=lambda item: item[1], reverse=True)[:5]
+    top_action_type, top_action_total = top_actions[0]
+    evidence_record_ids: list[str] = []
+    for action_type, _ in top_actions:
+        for record_id in action_signal_context.action_record_ids.get(action_type, []):
+            if record_id not in evidence_record_ids:
+                evidence_record_ids.append(record_id)
+            if len(evidence_record_ids) >= 20:
+                break
+        if len(evidence_record_ids) >= 20:
+            break
+
+    action_label = ", ".join(
+        f"{action_type}={total:g}" for action_type, total in top_actions
+    )
+    return [
+        MarketingPattern(
+            type="unmapped_action_signal",
+            direction="neutral",
+            title="Meta action signals are not mapped as conversions",
+            explanation=(
+                "Stored insight rows contain Meta action values that are not included in "
+                "MARKETING_CONVERSION_ACTION_TYPES. Waste and CPA findings may be overstated "
+                f"until mapping is verified. Top unmapped action values: {action_label}."
+            ),
+            entity_id=None,
+            entity_name=None,
+            level=None,
+            metric="unmapped_action_value",
+            value=top_action_total,
+            benchmark=float(len(rows)),
+            confidence="high",
+            evidence_record_ids=evidence_record_ids,
+            suggested_raw_queries=[
+                "Review MARKETING_CONVERSION_ACTION_TYPES for the observed action types.",
+                "Inspect raw insight actions before pausing spend as non-converting.",
+            ],
+            dimensions={
+                "action_type": top_action_type,
+                "configured_conversion_action_types": str(
+                    len(action_signal_context.configured_conversion_action_types),
+                ),
+            },
+        ),
+    ]
+
+
 def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:
     by_date: dict[date, list[MarketingKpiRow]] = defaultdict(list)
     for row in rows:
@@ -1304,6 +1415,19 @@ def _safe_change(first: float, last: float) -> float | None:
     if first == 0:
         return None
     return round((last - first) / first, 6)
+
+
+def _float_value(value: object | None) -> float:
+    if isinstance(value, bool) or value is None:
+        return 0.0
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str) and value:
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float | None:

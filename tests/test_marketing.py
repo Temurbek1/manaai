@@ -763,6 +763,83 @@ async def test_marketing_patterns_endpoint_detects_hierarchy_rollup_waste(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_unmapped_action_signals(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-unmapped-action",
+                            "ad_name": "Ad with unmapped action",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "impressions": "10000",
+                            "clicks": "200",
+                            "actions": [
+                                {
+                                    "action_type": "offsite_conversion.fb_pixel_custom",
+                                    "value": "7",
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-efficient",
+                            "ad_name": "Efficient ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "25",
+                            "impressions": "3000",
+                            "clicks": "100",
+                            "actions": [{"action_type": "lead", "value": "5"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    action_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "unmapped_action_signal"
+    )
+    assert action_pattern["direction"] == "neutral"
+    assert action_pattern["metric"] == "unmapped_action_value"
+    assert action_pattern["value"] == 7
+    assert action_pattern["dimensions"] == {
+        "action_type": "offsite_conversion.fb_pixel_custom",
+        "configured_conversion_action_types": "5",
+    }
+    assert len(action_pattern["evidence_record_ids"]) == 1
+    get_settings.cache_clear()
+
+
 async def test_marketing_graph_endpoint_builds_entity_edges(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

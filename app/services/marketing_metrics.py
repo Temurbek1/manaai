@@ -16,6 +16,14 @@ class MarketingMetricsBuilder:
         self._conversion_action_types = set(conversion_action_types)
         self._value_action_types = set(value_action_types)
 
+    @property
+    def conversion_action_types(self) -> set[str]:
+        return set(self._conversion_action_types)
+
+    @property
+    def value_action_types(self) -> set[str]:
+        return set(self._value_action_types)
+
     def build_rows(self, records: list[RawMarketingRecord]) -> list[MarketingKpiRow]:
         rows: list[MarketingKpiRow] = []
         for record in records:

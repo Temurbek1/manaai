@@ -252,7 +252,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/patterns \
   }'
 ```
 
-Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, hierarchy waste/efficiency по связке raw campaign/adset/ad -> lower-level insights, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, простые тренды и data quality gaps. Audience patterns - это targeting rollup, а не доказательство причинной атрибуции: перед изменением бюджета проверяйте overlap, exclusions и frequency.
+Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, hierarchy waste/efficiency по связке raw campaign/adset/ad -> lower-level insights, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, unmapped action signals для проверки `MARKETING_CONVERSION_ACTION_TYPES`, простые тренды и data quality gaps. Audience patterns - это targeting rollup, а не доказательство причинной атрибуции: перед изменением бюджета проверяйте overlap, exclusions и frequency.
 
 Граф связей между raw сущностями:
 

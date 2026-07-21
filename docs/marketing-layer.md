@@ -138,7 +138,8 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - Deterministic patterns: spend concentration, wasted spend, efficiency
   opportunities, cost/engagement outliers, segment waste/efficiency by
   breakdown dimensions, hierarchy rollups, creative waste/efficiency rollups,
-  custom audience targeting rollups, trend movements, and data quality gaps.
+  custom audience targeting rollups, unmapped Meta action signals, trend
+  movements, and data quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by
@@ -168,6 +169,11 @@ ad/adset KPI rows. They aggregate performance for ad sets that include a custom
 audience and keep `targeting_role=included` in `dimensions`. They are targeting
 diagnostics, not exclusive causal attribution, because one ad set can include
 multiple audiences and exclusions.
+
+Unmapped action signal patterns compare raw Meta `actions.action_type` values
+against `MARKETING_CONVERSION_ACTION_TYPES`. They warn when action signals are
+present but not mapped as conversions, so waste/CPA recommendations can be
+audited before treating spend as truly non-converting.
 
 AI analysis responses are persisted as typed report snapshots. The saved report
 keeps the deterministic KPI summary, pattern list, entity graph, AI report, and

@@ -39,6 +39,7 @@ MarketingPatternType = Literal[
     "adset_rollup_efficiency_opportunity",
     "campaign_rollup_waste",
     "campaign_rollup_efficiency_opportunity",
+    "unmapped_action_signal",
     "trend",
     "data_quality",
 ]
