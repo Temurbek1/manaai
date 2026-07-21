@@ -280,7 +280,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/analyze \
   }'
 ```
 
-Ответ содержит `kpi_summary`, список KPI rows с `dimensions` для breakdown-сегментов, deterministic `patterns`, `graph`, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
+Ответ содержит `kpi_summary`, список KPI rows с `dimensions` для breakdown-сегментов, deterministic `patterns`, `graph`, полный evidence-набор `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups. При `include_raw_samples=true` AI context получает raw samples из этого evidence-набора, включая structure records, на которые ссылаются patterns/graph.
 
 Каждый AI отчет сохраняется в SQLite вместе с полным typed response. Историю можно использовать для аудита, повторного чтения backend/frontend-клиентами и сверки выводов с raw source records:
 

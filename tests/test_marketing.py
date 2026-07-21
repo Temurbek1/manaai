@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,10 +24,13 @@ from app.schemas.marketing import (
     RawMarketingRecordInput,
 )
 from app.services.marketing_analysis_service import MarketingAnalysisService
+from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_metrics import MarketingMetricsBuilder
+from app.services.marketing_pattern_service import MarketingPatternService
 from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_sync_service import MarketingSyncService
 from app.services.meta_marketing_client import MetaMarketingClient
+from app.services.openai_service import OpenAIService
 
 
 def configure_test_env(monkeypatch: MonkeyPatch, database_path: Path) -> None:
@@ -1661,6 +1665,85 @@ async def test_meta_async_insights_job_flow_stores_job_and_results(
     get_settings.cache_clear()
 
 
+async def test_marketing_analysis_uses_full_evidence_source_records(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    metrics_builder = MarketingMetricsBuilder(
+        conversion_action_types=["lead"],
+        value_action_types=["purchase"],
+    )
+    pattern_service = MarketingPatternService(
+        repository=repository,
+        metrics_builder=metrics_builder,
+        measurement_stale_after_days=14,
+    )
+    graph_service = MarketingGraphService(repository=repository)
+    fake_openai = CapturingOpenAIService()
+    analysis_service = MarketingAnalysisService(
+        repository=repository,
+        metrics_builder=metrics_builder,
+        pattern_service=pattern_service,
+        graph_service=graph_service,
+        openai_service=cast(OpenAIService, fake_openai),
+    )
+    inserted = await repository.insert_raw_records(
+        [
+            RawMarketingRecordInput(
+                source="manual_upload",
+                entity_type="creative",
+                provider_record_id="creative-1",
+                account_id="act_100",
+                payload={"id": "creative-1", "name": "Creative"},
+            ),
+            RawMarketingRecordInput(
+                source="manual_upload",
+                entity_type="ad",
+                provider_record_id="ad-1",
+                account_id="act_100",
+                payload={"id": "ad-1", "name": "Ad", "creative": {"id": "creative-1"}},
+            ),
+            RawMarketingRecordInput(
+                source="manual_upload",
+                entity_type="insight",
+                account_id="act_100",
+                payload={
+                    "_meta_level": "ad",
+                    "ad_id": "ad-1",
+                    "ad_name": "Ad",
+                    "date_start": "2026-07-01",
+                    "date_stop": "2026-07-01",
+                    "spend": "100",
+                    "impressions": "10000",
+                    "clicks": "120",
+                },
+            ),
+        ],
+    )
+
+    response = await analysis_service.analyze(
+        MarketingAnalysisRequest(
+            account_ids=["act_100"],
+            include_raw_samples=True,
+            max_records=20,
+        ),
+    )
+
+    assert set(response.source_record_ids) == {record.id for record in inserted}
+    assert response.source_record_count == 3
+    context = json.loads(fake_openai.user_inputs[0])
+    assert {sample["entity_type"] for sample in context["raw_samples"]} == {
+        "creative",
+        "ad",
+        "insight",
+    }
+    assert any(pattern["type"] == "creative_waste" for pattern in context["deterministic_patterns"])
+    get_settings.cache_clear()
+
+
 async def test_marketing_analyze_endpoint_uses_service_dependency(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -1693,6 +1776,43 @@ class FakeMarketingAnalysisService:
             report_id="report-1",
             executive_summary=f"Answered: {request.question}",
             health_score=72,
+        )
+
+
+class CapturingOpenAIService:
+    def __init__(self) -> None:
+        self.user_inputs: list[str] = []
+
+    @property
+    def model_name(self) -> str:
+        return "captured-test-model"
+
+    async def create_structured_response(
+        self,
+        *,
+        text_format: type[MarketingAnalysisReport],
+        system_prompt: str,
+        user_input: str,
+    ) -> MarketingAnalysisReport:
+        assert text_format is MarketingAnalysisReport
+        assert system_prompt
+        self.user_inputs.append(user_input)
+        return MarketingAnalysisReport(
+            executive_summary="Captured evidence.",
+            health_score=70,
+            key_findings=[
+                MarketingFinding(
+                    type="risk",
+                    title="Evidence captured",
+                    explanation="The fake service captured the prompt context.",
+                    evidence=["raw_samples"],
+                    confidence="high",
+                    recommended_action="Inspect source records.",
+                ),
+            ],
+            prioritized_actions=["Inspect source records."],
+            data_quality_notes=[],
+            raw_data_followups=[],
         )
 
 

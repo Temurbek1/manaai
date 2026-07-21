@@ -8,7 +8,10 @@ from app.schemas.marketing import (
     MarketingAnalysisResponse,
     MarketingFinding,
     MarketingGraphRequest,
+    MarketingGraphResponse,
+    MarketingPattern,
     MarketingPatternsRequest,
+    RawMarketingRecord,
 )
 from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_metrics import MarketingMetricsBuilder
@@ -73,6 +76,16 @@ class MarketingAnalysisService:
                 max_records=request.max_records,
             ),
         )
+        source_record_ids = collect_analysis_source_record_ids(
+            records=records,
+            patterns=pattern_response.patterns,
+            graph=graph_response,
+        )
+        raw_sample_records = (
+            await self._repository.get_raw_records_by_ids(source_record_ids[:10])
+            if request.include_raw_samples
+            else []
+        )
         generated_at = datetime.now(UTC)
 
         if not records or not kpis:
@@ -108,10 +121,8 @@ class MarketingAnalysisService:
                             "account_id": record.account_id,
                             "payload": record.payload,
                         }
-                        for record in records[:10]
-                    ]
-                    if request.include_raw_samples
-                    else [],
+                        for record in raw_sample_records
+                    ],
                 ),
             )
             model = self._openai_service.model_name
@@ -120,8 +131,8 @@ class MarketingAnalysisService:
             report_id=str(uuid.uuid4()),
             generated_at=generated_at,
             model=model,
-            source_record_count=len(records),
-            source_record_ids=[record.id for record in records],
+            source_record_count=len(source_record_ids),
+            source_record_ids=source_record_ids,
             kpi_summary=kpi_summary,
             kpis=kpis,
             patterns=pattern_response.patterns,
@@ -130,6 +141,27 @@ class MarketingAnalysisService:
         )
         await self._repository.save_analysis_report(request=request, response=response)
         return response
+
+
+def collect_analysis_source_record_ids(
+    *,
+    records: list[RawMarketingRecord],
+    patterns: list[MarketingPattern],
+    graph: MarketingGraphResponse,
+) -> list[str]:
+    record_ids: list[str] = []
+    _extend_unique(record_ids, [record.id for record in records])
+
+    for pattern in patterns:
+        _extend_unique(record_ids, pattern.evidence_record_ids)
+
+    for node in graph.nodes:
+        _extend_unique(record_ids, node.source_record_ids)
+
+    for edge in graph.edges:
+        _extend_unique(record_ids, edge.source_record_ids)
+
+    return record_ids
 
 
 def _analysis_context_json(
@@ -198,6 +230,15 @@ def _analysis_context_json(
         ensure_ascii=False,
         sort_keys=True,
     )
+
+
+def _extend_unique(target: list[str], values: list[str]) -> None:
+    seen = set(target)
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        target.append(value)
 
 
 def _spend_sort_value(row: dict[str, object]) -> float:

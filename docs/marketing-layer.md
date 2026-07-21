@@ -112,10 +112,11 @@ is the audit path from a deterministic pattern back to source payloads: take a
 pattern's `dimensions` or `evidence_record_ids`, search raw storage, and inspect
 the original JSON without rerunning Meta collection or AI inference.
 
-Saved analysis reports also expose an evidence bundle endpoint. It returns the
-typed report with every raw record referenced by `source_record_ids`, KPI rows,
-deterministic patterns, and graph nodes/edges, plus `missing_record_ids` when an
-older report references raw data that is no longer present.
+Saved analysis reports also expose an evidence bundle endpoint. Top-level
+`source_record_ids` includes the full evidence set referenced by KPI rows,
+deterministic patterns, and graph nodes/edges. The bundle returns every
+available raw record for those ids, plus `missing_record_ids` when an older
+report references raw data that is no longer present.
 
 ## Deterministic Metrics
 
