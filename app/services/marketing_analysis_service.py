@@ -174,6 +174,11 @@ def _analysis_context_json(
                     "Treat unmapped_action_signal patterns as measurement mapping issues to "
                     "resolve before calling spend non-converting."
                 ),
+                (
+                    "Treat pixel_unavailable, custom_conversion_archived, and "
+                    "measurement_event_stale patterns as measurement reliability constraints "
+                    "before making CPA or ROAS recommendations."
+                ),
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

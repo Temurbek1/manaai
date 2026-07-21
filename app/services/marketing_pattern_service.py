@@ -50,15 +50,35 @@ class ActionSignalContext:
     action_record_ids: dict[str, list[str]]
 
 
+@dataclass(frozen=True)
+class MeasurementAssetStatus:
+    entity_type: str
+    entity_id: str
+    entity_name: str
+    record_id: str
+    parent_pixel_id: str | None
+    last_fired_at: datetime | None
+    is_unavailable: bool
+    is_archived: bool
+
+
+@dataclass(frozen=True)
+class MeasurementHealthContext:
+    pixels: list[MeasurementAssetStatus]
+    custom_conversions: list[MeasurementAssetStatus]
+
+
 class MarketingPatternService:
     def __init__(
         self,
         *,
         repository: MarketingRepository,
         metrics_builder: MarketingMetricsBuilder,
+        measurement_stale_after_days: int,
     ) -> None:
         self._repository = repository
         self._metrics_builder = metrics_builder
+        self._measurement_stale_after_days = measurement_stale_after_days
 
     async def detect(self, request: MarketingPatternsRequest) -> MarketingPatternsResponse:
         records, _ = await self._repository.list_raw_records(
@@ -71,10 +91,25 @@ class MarketingPatternService:
         )
         structure_records, _ = await self._repository.list_raw_records(
             account_ids=request.account_ids,
-            entity_types=["campaign", "adset", "ad", "creative", "custom_audience"],
+            entity_types=[
+                "campaign",
+                "adset",
+                "ad",
+                "creative",
+                "custom_audience",
+                "pixel",
+                "custom_conversion",
+            ],
             limit=request.max_records,
             offset=0,
         )
+        if request.account_ids:
+            global_pixel_records, _ = await self._repository.list_raw_records(
+                entity_types=["pixel"],
+                limit=request.max_records,
+                offset=0,
+            )
+            structure_records = _dedupe_records([*structure_records, *global_pixel_records])
         rows = self._metrics_builder.build_rows(records)
         summary = self._metrics_builder.summarize(rows)
         patterns = detect_marketing_patterns(
@@ -91,6 +126,8 @@ class MarketingPatternService:
                 records=records,
                 configured_conversion_action_types=self._metrics_builder.conversion_action_types,
             ),
+            measurement_context=build_measurement_health_context(structure_records),
+            measurement_stale_after_days=self._measurement_stale_after_days,
             max_patterns=request.max_patterns,
             min_spend=request.min_spend,
             spend_concentration_threshold=request.spend_concentration_threshold,
@@ -113,13 +150,15 @@ def detect_marketing_patterns(
     audience_context: AudiencePerformanceContext | None = None,
     hierarchy_context: HierarchyPerformanceContext | None = None,
     action_signal_context: ActionSignalContext | None = None,
+    measurement_context: MeasurementHealthContext | None = None,
+    measurement_stale_after_days: int = 14,
     max_patterns: int,
     min_spend: float,
     spend_concentration_threshold: float,
     outlier_multiplier: float,
 ) -> list[MarketingPattern]:
     if not rows:
-        return [
+        empty_patterns = [
             MarketingPattern(
                 type="data_quality",
                 direction="neutral",
@@ -140,6 +179,15 @@ def detect_marketing_patterns(
                 dimensions={},
             ),
         ]
+        if measurement_context is not None:
+            empty_patterns.extend(
+                _measurement_health_patterns(
+                    measurement_context=measurement_context,
+                    now=datetime.now(UTC),
+                    stale_after_days=measurement_stale_after_days,
+                ),
+            )
+        return sorted(empty_patterns, key=_pattern_sort_key, reverse=True)[:max_patterns]
 
     patterns: list[MarketingPattern] = []
     spend_rows = [row for row in rows if row.spend >= min_spend]
@@ -231,6 +279,14 @@ def detect_marketing_patterns(
             _unmapped_action_signal_patterns(
                 rows=rows,
                 action_signal_context=action_signal_context,
+            ),
+        )
+    if measurement_context is not None:
+        patterns.extend(
+            _measurement_health_patterns(
+                measurement_context=measurement_context,
+                now=datetime.now(UTC),
+                stale_after_days=measurement_stale_after_days,
             ),
         )
     patterns.extend(_data_quality_patterns(rows=rows))
@@ -420,6 +476,58 @@ def build_action_signal_context(
         configured_conversion_action_types=set(configured_conversion_action_types),
         action_totals=dict(action_totals),
         action_record_ids={key: value[:20] for key, value in action_record_ids.items()},
+    )
+
+
+def build_measurement_health_context(
+    records: list[RawMarketingRecord],
+) -> MeasurementHealthContext:
+    pixels: list[MeasurementAssetStatus] = []
+    custom_conversions: list[MeasurementAssetStatus] = []
+
+    for record in records:
+        payload = record.payload
+        if record.entity_type == "pixel":
+            pixel_id = json_str(payload.get("id")) or record.provider_record_id
+            if pixel_id is None:
+                continue
+            pixels.append(
+                MeasurementAssetStatus(
+                    entity_type="pixel",
+                    entity_id=pixel_id,
+                    entity_name=_measurement_label(record=record),
+                    record_id=record.id,
+                    parent_pixel_id=None,
+                    last_fired_at=_datetime_value(payload.get("last_fired_time")),
+                    is_unavailable=_bool_value(payload.get("is_unavailable")),
+                    is_archived=False,
+                ),
+            )
+
+        if record.entity_type == "custom_conversion":
+            custom_conversion_id = json_str(payload.get("id")) or record.provider_record_id
+            if custom_conversion_id is None:
+                continue
+            custom_conversions.append(
+                MeasurementAssetStatus(
+                    entity_type="custom_conversion",
+                    entity_id=custom_conversion_id,
+                    entity_name=_measurement_label(record=record),
+                    record_id=record.id,
+                    parent_pixel_id=(
+                        nested_id(payload.get("pixel"))
+                        or json_str(payload.get("pixel_id"))
+                        or record.parent_id
+                    ),
+                    last_fired_at=_datetime_value(payload.get("last_fired_time")),
+                    is_unavailable=False,
+                    is_archived=_bool_value(payload.get("is_archived")),
+                ),
+            )
+
+    return MeasurementHealthContext(
+        pixels=pixels,
+        custom_conversions=custom_conversions,
     )
 
 
@@ -1101,6 +1209,126 @@ def _unmapped_action_signal_patterns(
     ]
 
 
+def _measurement_health_patterns(
+    *,
+    measurement_context: MeasurementHealthContext,
+    now: datetime,
+    stale_after_days: int,
+) -> list[MarketingPattern]:
+    patterns: list[MarketingPattern] = []
+
+    for pixel in measurement_context.pixels:
+        if pixel.is_unavailable:
+            patterns.append(
+                MarketingPattern(
+                    type="pixel_unavailable",
+                    direction="negative",
+                    title="Meta pixel is marked unavailable",
+                    explanation=(
+                        f"Pixel {pixel.entity_name} is stored with is_unavailable=true. "
+                        "Conversion tracking and optimization signals may be incomplete until "
+                        "the pixel status is resolved."
+                    ),
+                    entity_id=pixel.entity_id,
+                    entity_name=pixel.entity_name,
+                    level="pixel",
+                    metric="pixel_unavailable",
+                    value=1,
+                    benchmark=0,
+                    confidence="high",
+                    evidence_record_ids=[pixel.record_id],
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={pixel.entity_id}.",
+                        "Check Meta Events Manager status before changing conversion budgets.",
+                    ],
+                    dimensions={"measurement_entity_type": "pixel"},
+                ),
+            )
+        stale_pattern = _measurement_stale_pattern(
+            asset=pixel,
+            now=now,
+            stale_after_days=stale_after_days,
+        )
+        if stale_pattern is not None:
+            patterns.append(stale_pattern)
+
+    for custom_conversion in measurement_context.custom_conversions:
+        if custom_conversion.is_archived:
+            patterns.append(
+                MarketingPattern(
+                    type="custom_conversion_archived",
+                    direction="negative",
+                    title="Custom conversion is archived",
+                    explanation=(
+                        f"Custom conversion {custom_conversion.entity_name} is stored with "
+                        "is_archived=true. CPA and ROAS conclusions can be incomplete if this "
+                        "conversion is still expected in reporting."
+                    ),
+                    entity_id=custom_conversion.entity_id,
+                    entity_name=custom_conversion.entity_name,
+                    level="custom_conversion",
+                    metric="custom_conversion_archived",
+                    value=1,
+                    benchmark=0,
+                    confidence="high",
+                    evidence_record_ids=[custom_conversion.record_id],
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={custom_conversion.entity_id}.",
+                        "Verify active conversion rules before judging campaigns by CPA or ROAS.",
+                    ],
+                    dimensions=_measurement_dimensions(custom_conversion),
+                ),
+            )
+        stale_pattern = _measurement_stale_pattern(
+            asset=custom_conversion,
+            now=now,
+            stale_after_days=stale_after_days,
+        )
+        if stale_pattern is not None:
+            patterns.append(stale_pattern)
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
+
+
+def _measurement_stale_pattern(
+    *,
+    asset: MeasurementAssetStatus,
+    now: datetime,
+    stale_after_days: int,
+) -> MarketingPattern | None:
+    if asset.last_fired_at is None:
+        return None
+
+    days_since_last_fired = (now - asset.last_fired_at).days
+    if days_since_last_fired <= stale_after_days:
+        return None
+
+    return MarketingPattern(
+        type="measurement_event_stale",
+        direction="negative",
+        title="Measurement event has not fired recently",
+        explanation=(
+            f"{asset.entity_type.replace('_', ' ').title()} {asset.entity_name} last fired "
+            f"{days_since_last_fired} day(s) ago, above the configured "
+            f"{stale_after_days}-day freshness threshold. Validate tracking freshness before "
+            "using CPA or ROAS as final evidence."
+        ),
+        entity_id=asset.entity_id,
+        entity_name=asset.entity_name,
+        level=asset.entity_type,
+        metric="days_since_last_fired",
+        value=float(days_since_last_fired),
+        benchmark=float(stale_after_days),
+        confidence="medium",
+        evidence_record_ids=[asset.record_id],
+        suggested_raw_queries=[
+            f"Search raw records by provider_record_id={asset.entity_id}.",
+            "Compare last_fired_time against recent insight action timestamps.",
+        ],
+        dimensions=_measurement_dimensions(asset),
+    )
+
+
 def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:
     by_date: dict[date, list[MarketingKpiRow]] = defaultdict(list)
     for row in rows:
@@ -1341,6 +1569,32 @@ def _audience_label(*, record: RawMarketingRecord) -> str:
     return record.provider_record_id or record.id
 
 
+def _measurement_label(*, record: RawMarketingRecord) -> str:
+    for key in ("name", "description", "custom_event_type"):
+        value = json_str(record.payload.get(key))
+        if value is not None:
+            return value
+    return record.provider_record_id or record.id
+
+
+def _measurement_dimensions(asset: MeasurementAssetStatus) -> dict[str, str]:
+    dimensions = {"measurement_entity_type": asset.entity_type}
+    if asset.parent_pixel_id is not None:
+        dimensions["pixel_id"] = asset.parent_pixel_id
+    return dimensions
+
+
+def _dedupe_records(records: list[RawMarketingRecord]) -> list[RawMarketingRecord]:
+    deduped: list[RawMarketingRecord] = []
+    seen: set[str] = set()
+    for record in records:
+        if record.id in seen:
+            continue
+        seen.add(record.id)
+        deduped.append(record)
+    return deduped
+
+
 def _aggregate_rows(rows: list[MarketingKpiRow]) -> MarketingKpiSummary:
     total_spend = sum(row.spend for row in rows)
     total_impressions = sum(row.impressions for row in rows)
@@ -1428,6 +1682,51 @@ def _float_value(value: object | None) -> float:
         except ValueError:
             return 0.0
     return 0.0
+
+
+def _bool_value(value: object | None) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int | float):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized in {"true", "1", "yes", "y"}
+    return False
+
+
+def _datetime_value(value: object | None) -> datetime | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, datetime):
+        return _utc_datetime(value)
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time(), tzinfo=UTC)
+    if isinstance(value, int | float):
+        timestamp = float(value)
+        if timestamp > 10_000_000_000:
+            timestamp = timestamp / 1000
+        try:
+            return datetime.fromtimestamp(timestamp, UTC)
+        except (OSError, OverflowError, ValueError):
+            return None
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.endswith("Z"):
+            normalized = f"{normalized[:-1]}+00:00"
+        try:
+            return _utc_datetime(datetime.fromisoformat(normalized))
+        except ValueError:
+            return None
+    return None
+
+
+def _utc_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float | None:

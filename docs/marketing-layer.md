@@ -138,8 +138,9 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - Deterministic patterns: spend concentration, wasted spend, efficiency
   opportunities, cost/engagement outliers, segment waste/efficiency by
   breakdown dimensions, hierarchy rollups, creative waste/efficiency rollups,
-  custom audience targeting rollups, unmapped Meta action signals, trend
-  movements, and data quality gaps.
+  custom audience targeting rollups, unmapped Meta action signals, measurement
+  health issues from pixels/custom conversions, trend movements, and data
+  quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by
@@ -174,6 +175,13 @@ Unmapped action signal patterns compare raw Meta `actions.action_type` values
 against `MARKETING_CONVERSION_ACTION_TYPES`. They warn when action signals are
 present but not mapped as conversions, so waste/CPA recommendations can be
 audited before treating spend as truly non-converting.
+
+Measurement health patterns inspect stored pixel and custom conversion records.
+They flag unavailable pixels, archived custom conversions, and stale
+`last_fired_time` values based on `MARKETING_MEASUREMENT_STALE_AFTER_DAYS`.
+These patterns do not judge media performance directly; they tell the AI layer
+and API consumers when CPA/ROAS evidence may be less reliable because tracking
+assets need review.
 
 AI analysis responses are persisted as typed report snapshots. The saved report
 keeps the deterministic KPI summary, pattern list, entity graph, AI report, and

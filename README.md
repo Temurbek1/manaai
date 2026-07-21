@@ -92,6 +92,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `MARKETING_DATABASE_PATH` | no | `data/manaai.db` | SQLite path для raw records и reports |
 | `MARKETING_CONVERSION_ACTION_TYPES` | no | JSON list | Meta `actions.action_type`, которые считаются conversions |
 | `MARKETING_VALUE_ACTION_TYPES` | no | JSON list | Meta `action_values.action_type`, которые считаются revenue/value |
+| `MARKETING_MEASUREMENT_STALE_AFTER_DAYS` | no | `14` | Через сколько дней без `last_fired_time` pixel/custom conversion считается stale |
 | `META_GRAPH_BASE_URL` | no | `https://graph.facebook.com` | Graph API base URL |
 | `META_GRAPH_API_VERSION` | no | `v25.0` | Версия Graph/Marketing API |
 | `META_APP_ID` | yes for Meta sync | - | Meta app id из Meta for Developers |
@@ -252,7 +253,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/patterns \
   }'
 ```
 
-Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, hierarchy waste/efficiency по связке raw campaign/adset/ad -> lower-level insights, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, unmapped action signals для проверки `MARKETING_CONVERSION_ACTION_TYPES`, простые тренды и data quality gaps. Audience patterns - это targeting rollup, а не доказательство причинной атрибуции: перед изменением бюджета проверяйте overlap, exclusions и frequency.
+Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, hierarchy waste/efficiency по связке raw campaign/adset/ad -> lower-level insights, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, unmapped action signals для проверки `MARKETING_CONVERSION_ACTION_TYPES`, measurement health issues по pixel/custom conversion (`is_unavailable`, `is_archived`, stale `last_fired_time`), простые тренды и data quality gaps. Audience patterns - это targeting rollup, а measurement patterns - это ограничение доверия к трекингу: перед изменением бюджета проверяйте overlap, exclusions, frequency и состояние Events Manager.
 
 Граф связей между raw сущностями:
 

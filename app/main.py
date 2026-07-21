@@ -42,6 +42,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.marketing_pattern_service = MarketingPatternService(
         repository=marketing_repository,
         metrics_builder=metrics_builder,
+        measurement_stale_after_days=settings.marketing_measurement_stale_after_days,
     )
     app.state.marketing_graph_service = MarketingGraphService(repository=marketing_repository)
     app.state.marketing_report_service = MarketingReportService(repository=marketing_repository)

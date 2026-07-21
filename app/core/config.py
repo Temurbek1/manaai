@@ -43,6 +43,7 @@ class Settings(BaseSettings):
             "offsite_conversion.fb_pixel_purchase",
         ],
     )
+    marketing_measurement_stale_after_days: int = Field(default=14, ge=1, le=365)
 
     meta_graph_base_url: str = "https://graph.facebook.com"
     meta_graph_api_version: str = "v25.0"

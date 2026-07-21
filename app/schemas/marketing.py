@@ -40,6 +40,9 @@ MarketingPatternType = Literal[
     "campaign_rollup_waste",
     "campaign_rollup_efficiency_opportunity",
     "unmapped_action_signal",
+    "pixel_unavailable",
+    "custom_conversion_archived",
+    "measurement_event_stale",
     "trend",
     "data_quality",
 ]

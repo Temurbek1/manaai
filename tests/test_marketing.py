@@ -840,6 +840,157 @@ async def test_marketing_patterns_endpoint_detects_unmapped_action_signals(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_measurement_health_issues(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-measurement",
+                            "ad_name": "Ad with measurement issue",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "impressions": "10000",
+                            "clicks": "150",
+                            "actions": [{"action_type": "lead", "value": "3"}],
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "pixel",
+                        "provider_record_id": "pixel-1",
+                        "payload": {
+                            "id": "pixel-1",
+                            "name": "Website Pixel",
+                            "is_unavailable": True,
+                            "last_fired_time": "2020-01-01T00:00:00+00:00",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "custom_conversion",
+                        "provider_record_id": "custom-conversion-1",
+                        "account_id": "act_100",
+                        "parent_id": "pixel-1",
+                        "payload": {
+                            "id": "custom-conversion-1",
+                            "name": "Purchase conversion",
+                            "pixel": {"id": "pixel-1"},
+                            "is_archived": True,
+                            "last_fired_time": "2020-01-01T00:00:00+00:00",
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["source_record_count"] == 3
+
+    pattern_types = {pattern["type"] for pattern in body["patterns"]}
+    assert {
+        "pixel_unavailable",
+        "custom_conversion_archived",
+        "measurement_event_stale",
+    } <= pattern_types
+
+    pixel_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "pixel_unavailable"
+    )
+    assert pixel_pattern["entity_id"] == "pixel-1"
+    assert pixel_pattern["level"] == "pixel"
+    assert pixel_pattern["dimensions"] == {"measurement_entity_type": "pixel"}
+    assert len(pixel_pattern["evidence_record_ids"]) == 1
+
+    custom_conversion_pattern = next(
+        pattern
+        for pattern in body["patterns"]
+        if pattern["type"] == "custom_conversion_archived"
+    )
+    assert custom_conversion_pattern["entity_id"] == "custom-conversion-1"
+    assert custom_conversion_pattern["dimensions"] == {
+        "measurement_entity_type": "custom_conversion",
+        "pixel_id": "pixel-1",
+    }
+
+    stale_patterns = [
+        pattern for pattern in body["patterns"] if pattern["type"] == "measurement_event_stale"
+    ]
+    assert any(
+        pattern["entity_id"] == "pixel-1"
+        and pattern["metric"] == "days_since_last_fired"
+        and pattern["value"] > 14
+        and pattern["benchmark"] == 14
+        for pattern in stale_patterns
+    )
+    get_settings.cache_clear()
+
+
+async def test_marketing_patterns_endpoint_reports_measurement_health_without_insights(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "pixel",
+                        "provider_record_id": "pixel-1",
+                        "payload": {
+                            "id": "pixel-1",
+                            "name": "Website Pixel",
+                            "is_unavailable": True,
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 10},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["source_record_count"] == 1
+    assert {"data_quality", "pixel_unavailable"} <= {
+        pattern["type"] for pattern in body["patterns"]
+    }
+    get_settings.cache_clear()
+
+
 async def test_marketing_graph_endpoint_builds_entity_edges(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
