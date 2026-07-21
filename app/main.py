@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
 from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_graph_service import MarketingGraphService
@@ -75,12 +76,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.middleware("http")(request_trace_middleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=EXPOSED_RESPONSE_HEADERS,
     )
 
     app.include_router(api_router, prefix="/api/v1")

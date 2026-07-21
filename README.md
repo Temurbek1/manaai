@@ -13,6 +13,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - Детерминированные KPI до вызова AI: spend, impressions, clicks, conversions, CTR, CPC, CPM, CPA, ROAS
 - AI analytics output через OpenAI Structured Outputs
 - Swagger UI/OpenAPI docs по рекомендациям FastAPI: metadata, tag descriptions, summaries, request duration и фильтр операций
+- Trace headers: `X-Request-ID` и `X-Process-Time-Ms`
 - Конфигурация через env и `.env`
 - Dockerfile + `docker-compose.yml`
 - Базовые async tests
@@ -107,6 +108,8 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 ```bash
 curl -H "X-API-Key: $APP_API_KEY" http://localhost:8000/api/v1/marketing/config
 ```
+
+Каждый ответ содержит `X-Request-ID` и `X-Process-Time-Ms`. Клиент может передать свой `X-Request-ID`, backend вернет его обратно; если header не передан, backend сгенерирует UUID.
 
 Для production sync используйте system user access token из Meta Business Manager. Это официальный серверный путь для автоматических API calls к assets бизнеса.
 

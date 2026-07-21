@@ -23,7 +23,15 @@ async def test_liveness_endpoint(monkeypatch: MonkeyPatch, tmp_path: Path) -> No
         base_url="http://testserver",
     ) as client:
         response = await client.get("/api/v1/health/live")
+        request_id_response = await client.get(
+            "/api/v1/health/live",
+            headers={"X-Request-ID": "test-request-id"},
+        )
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert response.headers["X-Request-ID"]
+    assert float(response.headers["X-Process-Time-Ms"]) >= 0
+    assert request_id_response.status_code == 200
+    assert request_id_response.headers["X-Request-ID"] == "test-request-id"
     get_settings.cache_clear()

@@ -10,6 +10,7 @@ and OpenAI Responses API guidance.
 - Meta app id, business id, ad account ids, and access token must come from environment variables.
 - Production API access is protected by `APP_API_KEY` through the `X-API-Key` header.
 - Health endpoints remain unauthenticated for container orchestration.
+- Every response includes `X-Request-ID` and `X-Process-Time-Ms` for traceability.
 - Automated server integrations should use a Meta Business system user access token assigned to the required business assets.
 - Marketing API data must be requested with explicit fields, cursor pagination, and rate-limit-aware error handling.
 - Large or expensive insights pulls should use async insights jobs: submit a job, poll `report_run_id`, then download paginated results.

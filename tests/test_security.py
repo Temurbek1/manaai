@@ -57,6 +57,8 @@ async def test_api_key_required_for_protected_routes(
 
     assert health_response.status_code == 200
     assert missing_key_response.status_code == 401
+    assert missing_key_response.headers["X-Request-ID"]
+    assert float(missing_key_response.headers["X-Process-Time-Ms"]) >= 0
     assert wrong_key_response.status_code == 401
     assert valid_key_response.status_code == 200
     assert valid_key_response.json() == {"answer": "echo: hello", "model": "fake-model"}
