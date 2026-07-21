@@ -28,6 +28,9 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `POST /api/v1/marketing/raw` - загрузка raw marketing JSON records
 - `GET /api/v1/marketing/raw` - просмотр сохраненных raw records
 - `POST /api/v1/marketing/meta/sync` - сбор данных через Meta Marketing API
+- `POST /api/v1/marketing/meta/insights/jobs` - создание Meta async Insights job
+- `GET /api/v1/marketing/meta/insights/jobs/{report_run_id}` - статус async job
+- `POST /api/v1/marketing/meta/insights/jobs/{report_run_id}/ingest` - загрузка результатов async job в raw storage
 - `POST /api/v1/marketing/analyze` - KPI + структурированный AI отчет
 
 Пример:
@@ -116,6 +119,34 @@ curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
     "include_structure": true,
     "include_insights": true
   }'
+```
+
+Для больших отчетов используйте async Insights job, как рекомендует Meta:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/meta/insights/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_id": "act_123456789",
+    "date_start": "2026-07-01",
+    "date_stop": "2026-07-21",
+    "level": "ad",
+    "time_increment": 1
+  }'
+```
+
+Проверка статуса:
+
+```bash
+curl http://localhost:8000/api/v1/marketing/meta/insights/jobs/{report_run_id}
+```
+
+После `Job Completed` загрузите результаты в raw storage:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/meta/insights/jobs/{report_run_id}/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"account_id":"act_123456789","level":"ad","limit":100}'
 ```
 
 Raw ingestion для экспортов из Ads Manager или будущих ETL:

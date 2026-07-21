@@ -10,7 +10,7 @@ and OpenAI Responses API guidance.
 - Meta app id, business id, ad account ids, and access token must come from environment variables.
 - Automated server integrations should use a Meta Business system user access token assigned to the required business assets.
 - Marketing API data must be requested with explicit fields, cursor pagination, and rate-limit-aware error handling.
-- Large or expensive insights pulls should be modeled so they can later move to async insights jobs or batch requests without changing the API contracts.
+- Large or expensive insights pulls should use async insights jobs: submit a job, poll `report_run_id`, then download paginated results.
 - OpenAI analysis should use typed structured outputs instead of free-form text when the backend needs reliable downstream analytics.
 
 Official sources:
@@ -110,5 +110,6 @@ events are needed.
 3. Add Meta Graph client and sync service.
 4. Add deterministic KPI builder.
 5. Add structured OpenAI marketing analysis service.
-6. Add API routes and Swagger descriptions.
-7. Add tests with fakes; tests must never call Meta or OpenAI.
+6. Add async insights job contracts for large report pulls.
+7. Add API routes and Swagger descriptions.
+8. Add tests with fakes; tests must never call Meta or OpenAI.

@@ -14,6 +14,8 @@ from app.schemas.marketing import (
     MarketingFinding,
     MarketingKpiSummary,
     MetaInsightLevel,
+    MetaInsightsAsyncJobIngestRequest,
+    MetaInsightsAsyncJobRequest,
     MetaSyncRequest,
     RawMarketingRecordInput,
 )
@@ -188,6 +190,42 @@ async def test_meta_sync_service_stores_structure_and_insights(
     get_settings.cache_clear()
 
 
+async def test_meta_async_insights_job_flow_stores_job_and_results(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    service = MarketingSyncService(
+        meta_client=cast(MetaMarketingClient, FakeMetaMarketingClient()),
+        repository=repository,
+    )
+
+    create_response = await service.create_insights_async_job(
+        MetaInsightsAsyncJobRequest(
+            account_id="act_100",
+            date_start="2026-07-01",
+            date_stop="2026-07-07",
+            level="ad",
+        ),
+    )
+    status_response = await service.get_insights_async_job_status(create_response.report_run_id)
+    ingest_response = await service.ingest_insights_async_job_results(
+        report_run_id=create_response.report_run_id,
+        request=MetaInsightsAsyncJobIngestRequest(account_id="act_100", level="ad"),
+    )
+    records, total = await repository.list_raw_records(limit=100)
+
+    assert create_response.report_run_id == "report-run-1"
+    assert create_response.raw_record_id is not None
+    assert status_response.is_complete is True
+    assert ingest_response.inserted_count == 1
+    assert total == 2
+    assert {record.entity_type for record in records} == {"insight", "insights_job"}
+    get_settings.cache_clear()
+
+
 async def test_marketing_analyze_endpoint_uses_service_dependency(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -310,5 +348,59 @@ class FakeMetaMarketingClient:
                 "clicks": "250",
                 "actions": [{"action_type": "lead", "value": "20"}],
                 "_requested_level": level,
+            },
+        ]
+
+    async def create_insights_async_job(
+        self,
+        *,
+        account_id: str,
+        level: MetaInsightLevel,
+        date_start: object,
+        date_stop: object,
+        fields: list[str] | None = None,
+        breakdowns: list[str] | None = None,
+        action_breakdowns: list[str] | None = None,
+        time_increment: int | str = 1,
+    ) -> dict[str, object]:
+        return {
+            "report_run_id": "report-run-1",
+            "account_id": account_id,
+            "level": level,
+            "date_start": str(date_start),
+            "date_stop": str(date_stop),
+            "fields": fields or [],
+            "breakdowns": breakdowns or [],
+            "action_breakdowns": action_breakdowns or [],
+            "time_increment": time_increment,
+        }
+
+    async def fetch_insights_async_job_status(self, report_run_id: str) -> dict[str, object]:
+        return {
+            "id": report_run_id,
+            "async_status": "Job Completed",
+            "async_percent_completion": 100,
+        }
+
+    async def fetch_insights_async_job_results(
+        self,
+        *,
+        report_run_id: str,
+        fields: list[str] | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "ad_id": "ad-1",
+                "ad_name": "Winning ad",
+                "account_id": "act_100",
+                "date_start": "2026-07-01",
+                "date_stop": "2026-07-01",
+                "spend": "50",
+                "impressions": "5000",
+                "clicks": "125",
+                "_report_run_id": report_run_id,
+                "_limit": limit,
+                "_fields": fields or [],
             },
         ]

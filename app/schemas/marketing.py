@@ -13,6 +13,7 @@ MarketingEntityType = Literal[
     "ad",
     "creative",
     "insight",
+    "insights_job",
     "custom",
 ]
 MetaInsightLevel = Literal["account", "campaign", "adset", "ad"]
@@ -104,6 +105,63 @@ class MetaSyncResponse(BaseModel):
     inserted_count: int
     records_by_entity_type: dict[str, int]
     warnings: list[str]
+
+
+class MetaInsightsAsyncJobRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    account_id: str = Field(min_length=1, max_length=255)
+    date_start: date
+    date_stop: date
+    level: MetaInsightLevel = "ad"
+    fields: list[str] | None = Field(default=None, max_length=200)
+    breakdowns: list[str] | None = Field(default=None, max_length=50)
+    action_breakdowns: list[str] | None = Field(default=None, max_length=50)
+    time_increment: int | Literal["all_days"] = Field(default=1)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "MetaInsightsAsyncJobRequest":
+        if self.date_start > self.date_stop:
+            raise ValueError("date_start must be before or equal to date_stop")
+        if isinstance(self.time_increment, int) and self.time_increment < 1:
+            raise ValueError("time_increment must be at least 1")
+        return self
+
+
+class MetaInsightsAsyncJobCreateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    report_run_id: str
+    account_id: str
+    level: MetaInsightLevel
+    api_version: str
+    raw_record_id: str | None
+
+
+class MetaInsightsAsyncJobStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    report_run_id: str
+    async_status: str | None
+    async_percent_completion: int | None
+    is_complete: bool
+    raw_status: dict[str, JsonValue]
+
+
+class MetaInsightsAsyncJobIngestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: str | None = Field(default=None, min_length=1, max_length=255)
+    level: MetaInsightLevel | None = None
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+class MetaInsightsAsyncJobIngestResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    report_run_id: str
+    inserted_count: int
+    record_ids: list[str]
 
 
 class MarketingIntegrationConfigResponse(BaseModel):

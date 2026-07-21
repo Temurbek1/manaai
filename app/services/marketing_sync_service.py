@@ -6,6 +6,11 @@ from pydantic import JsonValue
 
 from app.schemas.marketing import (
     MarketingEntityType,
+    MetaInsightsAsyncJobCreateResponse,
+    MetaInsightsAsyncJobIngestRequest,
+    MetaInsightsAsyncJobIngestResponse,
+    MetaInsightsAsyncJobRequest,
+    MetaInsightsAsyncJobStatusResponse,
     MetaSyncRequest,
     MetaSyncResponse,
     RawMarketingRecordInput,
@@ -92,6 +97,102 @@ class MarketingSyncService:
             inserted_count=len(inserted),
             records_by_entity_type=dict(counts),
             warnings=warnings,
+        )
+
+    async def create_insights_async_job(
+        self,
+        request: MetaInsightsAsyncJobRequest,
+    ) -> MetaInsightsAsyncJobCreateResponse:
+        payload = await self._meta_client.create_insights_async_job(
+            account_id=request.account_id,
+            level=request.level,
+            date_start=request.date_start,
+            date_stop=request.date_stop,
+            fields=request.fields,
+            breakdowns=request.breakdowns,
+            action_breakdowns=request.action_breakdowns,
+            time_increment=request.time_increment,
+        )
+        report_run_id = _payload_str(payload, "report_run_id") or _payload_str(payload, "id")
+        inserted_ids: list[str] = []
+        if report_run_id is not None:
+            inserted = await self._repository.insert_raw_records(
+                [
+                    RawMarketingRecordInput(
+                        source="meta_marketing_api",
+                        entity_type="insights_job",
+                        provider_record_id=report_run_id,
+                        account_id=normalize_ad_account_id(request.account_id),
+                        observed_at=datetime.now(UTC),
+                        api_version=self._meta_client.api_version,
+                        payload=payload,
+                    ),
+                ],
+            )
+            inserted_ids = [record.id for record in inserted]
+
+        if report_run_id is None:
+            raise RuntimeError("Meta async insights job response did not include report_run_id")
+
+        return MetaInsightsAsyncJobCreateResponse(
+            report_run_id=report_run_id,
+            account_id=normalize_ad_account_id(request.account_id),
+            level=request.level,
+            api_version=self._meta_client.api_version,
+            raw_record_id=inserted_ids[0] if inserted_ids else None,
+        )
+
+    async def get_insights_async_job_status(
+        self,
+        report_run_id: str,
+    ) -> MetaInsightsAsyncJobStatusResponse:
+        payload = await self._meta_client.fetch_insights_async_job_status(report_run_id)
+        status = _payload_str(payload, "async_status")
+        percent = _payload_int(payload, "async_percent_completion")
+        return MetaInsightsAsyncJobStatusResponse(
+            report_run_id=report_run_id,
+            async_status=status,
+            async_percent_completion=percent,
+            is_complete=status == "Job Completed" and percent == 100,
+            raw_status=payload,
+        )
+
+    async def ingest_insights_async_job_results(
+        self,
+        *,
+        report_run_id: str,
+        request: MetaInsightsAsyncJobIngestRequest,
+    ) -> MetaInsightsAsyncJobIngestResponse:
+        insights = await self._meta_client.fetch_insights_async_job_results(
+            report_run_id=report_run_id,
+            limit=request.limit,
+        )
+        account_id = normalize_ad_account_id(request.account_id) if request.account_id else None
+        level = request.level
+        inserted = await self._repository.insert_raw_records(
+            [
+                self._record_input(
+                    entity_type="insight",
+                    payload={
+                        **payload,
+                        "_meta_level": level or payload.get("_meta_level") or "ad",
+                        "_meta_report_run_id": report_run_id,
+                    },
+                    provider_record_id=_insight_provider_id(
+                        payload=payload,
+                        level=level or "ad",
+                    ),
+                    account_id=account_id or _payload_str(payload, "account_id"),
+                    parent_id=_insight_parent_id(payload=payload, level=level or "ad"),
+                    observed_at=datetime.now(UTC),
+                )
+                for payload in insights
+            ],
+        )
+        return MetaInsightsAsyncJobIngestResponse(
+            report_run_id=report_run_id,
+            inserted_count=len(inserted),
+            record_ids=[record.id for record in inserted],
         )
 
     async def _resolve_account_ids(
@@ -193,6 +294,22 @@ def _payload_id(payload: dict[str, JsonValue]) -> str | None:
 def _payload_str(payload: dict[str, JsonValue], key: str) -> str | None:
     value = payload.get(key)
     return str(value) if value is not None else None
+
+
+def _payload_int(payload: dict[str, JsonValue], key: str) -> int | None:
+    value = payload.get(key)
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value:
+        try:
+            return int(float(value))
+        except ValueError:
+            return None
+    return None
 
 
 def _insight_provider_id(payload: dict[str, JsonValue], level: str) -> str | None:

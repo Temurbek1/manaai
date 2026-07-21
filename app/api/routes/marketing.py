@@ -13,6 +13,11 @@ from app.schemas.marketing import (
     MarketingAnalysisResponse,
     MarketingEntityType,
     MarketingIntegrationConfigResponse,
+    MetaInsightsAsyncJobCreateResponse,
+    MetaInsightsAsyncJobIngestRequest,
+    MetaInsightsAsyncJobIngestResponse,
+    MetaInsightsAsyncJobRequest,
+    MetaInsightsAsyncJobStatusResponse,
     MetaSyncRequest,
     MetaSyncResponse,
     RawMarketingIngestRequest,
@@ -105,6 +110,77 @@ async def sync_meta_marketing(
 ) -> MetaSyncResponse:
     try:
         return await sync_service.sync_meta(payload)
+    except MetaConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except MetaAPIError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/meta/insights/jobs",
+    response_model=MetaInsightsAsyncJobCreateResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Create Meta async insights job",
+    description=(
+        "Submits an asynchronous Meta Ads Insights job for larger report pulls and stores "
+        "the job creation payload as raw data."
+    ),
+)
+async def create_meta_insights_job(
+    payload: MetaInsightsAsyncJobRequest,
+    sync_service: MarketingSyncServiceDep,
+) -> MetaInsightsAsyncJobCreateResponse:
+    try:
+        return await sync_service.create_insights_async_job(payload)
+    except MetaConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except MetaAPIError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.get(
+    "/meta/insights/jobs/{report_run_id}",
+    response_model=MetaInsightsAsyncJobStatusResponse,
+    summary="Get Meta async insights job status",
+    description="Polls a Meta Ads Insights async job without storing secrets or tokens.",
+)
+async def get_meta_insights_job_status(
+    report_run_id: str,
+    sync_service: MarketingSyncServiceDep,
+) -> MetaInsightsAsyncJobStatusResponse:
+    try:
+        return await sync_service.get_insights_async_job_status(report_run_id)
+    except MetaConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except MetaAPIError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/meta/insights/jobs/{report_run_id}/ingest",
+    response_model=MetaInsightsAsyncJobIngestResponse,
+    summary="Ingest Meta async insights job results",
+    description="Downloads completed async insights results and stores each row as raw data.",
+)
+async def ingest_meta_insights_job_results(
+    report_run_id: str,
+    payload: MetaInsightsAsyncJobIngestRequest,
+    sync_service: MarketingSyncServiceDep,
+) -> MetaInsightsAsyncJobIngestResponse:
+    try:
+        return await sync_service.ingest_insights_async_job_results(
+            report_run_id=report_run_id,
+            request=payload,
+        )
     except MetaConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

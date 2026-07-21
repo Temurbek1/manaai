@@ -110,6 +110,73 @@ class MetaMarketingClient:
             },
         )
 
+    async def create_insights_async_job(
+        self,
+        *,
+        account_id: str,
+        level: MetaInsightLevel,
+        date_start: date,
+        date_stop: date,
+        fields: list[str] | None = None,
+        breakdowns: list[str] | None = None,
+        action_breakdowns: list[str] | None = None,
+        time_increment: int | str = 1,
+    ) -> dict[str, JsonValue]:
+        params: dict[str, str] = {
+            "fields": ",".join(fields or self._settings.meta_insights_fields),
+            "level": level,
+            "time_increment": str(time_increment),
+            "time_range": json.dumps(
+                {
+                    "since": date_start.isoformat(),
+                    "until": date_stop.isoformat(),
+                },
+                separators=(",", ":"),
+            ),
+            "action_attribution_windows": json.dumps(
+                self._settings.meta_action_attribution_windows,
+                separators=(",", ":"),
+            ),
+            "async": "true",
+        }
+        if breakdowns:
+            params["breakdowns"] = ",".join(breakdowns)
+        if action_breakdowns:
+            params["action_breakdowns"] = ",".join(action_breakdowns)
+
+        return await self._post_json(
+            f"{normalize_ad_account_id(account_id)}/insights",
+            params=params,
+        )
+
+    async def fetch_insights_async_job_status(
+        self,
+        report_run_id: str,
+    ) -> dict[str, JsonValue]:
+        return await self._get_object(
+            report_run_id,
+            fields=[
+                "id",
+                "async_status",
+                "async_percent_completion",
+                "date_start",
+                "date_stop",
+            ],
+        )
+
+    async def fetch_insights_async_job_results(
+        self,
+        *,
+        report_run_id: str,
+        fields: list[str] | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, JsonValue]]:
+        params = {
+            "fields": ",".join(fields or self._settings.meta_insights_fields),
+            "limit": str(limit or self._settings.meta_page_limit),
+        }
+        return await self._get_paginated(f"{report_run_id}/insights", params=params)
+
     async def _get_object(
         self,
         path: str,
@@ -170,6 +237,20 @@ class MetaMarketingClient:
         }
         async with httpx.AsyncClient(timeout=self._settings.meta_request_timeout_seconds) as client:
             response = await client.get(self._build_url(path), params=request_params)
+        return self._parse_response(response)
+
+    async def _post_json(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, str],
+    ) -> dict[str, JsonValue]:
+        request_params = {
+            **dict(params),
+            "access_token": self._get_access_token(),
+        }
+        async with httpx.AsyncClient(timeout=self._settings.meta_request_timeout_seconds) as client:
+            response = await client.post(self._build_url(path), data=request_params)
         return self._parse_response(response)
 
     def _parse_response(self, response: httpx.Response) -> dict[str, JsonValue]:
