@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
 from app.schemas.marketing import (
@@ -7,9 +8,18 @@ from app.schemas.marketing import (
     MarketingPattern,
     MarketingPatternsRequest,
     MarketingPatternsResponse,
+    RawMarketingRecord,
 )
 from app.services.marketing_metrics import MarketingMetricsBuilder
+from app.services.marketing_payload import json_str, nested_id
 from app.services.marketing_repository import MarketingRepository
+
+
+@dataclass(frozen=True)
+class CreativePerformanceContext:
+    ad_to_creative_id: dict[str, str]
+    creative_names: dict[str, str]
+    creative_record_ids: dict[str, str]
 
 
 class MarketingPatternService:
@@ -31,19 +41,27 @@ class MarketingPatternService:
             limit=request.max_records,
             offset=0,
         )
+        structure_records, _ = await self._repository.list_raw_records(
+            account_ids=request.account_ids,
+            entity_types=["ad", "creative"],
+            limit=request.max_records,
+            offset=0,
+        )
         rows = self._metrics_builder.build_rows(records)
         summary = self._metrics_builder.summarize(rows)
         patterns = detect_marketing_patterns(
             rows=rows,
             summary=summary,
+            creative_context=build_creative_performance_context(structure_records),
             max_patterns=request.max_patterns,
             min_spend=request.min_spend,
             spend_concentration_threshold=request.spend_concentration_threshold,
             outlier_multiplier=request.outlier_multiplier,
         )
+        source_record_ids = {record.id for record in [*records, *structure_records]}
         return MarketingPatternsResponse(
             generated_at=datetime.now(UTC),
-            source_record_count=len(records),
+            source_record_count=len(source_record_ids),
             kpi_summary=summary,
             patterns=patterns,
         )
@@ -53,6 +71,7 @@ def detect_marketing_patterns(
     *,
     rows: list[MarketingKpiRow],
     summary: MarketingKpiSummary,
+    creative_context: CreativePerformanceContext | None = None,
     max_patterns: int,
     min_spend: float,
     spend_concentration_threshold: float,
@@ -138,10 +157,48 @@ def detect_marketing_patterns(
             min_spend=min_spend,
         ),
     )
+    if creative_context is not None:
+        patterns.extend(
+            _creative_rollup_patterns(
+                rows=spend_rows,
+                summary=summary,
+                min_spend=min_spend,
+                creative_context=creative_context,
+            ),
+        )
     patterns.extend(_trend_patterns(rows=rows))
     patterns.extend(_data_quality_patterns(rows=rows))
 
     return sorted(patterns, key=_pattern_sort_key, reverse=True)[:max_patterns]
+
+
+def build_creative_performance_context(
+    records: list[RawMarketingRecord],
+) -> CreativePerformanceContext:
+    ad_to_creative_id: dict[str, str] = {}
+    creative_names: dict[str, str] = {}
+    creative_record_ids: dict[str, str] = {}
+
+    for record in records:
+        payload = record.payload
+        if record.entity_type == "ad":
+            ad_id = json_str(payload.get("id")) or record.provider_record_id
+            creative_id = nested_id(payload.get("creative")) or json_str(payload.get("creative_id"))
+            if ad_id is not None and creative_id is not None and ad_id not in ad_to_creative_id:
+                ad_to_creative_id[ad_id] = creative_id
+
+        if record.entity_type == "creative":
+            creative_id = json_str(payload.get("id")) or record.provider_record_id
+            if creative_id is None:
+                continue
+            creative_names.setdefault(creative_id, _creative_label(record=record))
+            creative_record_ids.setdefault(creative_id, record.id)
+
+    return CreativePerformanceContext(
+        ad_to_creative_id=ad_to_creative_id,
+        creative_names=creative_names,
+        creative_record_ids=creative_record_ids,
+    )
 
 
 def _wasted_spend_patterns(
@@ -394,6 +451,111 @@ def _dimension_segment_patterns(
     return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
 
 
+def _creative_rollup_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    summary: MarketingKpiSummary,
+    min_spend: float,
+    creative_context: CreativePerformanceContext,
+) -> list[MarketingPattern]:
+    if not creative_context.ad_to_creative_id:
+        return []
+
+    grouped: dict[str, list[MarketingKpiRow]] = defaultdict(list)
+    for row in rows:
+        if row.level != "ad" or row.entity_id is None:
+            continue
+        creative_id = creative_context.ad_to_creative_id.get(row.entity_id)
+        if creative_id is not None:
+            grouped[creative_id].append(row)
+
+    if not grouped:
+        return []
+
+    spend_floor = max(min_spend, summary.total_spend * 0.05)
+    patterns: list[MarketingPattern] = []
+    for creative_id, creative_rows in grouped.items():
+        creative_summary = _aggregate_rows(creative_rows)
+        if creative_summary.total_spend < spend_floor:
+            continue
+
+        evidence_record_ids = _creative_evidence_record_ids(
+            creative_id=creative_id,
+            rows=creative_rows,
+            creative_context=creative_context,
+        )
+        creative_name = creative_context.creative_names.get(creative_id) or creative_id
+        dimensions = {"creative_id": creative_id}
+
+        if creative_summary.total_conversions == 0 and creative_summary.total_clicks > 0:
+            patterns.append(
+                MarketingPattern(
+                    type="creative_waste",
+                    direction="negative",
+                    title="Creative rollup spends without tracked conversions",
+                    explanation=(
+                        f"Creative {creative_name} is mapped to {len(creative_rows)} ad KPI "
+                        f"row(s), spent {creative_summary.total_spend:.2f}, and generated "
+                        f"{creative_summary.total_clicks} clicks without tracked conversions."
+                    ),
+                    entity_id=creative_id,
+                    entity_name=creative_name,
+                    level="creative",
+                    metric="creative_spend_without_conversions",
+                    value=creative_summary.total_spend,
+                    benchmark=spend_floor,
+                    confidence="high" if len(creative_rows) > 1 else "medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={creative_id}.",
+                        "Inspect the ads mapped to this creative before pausing it.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+        efficient_cpa = (
+            summary.cpa is not None
+            and creative_summary.cpa is not None
+            and creative_summary.cpa <= summary.cpa * 0.7
+        )
+        efficient_roas = (
+            summary.roas is not None
+            and creative_summary.roas is not None
+            and creative_summary.roas >= summary.roas * 1.3
+        )
+        if creative_summary.total_conversions > 0 and (efficient_cpa or efficient_roas):
+            metric = "creative_cpa" if efficient_cpa else "creative_roas"
+            value = creative_summary.cpa if efficient_cpa else creative_summary.roas
+            benchmark = summary.cpa if efficient_cpa else summary.roas
+            patterns.append(
+                MarketingPattern(
+                    type="creative_efficiency_opportunity",
+                    direction="positive",
+                    title="Creative rollup is more efficient than average",
+                    explanation=(
+                        f"Creative {creative_name} is mapped to {len(creative_rows)} ad KPI "
+                        "row(s) and has stronger efficiency than the selected average."
+                    ),
+                    entity_id=creative_id,
+                    entity_name=creative_name,
+                    level="creative",
+                    metric=metric,
+                    value=value,
+                    benchmark=benchmark,
+                    confidence="medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={creative_id}.",
+                        "Compare delivery volume, placement mix, and sibling ads before scaling.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
+
+
 def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:
     by_date: dict[date, list[MarketingKpiRow]] = defaultdict(list)
     for row in rows:
@@ -506,6 +668,34 @@ def _data_quality_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern
             dimensions={},
         ),
     ]
+
+
+def _creative_evidence_record_ids(
+    *,
+    creative_id: str,
+    rows: list[MarketingKpiRow],
+    creative_context: CreativePerformanceContext,
+) -> list[str]:
+    evidence_record_ids: list[str] = []
+    creative_record_id = creative_context.creative_record_ids.get(creative_id)
+    if creative_record_id is not None:
+        evidence_record_ids.append(creative_record_id)
+
+    for row in rows:
+        if row.record_id not in evidence_record_ids:
+            evidence_record_ids.append(row.record_id)
+        if len(evidence_record_ids) >= 20:
+            break
+
+    return evidence_record_ids
+
+
+def _creative_label(*, record: RawMarketingRecord) -> str:
+    for key in ("name", "title", "body"):
+        value = json_str(record.payload.get(key))
+        if value is not None:
+            return value
+    return record.provider_record_id or record.id
 
 
 def _aggregate_rows(rows: list[MarketingKpiRow]) -> MarketingKpiSummary:

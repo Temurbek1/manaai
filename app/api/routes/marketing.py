@@ -340,8 +340,9 @@ async def build_marketing_graph(
     response_model=MarketingPatternsResponse,
     summary="Detect deterministic marketing patterns",
     description=(
-        "Builds KPI rows from stored raw insights and returns deterministic patterns before "
-        "any AI interpretation."
+        "Builds KPI rows from stored raw insights, enriches ad rows with stored creative "
+        "relationships when available, and returns deterministic patterns before any AI "
+        "interpretation."
     ),
 )
 async def detect_marketing_patterns(

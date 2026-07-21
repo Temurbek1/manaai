@@ -12,6 +12,7 @@ from app.schemas.marketing import (
     MarketingGraphResponse,
     RawMarketingRecord,
 )
+from app.services.marketing_payload import json_str, nested_id, nested_name
 from app.services.marketing_repository import MarketingRepository
 
 
@@ -117,7 +118,7 @@ class _MarketingGraphBuilder:
         payload = record.payload
 
         if record.entity_type == "ad_account":
-            business_id = _nested_id(payload.get("business"))
+            business_id = nested_id(payload.get("business"))
             if business_id:
                 business_node_id = _node_id("business", business_id)
                 self._upsert_node(
@@ -137,7 +138,7 @@ class _MarketingGraphBuilder:
                 )
 
         if record.entity_type == "pixel":
-            business_id = _nested_id(payload.get("owner_business")) or record.parent_id
+            business_id = nested_id(payload.get("owner_business")) or record.parent_id
             if business_id:
                 self._edge_from_parent(
                     parent_type="business",
@@ -159,7 +160,7 @@ class _MarketingGraphBuilder:
                 )
 
         if record.entity_type == "adset":
-            campaign_id = _json_str(payload.get("campaign_id")) or record.parent_id
+            campaign_id = json_str(payload.get("campaign_id")) or record.parent_id
             if campaign_id:
                 self._edge_from_parent(
                     parent_type="campaign",
@@ -171,8 +172,8 @@ class _MarketingGraphBuilder:
             self._add_adset_targeting_edges(record=record, node_id=node_id)
 
         if record.entity_type == "ad":
-            adset_id = _json_str(payload.get("adset_id")) or record.parent_id
-            campaign_id = _json_str(payload.get("campaign_id"))
+            adset_id = json_str(payload.get("adset_id")) or record.parent_id
+            campaign_id = json_str(payload.get("campaign_id"))
             if adset_id:
                 self._edge_from_parent(
                     parent_type="adset",
@@ -190,7 +191,7 @@ class _MarketingGraphBuilder:
                     edge_type="contains",
                 )
 
-            creative_id = _nested_id(payload.get("creative"))
+            creative_id = nested_id(payload.get("creative"))
             if creative_id:
                 creative_node_id = _node_id("creative", creative_id)
                 self._upsert_node(
@@ -227,11 +228,11 @@ class _MarketingGraphBuilder:
             return
 
         for audience in _targeting_custom_audiences(targeting):
-            audience_id = _nested_id(audience)
+            audience_id = nested_id(audience)
             if audience_id is None:
                 continue
             audience_node_id = _node_id("custom_audience", audience_id)
-            audience_name = _nested_name(audience) or audience_id
+            audience_name = nested_name(audience) or audience_id
             self._upsert_node(
                 node_id=audience_node_id,
                 node_type="custom_audience",
@@ -346,7 +347,7 @@ def _dedupe_records(records: list[RawMarketingRecord]) -> list[RawMarketingRecor
 
 
 def _record_label(record: RawMarketingRecord) -> str:
-    name = _json_str(record.payload.get("name")) or _entity_name(record.payload)
+    name = json_str(record.payload.get("name")) or _entity_name(record.payload)
     return name or record.provider_record_id or record.id
 
 
@@ -405,7 +406,7 @@ def _node_id(entity_type: str, provider_id: str) -> str:
 
 
 def _payload_id(payload: dict[str, JsonValue]) -> str | None:
-    return _json_str(payload.get("id"))
+    return json_str(payload.get("id"))
 
 
 def _entity_name(payload: dict[str, JsonValue]) -> str | None:
@@ -423,7 +424,7 @@ def _insight_parent(payload: dict[str, JsonValue]) -> tuple[MarketingEntityType,
         ("campaign", "campaign_id"),
         ("ad_account", "account_id"),
     ]:
-        value = _json_str(payload.get(key))
+        value = json_str(payload.get(key))
         if value:
             return cast(MarketingEntityType, entity_type), value
     return None
@@ -435,7 +436,7 @@ def _custom_conversion_pixel_id(payload: dict[str, JsonValue]) -> str | None:
         pixel_id = pixel.get("id")
         if pixel_id is not None:
             return str(pixel_id)
-    return _json_str(payload.get("pixel_id"))
+    return json_str(payload.get("pixel_id"))
 
 
 def _targeting_custom_audiences(targeting: dict[str, JsonValue]) -> list[JsonValue]:
@@ -445,21 +446,3 @@ def _targeting_custom_audiences(targeting: dict[str, JsonValue]) -> list[JsonVal
         if isinstance(value, list):
             result.extend(item for item in value if isinstance(item, dict))
     return result
-
-
-def _nested_id(value: JsonValue | None) -> str | None:
-    if isinstance(value, dict):
-        nested = value.get("id")
-        return str(nested) if nested is not None else None
-    return None
-
-
-def _nested_name(value: JsonValue | None) -> str | None:
-    if isinstance(value, dict):
-        name = value.get("name")
-        return str(name) if name is not None else None
-    return None
-
-
-def _json_str(value: JsonValue | None) -> str | None:
-    return str(value) if value is not None else None

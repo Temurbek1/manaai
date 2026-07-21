@@ -360,6 +360,124 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_creative_rollup_waste(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "creative",
+                        "provider_record_id": "creative-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "creative-1",
+                            "name": "Variant A",
+                            "title": "Variant A headline",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "ad-1",
+                            "name": "Ad 1",
+                            "creative": {"id": "creative-1"},
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-2",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "ad-2",
+                            "name": "Ad 2",
+                            "creative": {"id": "creative-1"},
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-1",
+                            "ad_name": "Ad 1",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "80",
+                            "impressions": "8000",
+                            "clicks": "160",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-2",
+                            "ad_name": "Ad 2",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "40",
+                            "impressions": "4000",
+                            "clicks": "80",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-control",
+                            "ad_name": "Control ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "40",
+                            "impressions": "6000",
+                            "clicks": "100",
+                            "actions": [{"action_type": "lead", "value": "4"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["source_record_count"] == 6
+    creative_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "creative_waste"
+    )
+    assert creative_pattern["entity_id"] == "creative-1"
+    assert creative_pattern["entity_name"] == "Variant A"
+    assert creative_pattern["level"] == "creative"
+    assert creative_pattern["value"] == 120
+    assert creative_pattern["dimensions"] == {"creative_id": "creative-1"}
+    assert len(creative_pattern["evidence_record_ids"]) == 3
+    get_settings.cache_clear()
+
+
 async def test_marketing_graph_endpoint_builds_entity_edges(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
