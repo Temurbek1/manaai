@@ -11,6 +11,7 @@ from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_metrics import MarketingMetricsBuilder
 from app.services.marketing_pattern_service import MarketingPatternService
+from app.services.marketing_report_service import MarketingReportService
 from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_sync_service import MarketingSyncService
 from app.services.meta_marketing_client import MetaMarketingClient
@@ -42,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         metrics_builder=metrics_builder,
     )
     app.state.marketing_graph_service = MarketingGraphService(repository=marketing_repository)
+    app.state.marketing_report_service = MarketingReportService(repository=marketing_repository)
     app.state.marketing_analysis_service = MarketingAnalysisService(
         repository=marketing_repository,
         metrics_builder=metrics_builder,

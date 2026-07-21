@@ -475,3 +475,11 @@ class MarketingAnalysisReportListResponse(BaseModel):
     limit: int
     offset: int
     reports: list[MarketingAnalysisReportSummary]
+
+
+class MarketingAnalysisEvidenceBundleResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    report: MarketingAnalysisResponse
+    raw_records: list[RawMarketingRecord]
+    missing_record_ids: list[str] = Field(default_factory=list)

@@ -109,6 +109,11 @@ is the audit path from a deterministic pattern back to source payloads: take a
 pattern's `dimensions` or `evidence_record_ids`, search raw storage, and inspect
 the original JSON without rerunning Meta collection or AI inference.
 
+Saved analysis reports also expose an evidence bundle endpoint. It returns the
+typed report with every raw record referenced by `source_record_ids`, KPI rows,
+deterministic patterns, and graph nodes/edges, plus `missing_record_ids` when an
+older report references raw data that is no longer present.
+
 ## Deterministic Metrics
 
 Before using AI, the backend computes deterministic KPI rows from raw insights:
@@ -189,4 +194,5 @@ isolated metric.
 7. Add async insights job contracts for large report pulls.
 8. Add API routes and Swagger descriptions.
 9. Add tests with fakes; tests must never call Meta or OpenAI.
-10. Persist and expose generated analysis reports for audit/reuse.
+10. Persist generated analysis reports for audit/reuse.
+11. Expose saved report evidence bundles for raw-data audit workflows.

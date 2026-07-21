@@ -38,6 +38,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `POST /api/v1/marketing/analyze` - KPI + структурированный AI отчет
 - `GET /api/v1/marketing/reports` - список сохраненных AI отчетов
 - `GET /api/v1/marketing/reports/{report_id}` - чтение сохраненного typed AI отчета
+- `GET /api/v1/marketing/reports/{report_id}/evidence` - отчет + raw evidence bundle
 
 Пример:
 
@@ -275,7 +276,10 @@ curl -X POST http://localhost:8000/api/v1/marketing/analyze \
 ```bash
 curl http://localhost:8000/api/v1/marketing/reports
 curl http://localhost:8000/api/v1/marketing/reports/{report_id}
+curl http://localhost:8000/api/v1/marketing/reports/{report_id}/evidence
 ```
+
+Evidence bundle возвращает сохраненный `report`, все найденные `raw_records`, на которые ссылаются `source_record_ids`, KPI rows, patterns и graph, плюс `missing_record_ids` для старых/неполных переносов.
 
 ## Прод-распаковка на сервере
 

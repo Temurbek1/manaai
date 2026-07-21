@@ -5,6 +5,7 @@ from fastapi import Depends, Request
 from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_pattern_service import MarketingPatternService
+from app.services.marketing_report_service import MarketingReportService
 from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_sync_service import MarketingSyncService
 from app.services.openai_service import OpenAIService
@@ -34,6 +35,10 @@ def get_marketing_graph_service(request: Request) -> MarketingGraphService:
     return cast(MarketingGraphService, request.app.state.marketing_graph_service)
 
 
+def get_marketing_report_service(request: Request) -> MarketingReportService:
+    return cast(MarketingReportService, request.app.state.marketing_report_service)
+
+
 OpenAIServiceDep = Annotated[OpenAIService, Depends(get_openai_service)]
 MarketingRepositoryDep = Annotated[MarketingRepository, Depends(get_marketing_repository)]
 MarketingSyncServiceDep = Annotated[MarketingSyncService, Depends(get_marketing_sync_service)]
@@ -48,4 +53,8 @@ MarketingPatternServiceDep = Annotated[
 MarketingGraphServiceDep = Annotated[
     MarketingGraphService,
     Depends(get_marketing_graph_service),
+]
+MarketingReportServiceDep = Annotated[
+    MarketingReportService,
+    Depends(get_marketing_report_service),
 ]

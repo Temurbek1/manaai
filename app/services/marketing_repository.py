@@ -61,6 +61,12 @@ class MarketingRepository:
             offset,
         )
 
+    async def get_raw_records_by_ids(
+        self,
+        record_ids: Sequence[str],
+    ) -> list[RawMarketingRecord]:
+        return await asyncio.to_thread(self._get_raw_records_by_ids_sync, record_ids)
+
     async def save_analysis_report(
         self,
         *,
@@ -242,6 +248,31 @@ class MarketingRepository:
 
         return [_raw_record_from_row(row) for row in rows], total
 
+    def _get_raw_records_by_ids_sync(
+        self,
+        record_ids: Sequence[str],
+    ) -> list[RawMarketingRecord]:
+        ordered_ids = _unique_ordered(record_ids)
+        if not ordered_ids:
+            return []
+
+        records_by_id: dict[str, RawMarketingRecord] = {}
+        with self._connect() as connection:
+            for chunk in _chunks(ordered_ids, size=500):
+                rows = connection.execute(
+                    f"""
+                    SELECT *
+                    FROM marketing_raw_records
+                    WHERE id IN ({_placeholders(len(chunk))})
+                    """,
+                    chunk,
+                ).fetchall()
+                for row in rows:
+                    raw_record = _raw_record_from_row(row)
+                    records_by_id[raw_record.id] = raw_record
+
+        return [records_by_id[record_id] for record_id in ordered_ids if record_id in records_by_id]
+
     def _save_analysis_report_sync(
         self,
         request: MarketingAnalysisRequest,
@@ -421,3 +452,18 @@ def _validate_payload_filter_key(key: str) -> None:
 
 def _placeholders(count: int) -> str:
     return ",".join("?" for _ in range(count))
+
+
+def _unique_ordered(values: Sequence[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _chunks(values: Sequence[str], *, size: int) -> list[list[str]]:
+    return [list(values[index : index + size]) for index in range(0, len(values), size)]

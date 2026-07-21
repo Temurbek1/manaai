@@ -15,6 +15,7 @@ from app.schemas.marketing import (
     MarketingFinding,
     MarketingGraphResponse,
     MarketingKpiSummary,
+    MarketingPattern,
     MetaInsightLevel,
     MetaInsightsAsyncJobIngestRequest,
     MetaInsightsAsyncJobRequest,
@@ -736,6 +737,94 @@ async def test_marketing_reports_endpoints_return_saved_analysis_reports(
     assert list_response.json()["reports"][0]["report_id"] == "api-report-1"
     assert detail_response.status_code == 200
     assert detail_response.json()["report"]["executive_summary"] == "Saved API report."
+    assert missing_response.status_code == 404
+    get_settings.cache_clear()
+
+
+async def test_marketing_report_evidence_endpoint_returns_referenced_raw_records(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        repository = cast(MarketingRepository, app.state.marketing_repository)
+        inserted = await repository.insert_raw_records(
+            [
+                RawMarketingRecordInput(
+                    source="manual_upload",
+                    entity_type="insight",
+                    account_id="act_100",
+                    payload={
+                        "_meta_level": "ad",
+                        "ad_id": "ad-1",
+                        "spend": "25",
+                        "clicks": "50",
+                    },
+                ),
+                RawMarketingRecordInput(
+                    source="manual_upload",
+                    entity_type="creative",
+                    provider_record_id="creative-1",
+                    account_id="act_100",
+                    payload={"id": "creative-1", "name": "Creative"},
+                ),
+            ],
+        )
+        saved_report = _make_marketing_analysis_response(
+            report_id="api-report-evidence-1",
+            executive_summary="Saved API report with evidence.",
+        ).model_copy(
+            update={
+                "source_record_count": 2,
+                "source_record_ids": [inserted[0].id],
+                "patterns": [
+                    MarketingPattern(
+                        type="creative_waste",
+                        direction="negative",
+                        title="Creative has waste",
+                        explanation="Creative evidence is stored for audit.",
+                        entity_id="creative-1",
+                        entity_name="Creative",
+                        level="creative",
+                        metric="creative_spend_without_conversions",
+                        value=25,
+                        benchmark=1,
+                        confidence="high",
+                        evidence_record_ids=[inserted[1].id, "missing-record-id"],
+                        suggested_raw_queries=[
+                            "Search raw records by provider_record_id=creative-1.",
+                        ],
+                        dimensions={"creative_id": "creative-1"},
+                    ),
+                ],
+            },
+        )
+        await repository.save_analysis_report(
+            request=MarketingAnalysisRequest(question="Expose evidence bundle"),
+            response=saved_report,
+        )
+
+        bundle_response = await client.get(
+            "/api/v1/marketing/reports/api-report-evidence-1/evidence",
+        )
+        missing_response = await client.get(
+            "/api/v1/marketing/reports/missing-report/evidence",
+        )
+
+    assert bundle_response.status_code == 200
+    body = bundle_response.json()
+    assert body["report"]["report_id"] == "api-report-evidence-1"
+    assert [record["id"] for record in body["raw_records"]] == [
+        inserted[0].id,
+        inserted[1].id,
+    ]
+    assert body["missing_record_ids"] == ["missing-record-id"]
+    assert body["raw_records"][1]["payload"]["name"] == "Creative"
     assert missing_response.status_code == 404
     get_settings.cache_clear()
 

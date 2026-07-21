@@ -6,11 +6,13 @@ from app.api.dependencies import (
     MarketingAnalysisServiceDep,
     MarketingGraphServiceDep,
     MarketingPatternServiceDep,
+    MarketingReportServiceDep,
     MarketingRepositoryDep,
     MarketingSyncServiceDep,
 )
 from app.core.config import Settings
 from app.schemas.marketing import (
+    MarketingAnalysisEvidenceBundleResponse,
     MarketingAnalysisReportListResponse,
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
@@ -286,11 +288,11 @@ async def analyze_marketing(
     description="Lists saved AI/deterministic marketing analysis reports for audit and reuse.",
 )
 async def list_marketing_reports(
-    repository: MarketingRepositoryDep,
+    report_service: MarketingReportServiceDep,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> MarketingAnalysisReportListResponse:
-    reports, total = await repository.list_analysis_reports(limit=limit, offset=offset)
+    reports, total = await report_service.list_reports(limit=limit, offset=offset)
     return MarketingAnalysisReportListResponse(
         total=total,
         limit=limit,
@@ -307,15 +309,37 @@ async def list_marketing_reports(
 )
 async def get_marketing_report(
     report_id: str,
-    repository: MarketingRepositoryDep,
+    report_service: MarketingReportServiceDep,
 ) -> MarketingAnalysisResponse:
-    report = await repository.get_analysis_report(report_id)
+    report = await report_service.get_report(report_id)
     if report is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Marketing analysis report was not found",
         )
     return report
+
+
+@router.get(
+    "/reports/{report_id}/evidence",
+    response_model=MarketingAnalysisEvidenceBundleResponse,
+    summary="Get saved marketing report evidence bundle",
+    description=(
+        "Returns one saved marketing analysis report with every stored raw record referenced "
+        "by its source ids, KPI rows, deterministic patterns, and entity graph."
+    ),
+)
+async def get_marketing_report_evidence(
+    report_id: str,
+    report_service: MarketingReportServiceDep,
+) -> MarketingAnalysisEvidenceBundleResponse:
+    bundle = await report_service.build_evidence_bundle(report_id)
+    if bundle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Marketing analysis report was not found",
+        )
+    return bundle
 
 
 @router.post(
