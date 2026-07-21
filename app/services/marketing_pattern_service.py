@@ -131,6 +131,13 @@ def detect_marketing_patterns(
             outlier_multiplier=outlier_multiplier,
         ),
     )
+    patterns.extend(
+        _dimension_segment_patterns(
+            rows=spend_rows,
+            summary=summary,
+            min_spend=min_spend,
+        ),
+    )
     patterns.extend(_trend_patterns(rows=rows))
     patterns.extend(_data_quality_patterns(rows=rows))
 
@@ -293,6 +300,98 @@ def _engagement_outlier_patterns(
         )
         for row in sorted(candidates, key=lambda item: item.spend, reverse=True)[:5]
     ]
+
+
+def _dimension_segment_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    summary: MarketingKpiSummary,
+    min_spend: float,
+) -> list[MarketingPattern]:
+    grouped: dict[tuple[str, str], list[MarketingKpiRow]] = defaultdict(list)
+    for row in rows:
+        for dimension_key, dimension_value in row.dimensions.items():
+            grouped[(dimension_key, dimension_value)].append(row)
+
+    if not grouped:
+        return []
+
+    spend_floor = max(min_spend, summary.total_spend * 0.05)
+    patterns: list[MarketingPattern] = []
+    for (dimension_key, dimension_value), segment_rows in grouped.items():
+        segment_summary = _aggregate_rows(segment_rows)
+        if segment_summary.total_spend < spend_floor:
+            continue
+
+        dimensions = {dimension_key: dimension_value}
+        evidence_record_ids = [row.record_id for row in segment_rows[:20]]
+        if segment_summary.total_conversions == 0 and segment_summary.total_clicks > 0:
+            patterns.append(
+                MarketingPattern(
+                    type="segment_waste",
+                    direction="negative",
+                    title="Breakdown segment spends without tracked conversions",
+                    explanation=(
+                        f"Segment {dimension_key}={dimension_value} spent "
+                        f"{segment_summary.total_spend:.2f} and generated "
+                        f"{segment_summary.total_clicks} clicks without tracked conversions."
+                    ),
+                    entity_id=None,
+                    entity_name=f"{dimension_key}={dimension_value}",
+                    level="segment",
+                    metric="segment_spend_without_conversions",
+                    value=segment_summary.total_spend,
+                    benchmark=spend_floor,
+                    confidence="high" if len(segment_rows) > 1 else "medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Filter raw insights where {dimension_key}={dimension_value}.",
+                        "Compare the same segment by campaign, ad set, ad, and creative.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+        efficient_cpa = (
+            summary.cpa is not None
+            and segment_summary.cpa is not None
+            and segment_summary.cpa <= summary.cpa * 0.7
+        )
+        efficient_roas = (
+            summary.roas is not None
+            and segment_summary.roas is not None
+            and segment_summary.roas >= summary.roas * 1.3
+        )
+        if segment_summary.total_conversions > 0 and (efficient_cpa or efficient_roas):
+            metric = "segment_cpa" if efficient_cpa else "segment_roas"
+            value = segment_summary.cpa if efficient_cpa else segment_summary.roas
+            benchmark = summary.cpa if efficient_cpa else summary.roas
+            patterns.append(
+                MarketingPattern(
+                    type="segment_efficiency_opportunity",
+                    direction="positive",
+                    title="Breakdown segment is more efficient than average",
+                    explanation=(
+                        f"Segment {dimension_key}={dimension_value} has stronger efficiency "
+                        "than the selected average and should be checked for scalable volume."
+                    ),
+                    entity_id=None,
+                    entity_name=f"{dimension_key}={dimension_value}",
+                    level="segment",
+                    metric=metric,
+                    value=value,
+                    benchmark=benchmark,
+                    confidence="medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Filter raw insights where {dimension_key}={dimension_value}.",
+                        "Check frequency, audience saturation, and creative mix before scaling.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
 
 
 def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:

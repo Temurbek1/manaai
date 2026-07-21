@@ -121,12 +121,21 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - ROAS
 - dimensions extracted from known Meta insight breakdown fields, such as
   platform, placement, device, geography, demographic, product, and hourly slices
-- Deterministic patterns: spend concentration, wasted spend, efficiency opportunities, cost/engagement outliers, trend movements, and data quality gaps.
+- Deterministic patterns: spend concentration, wasted spend, efficiency
+  opportunities, cost/engagement outliers, segment waste/efficiency by
+  breakdown dimensions, trend movements, and data quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by
 default. Raw record ids remain attached to the response for audit and deeper
 follow-up analysis.
+
+Segment patterns aggregate KPI rows across the same dimension key/value, such as
+`publisher_platform=facebook` or `platform_position=feed`. This helps surface
+relationships that are weak or noisy at a single ad row level but clear after
+mixing raw breakdown rows across campaigns, ad sets, and ads. Every segment
+pattern still returns source record ids and the exact `dimensions` filter needed
+to inspect the underlying raw records.
 
 AI analysis responses are persisted as typed report snapshots. The saved report
 keeps the deterministic KPI summary, pattern list, entity graph, AI report, and

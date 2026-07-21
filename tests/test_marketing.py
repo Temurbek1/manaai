@@ -194,6 +194,23 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
                         "account_id": "act_100",
                         "payload": {
                             "_meta_level": "ad",
+                            "ad_id": "ad-waste-2",
+                            "ad_name": "Second expensive ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "25",
+                            "impressions": "2500",
+                            "clicks": "50",
+                            "publisher_platform": "facebook",
+                            "platform_position": "feed",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
                             "ad_id": "ad-efficient",
                             "ad_name": "Efficient ad",
                             "date_start": "2026-07-01",
@@ -202,6 +219,8 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
                             "impressions": "2000",
                             "clicks": "100",
                             "actions": [{"action_type": "lead", "value": "5"}],
+                            "publisher_platform": "instagram",
+                            "platform_position": "stories",
                         },
                     },
                 ],
@@ -215,8 +234,12 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
     assert ingest_response.status_code == 201
     assert pattern_response.status_code == 200
     body = pattern_response.json()
-    assert body["source_record_count"] == 2
+    assert body["source_record_count"] == 3
     assert "wasted_spend" in {pattern["type"] for pattern in body["patterns"]}
+    assert "segment_waste" in {pattern["type"] for pattern in body["patterns"]}
+    assert "segment_efficiency_opportunity" in {
+        pattern["type"] for pattern in body["patterns"]
+    }
     wasted_pattern = next(
         pattern for pattern in body["patterns"] if pattern["type"] == "wasted_spend"
     )
@@ -224,6 +247,12 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
         "platform_position": "feed",
         "publisher_platform": "facebook",
     }
+    assert any(
+        pattern["type"] == "segment_waste"
+        and pattern["value"] == 125
+        and pattern["dimensions"] == {"publisher_platform": "facebook"}
+        for pattern in body["patterns"]
+    )
     get_settings.cache_clear()
 
 

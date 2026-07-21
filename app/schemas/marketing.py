@@ -28,6 +28,8 @@ MarketingPatternType = Literal[
     "efficiency_opportunity",
     "cost_outlier",
     "engagement_outlier",
+    "segment_waste",
+    "segment_efficiency_opportunity",
     "trend",
     "data_quality",
 ]

@@ -224,7 +224,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/patterns \
   }'
 ```
 
-Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, простые тренды и data quality gaps. Это deterministic слой до AI, чтобы закономерности были проверяемыми.
+Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, простые тренды и data quality gaps. Это deterministic слой до AI, чтобы закономерности были проверяемыми.
 
 Граф связей между raw сущностями:
 
