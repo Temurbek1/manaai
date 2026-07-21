@@ -52,6 +52,36 @@ class Settings(BaseSettings):
     meta_request_timeout_seconds: float = Field(default=30.0, gt=0)
     meta_page_limit: int = Field(default=100, ge=1, le=500)
     meta_max_pages: int = Field(default=25, ge=1, le=500)
+    meta_business_fields: list[str] = Field(
+        default_factory=lambda: [
+            "id",
+            "name",
+        ],
+    )
+    meta_pixel_fields: list[str] = Field(
+        default_factory=lambda: [
+            "id",
+            "name",
+            "owner_business",
+            "last_fired_time",
+            "is_unavailable",
+        ],
+    )
+    meta_custom_conversion_fields: list[str] = Field(
+        default_factory=lambda: [
+            "id",
+            "name",
+            "description",
+            "custom_event_type",
+            "event_source_type",
+            "pixel",
+            "rule",
+            "default_conversion_value",
+            "creation_time",
+            "last_fired_time",
+            "is_archived",
+        ],
+    )
     meta_campaign_fields: list[str] = Field(
         default_factory=lambda: [
             "id",

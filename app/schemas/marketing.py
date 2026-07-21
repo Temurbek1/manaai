@@ -8,6 +8,8 @@ MarketingEntityType = Literal[
     "app",
     "business",
     "ad_account",
+    "pixel",
+    "custom_conversion",
     "campaign",
     "adset",
     "ad",

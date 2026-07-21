@@ -47,6 +47,9 @@ class MarketingSyncService:
                 ),
             )
 
+        if request.include_structure:
+            raw_inputs.extend(await self._fetch_business_assets(observed_at=collected_at))
+
         account_ids = await self._resolve_account_ids(request=request, raw_inputs=raw_inputs)
         if not account_ids:
             warnings.append("No Meta ad accounts were resolved from request or configuration.")
@@ -116,6 +119,8 @@ class MarketingSyncService:
                 ),
             )
 
+        raw_inputs.extend(await self._fetch_business_assets(observed_at=collected_at))
+
         ad_accounts = await self._meta_client.fetch_configured_ad_accounts()
         raw_inputs.extend(
             self._record_input(
@@ -127,6 +132,16 @@ class MarketingSyncService:
             )
             for payload in ad_accounts
         )
+        for payload in ad_accounts:
+            account_id = _payload_id(payload)
+            if account_id is None:
+                continue
+            raw_inputs.extend(
+                await self._fetch_custom_conversions(
+                    account_id=account_id,
+                    observed_at=collected_at,
+                ),
+            )
 
         inserted = await self._repository.insert_raw_records(raw_inputs) if raw_inputs else []
         counts = Counter(record.entity_type for record in inserted)
@@ -273,6 +288,7 @@ class MarketingSyncService:
         adsets = await self._meta_client.fetch_adsets(account_id)
         ads = await self._meta_client.fetch_ads(account_id)
         creatives = await self._meta_client.fetch_ad_creatives(account_id)
+        custom_conversions = await self._meta_client.fetch_custom_conversions(account_id)
 
         records: list[RawMarketingRecordInput] = []
         records.extend(
@@ -317,7 +333,77 @@ class MarketingSyncService:
             )
             for payload in creatives
         )
+        records.extend(
+            self._custom_conversion_record_input(
+                payload=payload,
+                account_id=account_id,
+                observed_at=observed_at,
+            )
+            for payload in custom_conversions
+        )
         return records
+
+    async def _fetch_business_assets(
+        self,
+        *,
+        observed_at: datetime,
+    ) -> list[RawMarketingRecordInput]:
+        business = await self._meta_client.fetch_business()
+        pixels = await self._meta_client.fetch_business_owned_pixels()
+
+        records: list[RawMarketingRecordInput] = []
+        if business is not None:
+            records.append(
+                self._record_input(
+                    entity_type="business",
+                    payload=business,
+                    provider_record_id=_payload_id(business),
+                    observed_at=observed_at,
+                ),
+            )
+        records.extend(
+            self._record_input(
+                entity_type="pixel",
+                payload=payload,
+                provider_record_id=_payload_id(payload),
+                parent_id=_payload_id(business) if business is not None else None,
+                observed_at=observed_at,
+            )
+            for payload in pixels
+        )
+        return records
+
+    async def _fetch_custom_conversions(
+        self,
+        *,
+        account_id: str,
+        observed_at: datetime,
+    ) -> list[RawMarketingRecordInput]:
+        custom_conversions = await self._meta_client.fetch_custom_conversions(account_id)
+        return [
+            self._custom_conversion_record_input(
+                payload=payload,
+                account_id=account_id,
+                observed_at=observed_at,
+            )
+            for payload in custom_conversions
+        ]
+
+    def _custom_conversion_record_input(
+        self,
+        *,
+        payload: dict[str, JsonValue],
+        account_id: str,
+        observed_at: datetime,
+    ) -> RawMarketingRecordInput:
+        return self._record_input(
+            entity_type="custom_conversion",
+            payload=payload,
+            provider_record_id=_payload_id(payload),
+            account_id=account_id,
+            parent_id=_custom_conversion_pixel_id(payload),
+            observed_at=observed_at,
+        )
 
     def _record_input(
         self,
@@ -348,6 +434,15 @@ def _payload_id(payload: dict[str, JsonValue]) -> str | None:
 def _payload_str(payload: dict[str, JsonValue], key: str) -> str | None:
     value = payload.get(key)
     return str(value) if value is not None else None
+
+
+def _custom_conversion_pixel_id(payload: dict[str, JsonValue]) -> str | None:
+    pixel = payload.get("pixel")
+    if isinstance(pixel, dict):
+        pixel_id = pixel.get("id")
+        if pixel_id is not None:
+            return str(pixel_id)
+    return _payload_str(payload, "pixel_id")
 
 
 def _payload_int(payload: dict[str, JsonValue], key: str) -> int | None:

@@ -38,6 +38,22 @@ class MetaMarketingClient:
             fields=["id", "name", "namespace", "category", "link", "app_domains"],
         )
 
+    async def fetch_business(self) -> dict[str, JsonValue] | None:
+        if not self._settings.meta_business_id:
+            return None
+        return await self._get_object(
+            self._settings.meta_business_id,
+            fields=self._settings.meta_business_fields,
+        )
+
+    async def fetch_business_owned_pixels(self) -> list[dict[str, JsonValue]]:
+        if not self._settings.meta_business_id:
+            return []
+        return await self._get_paginated(
+            f"{self._settings.meta_business_id}/owned_pixels",
+            params={"fields": ",".join(self._settings.meta_pixel_fields)},
+        )
+
     async def fetch_configured_ad_accounts(self) -> list[dict[str, JsonValue]]:
         if self._settings.meta_ad_account_ids:
             return [
@@ -86,6 +102,12 @@ class MetaMarketingClient:
         return await self._get_paginated(
             f"{normalize_ad_account_id(account_id)}/adcreatives",
             params={"fields": ",".join(self._settings.meta_creative_fields)},
+        )
+
+    async def fetch_custom_conversions(self, account_id: str) -> list[dict[str, JsonValue]]:
+        return await self._get_paginated(
+            f"{normalize_ad_account_id(account_id)}/customconversions",
+            params={"fields": ",".join(self._settings.meta_custom_conversion_fields)},
         )
 
     async def fetch_insights(

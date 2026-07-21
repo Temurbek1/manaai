@@ -275,6 +275,32 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
                     },
                     {
                         "source": "manual_upload",
+                        "entity_type": "pixel",
+                        "provider_record_id": "pixel-1",
+                        "parent_id": "business-1",
+                        "payload": {
+                            "id": "pixel-1",
+                            "name": "Website Pixel",
+                            "owner_business": {"id": "business-1"},
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "custom_conversion",
+                        "provider_record_id": "custom-conversion-1",
+                        "account_id": "act_100",
+                        "parent_id": "pixel-1",
+                        "payload": {
+                            "id": "custom-conversion-1",
+                            "name": "Purchase conversion",
+                            "custom_event_type": "PURCHASE",
+                            "event_source_type": "PIXEL",
+                            "pixel": {"id": "pixel-1"},
+                            "rule": {"event": {"eq": "Purchase"}},
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
                         "entity_type": "insight",
                         "account_id": "act_100",
                         "payload": {
@@ -301,10 +327,16 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
     assert ("campaign:campaign-1", "adset:adset-1", "contains") in edge_pairs
     assert ("adset:adset-1", "ad:ad-1", "contains") in edge_pairs
     assert ("ad:ad-1", "creative:creative-1", "created_from") in edge_pairs
+    assert ("business:business-1", "pixel:pixel-1", "owns") in edge_pairs
+    assert ("pixel:pixel-1", "custom_conversion:custom-conversion-1", "reports") in edge_pairs
     assert any(edge_type == "measures" for _, _, edge_type in edge_pairs)
     creative_node = next(node for node in body["nodes"] if node["id"] == "creative:creative-1")
     assert creative_node["attributes"]["title"] == "Creative headline"
     assert creative_node["attributes"]["call_to_action_type"] == "LEARN_MORE"
+    conversion_node = next(
+        node for node in body["nodes"] if node["id"] == "custom_conversion:custom-conversion-1"
+    )
+    assert conversion_node["attributes"]["custom_event_type"] == "PURCHASE"
     get_settings.cache_clear()
 
 
@@ -437,25 +469,31 @@ async def test_meta_sync_service_stores_structure_and_insights(
     )
     records, total = await repository.list_raw_records(limit=100)
 
-    assert response.inserted_count == 7
+    assert response.inserted_count == 10
     assert response.records_by_entity_type == {
         "ad": 1,
         "ad_account": 1,
         "adset": 1,
         "app": 1,
+        "business": 1,
         "campaign": 1,
         "creative": 1,
+        "custom_conversion": 1,
         "insight": 1,
+        "pixel": 1,
     }
-    assert total == 7
+    assert total == 10
     assert {record.entity_type for record in records} == {
         "ad",
         "ad_account",
         "adset",
         "app",
+        "business",
         "campaign",
         "creative",
+        "custom_conversion",
         "insight",
+        "pixel",
     }
     get_settings.cache_clear()
 
@@ -477,10 +515,22 @@ async def test_meta_discovery_service_stores_app_and_ad_accounts(
 
     assert response.app_collected is True
     assert response.ad_account_count == 1
-    assert response.inserted_count == 2
-    assert response.records_by_entity_type == {"ad_account": 1, "app": 1}
-    assert total == 2
-    assert {record.entity_type for record in records} == {"ad_account", "app"}
+    assert response.inserted_count == 5
+    assert response.records_by_entity_type == {
+        "ad_account": 1,
+        "app": 1,
+        "business": 1,
+        "custom_conversion": 1,
+        "pixel": 1,
+    }
+    assert total == 5
+    assert {record.entity_type for record in records} == {
+        "ad_account",
+        "app",
+        "business",
+        "custom_conversion",
+        "pixel",
+    }
     get_settings.cache_clear()
 
 
@@ -618,6 +668,18 @@ class FakeMetaMarketingClient:
     async def fetch_app(self) -> dict[str, object]:
         return {"id": "test-app", "name": "Test App"}
 
+    async def fetch_business(self) -> dict[str, object]:
+        return {"id": "business-1", "name": "Test Business"}
+
+    async def fetch_business_owned_pixels(self) -> list[dict[str, object]]:
+        return [
+            {
+                "id": "pixel-1",
+                "name": "Website Pixel",
+                "owner_business": {"id": "business-1"},
+            },
+        ]
+
     async def fetch_configured_ad_accounts(self) -> list[dict[str, object]]:
         return [{"id": "act_100", "name": "Test Account"}]
 
@@ -653,6 +715,18 @@ class FakeMetaMarketingClient:
                 "body": "Creative primary text",
                 "object_type": "SHARE",
                 "call_to_action_type": "LEARN_MORE",
+            },
+        ]
+
+    async def fetch_custom_conversions(self, account_id: str) -> list[dict[str, object]]:
+        return [
+            {
+                "id": "custom-conversion-1",
+                "name": f"Purchase conversion for {account_id}",
+                "custom_event_type": "PURCHASE",
+                "event_source_type": "PIXEL",
+                "pixel": {"id": "pixel-1"},
+                "rule": {"event": {"eq": "Purchase"}},
             },
         ]
 

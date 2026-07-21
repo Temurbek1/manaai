@@ -22,7 +22,17 @@ class MarketingGraphService:
     async def build(self, request: MarketingGraphRequest) -> MarketingGraphResponse:
         entity_types = request.entity_types
         if entity_types is None and not request.include_insights:
-            entity_types = ["app", "business", "ad_account", "campaign", "adset", "ad", "creative"]
+            entity_types = [
+                "app",
+                "business",
+                "ad_account",
+                "pixel",
+                "custom_conversion",
+                "campaign",
+                "adset",
+                "ad",
+                "creative",
+            ]
 
         records, _ = await self._repository.list_raw_records(
             account_ids=request.account_ids,
@@ -32,6 +42,15 @@ class MarketingGraphService:
             limit=request.max_records,
             offset=0,
         )
+        if request.account_ids and _should_include_global_assets(entity_types):
+            global_records, _ = await self._repository.list_raw_records(
+                entity_types=["business", "pixel"],
+                date_start=request.date_start,
+                date_stop=request.date_stop,
+                limit=request.max_records,
+                offset=0,
+            )
+            records = _dedupe_records([*records, *global_records])
         if not request.include_insights:
             records = [record for record in records if record.entity_type != "insight"]
 
@@ -114,6 +133,28 @@ class _MarketingGraphBuilder:
                     target_id=node_id,
                     edge_type="owns",
                     record_id=record.id,
+                )
+
+        if record.entity_type == "pixel":
+            business_id = _nested_id(payload.get("owner_business")) or record.parent_id
+            if business_id:
+                self._edge_from_parent(
+                    parent_type="business",
+                    parent_id=business_id,
+                    child_id=node_id,
+                    record=record,
+                    edge_type="owns",
+                )
+
+        if record.entity_type == "custom_conversion":
+            pixel_id = _custom_conversion_pixel_id(payload) or record.parent_id
+            if pixel_id:
+                self._edge_from_parent(
+                    parent_type="pixel",
+                    parent_id=pixel_id,
+                    child_id=node_id,
+                    record=record,
+                    edge_type="reports",
                 )
 
         if record.entity_type == "adset":
@@ -260,6 +301,21 @@ def _record_entity_id(record: RawMarketingRecord) -> str:
     return record.provider_record_id or _payload_id(record.payload) or record.id
 
 
+def _should_include_global_assets(entity_types: list[MarketingEntityType] | None) -> bool:
+    return entity_types is None or bool({"business", "pixel"} & set(entity_types))
+
+
+def _dedupe_records(records: list[RawMarketingRecord]) -> list[RawMarketingRecord]:
+    deduped: list[RawMarketingRecord] = []
+    seen: set[str] = set()
+    for record in records:
+        if record.id in seen:
+            continue
+        seen.add(record.id)
+        deduped.append(record)
+    return deduped
+
+
 def _record_label(record: RawMarketingRecord) -> str:
     name = _json_str(record.payload.get("name")) or _entity_name(record.payload)
     return name or record.provider_record_id or record.id
@@ -288,6 +344,17 @@ def _record_attributes(record: RawMarketingRecord) -> dict[str, JsonValue]:
         "object_story_spec",
         "asset_feed_spec",
         "instagram_permalink_url",
+        "description",
+        "custom_event_type",
+        "event_source_type",
+        "pixel",
+        "rule",
+        "default_conversion_value",
+        "creation_time",
+        "last_fired_time",
+        "is_archived",
+        "is_unavailable",
+        "owner_business",
     ]
     return {key: value for key in keys if (value := record.payload.get(key)) is not None}
 
@@ -319,6 +386,15 @@ def _insight_parent(payload: dict[str, JsonValue]) -> tuple[MarketingEntityType,
         if value:
             return cast(MarketingEntityType, entity_type), value
     return None
+
+
+def _custom_conversion_pixel_id(payload: dict[str, JsonValue]) -> str | None:
+    pixel = payload.get("pixel")
+    if isinstance(pixel, dict):
+        pixel_id = pixel.get("id")
+        if pixel_id is not None:
+            return str(pixel_id)
+    return _json_str(payload.get("pixel_id"))
 
 
 def _nested_id(value: JsonValue | None) -> str | None:

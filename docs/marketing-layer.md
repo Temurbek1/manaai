@@ -31,6 +31,8 @@ The useful operational graph for Meta ads analytics is:
 ```text
 app
 business
+  -> pixel
+      -> custom_conversion
   -> ad_account
       -> campaign
           -> ad_set
@@ -44,6 +46,12 @@ addition to campaigns, ad sets, and ads. Ads point to creatives through their
 `creative` field, while creative records keep text, call-to-action, story spec,
 asset feed spec, and media URLs as raw JSON for later creative-performance
 analysis.
+
+Structure sync also preserves event-source metadata. Business-owned pixels are
+stored from the business `owned_pixels` edge, and ad-account custom conversions
+are stored from the `customconversions` edge. This lets the AI layer connect
+conversion KPI rows back to the configured pixel/event rules instead of treating
+all `actions` values as anonymous counts.
 
 Insights can be requested at multiple levels:
 
@@ -66,7 +74,7 @@ auditable back to `source_record_ids`.
 Raw records are append-only snapshots with:
 
 - source: `meta_marketing_api` or `manual_upload`
-- entity type: app, business, ad account, campaign, ad set, ad, creative, insight, or custom
+- entity type: app, business, pixel, custom conversion, ad account, campaign, ad set, ad, creative, insight, or custom
 - provider record id when available
 - account id and parent id when available
 - observed timestamp/date window when available
