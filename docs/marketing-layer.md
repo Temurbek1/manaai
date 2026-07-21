@@ -137,8 +137,8 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
   platform, placement, device, geography, demographic, product, and hourly slices
 - Deterministic patterns: spend concentration, wasted spend, efficiency
   opportunities, cost/engagement outliers, segment waste/efficiency by
-  breakdown dimensions, creative waste/efficiency rollups, trend movements, and
-  data quality gaps.
+  breakdown dimensions, creative waste/efficiency rollups, custom audience
+  targeting rollups, trend movements, and data quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by
@@ -156,6 +156,12 @@ Creative rollup patterns use stored raw `ad` records with `creative.id` to group
 ad-level KPI rows by creative. They are skipped when raw structure is missing,
 so insight-only imports still produce campaign/adset/ad and segment patterns
 without inventing creative attribution.
+
+Audience rollup patterns use stored raw `adset.targeting.custom_audiences` plus
+ad/adset KPI rows. They aggregate performance for ad sets that include a custom
+audience and keep `targeting_role=included` in `dimensions`. They are targeting
+diagnostics, not exclusive causal attribution, because one ad set can include
+multiple audiences and exclusions.
 
 AI analysis responses are persisted as typed report snapshots. The saved report
 keeps the deterministic KPI summary, pattern list, entity graph, AI report, and

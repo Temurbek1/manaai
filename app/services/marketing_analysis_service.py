@@ -162,6 +162,10 @@ def _analysis_context_json(
                     "Use KPI row dimensions to identify breakdown segments such as "
                     "placement or device."
                 ),
+                (
+                    "Treat custom audience rollup patterns as targeting diagnostics, not "
+                    "exclusive causal attribution."
+                ),
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

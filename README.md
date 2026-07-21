@@ -238,7 +238,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/raw/search \
   }'
 ```
 
-`payload_filters` и `dimension_filters` работают по точному совпадению top-level JSON fields. Это покрывает аудит segment patterns: из ответа `/patterns` можно взять `dimensions` и `evidence_record_ids`, затем открыть соответствующие raw payloads без повторного запроса к Meta. Для creative patterns ищите raw creative/ad records по `provider_record_id` из `entity_id` pattern.
+`payload_filters` и `dimension_filters` работают по точному совпадению top-level JSON fields. Это покрывает аудит segment patterns: из ответа `/patterns` можно взять `dimensions` и `evidence_record_ids`, затем открыть соответствующие raw payloads без повторного запроса к Meta. Для creative и custom audience patterns ищите raw creative/ad/adset/audience records по `provider_record_id` из `entity_id` pattern.
 
 AI analytics report:
 
@@ -252,7 +252,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/patterns \
   }'
 ```
 
-Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, creative waste/creative efficiency по связке raw ad -> creative, простые тренды и data quality gaps. Это deterministic слой до AI, чтобы закономерности были проверяемыми.
+Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, простые тренды и data quality gaps. Audience patterns - это targeting rollup, а не доказательство причинной атрибуции: перед изменением бюджета проверяйте overlap, exclusions и frequency.
 
 Граф связей между raw сущностями:
 

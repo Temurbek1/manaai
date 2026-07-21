@@ -484,6 +484,144 @@ async def test_marketing_patterns_endpoint_detects_creative_rollup_waste(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_audience_rollup_waste(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "custom_audience",
+                        "provider_record_id": "audience-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "audience-1",
+                            "name": "Retargeting 30d",
+                            "subtype": "WEBSITE",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "adset",
+                        "provider_record_id": "adset-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "adset-1",
+                            "name": "Retargeting ad set",
+                            "targeting": {
+                                "custom_audiences": [
+                                    {"id": "audience-1", "name": "Retargeting 30d"},
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-1",
+                        "account_id": "act_100",
+                        "parent_id": "adset-1",
+                        "payload": {
+                            "id": "ad-1",
+                            "name": "Audience ad 1",
+                            "adset_id": "adset-1",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-2",
+                        "account_id": "act_100",
+                        "parent_id": "adset-1",
+                        "payload": {
+                            "id": "ad-2",
+                            "name": "Audience ad 2",
+                            "adset_id": "adset-1",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-1",
+                            "ad_name": "Audience ad 1",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "80",
+                            "impressions": "8000",
+                            "clicks": "160",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-2",
+                            "ad_name": "Audience ad 2",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "40",
+                            "impressions": "4000",
+                            "clicks": "80",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-control",
+                            "ad_name": "Control ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "40",
+                            "impressions": "6000",
+                            "clicks": "100",
+                            "actions": [{"action_type": "lead", "value": "4"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["source_record_count"] == 7
+    audience_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "audience_waste"
+    )
+    assert audience_pattern["entity_id"] == "audience-1"
+    assert audience_pattern["entity_name"] == "Retargeting 30d"
+    assert audience_pattern["level"] == "custom_audience"
+    assert audience_pattern["value"] == 120
+    assert audience_pattern["dimensions"] == {
+        "custom_audience_id": "audience-1",
+        "targeting_role": "included",
+    }
+    assert len(audience_pattern["evidence_record_ids"]) == 4
+    get_settings.cache_clear()
+
+
 async def test_marketing_graph_endpoint_builds_entity_edges(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

@@ -33,6 +33,8 @@ MarketingPatternType = Literal[
     "segment_efficiency_opportunity",
     "creative_waste",
     "creative_efficiency_opportunity",
+    "audience_waste",
+    "audience_efficiency_opportunity",
     "trend",
     "data_quality",
 ]

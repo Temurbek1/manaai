@@ -12,8 +12,9 @@ from app.schemas.marketing import (
     MarketingGraphResponse,
     RawMarketingRecord,
 )
-from app.services.marketing_payload import json_str, nested_id, nested_name
+from app.services.marketing_payload import json_str, nested_id
 from app.services.marketing_repository import MarketingRepository
+from app.services.marketing_targeting import targeting_custom_audiences
 
 
 class MarketingGraphService:
@@ -227,12 +228,10 @@ class _MarketingGraphBuilder:
         if not isinstance(targeting, dict):
             return
 
-        for audience in _targeting_custom_audiences(targeting):
-            audience_id = nested_id(audience)
-            if audience_id is None:
-                continue
+        for audience in targeting_custom_audiences(targeting):
+            audience_id = audience.id
             audience_node_id = _node_id("custom_audience", audience_id)
-            audience_name = nested_name(audience) or audience_id
+            audience_name = audience.name or audience_id
             self._upsert_node(
                 node_id=audience_node_id,
                 node_type="custom_audience",
@@ -437,12 +436,3 @@ def _custom_conversion_pixel_id(payload: dict[str, JsonValue]) -> str | None:
         if pixel_id is not None:
             return str(pixel_id)
     return json_str(payload.get("pixel_id"))
-
-
-def _targeting_custom_audiences(targeting: dict[str, JsonValue]) -> list[JsonValue]:
-    result: list[JsonValue] = []
-    for key in ("custom_audiences", "excluded_custom_audiences"):
-        value = targeting.get(key)
-        if isinstance(value, list):
-            result.extend(item for item in value if isinstance(item, dict))
-    return result

@@ -13,6 +13,7 @@ from app.schemas.marketing import (
 from app.services.marketing_metrics import MarketingMetricsBuilder
 from app.services.marketing_payload import json_str, nested_id
 from app.services.marketing_repository import MarketingRepository
+from app.services.marketing_targeting import targeting_custom_audiences
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,15 @@ class CreativePerformanceContext:
     ad_to_creative_id: dict[str, str]
     creative_names: dict[str, str]
     creative_record_ids: dict[str, str]
+
+
+@dataclass(frozen=True)
+class AudiencePerformanceContext:
+    ad_to_adset_id: dict[str, str]
+    adset_to_audience_ids: dict[str, list[str]]
+    audience_names: dict[str, str]
+    audience_record_ids: dict[str, str]
+    adset_record_ids: dict[str, str]
 
 
 class MarketingPatternService:
@@ -43,7 +53,7 @@ class MarketingPatternService:
         )
         structure_records, _ = await self._repository.list_raw_records(
             account_ids=request.account_ids,
-            entity_types=["ad", "creative"],
+            entity_types=["adset", "ad", "creative", "custom_audience"],
             limit=request.max_records,
             offset=0,
         )
@@ -53,6 +63,9 @@ class MarketingPatternService:
             rows=rows,
             summary=summary,
             creative_context=build_creative_performance_context(structure_records),
+            audience_context=build_audience_performance_context(
+                [*records, *structure_records],
+            ),
             max_patterns=request.max_patterns,
             min_spend=request.min_spend,
             spend_concentration_threshold=request.spend_concentration_threshold,
@@ -72,6 +85,7 @@ def detect_marketing_patterns(
     rows: list[MarketingKpiRow],
     summary: MarketingKpiSummary,
     creative_context: CreativePerformanceContext | None = None,
+    audience_context: AudiencePerformanceContext | None = None,
     max_patterns: int,
     min_spend: float,
     spend_concentration_threshold: float,
@@ -167,6 +181,15 @@ def detect_marketing_patterns(
             ),
         )
     patterns.extend(_trend_patterns(rows=rows))
+    if audience_context is not None:
+        patterns.extend(
+            _audience_rollup_patterns(
+                rows=spend_rows,
+                summary=summary,
+                min_spend=min_spend,
+                audience_context=audience_context,
+            ),
+        )
     patterns.extend(_data_quality_patterns(rows=rows))
 
     return sorted(patterns, key=_pattern_sort_key, reverse=True)[:max_patterns]
@@ -198,6 +221,59 @@ def build_creative_performance_context(
         ad_to_creative_id=ad_to_creative_id,
         creative_names=creative_names,
         creative_record_ids=creative_record_ids,
+    )
+
+
+def build_audience_performance_context(
+    records: list[RawMarketingRecord],
+) -> AudiencePerformanceContext:
+    ad_to_adset_id: dict[str, str] = {}
+    adset_to_audience_ids: dict[str, list[str]] = defaultdict(list)
+    audience_names: dict[str, str] = {}
+    audience_record_ids: dict[str, str] = {}
+    adset_record_ids: dict[str, str] = {}
+
+    for record in records:
+        payload = record.payload
+        if record.entity_type == "ad":
+            ad_id = json_str(payload.get("id")) or record.provider_record_id
+            adset_id = json_str(payload.get("adset_id")) or record.parent_id
+            if ad_id is not None and adset_id is not None and ad_id not in ad_to_adset_id:
+                ad_to_adset_id[ad_id] = adset_id
+
+        if record.entity_type == "insight":
+            ad_id = json_str(payload.get("ad_id"))
+            adset_id = json_str(payload.get("adset_id"))
+            if ad_id is not None and adset_id is not None and ad_id not in ad_to_adset_id:
+                ad_to_adset_id[ad_id] = adset_id
+
+        if record.entity_type == "adset":
+            adset_id = json_str(payload.get("id")) or record.provider_record_id
+            if adset_id is None:
+                continue
+            adset_record_ids.setdefault(adset_id, record.id)
+            targeting = payload.get("targeting")
+            if not isinstance(targeting, dict):
+                continue
+            for audience in targeting_custom_audiences(targeting, roles={"included"}):
+                if audience.id not in adset_to_audience_ids[adset_id]:
+                    adset_to_audience_ids[adset_id].append(audience.id)
+                if audience.name is not None:
+                    audience_names.setdefault(audience.id, audience.name)
+
+        if record.entity_type == "custom_audience":
+            audience_id = json_str(payload.get("id")) or record.provider_record_id
+            if audience_id is None:
+                continue
+            audience_names.setdefault(audience_id, _audience_label(record=record))
+            audience_record_ids.setdefault(audience_id, record.id)
+
+    return AudiencePerformanceContext(
+        ad_to_adset_id=ad_to_adset_id,
+        adset_to_audience_ids=dict(adset_to_audience_ids),
+        audience_names=audience_names,
+        audience_record_ids=audience_record_ids,
+        adset_record_ids=adset_record_ids,
     )
 
 
@@ -556,6 +632,114 @@ def _creative_rollup_patterns(
     return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
 
 
+def _audience_rollup_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    summary: MarketingKpiSummary,
+    min_spend: float,
+    audience_context: AudiencePerformanceContext,
+) -> list[MarketingPattern]:
+    if not audience_context.adset_to_audience_ids:
+        return []
+
+    grouped: dict[str, list[MarketingKpiRow]] = defaultdict(list)
+    for row in rows:
+        adset_id = _row_adset_id(row=row, audience_context=audience_context)
+        if adset_id is None:
+            continue
+        for audience_id in audience_context.adset_to_audience_ids.get(adset_id, []):
+            grouped[audience_id].append(row)
+
+    if not grouped:
+        return []
+
+    spend_floor = max(min_spend, summary.total_spend * 0.05)
+    patterns: list[MarketingPattern] = []
+    for audience_id, audience_rows in grouped.items():
+        audience_summary = _aggregate_rows(audience_rows)
+        if audience_summary.total_spend < spend_floor:
+            continue
+
+        evidence_record_ids = _audience_evidence_record_ids(
+            audience_id=audience_id,
+            rows=audience_rows,
+            audience_context=audience_context,
+        )
+        audience_name = audience_context.audience_names.get(audience_id) or audience_id
+        dimensions = {"custom_audience_id": audience_id, "targeting_role": "included"}
+
+        if audience_summary.total_conversions == 0 and audience_summary.total_clicks > 0:
+            patterns.append(
+                MarketingPattern(
+                    type="audience_waste",
+                    direction="negative",
+                    title="Included custom audience rollup spends without conversions",
+                    explanation=(
+                        f"Ad sets that include custom audience {audience_name} produced "
+                        f"{len(audience_rows)} KPI row(s), spent "
+                        f"{audience_summary.total_spend:.2f}, and generated "
+                        f"{audience_summary.total_clicks} clicks without tracked conversions. "
+                        "This is a targeting rollup, not exclusive causal attribution."
+                    ),
+                    entity_id=audience_id,
+                    entity_name=audience_name,
+                    level="custom_audience",
+                    metric="audience_spend_without_conversions",
+                    value=audience_summary.total_spend,
+                    benchmark=spend_floor,
+                    confidence="high" if len(audience_rows) > 1 else "medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={audience_id}.",
+                        "Inspect ad sets that include this audience before changing targeting.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+        efficient_cpa = (
+            summary.cpa is not None
+            and audience_summary.cpa is not None
+            and audience_summary.cpa <= summary.cpa * 0.7
+        )
+        efficient_roas = (
+            summary.roas is not None
+            and audience_summary.roas is not None
+            and audience_summary.roas >= summary.roas * 1.3
+        )
+        if audience_summary.total_conversions > 0 and (efficient_cpa or efficient_roas):
+            metric = "audience_cpa" if efficient_cpa else "audience_roas"
+            value = audience_summary.cpa if efficient_cpa else audience_summary.roas
+            benchmark = summary.cpa if efficient_cpa else summary.roas
+            patterns.append(
+                MarketingPattern(
+                    type="audience_efficiency_opportunity",
+                    direction="positive",
+                    title="Included custom audience rollup is more efficient than average",
+                    explanation=(
+                        f"Ad sets that include custom audience {audience_name} produced "
+                        f"{len(audience_rows)} KPI row(s) with stronger efficiency than the "
+                        "selected average. Validate overlap and scale before budget changes."
+                    ),
+                    entity_id=audience_id,
+                    entity_name=audience_name,
+                    level="custom_audience",
+                    metric=metric,
+                    value=value,
+                    benchmark=benchmark,
+                    confidence="medium",
+                    evidence_record_ids=evidence_record_ids,
+                    suggested_raw_queries=[
+                        f"Search raw records by provider_record_id={audience_id}.",
+                        "Compare audience overlap, exclusions, frequency, and placement mix.",
+                    ],
+                    dimensions=dimensions,
+                ),
+            )
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
+
+
 def _trend_patterns(rows: list[MarketingKpiRow]) -> list[MarketingPattern]:
     by_date: dict[date, list[MarketingKpiRow]] = defaultdict(list)
     for row in rows:
@@ -690,8 +874,60 @@ def _creative_evidence_record_ids(
     return evidence_record_ids
 
 
+def _audience_evidence_record_ids(
+    *,
+    audience_id: str,
+    rows: list[MarketingKpiRow],
+    audience_context: AudiencePerformanceContext,
+) -> list[str]:
+    evidence_record_ids: list[str] = []
+    audience_record_id = audience_context.audience_record_ids.get(audience_id)
+    if audience_record_id is not None:
+        evidence_record_ids.append(audience_record_id)
+
+    adset_ids = [
+        adset_id
+        for row in rows
+        if (adset_id := _row_adset_id(row=row, audience_context=audience_context)) is not None
+    ]
+    for adset_id in adset_ids:
+        adset_record_id = audience_context.adset_record_ids.get(adset_id)
+        if adset_record_id is not None and adset_record_id not in evidence_record_ids:
+            evidence_record_ids.append(adset_record_id)
+        if len(evidence_record_ids) >= 20:
+            return evidence_record_ids
+
+    for row in rows:
+        if row.record_id not in evidence_record_ids:
+            evidence_record_ids.append(row.record_id)
+        if len(evidence_record_ids) >= 20:
+            break
+
+    return evidence_record_ids
+
+
+def _row_adset_id(
+    *,
+    row: MarketingKpiRow,
+    audience_context: AudiencePerformanceContext,
+) -> str | None:
+    if row.level == "adset":
+        return row.entity_id
+    if row.level == "ad" and row.entity_id is not None:
+        return audience_context.ad_to_adset_id.get(row.entity_id)
+    return None
+
+
 def _creative_label(*, record: RawMarketingRecord) -> str:
     for key in ("name", "title", "body"):
+        value = json_str(record.payload.get(key))
+        if value is not None:
+            return value
+    return record.provider_record_id or record.id
+
+
+def _audience_label(*, record: RawMarketingRecord) -> str:
+    for key in ("name", "description", "subtype"):
         value = json_str(record.payload.get(key))
         if value is not None:
             return value
