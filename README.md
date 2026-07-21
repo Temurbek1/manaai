@@ -1,6 +1,6 @@
 # ManaAI API
 
-Production-ready базовый backend на FastAPI для будущего API слоя ИИ-интеграций. В проекте уже есть Docker, типизированные Pydantic-схемы, health endpoints и тестовые OpenAI endpoints через Responses API.
+Production-ready backend на FastAPI для API слоя ИИ-интеграций и маркетинговой аналитики. В проекте есть Docker, типизированные Pydantic-схемы, Swagger/OpenAPI, OpenAI Responses API, Meta Marketing API sync, raw-data storage и структурированный AI output для аналитики.
 
 ## Что внутри
 
@@ -8,6 +8,10 @@ Production-ready базовый backend на FastAPI для будущего API
 - Версионированный API prefix: `/api/v1`
 - OpenAI интеграция через `AsyncOpenAI`
 - Дефолтная модель: `gpt-5.4-nano`, самая дешевая GPT-5.4-class модель по цене токенов
+- Meta Marketing API слой через официальный Graph API `v25.0`
+- Append-only raw storage в SQLite, чтобы не терять исходные данные Meta/экспортов
+- Детерминированные KPI до вызова AI: spend, impressions, clicks, conversions, CTR, CPC, CPM, CPA, ROAS
+- AI analytics output через OpenAI Structured Outputs
 - Swagger UI/OpenAPI docs по рекомендациям FastAPI: metadata, tag descriptions, summaries, request duration и фильтр операций
 - Конфигурация через env и `.env`
 - Dockerfile + `docker-compose.yml`
@@ -20,6 +24,11 @@ Production-ready базовый backend на FastAPI для будущего API
 - `GET /api/v1/health/ready` - readiness probe
 - `POST /api/v1/ai/chat` - тестовый чат-запрос к OpenAI
 - `POST /api/v1/ai/summarize` - тестовая суммаризация текста
+- `GET /api/v1/marketing/config` - non-secret статус Meta/OpenAI конфигурации
+- `POST /api/v1/marketing/raw` - загрузка raw marketing JSON records
+- `GET /api/v1/marketing/raw` - просмотр сохраненных raw records
+- `POST /api/v1/marketing/meta/sync` - сбор данных через Meta Marketing API
+- `POST /api/v1/marketing/analyze` - KPI + структурированный AI отчет
 
 Пример:
 
@@ -68,6 +77,88 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `OPENAI_MAX_OUTPUT_TOKENS` | no | `512` | Максимум output tokens |
 | `OPENAI_TEMPERATURE` | no | `0.2` | Температура генерации |
 | `CORS_ORIGINS` | no | `[]` | JSON список разрешенных origins |
+| `MARKETING_DATABASE_PATH` | no | `data/manaai.db` | SQLite path для raw records и reports |
+| `MARKETING_CONVERSION_ACTION_TYPES` | no | JSON list | Meta `actions.action_type`, которые считаются conversions |
+| `MARKETING_VALUE_ACTION_TYPES` | no | JSON list | Meta `action_values.action_type`, которые считаются revenue/value |
+| `META_GRAPH_BASE_URL` | no | `https://graph.facebook.com` | Graph API base URL |
+| `META_GRAPH_API_VERSION` | no | `v25.0` | Версия Graph/Marketing API |
+| `META_APP_ID` | yes for Meta sync | - | Meta app id из Meta for Developers |
+| `META_BUSINESS_ID` | no | - | Business id для owned/client ad accounts |
+| `META_ACCESS_TOKEN` | yes for Meta sync | - | System user access token |
+| `META_AD_ACCOUNT_IDS` | no | `[]` | JSON list ad account ids, например `["act_123"]` |
+| `META_*_FIELDS` | no | JSON lists | Явные fields для campaigns/adsets/ads/ad accounts/insights |
+| `META_ACTION_ATTRIBUTION_WINDOWS` | no | `["1d_click","7d_click"]` | Attribution windows для insights |
+
+## Meta Marketing workflow
+
+Для production sync используйте system user access token из Meta Business Manager. Это официальный серверный путь для автоматических API calls к assets бизнеса.
+
+Минимальный `.env` для Meta:
+
+```env
+META_GRAPH_API_VERSION=v25.0
+META_APP_ID=replace_with_meta_app_id
+META_BUSINESS_ID=replace_with_business_id
+META_ACCESS_TOKEN=replace_with_system_user_access_token
+META_AD_ACCOUNT_IDS=["act_123456789"]
+MARKETING_DATABASE_PATH=/data/manaai.db
+```
+
+Синхронизация структуры и insights:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date_start": "2026-07-01",
+    "date_stop": "2026-07-21",
+    "levels": ["campaign", "adset", "ad"],
+    "include_structure": true,
+    "include_insights": true
+  }'
+```
+
+Raw ingestion для экспортов из Ads Manager или будущих ETL:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/raw \
+  -H "Content-Type: application/json" \
+  -d '{
+    "records": [
+      {
+        "source": "manual_upload",
+        "entity_type": "insight",
+        "account_id": "act_123456789",
+        "observed_at": "2026-07-01T00:00:00+00:00",
+        "payload": {
+          "campaign_id": "1",
+          "campaign_name": "Prospecting",
+          "date_start": "2026-07-01",
+          "date_stop": "2026-07-01",
+          "spend": "100",
+          "impressions": "10000",
+          "clicks": "250",
+          "actions": [{"action_type": "lead", "value": "20"}]
+        }
+      }
+    ]
+  }'
+```
+
+AI analytics report:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "date_start": "2026-07-01",
+    "date_stop": "2026-07-21",
+    "question": "Что масштабировать и где режется бюджет?",
+    "include_raw_samples": false
+  }'
+```
+
+Ответ содержит `kpi_summary`, список KPI rows, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
 
 ## Прод-распаковка на сервере
 
@@ -119,6 +210,11 @@ APP_ENV=production
 OPENAI_API_KEY=replace_with_real_secret
 OPENAI_MODEL=gpt-5.4-nano
 CORS_ORIGINS=["https://your-frontend-domain.com"]
+MARKETING_DATABASE_PATH=/data/manaai.db
+META_GRAPH_API_VERSION=v25.0
+META_APP_ID=replace_with_meta_app_id
+META_BUSINESS_ID=replace_with_business_id
+META_ACCESS_TOKEN=replace_with_system_user_access_token
 ```
 
 4. Соберите и запустите контейнер:
@@ -174,4 +270,5 @@ pytest
 - Не коммитьте `.env` и реальные API keys.
 - В проде храните секреты в secret manager, CI/CD variables или server-only `.env`.
 - После передачи ключа в чат лучше перевыпустить OpenAI key в dashboard и заменить значение на сервере.
+- Meta access token храните только server-side; не отдавайте его frontend-клиентам и не пишите в логи.
 - Docs UI отключается при `APP_ENV=production`.

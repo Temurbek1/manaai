@@ -20,7 +20,7 @@ async def test_swagger_docs_enabled_outside_production() -> None:
     assert schema_response.status_code == 200
     schema = schema_response.json()
     assert schema["info"]["title"] == "manaai-api"
-    assert {tag["name"] for tag in schema["tags"]} == {"ai", "health"}
+    assert {tag["name"] for tag in schema["tags"]} == {"ai", "health", "marketing"}
 
 
 async def test_swagger_docs_disabled_in_production(monkeypatch: MonkeyPatch) -> None:

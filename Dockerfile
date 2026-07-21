@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app
+RUN mkdir -p /data && chown app:app /data
 
 COPY pyproject.toml README.md ./
 RUN pip install --upgrade pip && pip install .

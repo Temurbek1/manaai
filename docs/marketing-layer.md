@@ -29,6 +29,7 @@ Official sources:
 The useful operational graph for Meta ads analytics is:
 
 ```text
+app
 business
   -> ad_account
       -> campaign
@@ -54,7 +55,7 @@ allows re-analysis when new relationships or fields become useful.
 Raw records are append-only snapshots with:
 
 - source: `meta_marketing_api` or `manual_upload`
-- entity type: business, ad account, campaign, ad set, ad, creative, insight, or custom
+- entity type: app, business, ad account, campaign, ad set, ad, creative, insight, or custom
 - provider record id when available
 - account id and parent id when available
 - observed timestamp/date window when available

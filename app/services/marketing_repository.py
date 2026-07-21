@@ -1,0 +1,290 @@
+import asyncio
+import hashlib
+import json
+import sqlite3
+import uuid
+from collections.abc import Sequence
+from datetime import UTC, date, datetime
+from pathlib import Path
+from typing import cast
+
+from pydantic import JsonValue
+
+from app.schemas.marketing import (
+    MarketingAnalysisRequest,
+    MarketingAnalysisResponse,
+    MarketingEntityType,
+    RawMarketingRecord,
+    RawMarketingRecordInput,
+)
+
+
+class MarketingRepository:
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    async def initialize(self) -> None:
+        await asyncio.to_thread(self._initialize_sync)
+
+    async def insert_raw_records(
+        self,
+        records: Sequence[RawMarketingRecordInput],
+    ) -> list[RawMarketingRecord]:
+        return await asyncio.to_thread(self._insert_raw_records_sync, records)
+
+    async def list_raw_records(
+        self,
+        *,
+        account_ids: Sequence[str] | None = None,
+        entity_types: Sequence[MarketingEntityType] | None = None,
+        date_start: date | None = None,
+        date_stop: date | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[RawMarketingRecord], int]:
+        return await asyncio.to_thread(
+            self._list_raw_records_sync,
+            account_ids,
+            entity_types,
+            date_start,
+            date_stop,
+            limit,
+            offset,
+        )
+
+    async def save_analysis_report(
+        self,
+        *,
+        request: MarketingAnalysisRequest,
+        response: MarketingAnalysisResponse,
+    ) -> None:
+        await asyncio.to_thread(self._save_analysis_report_sync, request, response)
+
+    def _initialize_sync(self) -> None:
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS marketing_raw_records (
+                    id TEXT PRIMARY KEY,
+                    source TEXT NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    provider_record_id TEXT,
+                    account_id TEXT,
+                    parent_id TEXT,
+                    observed_at TEXT,
+                    collected_at TEXT NOT NULL,
+                    api_version TEXT,
+                    payload_hash TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_marketing_raw_entity
+                    ON marketing_raw_records(entity_type);
+                CREATE INDEX IF NOT EXISTS idx_marketing_raw_account
+                    ON marketing_raw_records(account_id);
+                CREATE INDEX IF NOT EXISTS idx_marketing_raw_observed
+                    ON marketing_raw_records(observed_at);
+
+                CREATE TABLE IF NOT EXISTS marketing_analysis_reports (
+                    id TEXT PRIMARY KEY,
+                    generated_at TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    source_record_count INTEGER NOT NULL,
+                    request_json TEXT NOT NULL,
+                    kpi_json TEXT NOT NULL,
+                    report_json TEXT NOT NULL,
+                    source_record_ids_json TEXT NOT NULL
+                );
+                """
+            )
+
+    def _insert_raw_records_sync(
+        self,
+        records: Sequence[RawMarketingRecordInput],
+    ) -> list[RawMarketingRecord]:
+        inserted: list[RawMarketingRecord] = []
+        collected_at = datetime.now(UTC)
+
+        with self._connect() as connection:
+            for record in records:
+                payload_json = _json_dumps(record.payload)
+                raw_record = RawMarketingRecord(
+                    id=str(uuid.uuid4()),
+                    source=record.source,
+                    entity_type=record.entity_type,
+                    provider_record_id=record.provider_record_id,
+                    account_id=record.account_id,
+                    parent_id=record.parent_id,
+                    observed_at=record.observed_at,
+                    collected_at=collected_at,
+                    api_version=record.api_version,
+                    payload_hash=hashlib.sha256(payload_json.encode("utf-8")).hexdigest(),
+                    payload=record.payload,
+                )
+                connection.execute(
+                    """
+                    INSERT INTO marketing_raw_records (
+                        id,
+                        source,
+                        entity_type,
+                        provider_record_id,
+                        account_id,
+                        parent_id,
+                        observed_at,
+                        collected_at,
+                        api_version,
+                        payload_hash,
+                        payload_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        raw_record.id,
+                        raw_record.source,
+                        raw_record.entity_type,
+                        raw_record.provider_record_id,
+                        raw_record.account_id,
+                        raw_record.parent_id,
+                        _datetime_to_db(raw_record.observed_at),
+                        _datetime_to_db(raw_record.collected_at),
+                        raw_record.api_version,
+                        raw_record.payload_hash,
+                        payload_json,
+                    ),
+                )
+                inserted.append(raw_record)
+
+        return inserted
+
+    def _list_raw_records_sync(
+        self,
+        account_ids: Sequence[str] | None,
+        entity_types: Sequence[MarketingEntityType] | None,
+        date_start: date | None,
+        date_stop: date | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[RawMarketingRecord], int]:
+        where_clauses: list[str] = []
+        values: list[str | int] = []
+
+        if account_ids:
+            where_clauses.append(f"account_id IN ({_placeholders(len(account_ids))})")
+            values.extend(account_ids)
+
+        if entity_types:
+            where_clauses.append(f"entity_type IN ({_placeholders(len(entity_types))})")
+            values.extend(entity_types)
+
+        if date_start is not None:
+            where_clauses.append("observed_at >= ?")
+            values.append(_date_start_to_db(date_start))
+
+        if date_stop is not None:
+            where_clauses.append("observed_at <= ?")
+            values.append(_date_stop_to_db(date_stop))
+
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        with self._connect() as connection:
+            count_row = connection.execute(
+                f"SELECT COUNT(*) AS total FROM marketing_raw_records {where_sql}",
+                values,
+            ).fetchone()
+            total = int(cast(sqlite3.Row, count_row)["total"])
+
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM marketing_raw_records
+                {where_sql}
+                ORDER BY collected_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                [*values, limit, offset],
+            ).fetchall()
+
+        return [_raw_record_from_row(row) for row in rows], total
+
+    def _save_analysis_report_sync(
+        self,
+        request: MarketingAnalysisRequest,
+        response: MarketingAnalysisResponse,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO marketing_analysis_reports (
+                    id,
+                    generated_at,
+                    model,
+                    source_record_count,
+                    request_json,
+                    kpi_json,
+                    report_json,
+                    source_record_ids_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    response.report_id,
+                    _datetime_to_db(response.generated_at),
+                    response.model,
+                    response.source_record_count,
+                    request.model_dump_json(),
+                    response.kpi_summary.model_dump_json(),
+                    response.report.model_dump_json(),
+                    _json_dumps(response.source_record_ids),
+                ),
+            )
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._database_path)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+
+def _raw_record_from_row(row: sqlite3.Row) -> RawMarketingRecord:
+    payload = cast(dict[str, JsonValue], json.loads(str(row["payload_json"])))
+    return RawMarketingRecord(
+        id=str(row["id"]),
+        source=cast(str, row["source"]),
+        entity_type=cast(MarketingEntityType, row["entity_type"]),
+        provider_record_id=_optional_str(row["provider_record_id"]),
+        account_id=_optional_str(row["account_id"]),
+        parent_id=_optional_str(row["parent_id"]),
+        observed_at=_datetime_from_db(_optional_str(row["observed_at"])),
+        collected_at=_datetime_from_db(str(row["collected_at"])) or datetime.now(UTC),
+        api_version=_optional_str(row["api_version"]),
+        payload_hash=str(row["payload_hash"]),
+        payload=payload,
+    )
+
+
+def _json_dumps(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _datetime_to_db(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _datetime_from_db(value: str | None) -> datetime | None:
+    return datetime.fromisoformat(value) if value else None
+
+
+def _date_start_to_db(value: date) -> str:
+    return datetime.combine(value, datetime.min.time(), tzinfo=UTC).isoformat()
+
+
+def _date_stop_to_db(value: date) -> str:
+    return datetime.combine(value, datetime.max.time(), tzinfo=UTC).isoformat()
+
+
+def _optional_str(value: object) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _placeholders(count: int) -> str:
+    return ",".join("?" for _ in range(count))

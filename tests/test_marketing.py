@@ -1,0 +1,314 @@
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import cast
+
+from httpx import ASGITransport, AsyncClient
+from pytest import MonkeyPatch
+
+from app.core.config import get_settings
+from app.main import create_app
+from app.schemas.marketing import (
+    MarketingAnalysisReport,
+    MarketingAnalysisRequest,
+    MarketingAnalysisResponse,
+    MarketingFinding,
+    MarketingKpiSummary,
+    MetaInsightLevel,
+    MetaSyncRequest,
+    RawMarketingRecordInput,
+)
+from app.services.marketing_analysis_service import MarketingAnalysisService
+from app.services.marketing_metrics import MarketingMetricsBuilder
+from app.services.marketing_repository import MarketingRepository
+from app.services.marketing_sync_service import MarketingSyncService
+from app.services.meta_marketing_client import MetaMarketingClient
+
+
+def configure_test_env(monkeypatch: MonkeyPatch, database_path: Path) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setenv("MARKETING_DATABASE_PATH", str(database_path))
+    monkeypatch.setenv("META_APP_ID", "test-meta-app-id")
+    monkeypatch.delenv("META_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("META_BUSINESS_ID", raising=False)
+    monkeypatch.setenv("META_AD_ACCOUNT_IDS", "[]")
+    get_settings.cache_clear()
+
+
+async def test_marketing_config_endpoint(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        response = await client.get("/api/v1/marketing/config")
+
+    assert response.status_code == 200
+    assert response.json()["meta_app_id_configured"] is True
+    assert response.json()["meta_configured"] is False
+    get_settings.cache_clear()
+
+
+async def test_raw_marketing_ingestion_and_listing(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "provider_record_id": "campaign:1:2026-07-01:2026-07-01",
+                        "account_id": "act_100",
+                        "observed_at": "2026-07-01T00:00:00+00:00",
+                        "payload": {
+                            "campaign_id": "1",
+                            "campaign_name": "Search prospecting",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "impressions": "10000",
+                            "clicks": "250",
+                            "actions": [{"action_type": "lead", "value": "20"}],
+                        },
+                    },
+                ],
+            },
+        )
+        list_response = await client.get(
+            "/api/v1/marketing/raw",
+            params={"account_id": "act_100", "entity_type": "insight"},
+        )
+
+    assert ingest_response.status_code == 201
+    assert ingest_response.json()["inserted_count"] == 1
+    assert list_response.status_code == 200
+    body = list_response.json()
+    assert body["total"] == 1
+    assert body["records"][0]["payload"]["campaign_name"] == "Search prospecting"
+    get_settings.cache_clear()
+
+
+async def test_marketing_metrics_builder_computes_kpis(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    inserted = await repository.insert_raw_records(
+        [
+            RawMarketingRecordInput(
+                source="manual_upload",
+                entity_type="insight",
+                account_id="act_100",
+                payload={
+                    "_meta_level": "campaign",
+                    "campaign_id": "1",
+                    "campaign_name": "Prospecting",
+                    "date_start": "2026-07-01",
+                    "date_stop": "2026-07-01",
+                    "spend": "200",
+                    "impressions": "20000",
+                    "reach": "15000",
+                    "clicks": "500",
+                    "inline_link_clicks": "450",
+                    "actions": [{"action_type": "purchase", "value": "10"}],
+                    "action_values": [{"action_type": "purchase", "value": "1000"}],
+                },
+            ),
+        ],
+    )
+    builder = MarketingMetricsBuilder(
+        conversion_action_types=["purchase"],
+        value_action_types=["purchase"],
+    )
+
+    rows = builder.build_rows(inserted)
+    summary = builder.summarize(rows)
+
+    assert len(rows) == 1
+    assert rows[0].ctr == 0.025
+    assert rows[0].cpc == 0.4
+    assert rows[0].cpa == 20
+    assert rows[0].roas == 5
+    assert summary.total_spend == 200
+    get_settings.cache_clear()
+
+
+async def test_meta_sync_service_stores_structure_and_insights(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    service = MarketingSyncService(
+        meta_client=cast(MetaMarketingClient, FakeMetaMarketingClient()),
+        repository=repository,
+    )
+
+    response = await service.sync_meta(
+        MetaSyncRequest(
+            date_start="2026-07-01",
+            date_stop="2026-07-01",
+            levels=["campaign"],
+        ),
+    )
+    records, total = await repository.list_raw_records(limit=100)
+
+    assert response.inserted_count == 6
+    assert response.records_by_entity_type == {
+        "ad": 1,
+        "ad_account": 1,
+        "adset": 1,
+        "app": 1,
+        "campaign": 1,
+        "insight": 1,
+    }
+    assert total == 6
+    assert {record.entity_type for record in records} == {
+        "ad",
+        "ad_account",
+        "adset",
+        "app",
+        "campaign",
+        "insight",
+    }
+    get_settings.cache_clear()
+
+
+async def test_marketing_analyze_endpoint_uses_service_dependency(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        app.state.marketing_analysis_service = cast(
+            MarketingAnalysisService,
+            FakeMarketingAnalysisService(),
+        )
+        response = await client.post(
+            "/api/v1/marketing/analyze",
+            json={"question": "What should we do next?"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["report"]["health_score"] == 72
+    assert response.json()["report"]["key_findings"][0]["type"] == "opportunity"
+    get_settings.cache_clear()
+
+
+class FakeMarketingAnalysisService:
+    async def analyze(self, request: MarketingAnalysisRequest) -> MarketingAnalysisResponse:
+        return MarketingAnalysisResponse(
+            report_id="report-1",
+            generated_at=datetime.now(UTC),
+            model="fake-model",
+            source_record_count=0,
+            source_record_ids=[],
+            kpi_summary=MarketingKpiSummary(
+                total_spend=0,
+                total_impressions=0,
+                total_reach=0,
+                total_clicks=0,
+                total_inline_link_clicks=0,
+                total_conversions=0,
+                total_conversion_value=0,
+                ctr=None,
+                cpc=None,
+                cpm=None,
+                cpa=None,
+                roas=None,
+            ),
+            kpis=[],
+            report=MarketingAnalysisReport(
+                executive_summary=f"Answered: {request.question}",
+                health_score=72,
+                key_findings=[
+                    MarketingFinding(
+                        type="opportunity",
+                        title="Scale the best segment",
+                        explanation="The test fake found a scalable segment.",
+                        evidence=["Fake evidence"],
+                        confidence="high",
+                        recommended_action="Increase budget carefully.",
+                    ),
+                ],
+                prioritized_actions=["Increase budget carefully."],
+                data_quality_notes=["Fake service used for route isolation."],
+                raw_data_followups=["Inspect source records."],
+            ),
+        )
+
+
+class FakeMetaMarketingClient:
+    @property
+    def api_version(self) -> str:
+        return "v25.0"
+
+    async def fetch_app(self) -> dict[str, object]:
+        return {"id": "test-app", "name": "Test App"}
+
+    async def fetch_configured_ad_accounts(self) -> list[dict[str, object]]:
+        return [{"id": "act_100", "name": "Test Account"}]
+
+    async def fetch_campaigns(self, account_id: str) -> list[dict[str, object]]:
+        return [{"id": "campaign-1", "name": f"Campaign for {account_id}"}]
+
+    async def fetch_adsets(self, account_id: str) -> list[dict[str, object]]:
+        return [
+            {
+                "id": "adset-1",
+                "name": f"Ad set for {account_id}",
+                "campaign_id": "campaign-1",
+            },
+        ]
+
+    async def fetch_ads(self, account_id: str) -> list[dict[str, object]]:
+        return [
+            {
+                "id": "ad-1",
+                "name": f"Ad for {account_id}",
+                "campaign_id": "campaign-1",
+                "adset_id": "adset-1",
+            },
+        ]
+
+    async def fetch_insights(
+        self,
+        *,
+        account_id: str,
+        level: MetaInsightLevel,
+        date_start: object,
+        date_stop: object,
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "account_id": account_id,
+                "campaign_id": "campaign-1",
+                "campaign_name": "Prospecting",
+                "date_start": str(date_start),
+                "date_stop": str(date_stop),
+                "spend": "100",
+                "impressions": "10000",
+                "clicks": "250",
+                "actions": [{"action_type": "lead", "value": "20"}],
+                "_requested_level": level,
+            },
+        ]

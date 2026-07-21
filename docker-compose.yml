@@ -4,8 +4,12 @@ services:
       context: .
     env_file:
       - .env
+    environment:
+      MARKETING_DATABASE_PATH: /data/manaai.db
     ports:
       - "8000:8000"
+    volumes:
+      - manaai_data:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=2)"]
@@ -13,3 +17,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  manaai_data:

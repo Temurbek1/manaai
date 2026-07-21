@@ -22,6 +22,17 @@ OPENAPI_TAGS: list[dict[str, Any]] = [
             "url": "https://platform.openai.com/docs",
         },
     },
+    {
+        "name": "marketing",
+        "description": (
+            "Meta Marketing API sync, raw marketing data preservation, deterministic KPIs, "
+            "and structured AI analytics outputs."
+        ),
+        "externalDocs": {
+            "description": "Meta Marketing API documentation",
+            "url": "https://developers.facebook.com/documentation/ads-commerce/marketing-api",
+        },
+    },
 ]
 
 SWAGGER_UI_PARAMETERS: dict[str, Any] = {

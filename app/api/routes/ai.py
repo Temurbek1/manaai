@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.dependencies import OpenAIServiceDep
 from app.schemas.ai import ChatRequest, ChatResponse, SummarizeRequest, SummarizeResponse
-from app.services.openai_service import AIProviderError
+from app.services.openai_service import AIConfigurationError, AIProviderError
 
 router = APIRouter()
 
@@ -16,6 +16,11 @@ router = APIRouter()
 async def chat(payload: ChatRequest, openai_service: OpenAIServiceDep) -> ChatResponse:
     try:
         return await openai_service.chat(payload)
+    except AIConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     except AIProviderError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -35,6 +40,11 @@ async def summarize(
 ) -> SummarizeResponse:
     try:
         return await openai_service.summarize(payload)
+    except AIConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     except AIProviderError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
