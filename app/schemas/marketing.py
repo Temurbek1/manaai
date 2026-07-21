@@ -107,6 +107,19 @@ class MetaSyncResponse(BaseModel):
     warnings: list[str]
 
 
+class MetaDiscoveryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    discovery_id: str
+    api_version: str
+    collected_at: datetime
+    app_collected: bool
+    ad_account_count: int
+    inserted_count: int
+    records_by_entity_type: dict[str, int]
+    record_ids: list[str]
+
+
 class MetaInsightsAsyncJobRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

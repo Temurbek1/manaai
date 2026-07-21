@@ -13,6 +13,7 @@ from app.schemas.marketing import (
     MarketingAnalysisResponse,
     MarketingEntityType,
     MarketingIntegrationConfigResponse,
+    MetaDiscoveryResponse,
     MetaInsightsAsyncJobCreateResponse,
     MetaInsightsAsyncJobIngestRequest,
     MetaInsightsAsyncJobIngestResponse,
@@ -110,6 +111,29 @@ async def sync_meta_marketing(
 ) -> MetaSyncResponse:
     try:
         return await sync_service.sync_meta(payload)
+    except MetaConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except MetaAPIError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/meta/discover",
+    response_model=MetaDiscoveryResponse,
+    summary="Discover Meta app and ad accounts",
+    description=(
+        "Fetches configured Meta app metadata and accessible ad accounts through the official "
+        "Graph API, then stores every payload as raw records."
+    ),
+)
+async def discover_meta_assets(
+    sync_service: MarketingSyncServiceDep,
+) -> MetaDiscoveryResponse:
+    try:
+        return await sync_service.discover_meta_assets()
     except MetaConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

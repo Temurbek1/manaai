@@ -106,10 +106,11 @@ events are needed.
 ## Implementation Stages
 
 1. Add environment-driven Meta/OpenAI marketing configuration.
-2. Add raw record persistence and repository methods.
-3. Add Meta Graph client and sync service.
-4. Add deterministic KPI builder.
-5. Add structured OpenAI marketing analysis service.
-6. Add async insights job contracts for large report pulls.
-7. Add API routes and Swagger descriptions.
-8. Add tests with fakes; tests must never call Meta or OpenAI.
+2. Add Meta discovery for app and accessible ad account metadata.
+3. Add raw record persistence and repository methods.
+4. Add Meta Graph client and sync service.
+5. Add deterministic KPI builder.
+6. Add structured OpenAI marketing analysis service.
+7. Add async insights job contracts for large report pulls.
+8. Add API routes and Swagger descriptions.
+9. Add tests with fakes; tests must never call Meta or OpenAI.

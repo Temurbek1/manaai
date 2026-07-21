@@ -6,6 +6,7 @@ from pydantic import JsonValue
 
 from app.schemas.marketing import (
     MarketingEntityType,
+    MetaDiscoveryResponse,
     MetaInsightsAsyncJobCreateResponse,
     MetaInsightsAsyncJobIngestRequest,
     MetaInsightsAsyncJobIngestResponse,
@@ -97,6 +98,48 @@ class MarketingSyncService:
             inserted_count=len(inserted),
             records_by_entity_type=dict(counts),
             warnings=warnings,
+        )
+
+    async def discover_meta_assets(self) -> MetaDiscoveryResponse:
+        collected_at = datetime.now(UTC)
+        discovery_id = str(uuid.uuid4())
+        raw_inputs: list[RawMarketingRecordInput] = []
+
+        app_payload = await self._meta_client.fetch_app()
+        if app_payload is not None:
+            raw_inputs.append(
+                self._record_input(
+                    entity_type="app",
+                    payload=app_payload,
+                    provider_record_id=_payload_id(app_payload),
+                    observed_at=collected_at,
+                ),
+            )
+
+        ad_accounts = await self._meta_client.fetch_configured_ad_accounts()
+        raw_inputs.extend(
+            self._record_input(
+                entity_type="ad_account",
+                payload=payload,
+                provider_record_id=_payload_id(payload),
+                account_id=_payload_id(payload),
+                observed_at=collected_at,
+            )
+            for payload in ad_accounts
+        )
+
+        inserted = await self._repository.insert_raw_records(raw_inputs) if raw_inputs else []
+        counts = Counter(record.entity_type for record in inserted)
+
+        return MetaDiscoveryResponse(
+            discovery_id=discovery_id,
+            api_version=self._meta_client.api_version,
+            collected_at=collected_at,
+            app_collected=app_payload is not None,
+            ad_account_count=len(ad_accounts),
+            inserted_count=len(inserted),
+            records_by_entity_type=dict(counts),
+            record_ids=[record.id for record in inserted],
         )
 
     async def create_insights_async_job(

@@ -27,6 +27,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `GET /api/v1/marketing/config` - non-secret статус Meta/OpenAI конфигурации
 - `POST /api/v1/marketing/raw` - загрузка raw marketing JSON records
 - `GET /api/v1/marketing/raw` - просмотр сохраненных raw records
+- `POST /api/v1/marketing/meta/discover` - сбор app/ad account metadata через Meta Graph API
 - `POST /api/v1/marketing/meta/sync` - сбор данных через Meta Marketing API
 - `POST /api/v1/marketing/meta/insights/jobs` - создание Meta async Insights job
 - `GET /api/v1/marketing/meta/insights/jobs/{report_run_id}` - статус async job
@@ -106,6 +107,14 @@ META_ACCESS_TOKEN=replace_with_system_user_access_token
 META_AD_ACCOUNT_IDS=["act_123456789"]
 MARKETING_DATABASE_PATH=/data/manaai.db
 ```
+
+Первичная проверка подключения и сбор доступных assets:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/meta/discover
+```
+
+Ответ сохранит app/ad account payloads в raw storage и вернет `record_ids`, которые можно дальше использовать для аудита.
 
 Синхронизация структуры и insights:
 

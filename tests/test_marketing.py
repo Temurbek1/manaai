@@ -190,6 +190,30 @@ async def test_meta_sync_service_stores_structure_and_insights(
     get_settings.cache_clear()
 
 
+async def test_meta_discovery_service_stores_app_and_ad_accounts(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    service = MarketingSyncService(
+        meta_client=cast(MetaMarketingClient, FakeMetaMarketingClient()),
+        repository=repository,
+    )
+
+    response = await service.discover_meta_assets()
+    records, total = await repository.list_raw_records(limit=100)
+
+    assert response.app_collected is True
+    assert response.ad_account_count == 1
+    assert response.inserted_count == 2
+    assert response.records_by_entity_type == {"ad_account": 1, "app": 1}
+    assert total == 2
+    assert {record.entity_type for record in records} == {"ad_account", "app"}
+    get_settings.cache_clear()
+
+
 async def test_meta_async_insights_job_flow_stores_job_and_results(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
