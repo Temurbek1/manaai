@@ -28,6 +28,7 @@ class MarketingGraphService:
                 "ad_account",
                 "pixel",
                 "custom_conversion",
+                "custom_audience",
                 "campaign",
                 "adset",
                 "ad",
@@ -167,6 +168,7 @@ class _MarketingGraphBuilder:
                     record=record,
                     edge_type="contains",
                 )
+            self._add_adset_targeting_edges(record=record, node_id=node_id)
 
         if record.entity_type == "ad":
             adset_id = _json_str(payload.get("adset_id")) or record.parent_id
@@ -218,6 +220,33 @@ class _MarketingGraphBuilder:
                     record=record,
                     edge_type="measures",
                 )
+
+    def _add_adset_targeting_edges(self, *, record: RawMarketingRecord, node_id: str) -> None:
+        targeting = record.payload.get("targeting")
+        if not isinstance(targeting, dict):
+            return
+
+        for audience in _targeting_custom_audiences(targeting):
+            audience_id = _nested_id(audience)
+            if audience_id is None:
+                continue
+            audience_node_id = _node_id("custom_audience", audience_id)
+            audience_name = _nested_name(audience) or audience_id
+            self._upsert_node(
+                node_id=audience_node_id,
+                node_type="custom_audience",
+                label=audience_name,
+                provider_record_id=audience_id,
+                account_id=record.account_id,
+                record_id=record.id,
+                attributes={},
+            )
+            self._upsert_edge(
+                source_id=node_id,
+                target_id=audience_node_id,
+                edge_type="targets",
+                record_id=record.id,
+            )
 
     def _edge_from_parent(
         self,
@@ -355,6 +384,18 @@ def _record_attributes(record: RawMarketingRecord) -> dict[str, JsonValue]:
         "is_archived",
         "is_unavailable",
         "owner_business",
+        "subtype",
+        "customer_file_source",
+        "data_source",
+        "delivery_status",
+        "operation_status",
+        "permission_for_actions",
+        "approximate_count",
+        "lookalike_spec",
+        "retention_days",
+        "time_content_updated",
+        "time_created",
+        "time_updated",
     ]
     return {key: value for key in keys if (value := record.payload.get(key)) is not None}
 
@@ -397,10 +438,26 @@ def _custom_conversion_pixel_id(payload: dict[str, JsonValue]) -> str | None:
     return _json_str(payload.get("pixel_id"))
 
 
+def _targeting_custom_audiences(targeting: dict[str, JsonValue]) -> list[JsonValue]:
+    result: list[JsonValue] = []
+    for key in ("custom_audiences", "excluded_custom_audiences"):
+        value = targeting.get(key)
+        if isinstance(value, list):
+            result.extend(item for item in value if isinstance(item, dict))
+    return result
+
+
 def _nested_id(value: JsonValue | None) -> str | None:
     if isinstance(value, dict):
         nested = value.get("id")
         return str(nested) if nested is not None else None
+    return None
+
+
+def _nested_name(value: JsonValue | None) -> str | None:
+    if isinstance(value, dict):
+        name = value.get("name")
+        return str(name) if name is not None else None
     return None
 
 

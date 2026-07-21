@@ -82,6 +82,25 @@ class Settings(BaseSettings):
             "is_archived",
         ],
     )
+    meta_custom_audience_fields: list[str] = Field(
+        default_factory=lambda: [
+            "id",
+            "name",
+            "description",
+            "subtype",
+            "customer_file_source",
+            "data_source",
+            "delivery_status",
+            "operation_status",
+            "permission_for_actions",
+            "approximate_count",
+            "lookalike_spec",
+            "retention_days",
+            "time_content_updated",
+            "time_created",
+            "time_updated",
+        ],
+    )
     meta_campaign_fields: list[str] = Field(
         default_factory=lambda: [
             "id",

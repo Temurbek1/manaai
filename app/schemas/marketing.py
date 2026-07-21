@@ -10,6 +10,7 @@ MarketingEntityType = Literal[
     "ad_account",
     "pixel",
     "custom_conversion",
+    "custom_audience",
     "campaign",
     "adset",
     "ad",

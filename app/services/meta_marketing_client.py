@@ -110,6 +110,12 @@ class MetaMarketingClient:
             params={"fields": ",".join(self._settings.meta_custom_conversion_fields)},
         )
 
+    async def fetch_custom_audiences(self, account_id: str) -> list[dict[str, JsonValue]]:
+        return await self._get_paginated(
+            f"{normalize_ad_account_id(account_id)}/customaudiences",
+            params={"fields": ",".join(self._settings.meta_custom_audience_fields)},
+        )
+
     async def fetch_insights(
         self,
         *,

@@ -142,6 +142,12 @@ class MarketingSyncService:
                     observed_at=collected_at,
                 ),
             )
+            raw_inputs.extend(
+                await self._fetch_custom_audiences(
+                    account_id=account_id,
+                    observed_at=collected_at,
+                ),
+            )
 
         inserted = await self._repository.insert_raw_records(raw_inputs) if raw_inputs else []
         counts = Counter(record.entity_type for record in inserted)
@@ -289,6 +295,7 @@ class MarketingSyncService:
         ads = await self._meta_client.fetch_ads(account_id)
         creatives = await self._meta_client.fetch_ad_creatives(account_id)
         custom_conversions = await self._meta_client.fetch_custom_conversions(account_id)
+        custom_audiences = await self._meta_client.fetch_custom_audiences(account_id)
 
         records: list[RawMarketingRecordInput] = []
         records.extend(
@@ -341,6 +348,16 @@ class MarketingSyncService:
             )
             for payload in custom_conversions
         )
+        records.extend(
+            self._record_input(
+                entity_type="custom_audience",
+                payload=payload,
+                provider_record_id=_payload_id(payload),
+                account_id=account_id,
+                observed_at=observed_at,
+            )
+            for payload in custom_audiences
+        )
         return records
 
     async def _fetch_business_assets(
@@ -387,6 +404,24 @@ class MarketingSyncService:
                 observed_at=observed_at,
             )
             for payload in custom_conversions
+        ]
+
+    async def _fetch_custom_audiences(
+        self,
+        *,
+        account_id: str,
+        observed_at: datetime,
+    ) -> list[RawMarketingRecordInput]:
+        custom_audiences = await self._meta_client.fetch_custom_audiences(account_id)
+        return [
+            self._record_input(
+                entity_type="custom_audience",
+                payload=payload,
+                provider_record_id=_payload_id(payload),
+                account_id=account_id,
+                observed_at=observed_at,
+            )
+            for payload in custom_audiences
         ]
 
     def _custom_conversion_record_input(

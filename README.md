@@ -32,7 +32,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `POST /api/v1/marketing/meta/insights/jobs` - создание Meta async Insights job
 - `GET /api/v1/marketing/meta/insights/jobs/{report_run_id}` - статус async job
 - `POST /api/v1/marketing/meta/insights/jobs/{report_run_id}/ingest` - загрузка результатов async job в raw storage
-- `POST /api/v1/marketing/graph` - граф связей app/business/pixel/custom conversion/ad account/campaign/adset/ad/creative/insight
+- `POST /api/v1/marketing/graph` - граф связей app/business/pixel/custom conversion/ad account/custom audience/campaign/adset/ad/creative/insight
 - `POST /api/v1/marketing/patterns` - детерминированный поиск закономерностей в raw insights
 - `POST /api/v1/marketing/analyze` - KPI + структурированный AI отчет
 - `GET /api/v1/marketing/reports` - список сохраненных AI отчетов
@@ -94,7 +94,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `META_BUSINESS_ID` | no | - | Business id для owned/client ad accounts |
 | `META_ACCESS_TOKEN` | yes for Meta sync | - | System user access token |
 | `META_AD_ACCOUNT_IDS` | no | `[]` | JSON list ad account ids, например `["act_123"]` |
-| `META_*_FIELDS` | no | JSON lists | Явные fields для business/pixels/custom conversions/campaigns/adsets/ads/ad creatives/ad accounts/insights |
+| `META_*_FIELDS` | no | JSON lists | Явные fields для business/pixels/custom conversions/custom audiences/campaigns/adsets/ads/ad creatives/ad accounts/insights |
 | `META_ACTION_ATTRIBUTION_WINDOWS` | no | `["1d_click","7d_click"]` | Attribution windows для insights |
 
 ## Meta Marketing workflow
@@ -134,7 +134,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
   }'
 ```
 
-При `include_structure=true` backend сохраняет raw payloads для business, pixels, custom conversions, campaigns, ad sets, ads и ad creatives. Ad creatives подтягиваются через Meta ad account `adcreatives` edge; custom conversions - через `customconversions`; pixels - через business `owned_pixels`. Наборы полей задаются через `META_CREATIVE_FIELDS`, `META_CUSTOM_CONVERSION_FIELDS` и `META_PIXEL_FIELDS`.
+При `include_structure=true` backend сохраняет raw payloads для business, pixels, custom conversions, custom audiences, campaigns, ad sets, ads и ad creatives. Ad creatives подтягиваются через Meta ad account `adcreatives` edge; custom conversions - через `customconversions`; custom audiences - через `customaudiences`; pixels - через business `owned_pixels`. Наборы полей задаются через `META_CREATIVE_FIELDS`, `META_CUSTOM_CONVERSION_FIELDS`, `META_CUSTOM_AUDIENCE_FIELDS` и `META_PIXEL_FIELDS`.
 
 Для больших отчетов используйте async Insights job, как рекомендует Meta:
 
@@ -217,7 +217,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/graph \
   }'
 ```
 
-Graph endpoint строит nodes/edges из raw records: business owns ad account/pixel, pixel reports custom conversions, account contains campaigns/adsets/ads/creatives/custom conversions, ads point to creatives, insight rows measure account/campaign/adset/ad objects.
+Graph endpoint строит nodes/edges из raw records: business owns ad account/pixel, pixel reports custom conversions, account contains campaigns/adsets/ads/creatives/custom conversions/custom audiences, ad sets target custom audiences, ads point to creatives, insight rows measure account/campaign/adset/ad objects.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/marketing/analyze \

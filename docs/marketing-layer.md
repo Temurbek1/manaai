@@ -34,8 +34,10 @@ business
   -> pixel
       -> custom_conversion
   -> ad_account
+      -> custom_audience
       -> campaign
           -> ad_set
+              -> custom_audience
               -> ad
                   -> creative
       -> insights
@@ -52,6 +54,12 @@ stored from the business `owned_pixels` edge, and ad-account custom conversions
 are stored from the `customconversions` edge. This lets the AI layer connect
 conversion KPI rows back to the configured pixel/event rules instead of treating
 all `actions` values as anonymous counts.
+
+Audience metadata is preserved separately from ad set `targeting` payloads.
+Custom audiences are stored from the ad account `customaudiences` edge, and the
+graph builder links ad sets to audiences referenced in `targeting.custom_audiences`
+and `targeting.excluded_custom_audiences`. This keeps audience-performance
+relationships queryable without flattening or discarding the raw targeting JSON.
 
 Insights can be requested at multiple levels:
 
@@ -74,7 +82,7 @@ auditable back to `source_record_ids`.
 Raw records are append-only snapshots with:
 
 - source: `meta_marketing_api` or `manual_upload`
-- entity type: app, business, pixel, custom conversion, ad account, campaign, ad set, ad, creative, insight, or custom
+- entity type: app, business, pixel, custom conversion, custom audience, ad account, campaign, ad set, ad, creative, insight, or custom
 - provider record id when available
 - account id and parent id when available
 - observed timestamp/date window when available

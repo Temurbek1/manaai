@@ -290,8 +290,8 @@ async def get_marketing_report(
     summary="Build marketing entity graph",
     description=(
         "Builds a relationship graph from stored raw Meta records: app, business, ad "
-        "accounts, pixels, custom conversions, campaigns, ad sets, ads, creatives, "
-        "and insight measurements."
+        "accounts, pixels, custom conversions, custom audiences, campaigns, ad sets, "
+        "ads, creatives, and insight measurements."
     ),
 )
 async def build_marketing_graph(

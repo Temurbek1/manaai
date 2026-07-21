@@ -244,6 +244,26 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
                             "id": "adset-1",
                             "name": "Ad set",
                             "campaign_id": "campaign-1",
+                            "targeting": {
+                                "custom_audiences": [
+                                    {"id": "audience-1", "name": "High value customers"},
+                                ],
+                                "excluded_custom_audiences": [
+                                    {"id": "audience-2", "name": "Existing buyers"},
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "custom_audience",
+                        "provider_record_id": "audience-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "audience-1",
+                            "name": "High value customers",
+                            "subtype": "CUSTOM",
+                            "approximate_count": 1500,
                         },
                     },
                     {
@@ -329,6 +349,8 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
     assert ("ad:ad-1", "creative:creative-1", "created_from") in edge_pairs
     assert ("business:business-1", "pixel:pixel-1", "owns") in edge_pairs
     assert ("pixel:pixel-1", "custom_conversion:custom-conversion-1", "reports") in edge_pairs
+    assert ("adset:adset-1", "custom_audience:audience-1", "targets") in edge_pairs
+    assert ("adset:adset-1", "custom_audience:audience-2", "targets") in edge_pairs
     assert any(edge_type == "measures" for _, _, edge_type in edge_pairs)
     creative_node = next(node for node in body["nodes"] if node["id"] == "creative:creative-1")
     assert creative_node["attributes"]["title"] == "Creative headline"
@@ -337,6 +359,10 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
         node for node in body["nodes"] if node["id"] == "custom_conversion:custom-conversion-1"
     )
     assert conversion_node["attributes"]["custom_event_type"] == "PURCHASE"
+    audience_node = next(
+        node for node in body["nodes"] if node["id"] == "custom_audience:audience-1"
+    )
+    assert audience_node["attributes"]["subtype"] == "CUSTOM"
     get_settings.cache_clear()
 
 
@@ -469,7 +495,7 @@ async def test_meta_sync_service_stores_structure_and_insights(
     )
     records, total = await repository.list_raw_records(limit=100)
 
-    assert response.inserted_count == 10
+    assert response.inserted_count == 11
     assert response.records_by_entity_type == {
         "ad": 1,
         "ad_account": 1,
@@ -478,11 +504,12 @@ async def test_meta_sync_service_stores_structure_and_insights(
         "business": 1,
         "campaign": 1,
         "creative": 1,
+        "custom_audience": 1,
         "custom_conversion": 1,
         "insight": 1,
         "pixel": 1,
     }
-    assert total == 10
+    assert total == 11
     assert {record.entity_type for record in records} == {
         "ad",
         "ad_account",
@@ -491,6 +518,7 @@ async def test_meta_sync_service_stores_structure_and_insights(
         "business",
         "campaign",
         "creative",
+        "custom_audience",
         "custom_conversion",
         "insight",
         "pixel",
@@ -515,19 +543,21 @@ async def test_meta_discovery_service_stores_app_and_ad_accounts(
 
     assert response.app_collected is True
     assert response.ad_account_count == 1
-    assert response.inserted_count == 5
+    assert response.inserted_count == 6
     assert response.records_by_entity_type == {
         "ad_account": 1,
         "app": 1,
         "business": 1,
+        "custom_audience": 1,
         "custom_conversion": 1,
         "pixel": 1,
     }
-    assert total == 5
+    assert total == 6
     assert {record.entity_type for record in records} == {
         "ad_account",
         "app",
         "business",
+        "custom_audience",
         "custom_conversion",
         "pixel",
     }
@@ -692,6 +722,11 @@ class FakeMetaMarketingClient:
                 "id": "adset-1",
                 "name": f"Ad set for {account_id}",
                 "campaign_id": "campaign-1",
+                "targeting": {
+                    "custom_audiences": [
+                        {"id": "audience-1", "name": "High value customers"},
+                    ],
+                },
             },
         ]
 
@@ -727,6 +762,16 @@ class FakeMetaMarketingClient:
                 "event_source_type": "PIXEL",
                 "pixel": {"id": "pixel-1"},
                 "rule": {"event": {"eq": "Purchase"}},
+            },
+        ]
+
+    async def fetch_custom_audiences(self, account_id: str) -> list[dict[str, object]]:
+        return [
+            {
+                "id": "audience-1",
+                "name": f"High value customers for {account_id}",
+                "subtype": "CUSTOM",
+                "approximate_count": 1500,
             },
         ]
 
