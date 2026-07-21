@@ -163,6 +163,10 @@ def _analysis_context_json(
                     "placement or device."
                 ),
                 (
+                    "Treat frequency_fatigue patterns as saturation or creative fatigue "
+                    "hypotheses that need placement, audience, and creative validation."
+                ),
+                (
                     "Treat custom audience rollup patterns as targeting diagnostics, not "
                     "exclusive causal attribution."
                 ),

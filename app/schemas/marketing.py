@@ -29,6 +29,7 @@ MarketingPatternType = Literal[
     "efficiency_opportunity",
     "cost_outlier",
     "engagement_outlier",
+    "frequency_fatigue",
     "segment_waste",
     "segment_efficiency_opportunity",
     "creative_waste",
@@ -288,6 +289,7 @@ class MarketingKpiRow(BaseModel):
     conversions: float
     conversion_value: float
     ctr: float | None
+    frequency: float | None
     cpc: float | None
     cpm: float | None
     cpa: float | None
@@ -306,6 +308,7 @@ class MarketingKpiSummary(BaseModel):
     total_conversions: float
     total_conversion_value: float
     ctr: float | None
+    frequency: float | None
     cpc: float | None
     cpm: float | None
     cpa: float | None
@@ -342,6 +345,7 @@ class MarketingPatternsRequest(BaseModel):
     min_spend: float = Field(default=1.0, ge=0.0)
     spend_concentration_threshold: float = Field(default=0.4, ge=0.05, le=1.0)
     outlier_multiplier: float = Field(default=2.0, ge=1.1, le=10.0)
+    frequency_fatigue_threshold: float = Field(default=3.0, ge=1.0, le=50.0)
 
     @model_validator(mode="after")
     def validate_range(self) -> "MarketingPatternsRequest":

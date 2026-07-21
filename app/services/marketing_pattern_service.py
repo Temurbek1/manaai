@@ -165,6 +165,7 @@ class MarketingPatternService:
             min_spend=request.min_spend,
             spend_concentration_threshold=request.spend_concentration_threshold,
             outlier_multiplier=request.outlier_multiplier,
+            frequency_fatigue_threshold=request.frequency_fatigue_threshold,
         )
         source_record_ids = {record.id for record in [*records, *structure_records]}
         return MarketingPatternsResponse(
@@ -190,6 +191,7 @@ def detect_marketing_patterns(
     min_spend: float,
     spend_concentration_threshold: float,
     outlier_multiplier: float,
+    frequency_fatigue_threshold: float,
 ) -> list[MarketingPattern]:
     if not rows:
         empty_patterns = [
@@ -270,6 +272,15 @@ def detect_marketing_patterns(
         _engagement_outlier_patterns(
             rows=spend_rows,
             summary=summary,
+            outlier_multiplier=outlier_multiplier,
+        ),
+    )
+    patterns.extend(
+        _frequency_fatigue_patterns(
+            rows=spend_rows,
+            summary=summary,
+            min_spend=min_spend,
+            frequency_threshold=frequency_fatigue_threshold,
             outlier_multiplier=outlier_multiplier,
         ),
     )
@@ -758,6 +769,55 @@ def _engagement_outlier_patterns(
             ],
         )
         for row in sorted(candidates, key=lambda item: item.spend, reverse=True)[:5]
+    ]
+
+
+def _frequency_fatigue_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    summary: MarketingKpiSummary,
+    min_spend: float,
+    frequency_threshold: float,
+    outlier_multiplier: float,
+) -> list[MarketingPattern]:
+    spend_floor = max(min_spend, summary.total_spend * 0.05)
+    low_ctr_threshold = summary.ctr / outlier_multiplier if summary.ctr is not None else None
+    candidates: list[MarketingKpiRow] = []
+
+    for row in rows:
+        if row.frequency is None or row.frequency < frequency_threshold:
+            continue
+        if row.spend < spend_floor:
+            continue
+        conversion_issue = row.conversions == 0 and row.clicks > 0
+        ctr_issue = (
+            low_ctr_threshold is not None
+            and row.ctr is not None
+            and row.ctr <= low_ctr_threshold
+        )
+        if conversion_issue or ctr_issue:
+            candidates.append(row)
+
+    return [
+        _pattern(
+            pattern_type="frequency_fatigue",
+            direction="negative",
+            title="High frequency may indicate audience or creative fatigue",
+            explanation=(
+                f"{_row_label(row)} has frequency {row.frequency:.2f}, above the configured "
+                f"{frequency_threshold:.2f} threshold, with weak conversion or CTR evidence."
+            ),
+            row=row,
+            metric="frequency",
+            value=row.frequency,
+            benchmark=frequency_threshold,
+            confidence="medium",
+            suggested_raw_queries=[
+                "Compare frequency by placement, device, audience, and creative.",
+                "Inspect recent creative refreshes and audience saturation before scaling.",
+            ],
+        )
+        for row in sorted(candidates, key=lambda item: item.frequency or 0, reverse=True)[:5]
     ]
 
 
@@ -1861,6 +1921,7 @@ def _aggregate_rows(rows: list[MarketingKpiRow]) -> MarketingKpiSummary:
         total_conversions=total_conversions,
         total_conversion_value=total_conversion_value,
         ctr=_safe_ratio(total_clicks, total_impressions),
+        frequency=_safe_ratio(total_impressions, total_reach),
         cpc=_safe_ratio(total_spend, total_clicks),
         cpm=_safe_ratio(total_spend * 1000, total_impressions),
         cpa=_safe_ratio(total_spend, total_conversions),

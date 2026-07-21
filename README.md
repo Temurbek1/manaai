@@ -10,7 +10,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - Дефолтная модель: `gpt-5.4-nano`, самая дешевая GPT-5.4-class модель по цене токенов
 - Meta Marketing API слой через официальный Graph API `v25.0`
 - Append-only raw storage в SQLite, чтобы не терять исходные данные Meta/экспортов
-- Детерминированные KPI до вызова AI: spend, impressions, clicks, conversions, CTR, CPC, CPM, CPA, ROAS
+- Детерминированные KPI до вызова AI: spend, impressions, reach, clicks, conversions, CTR, frequency, CPC, CPM, CPA, ROAS
 - AI analytics output через OpenAI Structured Outputs
 - Swagger UI/OpenAPI docs по рекомендациям FastAPI: metadata, tag descriptions, summaries, request duration и фильтр операций
 - Trace headers: `X-Request-ID` и `X-Process-Time-Ms`
@@ -253,7 +253,7 @@ curl -X POST http://localhost:8000/api/v1/marketing/patterns \
   }'
 ```
 
-Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, segment waste/segment efficiency по breakdown dimensions, hierarchy waste/efficiency по связке raw campaign/adset/ad -> lower-level insights, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, delivery/status issues по `status`, `effective_status` и ad account `account_status`, unmapped action signals для проверки `MARKETING_CONVERSION_ACTION_TYPES`, measurement health issues по pixel/custom conversion (`is_unavailable`, `is_archived`, stale `last_fired_time`), простые тренды и data quality gaps. Audience patterns - это targeting rollup, а delivery/measurement patterns - это ограничения доверия к действиям и трекингу: перед изменением бюджета проверяйте overlap, exclusions, frequency, current delivery status и состояние Events Manager.
+Patterns endpoint ищет spend concentration, spend without conversions, efficiency opportunities, CPC/CTR outliers, high-frequency fatigue, segment waste/segment efficiency по breakdown dimensions, hierarchy waste/efficiency по связке raw campaign/adset/ad -> lower-level insights, creative waste/creative efficiency по связке raw ad -> creative, custom audience waste/efficiency по связке raw adset targeting -> ad/adset insights, delivery/status issues по `status`, `effective_status` и ad account `account_status`, unmapped action signals для проверки `MARKETING_CONVERSION_ACTION_TYPES`, measurement health issues по pixel/custom conversion (`is_unavailable`, `is_archived`, stale `last_fired_time`), простые тренды и data quality gaps. Fatigue threshold управляется request-полем `frequency_fatigue_threshold` (default `3.0`). Audience patterns - это targeting rollup, а delivery/measurement patterns - это ограничения доверия к действиям и трекингу: перед изменением бюджета проверяйте overlap, exclusions, frequency, current delivery status и состояние Events Manager.
 
 Граф связей между raw сущностями:
 

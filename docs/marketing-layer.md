@@ -129,6 +129,7 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - conversions from `actions`
 - conversion value from `action_values`
 - CTR
+- frequency
 - CPC
 - CPM
 - CPA
@@ -136,11 +137,11 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - dimensions extracted from known Meta insight breakdown fields, such as
   platform, placement, device, geography, demographic, product, and hourly slices
 - Deterministic patterns: spend concentration, wasted spend, efficiency
-  opportunities, cost/engagement outliers, segment waste/efficiency by
-  breakdown dimensions, hierarchy rollups, creative waste/efficiency rollups,
-  custom audience targeting rollups, delivery/status issues, unmapped Meta
-  action signals, measurement health issues from pixels/custom conversions,
-  trend movements, and data quality gaps.
+  opportunities, cost/engagement/frequency-fatigue outliers, segment
+  waste/efficiency by breakdown dimensions, hierarchy rollups, creative
+  waste/efficiency rollups, custom audience targeting rollups, delivery/status
+  issues, unmapped Meta action signals, measurement health issues from
+  pixels/custom conversions, trend movements, and data quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by

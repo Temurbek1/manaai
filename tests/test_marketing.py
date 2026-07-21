@@ -255,6 +255,7 @@ async def test_marketing_metrics_builder_computes_kpis(
 
     assert len(rows) == 1
     assert rows[0].ctr == 0.025
+    assert rows[0].frequency == 1.333333
     assert rows[0].cpc == 0.4
     assert rows[0].cpa == 20
     assert rows[0].roas == 5
@@ -263,6 +264,7 @@ async def test_marketing_metrics_builder_computes_kpis(
         "publisher_platform": "facebook",
     }
     assert summary.total_spend == 200
+    assert summary.frequency == 1.333333
     get_settings.cache_clear()
 
 
@@ -363,6 +365,77 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
         and pattern["dimensions"] == {"publisher_platform": "facebook"}
         for pattern in body["patterns"]
     )
+    get_settings.cache_clear()
+
+
+async def test_marketing_patterns_endpoint_detects_frequency_fatigue(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-fatigue",
+                            "ad_name": "Fatigued ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "impressions": "9000",
+                            "reach": "1000",
+                            "clicks": "90",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "ad-fresh",
+                            "ad_name": "Fresh ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "impressions": "10000",
+                            "reach": "9000",
+                            "clicks": "300",
+                            "actions": [{"action_type": "lead", "value": "10"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    assert body["kpi_summary"]["frequency"] == 1.9
+    fatigue_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "frequency_fatigue"
+    )
+    assert fatigue_pattern["entity_id"] == "ad-fatigue"
+    assert fatigue_pattern["metric"] == "frequency"
+    assert fatigue_pattern["value"] == 9
+    assert fatigue_pattern["benchmark"] == 3
+    assert fatigue_pattern["direction"] == "negative"
     get_settings.cache_clear()
 
 
@@ -1645,6 +1718,7 @@ def _make_marketing_analysis_response(
             total_conversions=0,
             total_conversion_value=0,
             ctr=None,
+            frequency=None,
             cpc=None,
             cpm=None,
             cpa=None,
