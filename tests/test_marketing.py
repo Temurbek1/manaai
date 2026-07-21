@@ -103,6 +103,110 @@ async def test_raw_marketing_ingestion_and_listing(
     get_settings.cache_clear()
 
 
+async def test_raw_marketing_search_filters_payload_dimensions_and_provider_ids(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "provider_record_id": "ad:1:2026-07-01:dim-facebook-feed",
+                        "account_id": "act_100",
+                        "observed_at": "2026-07-01T00:00:00+00:00",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "1",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "100",
+                            "publisher_platform": "facebook",
+                            "platform_position": "feed",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "provider_record_id": "ad:2:2026-07-01:dim-facebook-feed",
+                        "account_id": "act_100",
+                        "observed_at": "2026-07-01T00:00:00+00:00",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "2",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "25",
+                            "publisher_platform": "facebook",
+                            "platform_position": "feed",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "provider_record_id": "ad:3:2026-07-01:dim-instagram-stories",
+                        "account_id": "act_100",
+                        "observed_at": "2026-07-01T00:00:00+00:00",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "ad_id": "3",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "10",
+                            "publisher_platform": "instagram",
+                            "platform_position": "stories",
+                        },
+                    },
+                ],
+            },
+        )
+        dimension_response = await client.post(
+            "/api/v1/marketing/raw/search",
+            json={
+                "account_ids": ["act_100"],
+                "entity_types": ["insight"],
+                "payload_filters": {"_meta_level": "ad"},
+                "dimension_filters": {"publisher_platform": "facebook"},
+                "limit": 10,
+            },
+        )
+        provider_response = await client.post(
+            "/api/v1/marketing/raw/search",
+            json={
+                "provider_record_ids": ["ad:3:2026-07-01:dim-instagram-stories"],
+            },
+        )
+        invalid_response = await client.post(
+            "/api/v1/marketing/raw/search",
+            json={"payload_filters": {"nested.field": "not-allowed"}},
+        )
+
+    assert ingest_response.status_code == 201
+    assert dimension_response.status_code == 200
+    dimension_body = dimension_response.json()
+    assert dimension_body["total"] == 2
+    assert {
+        record["provider_record_id"] for record in dimension_body["records"]
+    } == {
+        "ad:1:2026-07-01:dim-facebook-feed",
+        "ad:2:2026-07-01:dim-facebook-feed",
+    }
+    assert provider_response.status_code == 200
+    assert provider_response.json()["total"] == 1
+    assert provider_response.json()["records"][0]["payload"]["publisher_platform"] == "instagram"
+    assert invalid_response.status_code == 422
+    get_settings.cache_clear()
+
+
 async def test_marketing_metrics_builder_computes_kpis(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

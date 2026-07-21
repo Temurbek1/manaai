@@ -3,7 +3,7 @@ import hashlib
 import json
 import sqlite3
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
@@ -11,6 +11,7 @@ from typing import cast
 from pydantic import JsonValue
 
 from app.schemas.marketing import (
+    RAW_FILTER_KEY_PATTERN,
     MarketingAnalysisReport,
     MarketingAnalysisReportSummary,
     MarketingAnalysisRequest,
@@ -41,8 +42,10 @@ class MarketingRepository:
         *,
         account_ids: Sequence[str] | None = None,
         entity_types: Sequence[MarketingEntityType] | None = None,
+        provider_record_ids: Sequence[str] | None = None,
         date_start: date | None = None,
         date_stop: date | None = None,
+        payload_filters: Mapping[str, str] | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> tuple[list[RawMarketingRecord], int]:
@@ -50,8 +53,10 @@ class MarketingRepository:
             self._list_raw_records_sync,
             account_ids,
             entity_types,
+            provider_record_ids,
             date_start,
             date_stop,
+            payload_filters,
             limit,
             offset,
         )
@@ -178,8 +183,10 @@ class MarketingRepository:
         self,
         account_ids: Sequence[str] | None,
         entity_types: Sequence[MarketingEntityType] | None,
+        provider_record_ids: Sequence[str] | None,
         date_start: date | None,
         date_stop: date | None,
+        payload_filters: Mapping[str, str] | None,
         limit: int,
         offset: int,
     ) -> tuple[list[RawMarketingRecord], int]:
@@ -194,6 +201,12 @@ class MarketingRepository:
             where_clauses.append(f"entity_type IN ({_placeholders(len(entity_types))})")
             values.extend(entity_types)
 
+        if provider_record_ids:
+            where_clauses.append(
+                f"provider_record_id IN ({_placeholders(len(provider_record_ids))})",
+            )
+            values.extend(provider_record_ids)
+
         if date_start is not None:
             where_clauses.append("observed_at >= ?")
             values.append(_date_start_to_db(date_start))
@@ -201,6 +214,11 @@ class MarketingRepository:
         if date_stop is not None:
             where_clauses.append("observed_at <= ?")
             values.append(_date_stop_to_db(date_stop))
+
+        for key, expected_value in sorted((payload_filters or {}).items()):
+            _validate_payload_filter_key(key)
+            where_clauses.append("CAST(json_extract(payload_json, ?) AS TEXT) = ?")
+            values.extend([f"$.{key}", expected_value])
 
         where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
@@ -394,6 +412,11 @@ def _date_stop_to_db(value: date) -> str:
 
 def _optional_str(value: object) -> str | None:
     return str(value) if value is not None else None
+
+
+def _validate_payload_filter_key(key: str) -> None:
+    if RAW_FILTER_KEY_PATTERN.fullmatch(key) is None:
+        raise ValueError("Payload filter keys must be top-level JSON field names")
 
 
 def _placeholders(count: int) -> str:

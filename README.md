@@ -27,6 +27,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `GET /api/v1/marketing/config` - non-secret статус Meta/OpenAI конфигурации
 - `POST /api/v1/marketing/raw` - загрузка raw marketing JSON records
 - `GET /api/v1/marketing/raw` - просмотр сохраненных raw records
+- `POST /api/v1/marketing/raw/search` - поиск raw records по provider id и payload/dimension filters
 - `POST /api/v1/marketing/meta/discover` - сбор app/ad account metadata через Meta Graph API
 - `POST /api/v1/marketing/meta/sync` - сбор данных через Meta Marketing API
 - `POST /api/v1/marketing/meta/insights/jobs` - создание Meta async Insights job
@@ -211,6 +212,22 @@ curl -X POST http://localhost:8000/api/v1/marketing/raw \
     ]
   }'
 ```
+
+Поиск raw строк после найденной закономерности:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/marketing/raw/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account_ids": ["act_123456789"],
+    "entity_types": ["insight"],
+    "payload_filters": {"_meta_level": "ad"},
+    "dimension_filters": {"publisher_platform": "facebook", "platform_position": "feed"},
+    "limit": 100
+  }'
+```
+
+`payload_filters` и `dimension_filters` работают по точному совпадению top-level JSON fields. Это покрывает аудит segment patterns: из ответа `/patterns` можно взять `dimensions` и `evidence_record_ids`, затем открыть соответствующие raw payloads без повторного запроса к Meta.
 
 AI analytics report:
 

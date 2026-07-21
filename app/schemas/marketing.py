@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from typing import Literal
 
@@ -42,6 +43,7 @@ MarketingGraphEdgeType = Literal[
     "measures",
     "created_from",
 ]
+RAW_FILTER_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,79}$")
 
 
 def default_meta_insight_levels() -> list[MetaInsightLevel]:
@@ -97,6 +99,41 @@ class RawMarketingRecordListResponse(BaseModel):
     limit: int
     offset: int
     records: list[RawMarketingRecord]
+
+
+class RawMarketingRecordSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    account_ids: list[str] | None = Field(default=None, max_length=100)
+    entity_types: list[MarketingEntityType] | None = Field(default=None, max_length=20)
+    provider_record_ids: list[str] | None = Field(default=None, max_length=100)
+    date_start: date | None = None
+    date_stop: date | None = None
+    payload_filters: dict[str, str] = Field(default_factory=dict, max_length=25)
+    dimension_filters: dict[str, str] = Field(default_factory=dict, max_length=25)
+    limit: int = Field(default=100, ge=1, le=1_000)
+    offset: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_filters(self) -> "RawMarketingRecordSearchRequest":
+        if (
+            self.date_start is not None
+            and self.date_stop is not None
+            and self.date_start > self.date_stop
+        ):
+            raise ValueError("date_start must be before or equal to date_stop")
+
+        for key in [*self.payload_filters, *self.dimension_filters]:
+            if RAW_FILTER_KEY_PATTERN.fullmatch(key) is None:
+                raise ValueError(
+                    "payload and dimension filter keys must be top-level JSON field names",
+                )
+
+        for key, value in self.dimension_filters.items():
+            payload_value = self.payload_filters.get(key)
+            if payload_value is not None and payload_value != value:
+                raise ValueError("payload_filters and dimension_filters contain a conflict")
+        return self
 
 
 class MetaSyncRequest(BaseModel):

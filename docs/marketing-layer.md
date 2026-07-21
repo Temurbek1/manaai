@@ -103,6 +103,12 @@ The API exposes raw ingestion separately from Meta sync so exports from Meta Ads
 Manager, CSV-to-JSON pipelines, or future connectors can be analyzed without
 requiring a live Meta token.
 
+The raw search endpoint exposes exact filters over account ids, entity types,
+provider record ids, date windows, and top-level payload/dimension fields. This
+is the audit path from a deterministic pattern back to source payloads: take a
+pattern's `dimensions` or `evidence_record_ids`, search raw storage, and inspect
+the original JSON without rerunning Meta collection or AI inference.
+
 ## Deterministic Metrics
 
 Before using AI, the backend computes deterministic KPI rows from raw insights:

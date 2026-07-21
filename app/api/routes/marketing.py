@@ -31,6 +31,7 @@ from app.schemas.marketing import (
     RawMarketingIngestRequest,
     RawMarketingIngestResponse,
     RawMarketingRecordListResponse,
+    RawMarketingRecordSearchRequest,
 )
 from app.services.meta_marketing_client import MetaAPIError, MetaConfigurationError
 from app.services.openai_service import AIConfigurationError, AIProviderError
@@ -99,6 +100,38 @@ async def list_raw_records(
         total=total,
         limit=limit,
         offset=offset,
+        records=records,
+    )
+
+
+@router.post(
+    "/raw/search",
+    response_model=RawMarketingRecordListResponse,
+    summary="Search raw marketing records",
+    description=(
+        "Searches stored raw records by account, entity, provider id, date range, and exact "
+        "top-level payload or breakdown dimension values for audit workflows."
+    ),
+)
+async def search_raw_records(
+    payload: RawMarketingRecordSearchRequest,
+    repository: MarketingRepositoryDep,
+) -> RawMarketingRecordListResponse:
+    payload_filters = {**payload.payload_filters, **payload.dimension_filters}
+    records, total = await repository.list_raw_records(
+        account_ids=payload.account_ids,
+        entity_types=payload.entity_types,
+        provider_record_ids=payload.provider_record_ids,
+        date_start=payload.date_start,
+        date_stop=payload.date_stop,
+        payload_filters=payload_filters,
+        limit=payload.limit,
+        offset=payload.offset,
+    )
+    return RawMarketingRecordListResponse(
+        total=total,
+        limit=payload.limit,
+        offset=payload.offset,
         records=records,
     )
 
