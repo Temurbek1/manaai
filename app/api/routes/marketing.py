@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.api.dependencies import (
     MarketingAnalysisServiceDep,
+    MarketingGraphServiceDep,
     MarketingPatternServiceDep,
     MarketingRepositoryDep,
     MarketingSyncServiceDep,
@@ -13,6 +14,8 @@ from app.schemas.marketing import (
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
     MarketingEntityType,
+    MarketingGraphRequest,
+    MarketingGraphResponse,
     MarketingIntegrationConfigResponse,
     MarketingPatternsRequest,
     MarketingPatternsResponse,
@@ -239,6 +242,22 @@ async def analyze_marketing(
         ) from exc
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post(
+    "/graph",
+    response_model=MarketingGraphResponse,
+    summary="Build marketing entity graph",
+    description=(
+        "Builds a relationship graph from stored raw Meta records: app, business, ad "
+        "accounts, campaigns, ad sets, ads, creatives, and insight measurements."
+    ),
+)
+async def build_marketing_graph(
+    payload: MarketingGraphRequest,
+    graph_service: MarketingGraphServiceDep,
+) -> MarketingGraphResponse:
+    return await graph_service.build(payload)
 
 
 @router.post(

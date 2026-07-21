@@ -12,6 +12,7 @@ from app.schemas.marketing import (
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
     MarketingFinding,
+    MarketingGraphResponse,
     MarketingKpiSummary,
     MetaInsightLevel,
     MetaInsightsAsyncJobIngestRequest,
@@ -210,6 +211,79 @@ async def test_marketing_patterns_endpoint_detects_wasted_spend(
     get_settings.cache_clear()
 
 
+async def test_marketing_graph_endpoint_builds_entity_edges(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "campaign",
+                        "provider_record_id": "campaign-1",
+                        "account_id": "act_100",
+                        "payload": {"id": "campaign-1", "name": "Campaign"},
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "adset",
+                        "provider_record_id": "adset-1",
+                        "account_id": "act_100",
+                        "parent_id": "campaign-1",
+                        "payload": {
+                            "id": "adset-1",
+                            "name": "Ad set",
+                            "campaign_id": "campaign-1",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-1",
+                        "account_id": "act_100",
+                        "parent_id": "adset-1",
+                        "payload": {"id": "ad-1", "name": "Ad", "adset_id": "adset-1"},
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "ad_id": "ad-1",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "25",
+                            "impressions": "1000",
+                            "clicks": "50",
+                        },
+                    },
+                ],
+            },
+        )
+        graph_response = await client.post(
+            "/api/v1/marketing/graph",
+            json={"account_ids": ["act_100"], "include_insights": True},
+        )
+
+    assert ingest_response.status_code == 201
+    assert graph_response.status_code == 200
+    body = graph_response.json()
+    edge_pairs = {(edge["source_id"], edge["target_id"], edge["type"]) for edge in body["edges"]}
+    assert ("campaign:campaign-1", "adset:adset-1", "contains") in edge_pairs
+    assert ("adset:adset-1", "ad:ad-1", "contains") in edge_pairs
+    assert any(edge_type == "measures" for _, _, edge_type in edge_pairs)
+    get_settings.cache_clear()
+
+
 async def test_meta_sync_service_stores_structure_and_insights(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -362,6 +436,12 @@ class FakeMarketingAnalysisService:
             ),
             kpis=[],
             patterns=[],
+            graph=MarketingGraphResponse(
+                generated_at=datetime.now(UTC),
+                source_record_count=0,
+                nodes=[],
+                edges=[],
+            ),
             report=MarketingAnalysisReport(
                 executive_summary=f"Answered: {request.question}",
                 health_score=72,

@@ -29,6 +29,14 @@ MarketingPatternType = Literal[
     "data_quality",
 ]
 MarketingPatternDirection = Literal["positive", "negative", "neutral"]
+MarketingGraphEdgeType = Literal[
+    "owns",
+    "contains",
+    "targets",
+    "reports",
+    "measures",
+    "created_from",
+]
 
 
 def default_meta_insight_levels() -> list[MetaInsightLevel]:
@@ -291,6 +299,57 @@ class MarketingPatternsResponse(BaseModel):
     patterns: list[MarketingPattern]
 
 
+class MarketingGraphRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    account_ids: list[str] | None = Field(default=None, max_length=100)
+    date_start: date | None = None
+    date_stop: date | None = None
+    entity_types: list[MarketingEntityType] | None = Field(default=None, max_length=20)
+    include_insights: bool = True
+    max_records: int = Field(default=1_000, ge=1, le=10_000)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "MarketingGraphRequest":
+        if (
+            self.date_start is not None
+            and self.date_stop is not None
+            and self.date_start > self.date_stop
+        ):
+            raise ValueError("date_start must be before or equal to date_stop")
+        return self
+
+
+class MarketingGraphNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    type: MarketingEntityType | str
+    label: str
+    provider_record_id: str | None
+    account_id: str | None
+    source_record_ids: list[str] = Field(max_length=100)
+    attributes: dict[str, JsonValue]
+
+
+class MarketingGraphEdge(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
+    target_id: str
+    type: MarketingGraphEdgeType
+    source_record_ids: list[str] = Field(max_length=100)
+
+
+class MarketingGraphResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    generated_at: datetime
+    source_record_count: int
+    nodes: list[MarketingGraphNode]
+    edges: list[MarketingGraphEdge]
+
+
 class MarketingFinding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -345,4 +404,5 @@ class MarketingAnalysisResponse(BaseModel):
     kpi_summary: MarketingKpiSummary
     kpis: list[MarketingKpiRow]
     patterns: list[MarketingPattern]
+    graph: MarketingGraphResponse
     report: MarketingAnalysisReport

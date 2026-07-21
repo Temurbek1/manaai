@@ -7,8 +7,10 @@ from app.schemas.marketing import (
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
     MarketingFinding,
+    MarketingGraphRequest,
     MarketingPatternsRequest,
 )
+from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_metrics import MarketingMetricsBuilder
 from app.services.marketing_pattern_service import MarketingPatternService
 from app.services.marketing_repository import MarketingRepository
@@ -34,11 +36,13 @@ class MarketingAnalysisService:
         repository: MarketingRepository,
         metrics_builder: MarketingMetricsBuilder,
         pattern_service: MarketingPatternService,
+        graph_service: MarketingGraphService,
         openai_service: OpenAIService,
     ) -> None:
         self._repository = repository
         self._metrics_builder = metrics_builder
         self._pattern_service = pattern_service
+        self._graph_service = graph_service
         self._openai_service = openai_service
 
     async def analyze(self, request: MarketingAnalysisRequest) -> MarketingAnalysisResponse:
@@ -60,6 +64,15 @@ class MarketingAnalysisService:
                 max_records=request.max_records,
             ),
         )
+        graph_response = await self._graph_service.build(
+            MarketingGraphRequest(
+                account_ids=request.account_ids,
+                date_start=request.date_start,
+                date_stop=request.date_stop,
+                include_insights=True,
+                max_records=request.max_records,
+            ),
+        )
         generated_at = datetime.now(UTC)
 
         if not records or not kpis:
@@ -78,6 +91,15 @@ class MarketingAnalysisService:
                     patterns=[
                         pattern.model_dump(mode="json") for pattern in pattern_response.patterns
                     ],
+                    graph={
+                        "nodes": [
+                            node.model_dump(mode="json") for node in graph_response.nodes[:100]
+                        ],
+                        "edges": [
+                            edge.model_dump(mode="json") for edge in graph_response.edges[:150]
+                        ],
+                        "source_record_count": graph_response.source_record_count,
+                    },
                     raw_samples=[
                         {
                             "id": record.id,
@@ -103,6 +125,7 @@ class MarketingAnalysisService:
             kpi_summary=kpi_summary,
             kpis=kpis,
             patterns=pattern_response.patterns,
+            graph=graph_response,
             report=report,
         )
         await self._repository.save_analysis_report(request=request, response=response)
@@ -117,6 +140,7 @@ def _analysis_context_json(
     kpi_summary: dict[str, object],
     kpis: list[dict[str, object]],
     patterns: list[dict[str, object]],
+    graph: dict[str, object],
     raw_samples: list[dict[str, object]],
 ) -> str:
     top_kpis = sorted(kpis, key=_spend_sort_value, reverse=True)[:100]
@@ -128,10 +152,12 @@ def _analysis_context_json(
             "kpi_summary": kpi_summary,
             "top_kpis_by_spend": top_kpis,
             "deterministic_patterns": patterns,
+            "entity_graph": graph,
             "raw_samples": raw_samples,
             "analysis_rules": [
                 "Use KPI rows as the source of truth.",
                 "Use deterministic_patterns as precomputed evidence, not as final truth.",
+                "Use entity_graph to understand Meta object relationships.",
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

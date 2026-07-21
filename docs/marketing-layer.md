@@ -50,6 +50,11 @@ The backend stores every fetched or uploaded payload as a raw record before
 deriving KPIs. This protects the project from premature modeling choices and
 allows re-analysis when new relationships or fields become useful.
 
+The runtime graph layer rebuilds nodes and edges from raw records rather than
+storing a second copy of the graph. Edges represent ownership, containment,
+creative references, and insight measurements. This keeps relationships
+auditable back to `source_record_ids`.
+
 ## Raw Data Strategy
 
 Raw records are append-only snapshots with:
@@ -84,6 +89,7 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - CPA
 - ROAS
 - Deterministic patterns: spend concentration, wasted spend, efficiency opportunities, cost/engagement outliers, trend movements, and data quality gaps.
+- Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by
 default. Raw record ids remain attached to the response for audit and deeper
@@ -108,6 +114,10 @@ Before the AI report is generated, the backend runs deterministic pattern
 detection over KPI rows. The model receives those patterns as evidence, but the
 patterns remain available through a separate endpoint so analytics workflows can
 inspect them without model interpretation.
+
+The model also receives a compact entity graph so recommendations can refer to
+campaign/ad set/ad relationships rather than treating every insight row as an
+isolated metric.
 
 ## Implementation Stages
 
