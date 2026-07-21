@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -284,6 +285,114 @@ async def test_marketing_graph_endpoint_builds_entity_edges(
     get_settings.cache_clear()
 
 
+async def test_marketing_repository_saves_and_reads_analysis_reports(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    repository = MarketingRepository(database_path=tmp_path / "marketing.db")
+    await repository.initialize()
+    request = MarketingAnalysisRequest(question="Audit report persistence")
+    response = _make_marketing_analysis_response(
+        report_id="report-history-1",
+        executive_summary="Stored report summary.",
+    )
+
+    await repository.save_analysis_report(request=request, response=response)
+    summaries, total = await repository.list_analysis_reports(limit=10, offset=0)
+    loaded = await repository.get_analysis_report("report-history-1")
+
+    assert total == 1
+    assert summaries[0].report_id == "report-history-1"
+    assert loaded is not None
+    assert loaded.report.executive_summary == "Stored report summary."
+    assert loaded.graph.source_record_count == 0
+    get_settings.cache_clear()
+
+
+async def test_marketing_repository_reads_legacy_analysis_report_rows(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "marketing.db"
+    configure_test_env(monkeypatch, database_path)
+    repository = MarketingRepository(database_path=database_path)
+    await repository.initialize()
+    report = _make_marketing_analysis_response(
+        report_id="legacy-report-1",
+        executive_summary="Legacy report summary.",
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO marketing_analysis_reports (
+                id,
+                generated_at,
+                model,
+                source_record_count,
+                request_json,
+                kpi_json,
+                report_json,
+                source_record_ids_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "legacy-report-1",
+                report.generated_at.isoformat(),
+                report.model,
+                1,
+                MarketingAnalysisRequest(question="Legacy report").model_dump_json(),
+                report.kpi_summary.model_dump_json(),
+                report.report.model_dump_json(),
+                '["raw-record-1"]',
+            ),
+        )
+
+    loaded = await repository.get_analysis_report("legacy-report-1")
+
+    assert loaded is not None
+    assert loaded.report.executive_summary == "Legacy report summary."
+    assert loaded.source_record_ids == ["raw-record-1"]
+    assert loaded.patterns == []
+    assert loaded.graph.source_record_count == 1
+    get_settings.cache_clear()
+
+
+async def test_marketing_reports_endpoints_return_saved_analysis_reports(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+    saved_report = _make_marketing_analysis_response(
+        report_id="api-report-1",
+        executive_summary="Saved API report.",
+    )
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        repository = cast(MarketingRepository, app.state.marketing_repository)
+        await repository.save_analysis_report(
+            request=MarketingAnalysisRequest(question="Expose saved reports"),
+            response=saved_report,
+        )
+        list_response = await client.get("/api/v1/marketing/reports")
+        detail_response = await client.get("/api/v1/marketing/reports/api-report-1")
+        missing_response = await client.get("/api/v1/marketing/reports/missing-report")
+
+    assert list_response.status_code == 200
+    assert list_response.json()["total"] == 1
+    assert list_response.json()["reports"][0]["report_id"] == "api-report-1"
+    assert detail_response.status_code == 200
+    assert detail_response.json()["report"]["executive_summary"] == "Saved API report."
+    assert missing_response.status_code == 404
+    get_settings.cache_clear()
+
+
 async def test_meta_sync_service_stores_structure_and_insights(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -414,52 +523,66 @@ async def test_marketing_analyze_endpoint_uses_service_dependency(
 
 class FakeMarketingAnalysisService:
     async def analyze(self, request: MarketingAnalysisRequest) -> MarketingAnalysisResponse:
-        return MarketingAnalysisResponse(
+        return _make_marketing_analysis_response(
             report_id="report-1",
-            generated_at=datetime.now(UTC),
-            model="fake-model",
-            source_record_count=0,
-            source_record_ids=[],
-            kpi_summary=MarketingKpiSummary(
-                total_spend=0,
-                total_impressions=0,
-                total_reach=0,
-                total_clicks=0,
-                total_inline_link_clicks=0,
-                total_conversions=0,
-                total_conversion_value=0,
-                ctr=None,
-                cpc=None,
-                cpm=None,
-                cpa=None,
-                roas=None,
-            ),
-            kpis=[],
-            patterns=[],
-            graph=MarketingGraphResponse(
-                generated_at=datetime.now(UTC),
-                source_record_count=0,
-                nodes=[],
-                edges=[],
-            ),
-            report=MarketingAnalysisReport(
-                executive_summary=f"Answered: {request.question}",
-                health_score=72,
-                key_findings=[
-                    MarketingFinding(
-                        type="opportunity",
-                        title="Scale the best segment",
-                        explanation="The test fake found a scalable segment.",
-                        evidence=["Fake evidence"],
-                        confidence="high",
-                        recommended_action="Increase budget carefully.",
-                    ),
-                ],
-                prioritized_actions=["Increase budget carefully."],
-                data_quality_notes=["Fake service used for route isolation."],
-                raw_data_followups=["Inspect source records."],
-            ),
+            executive_summary=f"Answered: {request.question}",
+            health_score=72,
         )
+
+
+def _make_marketing_analysis_response(
+    *,
+    report_id: str,
+    executive_summary: str,
+    health_score: int = 50,
+    model: str = "test-model",
+) -> MarketingAnalysisResponse:
+    return MarketingAnalysisResponse(
+        report_id=report_id,
+        generated_at=datetime.now(UTC),
+        model=model,
+        source_record_count=0,
+        source_record_ids=[],
+        kpi_summary=MarketingKpiSummary(
+            total_spend=0,
+            total_impressions=0,
+            total_reach=0,
+            total_clicks=0,
+            total_inline_link_clicks=0,
+            total_conversions=0,
+            total_conversion_value=0,
+            ctr=None,
+            cpc=None,
+            cpm=None,
+            cpa=None,
+            roas=None,
+        ),
+        kpis=[],
+        patterns=[],
+        graph=MarketingGraphResponse(
+            generated_at=datetime.now(UTC),
+            source_record_count=0,
+            nodes=[],
+            edges=[],
+        ),
+        report=MarketingAnalysisReport(
+            executive_summary=executive_summary,
+            health_score=health_score,
+            key_findings=[
+                MarketingFinding(
+                    type="opportunity",
+                    title="Scale the best segment",
+                    explanation="The test fake found a scalable segment.",
+                    evidence=["Fake evidence"],
+                    confidence="high",
+                    recommended_action="Increase budget carefully.",
+                ),
+            ],
+            prioritized_actions=["Increase budget carefully."],
+            data_quality_notes=["Fake service used for route isolation."],
+            raw_data_followups=["Inspect source records."],
+        ),
+    )
 
 
 class FakeMetaMarketingClient:

@@ -11,9 +11,13 @@ from typing import cast
 from pydantic import JsonValue
 
 from app.schemas.marketing import (
+    MarketingAnalysisReport,
+    MarketingAnalysisReportSummary,
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
     MarketingEntityType,
+    MarketingGraphResponse,
+    MarketingKpiSummary,
     RawMarketingRecord,
     RawMarketingRecordInput,
 )
@@ -60,6 +64,17 @@ class MarketingRepository:
     ) -> None:
         await asyncio.to_thread(self._save_analysis_report_sync, request, response)
 
+    async def list_analysis_reports(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[MarketingAnalysisReportSummary], int]:
+        return await asyncio.to_thread(self._list_analysis_reports_sync, limit, offset)
+
+    async def get_analysis_report(self, report_id: str) -> MarketingAnalysisResponse | None:
+        return await asyncio.to_thread(self._get_analysis_report_sync, report_id)
+
     def _initialize_sync(self) -> None:
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
@@ -94,10 +109,12 @@ class MarketingRepository:
                     request_json TEXT NOT NULL,
                     kpi_json TEXT NOT NULL,
                     report_json TEXT NOT NULL,
-                    source_record_ids_json TEXT NOT NULL
+                    source_record_ids_json TEXT NOT NULL,
+                    response_json TEXT
                 );
                 """
             )
+            self._ensure_analysis_report_columns(connection)
 
     def _insert_raw_records_sync(
         self,
@@ -223,9 +240,10 @@ class MarketingRepository:
                     request_json,
                     kpi_json,
                     report_json,
-                    source_record_ids_json
+                    source_record_ids_json,
+                    response_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     response.report_id,
@@ -236,13 +254,105 @@ class MarketingRepository:
                     response.kpi_summary.model_dump_json(),
                     response.report.model_dump_json(),
                     _json_dumps(response.source_record_ids),
+                    response.model_dump_json(),
                 ),
+            )
+
+    def _list_analysis_reports_sync(
+        self,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[MarketingAnalysisReportSummary], int]:
+        with self._connect() as connection:
+            count_row = connection.execute(
+                "SELECT COUNT(*) AS total FROM marketing_analysis_reports",
+            ).fetchone()
+            total = int(cast(sqlite3.Row, count_row)["total"])
+            rows = connection.execute(
+                """
+                SELECT id, generated_at, model, source_record_count
+                FROM marketing_analysis_reports
+                ORDER BY generated_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+
+        return [_analysis_report_summary_from_row(row) for row in rows], total
+
+    def _get_analysis_report_sync(self, report_id: str) -> MarketingAnalysisResponse | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    id,
+                    generated_at,
+                    model,
+                    source_record_count,
+                    kpi_json,
+                    report_json,
+                    source_record_ids_json,
+                    response_json
+                FROM marketing_analysis_reports
+                WHERE id = ?
+                """,
+                (report_id,),
+            ).fetchone()
+
+        if row is None:
+            return None
+
+        return _analysis_response_from_report_row(cast(sqlite3.Row, row))
+
+    def _ensure_analysis_report_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(marketing_analysis_reports)")
+        }
+        if "response_json" not in columns:
+            connection.execute(
+                "ALTER TABLE marketing_analysis_reports ADD COLUMN response_json TEXT",
             )
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._database_path)
         connection.row_factory = sqlite3.Row
         return connection
+
+
+def _analysis_response_from_report_row(row: sqlite3.Row) -> MarketingAnalysisResponse:
+    response_json = _optional_str(row["response_json"])
+    if response_json is not None:
+        return MarketingAnalysisResponse.model_validate_json(response_json)
+
+    generated_at = _datetime_from_db(str(row["generated_at"])) or datetime.now(UTC)
+    source_record_count = int(row["source_record_count"])
+    return MarketingAnalysisResponse(
+        report_id=str(row["id"]),
+        generated_at=generated_at,
+        model=str(row["model"]),
+        source_record_count=source_record_count,
+        source_record_ids=cast(list[str], json.loads(str(row["source_record_ids_json"]))),
+        kpi_summary=MarketingKpiSummary.model_validate_json(str(row["kpi_json"])),
+        kpis=[],
+        patterns=[],
+        graph=MarketingGraphResponse(
+            generated_at=generated_at,
+            source_record_count=source_record_count,
+            nodes=[],
+            edges=[],
+        ),
+        report=MarketingAnalysisReport.model_validate_json(str(row["report_json"])),
+    )
+
+
+def _analysis_report_summary_from_row(row: sqlite3.Row) -> MarketingAnalysisReportSummary:
+    return MarketingAnalysisReportSummary(
+        report_id=str(row["id"]),
+        generated_at=_datetime_from_db(str(row["generated_at"])) or datetime.now(UTC),
+        model=str(row["model"]),
+        source_record_count=int(row["source_record_count"]),
+    )
 
 
 def _raw_record_from_row(row: sqlite3.Row) -> RawMarketingRecord:

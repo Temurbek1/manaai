@@ -11,6 +11,7 @@ from app.api.dependencies import (
 )
 from app.core.config import Settings
 from app.schemas.marketing import (
+    MarketingAnalysisReportListResponse,
     MarketingAnalysisRequest,
     MarketingAnalysisResponse,
     MarketingEntityType,
@@ -242,6 +243,45 @@ async def analyze_marketing(
         ) from exc
     except AIProviderError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.get(
+    "/reports",
+    response_model=MarketingAnalysisReportListResponse,
+    summary="List saved marketing analysis reports",
+    description="Lists saved AI/deterministic marketing analysis reports for audit and reuse.",
+)
+async def list_marketing_reports(
+    repository: MarketingRepositoryDep,
+    limit: int = Query(default=100, ge=1, le=1_000),
+    offset: int = Query(default=0, ge=0),
+) -> MarketingAnalysisReportListResponse:
+    reports, total = await repository.list_analysis_reports(limit=limit, offset=offset)
+    return MarketingAnalysisReportListResponse(
+        total=total,
+        limit=limit,
+        offset=offset,
+        reports=reports,
+    )
+
+
+@router.get(
+    "/reports/{report_id}",
+    response_model=MarketingAnalysisResponse,
+    summary="Get saved marketing analysis report",
+    description="Returns one saved typed marketing analysis response by report id.",
+)
+async def get_marketing_report(
+    report_id: str,
+    repository: MarketingRepositoryDep,
+) -> MarketingAnalysisResponse:
+    report = await repository.get_analysis_report(report_id)
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Marketing analysis report was not found",
+        )
+    return report
 
 
 @router.post(

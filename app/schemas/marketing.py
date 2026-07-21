@@ -406,3 +406,21 @@ class MarketingAnalysisResponse(BaseModel):
     patterns: list[MarketingPattern]
     graph: MarketingGraphResponse
     report: MarketingAnalysisReport
+
+
+class MarketingAnalysisReportSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    report_id: str
+    generated_at: datetime
+    model: str
+    source_record_count: int
+
+
+class MarketingAnalysisReportListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    limit: int
+    offset: int
+    reports: list[MarketingAnalysisReportSummary]

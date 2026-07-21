@@ -95,6 +95,11 @@ The model receives only this compact KPI evidence plus selected metadata by
 default. Raw record ids remain attached to the response for audit and deeper
 follow-up analysis.
 
+AI analysis responses are persisted as typed report snapshots. The saved report
+keeps the deterministic KPI summary, pattern list, entity graph, AI report, and
+source record ids together so later API clients can audit the exact output that
+was shown to a user without re-running the model.
+
 ## AI Output Contract
 
 The marketing AI layer returns a typed report:
@@ -130,3 +135,4 @@ isolated metric.
 7. Add async insights job contracts for large report pulls.
 8. Add API routes and Swagger descriptions.
 9. Add tests with fakes; tests must never call Meta or OpenAI.
+10. Persist and expose generated analysis reports for audit/reuse.

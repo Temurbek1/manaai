@@ -35,6 +35,8 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `POST /api/v1/marketing/graph` - граф связей app/business/ad account/campaign/adset/ad/creative/insight
 - `POST /api/v1/marketing/patterns` - детерминированный поиск закономерностей в raw insights
 - `POST /api/v1/marketing/analyze` - KPI + структурированный AI отчет
+- `GET /api/v1/marketing/reports` - список сохраненных AI отчетов
+- `GET /api/v1/marketing/reports/{report_id}` - чтение сохраненного typed AI отчета
 
 Пример:
 
@@ -227,6 +229,13 @@ curl -X POST http://localhost:8000/api/v1/marketing/analyze \
 ```
 
 Ответ содержит `kpi_summary`, список KPI rows, deterministic `patterns`, `graph`, `source_record_ids` для аудита и typed `report`: summary, health score, findings, prioritized actions, data quality notes, raw-data followups.
+
+Каждый AI отчет сохраняется в SQLite вместе с полным typed response. Историю можно использовать для аудита, повторного чтения backend/frontend-клиентами и сверки выводов с raw source records:
+
+```bash
+curl http://localhost:8000/api/v1/marketing/reports
+curl http://localhost:8000/api/v1/marketing/reports/{report_id}
+```
 
 ## Прод-распаковка на сервере
 
