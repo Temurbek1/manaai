@@ -763,6 +763,111 @@ async def test_marketing_patterns_endpoint_detects_hierarchy_rollup_waste(
     get_settings.cache_clear()
 
 
+async def test_marketing_patterns_endpoint_detects_delivery_status_issues(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_test_env(monkeypatch, tmp_path / "marketing.db")
+    app = create_app()
+
+    async with app.router.lifespan_context(app), AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        ingest_response = await client.post(
+            "/api/v1/marketing/raw",
+            json={
+                "records": [
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "campaign",
+                        "provider_record_id": "campaign-1",
+                        "account_id": "act_100",
+                        "payload": {
+                            "id": "campaign-1",
+                            "name": "Paused campaign",
+                            "status": "PAUSED",
+                            "effective_status": "PAUSED",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "adset",
+                        "provider_record_id": "adset-1",
+                        "account_id": "act_100",
+                        "parent_id": "campaign-1",
+                        "payload": {
+                            "id": "adset-1",
+                            "name": "Active ad set",
+                            "campaign_id": "campaign-1",
+                            "status": "ACTIVE",
+                            "effective_status": "ACTIVE",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "ad",
+                        "provider_record_id": "ad-1",
+                        "account_id": "act_100",
+                        "parent_id": "adset-1",
+                        "payload": {
+                            "id": "ad-1",
+                            "name": "Active ad",
+                            "adset_id": "adset-1",
+                            "campaign_id": "campaign-1",
+                            "status": "ACTIVE",
+                            "effective_status": "ACTIVE",
+                        },
+                    },
+                    {
+                        "source": "manual_upload",
+                        "entity_type": "insight",
+                        "account_id": "act_100",
+                        "payload": {
+                            "_meta_level": "ad",
+                            "campaign_id": "campaign-1",
+                            "campaign_name": "Paused campaign",
+                            "adset_id": "adset-1",
+                            "adset_name": "Active ad set",
+                            "ad_id": "ad-1",
+                            "ad_name": "Active ad",
+                            "date_start": "2026-07-01",
+                            "date_stop": "2026-07-01",
+                            "spend": "120",
+                            "impressions": "10000",
+                            "clicks": "150",
+                            "actions": [{"action_type": "lead", "value": "5"}],
+                        },
+                    },
+                ],
+            },
+        )
+        pattern_response = await client.post(
+            "/api/v1/marketing/patterns",
+            json={"account_ids": ["act_100"], "max_patterns": 20},
+        )
+
+    assert ingest_response.status_code == 201
+    assert pattern_response.status_code == 200
+    body = pattern_response.json()
+    delivery_pattern = next(
+        pattern for pattern in body["patterns"] if pattern["type"] == "delivery_status_issue"
+    )
+    assert delivery_pattern["entity_id"] == "campaign-1"
+    assert delivery_pattern["entity_name"] == "Paused campaign"
+    assert delivery_pattern["level"] == "campaign"
+    assert delivery_pattern["metric"] == "impacted_spend_with_status_issue"
+    assert delivery_pattern["value"] == 120
+    assert delivery_pattern["dimensions"] == {
+        "delivery_entity_type": "campaign",
+        "impacted_kpi_rows": "1",
+        "status": "PAUSED",
+        "effective_status": "PAUSED",
+    }
+    assert len(delivery_pattern["evidence_record_ids"]) == 2
+    get_settings.cache_clear()
+
+
 async def test_marketing_patterns_endpoint_detects_unmapped_action_signals(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

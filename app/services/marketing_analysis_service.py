@@ -179,6 +179,10 @@ def _analysis_context_json(
                     "measurement_event_stale patterns as measurement reliability constraints "
                     "before making CPA or ROAS recommendations."
                 ),
+                (
+                    "Treat delivery_status_issue patterns as current delivery constraints "
+                    "before recommending budget, pause, or scale actions."
+                ),
                 "Prefer recommendations with numeric evidence.",
                 (
                     "Mention data quality gaps when conversion actions, values, "

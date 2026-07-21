@@ -138,9 +138,9 @@ Before using AI, the backend computes deterministic KPI rows from raw insights:
 - Deterministic patterns: spend concentration, wasted spend, efficiency
   opportunities, cost/engagement outliers, segment waste/efficiency by
   breakdown dimensions, hierarchy rollups, creative waste/efficiency rollups,
-  custom audience targeting rollups, unmapped Meta action signals, measurement
-  health issues from pixels/custom conversions, trend movements, and data
-  quality gaps.
+  custom audience targeting rollups, delivery/status issues, unmapped Meta
+  action signals, measurement health issues from pixels/custom conversions,
+  trend movements, and data quality gaps.
 - Entity graph: raw-record-backed nodes and edges for Meta hierarchy and insight measurements.
 
 The model receives only this compact KPI evidence plus selected metadata by
@@ -170,6 +170,13 @@ ad/adset KPI rows. They aggregate performance for ad sets that include a custom
 audience and keep `targeting_role=included` in `dimensions`. They are targeting
 diagnostics, not exclusive causal attribution, because one ad set can include
 multiple audiences and exclusions.
+
+Delivery status patterns inspect stored raw `ad_account`, `campaign`, `adset`,
+and `ad` records. They flag KPI spend connected to non-active or problematic
+`status`, `effective_status`, or ad account `account_status` values, including
+parent campaign/ad set status for ad-level rows. These patterns help the AI
+avoid recommending scale, pause, or budget movement without first checking
+current delivery state.
 
 Unmapped action signal patterns compare raw Meta `actions.action_type` values
 against `MARKETING_CONVERSION_ACTION_TYPES`. They warn when action signals are

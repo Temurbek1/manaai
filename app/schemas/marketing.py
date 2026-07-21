@@ -43,6 +43,7 @@ MarketingPatternType = Literal[
     "pixel_unavailable",
     "custom_conversion_archived",
     "measurement_event_stale",
+    "delivery_status_issue",
     "trend",
     "data_quality",
 ]

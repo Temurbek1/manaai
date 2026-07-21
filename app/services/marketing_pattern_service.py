@@ -15,6 +15,22 @@ from app.services.marketing_payload import json_str, nested_id
 from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_targeting import targeting_custom_audiences
 
+DELIVERY_STATUS_ISSUE_VALUES = {
+    "ACCOUNT_DISABLED",
+    "ADSET_PAUSED",
+    "ARCHIVED",
+    "CAMPAIGN_PAUSED",
+    "DELETED",
+    "DISAPPROVED",
+    "IN_PROCESS",
+    "PAUSED",
+    "PENDING_BILLING_INFO",
+    "PENDING_REVIEW",
+    "REJECTED",
+    "WITH_ISSUES",
+}
+ACTIVE_ACCOUNT_STATUS_VALUES = {"1", "ACTIVE"}
+
 
 @dataclass(frozen=True)
 class CreativePerformanceContext:
@@ -68,6 +84,22 @@ class MeasurementHealthContext:
     custom_conversions: list[MeasurementAssetStatus]
 
 
+@dataclass(frozen=True)
+class DeliveryEntityStatus:
+    entity_type: str
+    entity_id: str
+    entity_name: str
+    record_id: str
+    status: str | None
+    effective_status: str | None
+    account_status: str | None
+
+
+@dataclass(frozen=True)
+class DeliveryStatusContext:
+    entity_statuses: dict[tuple[str, str], DeliveryEntityStatus]
+
+
 class MarketingPatternService:
     def __init__(
         self,
@@ -92,6 +124,7 @@ class MarketingPatternService:
         structure_records, _ = await self._repository.list_raw_records(
             account_ids=request.account_ids,
             entity_types=[
+                "ad_account",
                 "campaign",
                 "adset",
                 "ad",
@@ -112,20 +145,20 @@ class MarketingPatternService:
             structure_records = _dedupe_records([*structure_records, *global_pixel_records])
         rows = self._metrics_builder.build_rows(records)
         summary = self._metrics_builder.summarize(rows)
+        creative_context = build_creative_performance_context(structure_records)
+        audience_context = build_audience_performance_context([*records, *structure_records])
+        hierarchy_context = build_hierarchy_performance_context([*records, *structure_records])
         patterns = detect_marketing_patterns(
             rows=rows,
             summary=summary,
-            creative_context=build_creative_performance_context(structure_records),
-            audience_context=build_audience_performance_context(
-                [*records, *structure_records],
-            ),
-            hierarchy_context=build_hierarchy_performance_context(
-                [*records, *structure_records],
-            ),
+            creative_context=creative_context,
+            audience_context=audience_context,
+            hierarchy_context=hierarchy_context,
             action_signal_context=build_action_signal_context(
                 records=records,
                 configured_conversion_action_types=self._metrics_builder.conversion_action_types,
             ),
+            delivery_context=build_delivery_status_context(structure_records),
             measurement_context=build_measurement_health_context(structure_records),
             measurement_stale_after_days=self._measurement_stale_after_days,
             max_patterns=request.max_patterns,
@@ -150,6 +183,7 @@ def detect_marketing_patterns(
     audience_context: AudiencePerformanceContext | None = None,
     hierarchy_context: HierarchyPerformanceContext | None = None,
     action_signal_context: ActionSignalContext | None = None,
+    delivery_context: DeliveryStatusContext | None = None,
     measurement_context: MeasurementHealthContext | None = None,
     measurement_stale_after_days: int = 14,
     max_patterns: int,
@@ -261,6 +295,16 @@ def detect_marketing_patterns(
                 rows=spend_rows,
                 summary=summary,
                 min_spend=min_spend,
+                hierarchy_context=hierarchy_context,
+            ),
+        )
+    if delivery_context is not None:
+        patterns.extend(
+            _delivery_status_patterns(
+                rows=spend_rows,
+                summary=summary,
+                min_spend=min_spend,
+                delivery_context=delivery_context,
                 hierarchy_context=hierarchy_context,
             ),
         )
@@ -529,6 +573,34 @@ def build_measurement_health_context(
         pixels=pixels,
         custom_conversions=custom_conversions,
     )
+
+
+def build_delivery_status_context(
+    records: list[RawMarketingRecord],
+) -> DeliveryStatusContext:
+    entity_statuses: dict[tuple[str, str], DeliveryEntityStatus] = {}
+
+    for record in records:
+        if record.entity_type not in {"ad_account", "campaign", "adset", "ad"}:
+            continue
+        entity_id = _delivery_entity_id(record)
+        if entity_id is None:
+            continue
+        key = (record.entity_type, entity_id)
+        if key in entity_statuses:
+            continue
+        payload = record.payload
+        entity_statuses[key] = DeliveryEntityStatus(
+            entity_type=record.entity_type,
+            entity_id=entity_id,
+            entity_name=_delivery_label(record=record),
+            record_id=record.id,
+            status=_status_value(payload.get("status")),
+            effective_status=_status_value(payload.get("effective_status")),
+            account_status=_status_value(payload.get("account_status")),
+        )
+
+    return DeliveryStatusContext(entity_statuses=entity_statuses)
 
 
 def _wasted_spend_patterns(
@@ -931,6 +1003,72 @@ def _parent_rollup_patterns(
                     dimensions=dimensions,
                 ),
             )
+
+    return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
+
+
+def _delivery_status_patterns(
+    *,
+    rows: list[MarketingKpiRow],
+    summary: MarketingKpiSummary,
+    min_spend: float,
+    delivery_context: DeliveryStatusContext,
+    hierarchy_context: HierarchyPerformanceContext | None,
+) -> list[MarketingPattern]:
+    if not delivery_context.entity_statuses:
+        return []
+
+    grouped: dict[tuple[str, str], list[MarketingKpiRow]] = defaultdict(list)
+    for row in rows:
+        for status in _delivery_statuses_for_row(
+            row=row,
+            delivery_context=delivery_context,
+            hierarchy_context=hierarchy_context,
+        ):
+            if _is_delivery_status_issue(status):
+                grouped[(status.entity_type, status.entity_id)].append(row)
+
+    if not grouped:
+        return []
+
+    spend_floor = max(min_spend, summary.total_spend * 0.05)
+    patterns: list[MarketingPattern] = []
+    for key, impacted_rows in grouped.items():
+        impacted_summary = _aggregate_rows(impacted_rows)
+        if impacted_summary.total_spend < spend_floor:
+            continue
+
+        status = delivery_context.entity_statuses[key]
+        status_label = _delivery_status_label(status)
+        patterns.append(
+            MarketingPattern(
+                type="delivery_status_issue",
+                direction="neutral",
+                title="Spend is tied to a non-active delivery status",
+                explanation=(
+                    f"{status.entity_type.replace('_', ' ').title()} {status.entity_name} "
+                    f"has {status_label}. Selected KPI rows connected to this object spent "
+                    f"{impacted_summary.total_spend:.2f}. Validate current delivery state "
+                    "before scaling, pausing, or judging performance."
+                ),
+                entity_id=status.entity_id,
+                entity_name=status.entity_name,
+                level=status.entity_type,
+                metric="impacted_spend_with_status_issue",
+                value=impacted_summary.total_spend,
+                benchmark=spend_floor,
+                confidence="high" if status.effective_status is not None else "medium",
+                evidence_record_ids=_delivery_evidence_record_ids(
+                    status=status,
+                    rows=impacted_rows,
+                ),
+                suggested_raw_queries=[
+                    f"Search raw records by provider_record_id={status.entity_id}.",
+                    "Compare status/effective_status with the selected insight date range.",
+                ],
+                dimensions=_delivery_dimensions(status=status, impacted_rows=impacted_rows),
+            ),
+        )
 
     return sorted(patterns, key=_pattern_sort_key, reverse=True)[:10]
 
@@ -1546,6 +1684,104 @@ def _row_campaign_id(
     return None
 
 
+def _delivery_statuses_for_row(
+    *,
+    row: MarketingKpiRow,
+    delivery_context: DeliveryStatusContext,
+    hierarchy_context: HierarchyPerformanceContext | None,
+) -> list[DeliveryEntityStatus]:
+    keys: list[tuple[str, str]] = []
+    row_level = str(row.level)
+
+    if row.account_id is not None:
+        keys.append(("ad_account", row.account_id))
+
+    if row.entity_id is not None:
+        if row_level in {"campaign", "adset", "ad"}:
+            keys.append((row_level, row.entity_id))
+        if row_level == "account":
+            keys.append(("ad_account", row.entity_id))
+
+    if hierarchy_context is not None and row.entity_id is not None:
+        if row_level == "ad":
+            adset_id = hierarchy_context.ad_to_adset_id.get(row.entity_id)
+            if adset_id is not None:
+                keys.append(("adset", adset_id))
+            campaign_id = _row_campaign_id(row=row, hierarchy_context=hierarchy_context)
+            if campaign_id is not None:
+                keys.append(("campaign", campaign_id))
+
+        if row_level == "adset":
+            campaign_id = hierarchy_context.adset_to_campaign_id.get(row.entity_id)
+            if campaign_id is not None:
+                keys.append(("campaign", campaign_id))
+
+    statuses: list[DeliveryEntityStatus] = []
+    seen: set[tuple[str, str]] = set()
+    for key in keys:
+        if key in seen:
+            continue
+        seen.add(key)
+        status = delivery_context.entity_statuses.get(key)
+        if status is not None:
+            statuses.append(status)
+    return statuses
+
+
+def _is_delivery_status_issue(status: DeliveryEntityStatus) -> bool:
+    if status.effective_status in DELIVERY_STATUS_ISSUE_VALUES:
+        return True
+    if status.status in DELIVERY_STATUS_ISSUE_VALUES:
+        return True
+    return (
+        status.account_status is not None
+        and status.account_status not in ACTIVE_ACCOUNT_STATUS_VALUES
+    )
+
+
+def _delivery_evidence_record_ids(
+    *,
+    status: DeliveryEntityStatus,
+    rows: list[MarketingKpiRow],
+) -> list[str]:
+    evidence_record_ids = [status.record_id]
+    for row in rows:
+        if row.record_id not in evidence_record_ids:
+            evidence_record_ids.append(row.record_id)
+        if len(evidence_record_ids) >= 20:
+            break
+    return evidence_record_ids
+
+
+def _delivery_dimensions(
+    *,
+    status: DeliveryEntityStatus,
+    impacted_rows: list[MarketingKpiRow],
+) -> dict[str, str]:
+    dimensions = {
+        "delivery_entity_type": status.entity_type,
+        "impacted_kpi_rows": str(len(impacted_rows)),
+    }
+    if status.status is not None:
+        dimensions["status"] = status.status
+    if status.effective_status is not None:
+        dimensions["effective_status"] = status.effective_status
+    if status.account_status is not None:
+        dimensions["account_status"] = status.account_status
+    return dimensions
+
+
+def _delivery_status_label(status: DeliveryEntityStatus) -> str:
+    values: list[str] = []
+    if status.status is not None:
+        values.append(f"status={status.status}")
+    if status.effective_status is not None:
+        values.append(f"effective_status={status.effective_status}")
+    if status.account_status is not None:
+        values.append(f"account_status={status.account_status}")
+    return ", ".join(values) if values else "no stored delivery status"
+
+
 def _creative_label(*, record: RawMarketingRecord) -> str:
     for key in ("name", "title", "body"):
         value = json_str(record.payload.get(key))
@@ -1575,6 +1811,19 @@ def _measurement_label(*, record: RawMarketingRecord) -> str:
         if value is not None:
             return value
     return record.provider_record_id or record.id
+
+
+def _delivery_label(*, record: RawMarketingRecord) -> str:
+    value = json_str(record.payload.get("name"))
+    if value is not None:
+        return value
+    return record.provider_record_id or record.account_id or record.id
+
+
+def _delivery_entity_id(record: RawMarketingRecord) -> str | None:
+    if record.entity_type == "ad_account":
+        return json_str(record.payload.get("id")) or record.provider_record_id or record.account_id
+    return json_str(record.payload.get("id")) or record.provider_record_id
 
 
 def _measurement_dimensions(asset: MeasurementAssetStatus) -> dict[str, str]:
@@ -1693,6 +1942,23 @@ def _bool_value(value: object | None) -> bool:
         normalized = value.strip().lower()
         return normalized in {"true", "1", "yes", "y"}
     return False
+
+
+def _status_value(value: object | None) -> str | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return str(value)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        return normalized.upper()
+    return str(value)
 
 
 def _datetime_value(value: object | None) -> datetime | None:
