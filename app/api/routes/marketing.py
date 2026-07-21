@@ -50,6 +50,8 @@ router = APIRouter()
 async def marketing_config(request: Request) -> MarketingIntegrationConfigResponse:
     settings = cast(Settings, request.app.state.settings)
     return MarketingIntegrationConfigResponse(
+        api_auth_required=settings.is_api_auth_required,
+        api_key_configured=settings.is_app_api_key_configured,
         meta_configured=settings.is_meta_configured,
         meta_app_id_configured=bool(settings.meta_app_id),
         meta_business_id_configured=bool(settings.meta_business_id),

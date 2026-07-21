@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     log_level: str = "INFO"
     cors_origins: list[str] = Field(default_factory=list)
+    app_api_key: SecretStr | None = None
 
     openai_api_key: SecretStr
     openai_model: str = "gpt-5.4-nano"
@@ -205,6 +206,14 @@ class Settings(BaseSettings):
     @property
     def is_docs_enabled(self) -> bool:
         return self.app_env != "production"
+
+    @property
+    def is_app_api_key_configured(self) -> bool:
+        return self.app_api_key is not None and bool(self.app_api_key.get_secret_value())
+
+    @property
+    def is_api_auth_required(self) -> bool:
+        return self.app_env == "production" or self.is_app_api_key_configured
 
     @property
     def is_openai_configured(self) -> bool:

@@ -30,6 +30,8 @@ from app.services.meta_marketing_client import MetaMarketingClient
 
 
 def configure_test_env(monkeypatch: MonkeyPatch, database_path: Path) -> None:
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.delenv("APP_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
     monkeypatch.setenv("MARKETING_DATABASE_PATH", str(database_path))
     monkeypatch.setenv("META_APP_ID", "test-meta-app-id")
@@ -50,7 +52,10 @@ async def test_marketing_config_endpoint(monkeypatch: MonkeyPatch, tmp_path: Pat
         response = await client.get("/api/v1/marketing/config")
 
     assert response.status_code == 200
-    assert response.json()["meta_app_id_configured"] is True
+    body = response.json()
+    assert body["api_auth_required"] is False
+    assert body["api_key_configured"] is False
+    assert body["meta_app_id_configured"] is True
     assert response.json()["meta_configured"] is False
     get_settings.cache_clear()
 

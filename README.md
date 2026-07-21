@@ -81,6 +81,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `APP_ENV` | yes | `local` | `local`, `development`, `staging` или `production` |
 | `APP_NAME` | no | `manaai-api` | Название сервиса |
 | `APP_VERSION` | no | `0.1.0` | Версия сервиса |
+| `APP_API_KEY` | yes in production | - | API key для `X-API-Key`; обязателен при `APP_ENV=production` |
 | `OPENAI_API_KEY` | yes | - | API key OpenAI |
 | `OPENAI_MODEL` | no | `gpt-5.4-nano` | Модель OpenAI |
 | `OPENAI_TIMEOUT_SECONDS` | no | `30` | Timeout запросов к OpenAI |
@@ -100,6 +101,12 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `META_ACTION_ATTRIBUTION_WINDOWS` | no | `["1d_click","7d_click"]` | Attribution windows для insights |
 
 ## Meta Marketing workflow
+
+В `APP_ENV=production` все `/api/v1/ai/*` и `/api/v1/marketing/*` endpoints требуют header `X-API-Key`. `/api/v1/health/live` остается открытым для Docker/Kubernetes healthcheck.
+
+```bash
+curl -H "X-API-Key: $APP_API_KEY" http://localhost:8000/api/v1/marketing/config
+```
 
 Для production sync используйте system user access token из Meta Business Manager. Это официальный серверный путь для автоматических API calls к assets бизнеса.
 
@@ -328,6 +335,7 @@ nano .env
 
 ```env
 APP_ENV=production
+APP_API_KEY=replace_with_server_api_key
 OPENAI_API_KEY=replace_with_real_secret
 OPENAI_MODEL=gpt-5.4-nano
 CORS_ORIGINS=["https://your-frontend-domain.com"]

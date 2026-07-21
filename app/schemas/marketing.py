@@ -247,6 +247,8 @@ class MetaInsightsAsyncJobIngestResponse(BaseModel):
 class MarketingIntegrationConfigResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    api_auth_required: bool
+    api_key_configured: bool
     meta_configured: bool
     meta_app_id_configured: bool
     meta_business_id_configured: bool
