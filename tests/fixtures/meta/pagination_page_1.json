@@ -1,0 +1,7 @@
+{
+  "data": [{"id": "campaign-1"}],
+  "paging": {
+    "cursors": {"before": "before-1", "after": "after-1"},
+    "next": "https://graph.facebook.com/v25.0/page-2"
+  }
+}

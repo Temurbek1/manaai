@@ -1,0 +1,8 @@
+{
+  "id": "act_1",
+  "name": "Contract Fixture Account",
+  "currency": "EUR",
+  "timezone_name": "Europe/Berlin",
+  "min_daily_budget": "250",
+  "account_status": "1"
+}

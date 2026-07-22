@@ -1,0 +1,6 @@
+{
+  "data": [{"id": "campaign-2"}],
+  "paging": {
+    "cursors": {"before": "before-2", "after": "after-2"}
+  }
+}

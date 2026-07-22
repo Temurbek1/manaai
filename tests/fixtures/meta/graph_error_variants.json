@@ -1,0 +1,17 @@
+{
+  "authentication": {
+    "error": {"message": "Invalid OAuth access token", "type": "OAuthException", "code": 190, "fbtrace_id": "trace-auth"}
+  },
+  "permission": {
+    "error": {"message": "Permissions error", "type": "OAuthException", "code": 200, "fbtrace_id": "trace-permission"}
+  },
+  "object_not_found": {
+    "error": {"message": "Unsupported get request", "type": "GraphMethodException", "code": 100, "error_subcode": 33, "fbtrace_id": "trace-not-found"}
+  },
+  "transient": {
+    "error": {"message": "Service temporarily unavailable", "type": "OAuthException", "code": 2, "is_transient": true, "fbtrace_id": "trace-transient"}
+  },
+  "rate_limit": {
+    "error": {"message": "Application request limit reached", "type": "OAuthException", "code": 4, "is_transient": true, "fbtrace_id": "trace-rate-limit"}
+  }
+}

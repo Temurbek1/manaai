@@ -10,7 +10,7 @@ from app.schemas.ai import ChatRequest, ChatResponse, SummarizeRequest, Summariz
 
 def configure_test_env(monkeypatch: MonkeyPatch, database_path: Path) -> None:
     monkeypatch.setenv("APP_ENV", "local")
-    monkeypatch.delenv("APP_API_KEY", raising=False)
+    monkeypatch.setenv("APP_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
     monkeypatch.setenv("MARKETING_DATABASE_PATH", str(database_path))
     get_settings.cache_clear()

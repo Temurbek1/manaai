@@ -1,0 +1,17 @@
+{
+  "ad_id": "ad-1",
+  "ad_name": "Contract Fixture Ad",
+  "campaign_id": "campaign-1",
+  "adset_id": "set-1",
+  "date_start": "2026-07-22",
+  "date_stop": "2026-07-22",
+  "spend": "12.50",
+  "impressions": "1000",
+  "reach": "800",
+  "clicks": "50",
+  "inline_link_clicks": "40",
+  "region": "Tashkent",
+  "actions": [
+    {"action_type": "lead", "value": "5"}
+  ]
+}

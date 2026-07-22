@@ -12,7 +12,7 @@ async def test_swagger_docs_enabled_outside_production(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("APP_ENV", "local")
-    monkeypatch.delenv("APP_API_KEY", raising=False)
+    monkeypatch.setenv("APP_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
     monkeypatch.setenv("MARKETING_DATABASE_PATH", str(tmp_path / "marketing.db"))
     get_settings.cache_clear()
@@ -29,7 +29,13 @@ async def test_swagger_docs_enabled_outside_production(
     assert schema_response.status_code == 200
     schema = schema_response.json()
     assert schema["info"]["title"] == "manaai-api"
-    assert {tag["name"] for tag in schema["tags"]} == {"ai", "health", "marketing"}
+    assert {tag["name"] for tag in schema["tags"]} == {
+        "ai",
+        "health",
+        "mana-ai",
+        "marketing",
+        "operation-admin",
+    }
     assert schema["components"]["securitySchemes"]["APIKeyHeader"] == {
         "type": "apiKey",
         "in": "header",
@@ -43,7 +49,7 @@ async def test_swagger_docs_disabled_in_production(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.delenv("APP_API_KEY", raising=False)
+    monkeypatch.setenv("APP_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
     monkeypatch.setenv("MARKETING_DATABASE_PATH", str(tmp_path / "marketing.db"))
     get_settings.cache_clear()
