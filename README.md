@@ -16,7 +16,8 @@ make verify
 
 Архитектура и эксплуатация описаны в `docs/architecture.md`,
 `docs/operation-ai-platform.md`, `docs/marketing-agent.md`, `docs/action-safety.md` и
-`docs/runbook.md`.
+`docs/runbook.md`. Индивидуальный вход в admin panel описан в
+`docs/telegram-otp-auth.md`.
 
 ## Что внутри
 
@@ -45,6 +46,14 @@ make verify
 agents/status/run, runs/timeline, configurations/schema versions, schedules, findings,
 recommendations, proposals, approvals/bulk decisions, executions, reports, integration health,
 audit events и global/per-agent kill switches. Полный typed contract доступен в OpenAPI.
+
+Browser authentication endpoints:
+
+- `POST /api/v1/auth/telegram/request-code` — generic запрос шестизначного кода;
+- `POST /api/v1/auth/telegram/verify-code` — одноразовая проверка и HttpOnly session;
+- `GET /api/v1/auth/session` — минимальный session/user/RBAC contract;
+- `POST /api/v1/auth/logout` — server-side revoke и очистка cookie;
+- `/api/v1/admin/users` — admin-only управление разрешёнными Telegram users.
 
 - `GET /api/v1/health/live` - liveness probe
 - `GET /api/v1/health/ready` - readiness probe
@@ -98,8 +107,9 @@ docker compose up --build
 
 Admin panel: `http://localhost:3000` через `make admin-dev` или Docker Compose. Next.js проксирует
 same-origin `/api` к FastAPI через private `FASTAPI_BASE_URL`; бизнес-логика остаётся в FastAPI. В
-production войдите с role-specific internal API key на login screen. Ключ хранится только в памяти
-процесса страницы и очищается при refresh/sign-out.
+admin panel пользователь вводит Telegram ID и одноразовый шестизначный код от MANA Bot. Refresh
+сохраняет fixed server session на 8 часов, logout отзывает её. Роли приходят только с backend;
+технические role keys не доступны в пользовательском UI.
 
 Swagger UI доступен локально на `http://localhost:8000/docs`, ReDoc на `http://localhost:8000/redoc`, OpenAPI schema на `http://localhost:8000/openapi.json`. В `APP_ENV=production` документация отключается.
 
@@ -113,6 +123,15 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `APP_NAME` | no | `manaai-api` | Название сервиса |
 | `APP_VERSION` | no | `0.1.0` | Версия сервиса |
 | `APP_API_KEY` | yes in production | - | API key для `X-API-Key`; обязателен при `APP_ENV=production` |
+| `MANA_TELEGRAM_BOT_TOKEN` | staging/production auth | - | Telegram Bot API token; secret, legacy alias `BOT_TOKEN` accepted |
+| `MANA_TELEGRAM_BOT_USERNAME` | staging/production auth | - | Public bot username for the Start link |
+| `MANA_OTP_HMAC_SECRET` | staging/production auth | - | Separate high-entropy HMAC key for OTP/session/CSRF digests |
+| `MANA_BOOTSTRAP_ADMIN_TELEGRAM_IDS` | no | `976835256,51456737` | Idempotent initial admins |
+| `MANA_OTP_TTL_SECONDS` | no | `60` | Fixed OTP lifetime; only 60 is accepted |
+| `MANA_OTP_RESEND_COOLDOWN_SECONDS` | no | `30` | Cooldown before challenge replacement |
+| `MANA_OTP_MAX_VERIFY_ATTEMPTS` | no | `5` | Wrong attempts per challenge |
+| `MANA_SESSION_TTL_SECONDS` | no | `28800` | Fixed eight-hour server session |
+| `MANA_TRUSTED_ORIGINS` | staging/production auth | - | JSON list of browser origins accepted for cookie mutations |
 | `OPENAI_API_KEY` | yes | - | API key OpenAI |
 | `OPENAI_MODEL` | no | `gpt-5.4-nano` | Модель OpenAI |
 | `OPENAI_TIMEOUT_SECONDS` | no | `30` | Timeout запросов к OpenAI |
@@ -131,6 +150,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `META_LIVE_READONLY_VERIFY` | no | `false` | Явный opt-in только для bounded GET validation |
 | `META_LIVE_MAX_*` | no | conservative | Per-run requests/pages/retries/duration/account budgets |
 | `OPERATION_*_API_KEY` | production | - | Viewer/operator/approver/admin internal keys |
+| `OPERATION_ALLOW_INSECURE_DEV_HEADERS` | no | `false` | Test-only local compatibility; ordinary browser/local runtime must keep false |
 | `OPERATION_*_EXECUTION_LIMIT_PER_DAY` | no | conservative | Global/per-agent action limits |
 | `MARKETING_CONVERSION_ACTION_TYPES` | no | JSON list | Meta `actions.action_type`, которые считаются conversions |
 | `MARKETING_VALUE_ACTION_TYPES` | no | JSON list | Meta `action_values.action_type`, которые считаются revenue/value |

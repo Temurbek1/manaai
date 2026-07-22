@@ -18,10 +18,12 @@
 
 Internal roles are ordered `viewer < operator < approver < admin`. Viewer reads; operator runs
 agents; approver decides/executes approved actions; admin changes configuration, schedules, status,
-and kill switches. Production uses separate constant-time-compared keys. A client-supplied actor ID
-is ignored in production; the role key maps to a stable internal identity so changing a header cannot
-bypass self-approval. Put individual identity at an authenticated gateway before sharing keys among
-people.
+kill switches, and users. A browser actor is the stable durable user UUID joined from an opaque
+server session; role and status are re-read on every authenticated request. Caller-selected role or
+actor headers cannot establish browser identity. Self-approval compares the approval initiator with
+that UUID. Constant-time-compared technical role keys remain available only for service-to-service
+automation and use synthetic identities unless the trusted service supplies an actor with its valid
+key.
 
 Bulk approval is restricted to homogeneous budget-decrease actions. Bulk rejection also requires a
 homogeneous action type. Approval requests expire and are persisted with a system decision.
@@ -42,9 +44,10 @@ homogeneous action type. Approval requests expire and are persisted with a syste
 
 Settings use `SecretStr`; API/UI contracts contain configuration status, never secret values. Meta
 tokens are added only to outbound request parameters. Structured application logging replaces known
-secret values and named `access_token`, `api_key`, `authorization`, and `client_secret` assignments.
-The UI keeps an internal API key only in module memory, uses a password input, never writes the key
-to browser storage, and never reads a key back from the API. Refresh and sign-out clear it.
+secret values and named access, bot, HMAC, session, CSRF, and OTP assignments. The UI contains no
+human key/password flow and writes no identity secret to browser storage. OTP/session/CSRF plaintext
+values are absent from persistence and audit; refresh uses the HttpOnly cookie and sign-out revokes
+the database session. Disable revokes every user session. See `telegram-otp-auth.md`.
 
 ## Live Meta boundary
 

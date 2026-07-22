@@ -4,7 +4,8 @@
 
 ```bash
 cp .env.example .env
-# replace OPENAI_API_KEY for legacy AI routes; keep fake_meta and dry-run for operation work
+# configure the real local MANA Telegram bot, its public username, and a separate strong OTP HMAC
+# secret; replace OPENAI_API_KEY for legacy AI routes; keep fake_meta/dry-run for operation work
 make install
 make migrate
 make run
@@ -17,8 +18,9 @@ API: `http://localhost:8000`; Next.js admin: `http://localhost:3000`; local API 
 
 ## Docker startup
 
-Set non-placeholder `OPENAI_API_KEY`, `APP_API_KEY`, and separate operation role keys in `.env`,
-then run:
+Set non-placeholder `OPENAI_API_KEY`, compatibility/service keys, database credentials,
+`MANA_TELEGRAM_BOT_TOKEN`, `MANA_TELEGRAM_BOT_USERNAME`, a strong `MANA_OTP_HMAC_SECRET`, and the
+public HTTPS admin origin in `MANA_TRUSTED_ORIGINS`, then run:
 
 ```bash
 docker compose up --build
@@ -37,6 +39,7 @@ make migrate
 make migration name=describe_change
 make demo
 make verify
+make auth-verify
 make admin-verify
 make audit-verify
 ```
@@ -49,6 +52,7 @@ approval, fake write, verification, audit, and report.
 - Container liveness: `GET /api/v1/health/live` (no auth).
 - Operation integration: `GET /api/v1/admin/operation/integrations/{provider}/health`.
 - Runs/audit: `/api/v1/admin/operation/runs` and `/audit-events` with correlation/run filters.
+- Authentication audit/user control: `/users`; disable a user or revoke all sessions immediately.
 - Stop all action and new-run execution: `PUT /api/v1/admin/operation/kill-switch/global`.
 - Stop one agent: `PUT /api/v1/admin/operation/kill-switch/agents/{agent_id}`.
 - Pause scheduling by changing agent status or disabling its schedules.
@@ -86,6 +90,20 @@ the token has a write-capable scope.
 
 ## Key rotation
 
-Rotate application/role keys and provider tokens in the secret manager, restart the API, verify
-health, and revoke the old values. Never paste tokens into reports, raw ingestion, support tickets,
-or the UI beyond the password input; the page keeps the submitted role key only in memory.
+Rotate application/role keys, provider tokens, and the Telegram bot token in the secret manager;
+restart the API, verify health, and revoke old values. Bot-token rotation does not revoke sessions.
+Rotating `MANA_OTP_HMAC_SECRET` intentionally invalidates all outstanding OTP challenges and
+sessions and should be treated as an emergency global logout. Never paste tokens, OTP, session, or
+CSRF values into reports, raw ingestion, logs, screenshots, or support tickets.
+
+For delivery incidents, confirm the user pressed Start, active status/Telegram ID are correct, and
+cooldown/lockout elapsed. Use only sanitized auth audit categories. The opt-in end-to-end real-bot
+check requires an explicitly owned test ID:
+
+```bash
+MANA_TELEGRAM_AUTH_SMOKE=1 \
+MANA_TELEGRAM_AUTH_SMOKE_USER_ID=<explicit-id> \
+make telegram-auth-smoke
+```
+
+Do not run it for another person and do not persist the entered code.

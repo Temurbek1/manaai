@@ -9,6 +9,10 @@ provider-neutral model access, and error conventions.
 ```text
 Mobile payload -> app/mana_ai -> validation -> AI processing -> typed response
 
+Browser -> Next.js same-origin rewrite -> FastAPI Telegram OTP/session API
+                                      -> auth application ports
+                                      -> SQLAlchemy + Telegram Bot API adapters
+
 Admin/API/scheduler -> app/mana_operation_ai/application
                     -> domain contracts and state machines
                     -> repository / AdsPlatform / Notification ports
@@ -24,8 +28,9 @@ Meta integrations, and action executors imported into the product context.
 - `domain/`: Pydantic domain contracts, Decimal financial values, enums, state transitions, and
   provider-neutral advertising models. It has no FastAPI, SQLAlchemy, Meta, or OpenAI SDK imports.
 - `application/`: registries, agent runner, analytics, policy, approvals, execution, reports,
-  maintenance, and ports. Use cases depend on protocols.
-- `infrastructure/`: SQLAlchemy repository, Meta and fake-Meta adapters, and notification adapter.
+  maintenance, Telegram OTP/session/user use cases, and typed ports. Use cases depend on protocols.
+- `infrastructure/`: SQLAlchemy operation/auth repositories, Telegram Bot API delivery, Meta and
+  fake-Meta adapters, and notification adapter.
 - `background/`: a persisted scheduler used by a standalone production worker; local in-process
   scheduling is optional and disabled by default.
 - `api/`: versioned internal endpoints, Pydantic response models, RBAC, and HTTP error mapping.
@@ -40,6 +45,11 @@ freshness, filters, forms, confirmations, and mutations are isolated Client Comp
 browser calls same-origin `/api` URLs; a server-side Next.js rewrite forwards them to FastAPI using
 private `FASTAPI_BASE_URL` configuration. Next.js contains no business endpoint, policy, identity
 store, or provider integration.
+
+`AdminShell` restores only the minimal backend session. The HttpOnly opaque ID remains invisible to
+React; a readable CSRF value is reflected into `X-CSRF-Token` for unsafe same-origin calls. Actor UUID
+and role come from the durable user/session join. Technical role keys are a separate server-client
+compatibility path and are not represented in browser code.
 
 Operational data is deliberately uncached in the browser transport. Volatile dashboards use
 bounded polling plus focus/reconnect revalidation. Approval and kill-switch mutations force a
@@ -62,10 +72,15 @@ fresh read first, while FastAPI remains the final concurrency, authorization, an
 
 ## Persistence
 
-Alembic owns 18 `operation_*` tables covering agents, configuration versions, schedules, runs,
+Alembic owns the operational tables covering agents, configuration versions, schedules, runs,
 snapshots, analyses, findings, recommendations, proposals, approvals, decisions, executions,
 verifications, reports, audit events, integration health, controls, and locks. UTC timestamps are
 serialized with offsets in domain payloads. Money and financial thresholds serialize from Decimal.
+
+Revision `8b7c2e4d901a` adds six durable authentication tables: users, HMAC-only OTP challenges,
+HMAC-only sessions, authentication audit, rolling rate events, and a database guard used to
+serialize cross-worker security mutations. The domain/application layers stay free of SQLAlchemy,
+FastAPI, httpx, and Telegram payloads.
 
 ## Request and execution flow
 

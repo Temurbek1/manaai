@@ -38,13 +38,22 @@ The default Compose value is `http://api:8000`, so browser requests remain same-
 Next.js server performs the internal rewrite. This variable is a network destination, never a
 credential, and is not exposed through `NEXT_PUBLIC_*`.
 
+API replicas also make outbound HTTPS calls to Telegram Bot API and persist users, OTP challenges,
+sessions, auth audit, and rolling limits in PostgreSQL. The browser receives a Secure/HttpOnly
+session cookie only over the public HTTPS Next.js origin. `MANA_TRUSTED_ORIGINS` must contain that
+exact origin. TLS terminates at a trusted gateway; configure forwarded-header trust only for the
+gateway network and pass the original HTTPS scheme. Never trust arbitrary internet
+`X-Forwarded-For`: OTP IP limits use the ASGI peer address. Bot/HMAC secrets are API runtime secrets
+and do not belong in the admin image.
+
 The included Compose file forces dry-run and disables real Meta writes for both API and worker.
 Changing only one gate must not enable writes. The migration service also has writes disabled.
 
 ## Scaling rules
 
-- API replicas may scale horizontally because they do not poll schedules. Their in-process
-  authentication failure counters are not shared; enforce distributed throttling at the gateway.
+- API replicas may scale horizontally because they do not poll schedules. Telegram request/verify
+  limits, challenges, temporary locks, sessions, and last-admin guards are shared and serialized in
+  PostgreSQL. Keep an additional edge limit at the gateway for volumetric abuse.
 - Multiple worker replicas are safe for duplicate occurrences through database occurrence leases,
   run idempotency, and provider-object leases. Start with one worker until provider capacity and
   alerts are measured.
@@ -52,13 +61,14 @@ Changing only one gate must not enable writes. The migration service also has wr
   only.
 - The legacy marketing repository still uses `MARKETING_DATABASE_PATH`; in Compose it has a durable
   volume. It is not the operation lock/idempotency store.
-- Use a managed secret store for all API/role/provider keys. `.env` is ignored and not copied into
-  images; Compose `env_file` injects values at runtime.
+- Use a managed secret store for all API/role/provider keys plus Telegram bot/HMAC secrets. `.env`
+  is ignored and not copied into images; Compose `env_file` injects values at runtime.
 
 ## Release sequence
 
 1. Back up and verify restore capability for both stores.
-2. Build immutable API/admin images and run `make admin-verify` and `make audit-verify` in CI.
+2. Build immutable API/admin images and run `make auth-verify`, `make admin-verify`, and
+   `make audit-verify` in CI.
 3. Run the migration job once against the target PostgreSQL database.
 4. Start scheduler-disabled API replicas and verify liveness/authenticated readiness.
 5. Start worker replicas and inspect schedule leases, run/audit events, and provider health.
@@ -82,7 +92,7 @@ Do not put migration execution back in API startup.
 
 ## External production requirements
 
-The repository does not provide an individual identity provider, distributed edge rate limiter,
-managed PostgreSQL backups, metrics/alert transport, centralized logs, or a queue. These are
-deployment responsibilities and remain blockers for real financial writes. Static role keys are
-appropriate only behind a trusted internal gateway that supplies individual identity.
+The repository provides individual Telegram-backed admin identity, but not a distributed edge rate
+limiter, managed PostgreSQL backups, metrics/alert transport, centralized logs, or a queue. These are
+deployment responsibilities and remain blockers for real financial writes. Static role keys are a
+technical compatibility flow only and must not be distributed to people or exposed by Next.js.

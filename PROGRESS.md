@@ -36,6 +36,31 @@ Status: recorded before authentication changes on 2026-07-22
   CSRF authentication, user-management APIs/UI, browser E2E, deployment configuration, and full
   auth/admin/audit verification before normal push.
 
+## Telegram OTP authentication implementation
+
+Status: implementation complete; release verification and push pending
+
+- Added Alembic revision `8b7c2e4d901a` with durable UUID users, HMAC-only 60-second challenges,
+  HMAC-only fixed sessions/CSRF, authentication audit, rolling-rate events, and a cross-worker guard.
+  Clean round-trip, drift, and existing unversioned SQLite upgrade audits pass.
+- Bootstrap IDs `976835256` and `51456737` reconcile idempotently as active admins while preserving
+  profile and stable UUID. Backend prevents self role/status changes and the last-active-admin race.
+- Added cryptographic six-digit, single-use OTP, resend invalidation/cooldown, per-user/IP/global
+  atomic limits, attempt exhaustion, temporary lock/recovery, session rotation/expiry/revocation,
+  and sanitized Telegram Bot API failure translation. Real Telegram is the ordinary local adapter;
+  the file sink is explicit local-test mode only and has no HTTP read endpoint.
+- Added `/api/v1/auth/*` cookie endpoints and `/api/v1/admin/users`, origin plus double-submit/server
+  HMAC CSRF checks, session-derived operation actors, and a separate technical role-key path. Normal
+  local runtime no longer trusts caller-selected role/actor headers.
+- Replaced the Next.js key/actor/role form with Russian Telegram ID + OTP UX, paste/autofocus,
+  60-second countdown, resend, Start-bot guidance, refresh restoration, logout, role-aware navigation,
+  and admin user/profile/role/status/session/audit management. Browser transport contains no custom
+  identity or key headers and writes no auth secrets to browser storage.
+- Focused evidence currently passes: strict Ruff/mypy, architecture boundaries, 20 backend
+  auth/sender/redaction scenarios, three full HTTP cookie/session flows, 20 Jest scenarios, strict
+  ESLint/TypeScript, and synchronized OpenAPI. Fake-Telegram browser E2E and full release gates are
+  the remaining verification step before logical commits and push.
+
 ## Next.js migration baseline
 
 Status: recorded before migration on 2026-07-22
