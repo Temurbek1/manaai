@@ -18,17 +18,46 @@ export function PerformanceBreakdownTable({
   return (
     <DataTable
       columns={[
-        { key: "dimension", label: "Breakdown", render: (item) => item.dimension },
+        {
+          key: "dimension",
+          label: "Breakdown",
+          render: (item) => item.dimension,
+        },
         { key: "value", label: "Value", render: (item) => item.value },
-        { key: "spend", label: "Spend", render: (item) => metricValue(item.metrics.spend) },
-        { key: "leads", label: "Leads", render: (item) => metricValue(item.metrics.leads) },
-        { key: "ctr", label: "CTR", render: (item) => metricValue(item.metrics.ctr) },
-        { key: "cpl", label: "CPL", render: (item) => metricValue(item.metrics.cpl) },
-        { key: "roas", label: "ROAS", render: (item) => metricValue(item.metrics.roas) },
+        {
+          key: "spend",
+          label: "Spend",
+          render: (item) => metricValue(item.metrics.spend),
+        },
+        {
+          key: "leads",
+          label: "Leads",
+          render: (item) => metricValue(item.metrics.leads),
+        },
+        {
+          key: "ctr",
+          label: "CTR",
+          render: (item) => metricValue(item.metrics.ctr),
+        },
+        {
+          key: "cpl",
+          label: "CPL",
+          render: (item) => metricValue(item.metrics.cpl),
+        },
+        {
+          key: "roas",
+          label: "ROAS",
+          render: (item) => metricValue(item.metrics.roas),
+        },
       ]}
       items={rows}
       getKey={(item) => `${item.dimension}:${item.value}`}
-      empty={<EmptyState title="No breakdown data" detail="Hourly, daily, region, placement, and demographic slices appear after collection." />}
+      empty={
+        <EmptyState
+          title="No breakdown data"
+          detail="Hourly, daily, region, placement, and demographic slices appear after collection."
+        />
+      }
     />
   );
 }

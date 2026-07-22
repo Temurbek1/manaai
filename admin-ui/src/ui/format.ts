@@ -37,7 +37,8 @@ export function displayValue(value: unknown): string {
   return "unavailable";
 }
 
-const SECRET_KEY = /(?:authorization|api[_-]?key|access[_-]?token|client[_-]?secret|password)/i;
+const SECRET_KEY =
+  /(?:authorization|api[_-]?key|access[_-]?token|client[_-]?secret|password)/i;
 const SECRET_VALUE = /\b(?:Bearer\s+|EAA)[A-Za-z0-9._~-]{8,}/gi;
 
 export function redactForDisplay(value: unknown): unknown {

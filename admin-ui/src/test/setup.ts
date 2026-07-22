@@ -1,10 +1,14 @@
-import "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom/jest-globals";
 
-import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { afterEach, jest } from "@jest/globals";
+import fetch, { Headers, Request, Response } from "cross-fetch";
+
+Object.assign(globalThis, { fetch, Headers, Request, Response });
 
 afterEach(() => {
   cleanup();
+  jest.restoreAllMocks();
 });
 
 Object.defineProperty(globalThis.crypto, "randomUUID", {

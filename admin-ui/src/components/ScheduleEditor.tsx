@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { Schedule } from "../api/client";
 import { StatusBadge } from "./StatusBadge";
@@ -15,7 +15,11 @@ export interface ScheduleValues {
   enabled: boolean;
 }
 
-export function ScheduleEditor({ disabled, schedule, onSave }: ScheduleEditorProps): React.JSX.Element {
+export function ScheduleEditor({
+  disabled,
+  schedule,
+  onSave,
+}: ScheduleEditorProps): React.JSX.Element {
   const [values, setValues] = useState<ScheduleValues>({
     cron_expression: schedule.cron_expression,
     timezone: schedule.timezone,
@@ -24,21 +28,15 @@ export function ScheduleEditor({ disabled, schedule, onSave }: ScheduleEditorPro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setValues({
-      cron_expression: schedule.cron_expression,
-      timezone: schedule.timezone,
-      enabled: schedule.enabled,
-    });
-  }, [schedule.cron_expression, schedule.enabled, schedule.timezone]);
-
   async function save(): Promise<void> {
     setBusy(true);
     setError(null);
     try {
       await onSave(schedule, values);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Schedule update failed");
+      setError(
+        caught instanceof Error ? caught.message : "Schedule update failed",
+      );
     } finally {
       setBusy(false);
     }
@@ -51,7 +49,12 @@ export function ScheduleEditor({ disabled, schedule, onSave }: ScheduleEditorPro
         <span>Cron expression</span>
         <input
           aria-label={`${schedule.job_type} cron expression`}
-          onChange={(event) => setValues((current) => ({ ...current, cron_expression: event.target.value }))}
+          onChange={(event) =>
+            setValues((current) => ({
+              ...current,
+              cron_expression: event.target.value,
+            }))
+          }
           value={values.cron_expression}
         />
       </label>
@@ -59,21 +62,41 @@ export function ScheduleEditor({ disabled, schedule, onSave }: ScheduleEditorPro
         <span>Timezone</span>
         <input
           aria-label={`${schedule.job_type} timezone`}
-          onChange={(event) => setValues((current) => ({ ...current, timezone: event.target.value }))}
+          onChange={(event) =>
+            setValues((current) => ({
+              ...current,
+              timezone: event.target.value,
+            }))
+          }
           value={values.timezone}
         />
       </label>
       <label className="checkbox-field">
         <input
           checked={values.enabled}
-          onChange={(event) => setValues((current) => ({ ...current, enabled: event.target.checked }))}
+          onChange={(event) =>
+            setValues((current) => ({
+              ...current,
+              enabled: event.target.checked,
+            }))
+          }
           type="checkbox"
         />
         Enabled
       </label>
       <StatusBadge status={schedule.enabled ? "enabled" : "disabled"} />
-      <button className="button compact" onClick={() => void save()} type="button">Save schedule</button>
-      {error ? <p className="error-banner" role="alert">{error}</p> : null}
+      <button
+        className="button compact"
+        onClick={() => void save()}
+        type="button"
+      >
+        Save schedule
+      </button>
+      {error ? (
+        <p className="error-banner" role="alert">
+          {error}
+        </p>
+      ) : null}
     </fieldset>
   );
 }

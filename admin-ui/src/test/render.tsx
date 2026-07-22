@@ -23,7 +23,13 @@ export function renderWithSession(
         signOut: () => undefined,
       }}
     >
-      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, fetcher: apiGet }}>
+      <SWRConfig
+        value={{
+          provider: () => new Map(),
+          dedupingInterval: 0,
+          fetcher: apiGet,
+        }}
+      >
         {ui}
       </SWRConfig>
     </SessionProvider>,

@@ -7,12 +7,15 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+coverage/
 docs/artifacts/
 .env
 .env.*
 !.env.example
 *.pdf
 dist/
+.next/
+*.tsbuildinfo
 build/
 *.egg-info/
 data/

@@ -3,7 +3,10 @@ interface EmptyStateProps {
   detail: string;
 }
 
-export function EmptyState({ title, detail }: EmptyStateProps): React.JSX.Element {
+export function EmptyState({
+  title,
+  detail,
+}: EmptyStateProps): React.JSX.Element {
   return (
     <div className="empty-state">
       <span aria-hidden="true">◇</span>

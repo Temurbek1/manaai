@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, jest } from "@jest/globals";
 
 import { renderWithSession } from "../test/render";
 import { MarketingPage } from "./MarketingPage";
@@ -15,11 +15,11 @@ function jsonResponse(body: unknown): Promise<Response> {
 
 describe("MarketingPage", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    jest.restoreAllMocks();
   });
 
   it("renders the provider snapshot and persisted nightly report", async () => {
-    const fetchMock = vi.fn<typeof fetch>((input) => {
+    const fetchMock = jest.fn<typeof fetch>((input) => {
       const url =
         typeof input === "string"
           ? input
@@ -88,7 +88,9 @@ describe("MarketingPage", () => {
               report_id: "report-1",
               report_type: "nightly",
               human_readable: "Best creative today: Family Video. CPL: 0.80.",
-              structured: { kpis: { spend: "120", leads: "30", ctr: "4.2", cpl: "0.80" } },
+              structured: {
+                kpis: { spend: "120", leads: "30", ctr: "4.2", cpl: "0.80" },
+              },
             },
           ],
           total: 1,
@@ -99,9 +101,24 @@ describe("MarketingPage", () => {
       if (url.includes("/executions?")) {
         return jsonResponse({
           items: [
-            { execution_id: "execution-stale", status: "failed", attempted_at: "2026-07-22T12:00:00Z", provider_request_id: null },
-            { execution_id: "execution-partial", status: "partially_applied", attempted_at: "2026-07-22T12:01:00Z", provider_request_id: "meta-1" },
-            { execution_id: "execution-running", status: "executing", attempted_at: "2026-07-22T12:02:00Z", provider_request_id: "meta-2" },
+            {
+              execution_id: "execution-stale",
+              status: "failed",
+              attempted_at: "2026-07-22T12:00:00Z",
+              provider_request_id: null,
+            },
+            {
+              execution_id: "execution-partial",
+              status: "partially_applied",
+              attempted_at: "2026-07-22T12:01:00Z",
+              provider_request_id: "meta-1",
+            },
+            {
+              execution_id: "execution-running",
+              status: "executing",
+              attempted_at: "2026-07-22T12:02:00Z",
+              provider_request_id: "meta-2",
+            },
           ],
           total: 3,
           limit: 100,
@@ -110,12 +127,14 @@ describe("MarketingPage", () => {
       }
       return jsonResponse({ items: [], total: 0, limit: 100, offset: 0 });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
 
     renderWithSession(<MarketingPage />);
 
     expect(await screen.findByText("Growth campaign")).toBeInTheDocument();
-    expect(await screen.findByText(/Best creative today: Family Video/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Best creative today: Family Video/),
+    ).toBeInTheDocument();
     expect(screen.getByText("nightly")).toBeInTheDocument();
     expect(await screen.findByText("partially applied")).toBeInTheDocument();
     expect(screen.getByText("failed")).toBeInTheDocument();

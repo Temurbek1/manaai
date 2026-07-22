@@ -26,13 +26,26 @@ export function MarketingEntityTable({
             </div>
           ),
         },
-        { key: "status", label: "Delivery", render: (item) => <StatusBadge status={item.effective_status} /> },
-        { key: "budget", label: "Daily budget", render: (item) => item.daily_budget ?? "—" },
+        {
+          key: "status",
+          label: "Delivery",
+          render: (item) => <StatusBadge status={item.effective_status} />,
+        },
+        {
+          key: "budget",
+          label: "Daily budget",
+          render: (item) => item.daily_budget ?? "—",
+        },
         { key: "currency", label: "Currency", render: (item) => item.currency },
       ]}
       items={entities}
       getKey={(item) => item.provider_id}
-      empty={<EmptyState title={`No ${label.toLowerCase()}`} detail="The latest snapshot has no matching entities." />}
+      empty={
+        <EmptyState
+          title={`No ${label.toLowerCase()}`}
+          detail="The latest snapshot has no matching entities."
+        />
+      }
     />
   );
 }
