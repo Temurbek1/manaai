@@ -1,13 +1,29 @@
 # ManaAI API
 
-Production-ready backend на FastAPI для API слоя ИИ-интеграций и маркетинговой аналитики. В проекте есть Docker, типизированные Pydantic-схемы, Swagger/OpenAPI, OpenAI Responses API, Meta Marketing API sync, raw-data storage и структурированный AI output для аналитики.
+Production-oriented FastAPI-платформа с двумя независимыми контурами: продуктовым
+`MANA AI` и внутренним `MANA OPERATION AI`. Помимо совместимого legacy API проект содержит
+универсальное ядро операционных агентов, законченный Marketing Agent для Meta Ads,
+SQLAlchemy/Alembic persistence, безопасный action lifecycle, scheduler и React admin panel.
+
+Быстрая проверка полного vertical slice без внешних расходов:
+
+```bash
+make install
+make migrate
+make demo
+make verify
+```
+
+Архитектура и эксплуатация описаны в `docs/architecture.md`,
+`docs/operation-ai-platform.md`, `docs/marketing-agent.md`, `docs/action-safety.md` и
+`docs/runbook.md`.
 
 ## Что внутри
 
 - FastAPI application factory: `app.main:create_app`
 - Версионированный API prefix: `/api/v1`
 - OpenAI интеграция через `AsyncOpenAI`
-- Дефолтная модель: `gpt-5.4-nano`, самая дешевая GPT-5.4-class модель по цене токенов
+- Настраиваемая через `OPENAI_MODEL` модель для существующего product AI gateway
 - Meta Marketing API слой через официальный Graph API `v25.0`
 - Append-only raw storage в SQLite, чтобы не терять исходные данные Meta/экспортов/developer-console evidence
 - Детерминированные KPI до вызова AI: spend, impressions, reach, clicks, conversions, CTR, frequency, CPC, CPM, CPA, ROAS
@@ -18,8 +34,17 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - Dockerfile + `docker-compose.yml`
 - Базовые async tests
 - Строгое разделение слоев: routes, schemas, services, core config
+- Строгая import-граница `app/mana_ai` и `app/mana_operation_ai`
+- Generic agent registry, state machines, versioned configs/schedules и audit trail
+- Provider-neutral AdsPlatform с безопасным live Meta и полноценным fake Meta
+- React/TypeScript strict admin UI в `admin-ui`
 
 ## API endpoints
+
+Внутренний operation API расположен под `/api/v1/admin/operation` и включает dashboard,
+agents/status/run, runs/timeline, configurations/schema versions, schedules, findings,
+recommendations, proposals, approvals/bulk decisions, executions, reports, integration health,
+audit events и global/per-agent kill switches. Полный typed contract доступен в OpenAPI.
 
 - `GET /api/v1/health/live` - liveness probe
 - `GET /api/v1/health/ready` - readiness probe
@@ -31,7 +56,7 @@ Production-ready backend на FastAPI для API слоя ИИ-интеграц�
 - `POST /api/v1/marketing/raw/search` - поиск raw records по provider id и payload/dimension filters
 - `POST /api/v1/marketing/meta/discover` - сбор app/ad account metadata через Meta Graph API
 - `POST /api/v1/marketing/meta/sync` - сбор данных через Meta Marketing API
-- `POST /api/v1/marketing/meta/insights/jobs` - создание Meta async Insights job
+- `POST /api/v1/marketing/meta/insights/jobs` - fixture/legacy async job API; live Meta returns 403
 - `GET /api/v1/marketing/meta/insights/jobs/{report_run_id}` - статус async job
 - `POST /api/v1/marketing/meta/insights/jobs/{report_run_id}/ingest` - загрузка результатов async job в raw storage
 - `POST /api/v1/marketing/graph` - граф связей app/business/pixel/custom conversion/ad account/custom audience/campaign/adset/ad/creative/insight
@@ -71,6 +96,10 @@ uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 docker compose up --build
 ```
 
+Admin panel: `http://localhost:3000` в Docker или `http://localhost:5173` через
+`make admin-dev`. В production войдите с role-specific internal API key на login screen. Ключ
+хранится только в памяти процесса страницы и очищается при refresh/sign-out.
+
 Swagger UI доступен локально на `http://localhost:8000/docs`, ReDoc на `http://localhost:8000/redoc`, OpenAPI schema на `http://localhost:8000/openapi.json`. В `APP_ENV=production` документация отключается.
 
 ## Env configuration
@@ -90,6 +119,17 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `OPENAI_TEMPERATURE` | no | `0.2` | Температура генерации |
 | `CORS_ORIGINS` | no | `[]` | JSON список разрешенных origins |
 | `MARKETING_DATABASE_PATH` | no | `data/manaai.db` | SQLite path для raw records и reports |
+| `OPERATION_DATABASE_URL` | no | derived SQLite URL | Async SQLAlchemy URL для operation tables |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Compose | see `.env.example` | PostgreSQL database and credentials; use a secret manager in production |
+| `OPERATION_SCHEDULER_ENABLED` | no | `false` | Persisted scheduler; Compose включает только в отдельном worker |
+| `OPERATION_DATA_RETENTION_DAYS` | no | `90` | Retention для normalized provider snapshots и зависимых analyses/findings |
+| `OPERATION_ADS_PROVIDER` | no | `fake_meta` | `fake_meta` or `meta` |
+| `OPERATION_DRY_RUN` | no | `true` | Запрещает provider writes |
+| `META_LIVE_MODE` | no | `read_only` | Единственный допустимый live Meta mode |
+| `META_LIVE_READONLY_VERIFY` | no | `false` | Явный opt-in только для bounded GET validation |
+| `META_LIVE_MAX_*` | no | conservative | Per-run requests/pages/retries/duration/account budgets |
+| `OPERATION_*_API_KEY` | production | - | Viewer/operator/approver/admin internal keys |
+| `OPERATION_*_EXECUTION_LIMIT_PER_DAY` | no | conservative | Global/per-agent action limits |
 | `MARKETING_CONVERSION_ACTION_TYPES` | no | JSON list | Meta `actions.action_type`, которые считаются conversions |
 | `MARKETING_VALUE_ACTION_TYPES` | no | JSON list | Meta `action_values.action_type`, которые считаются revenue/value |
 | `MARKETING_MEASUREMENT_STALE_AFTER_DAYS` | no | `14` | Через сколько дней без `last_fired_time` pixel/custom conversion считается stale |
@@ -101,6 +141,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `META_AD_ACCOUNT_IDS` | no | `[]` | JSON list ad account ids, например `["act_123"]` |
 | `META_*_FIELDS` | no | JSON lists | Явные fields для business/pixels/custom conversions/custom audiences/campaigns/adsets/ads/ad creatives/ad accounts/insights |
 | `META_ACTION_ATTRIBUTION_WINDOWS` | no | `["1d_click","7d_click"]` | Attribution windows для insights |
+| `META_REAL_WRITES_ENABLED` | no | `false` | Must stay false; startup rejects true |
 
 ## Meta Marketing workflow
 
@@ -117,12 +158,22 @@ curl -H "X-API-Key: $APP_API_KEY" http://localhost:8000/api/v1/marketing/config
 Минимальный `.env` для Meta:
 
 ```env
+OPERATION_ADS_PROVIDER=meta
+OPERATION_DRY_RUN=true
 META_GRAPH_API_VERSION=v25.0
+META_LIVE_MODE=read_only
+META_REAL_WRITES_ENABLED=false
 META_APP_ID=replace_with_meta_app_id
 META_BUSINESS_ID=replace_with_business_id
 META_ACCESS_TOKEN=replace_with_system_user_access_token
 META_AD_ACCOUNT_IDS=["act_123456789"]
 MARKETING_DATABASE_PATH=/data/manaai.db
+```
+
+Live validation is separately opt-in and GET-only:
+
+```bash
+META_LIVE_READONLY_VERIFY=1 make meta-live-readonly-verify
 ```
 
 Первичная проверка подключения и сбор доступных assets:
@@ -170,7 +221,9 @@ curl -X POST http://localhost:8000/api/v1/marketing/meta/sync \
 
 `breakdowns`, `action_breakdowns` и `time_increment` сохраняются в insight payload как `_meta_breakdowns`, `_meta_action_breakdowns` и `_meta_time_increment`. Это помогает аудитить, каким отчетным срезом была получена каждая строка. Для breakdown rows `provider_record_id` получает compact dimension hash, чтобы разные сегменты одного entity/date не склеивались в графе.
 
-Для больших отчетов используйте async Insights job, как рекомендует Meta:
+Legacy/fixture integration retains the async Insights contract for compatibility. In live Meta
+read-only mode the creation call below returns typed HTTP 403 because Meta async report creation is
+POST and is intentionally forbidden:
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/marketing/meta/insights/jobs \

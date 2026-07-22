@@ -9,18 +9,45 @@
 
 ## Architecture rules
 
-- Keep FastAPI route handlers thin. Put provider calls and business logic in `app/services/`.
-- Keep request and response contracts in `app/schemas/`.
+- Keep FastAPI route handlers thin. Existing compatibility logic remains in
+  `app/services/`; new operational business logic belongs in
+  `app/mana_operation_ai/application/`.
+- Keep public compatibility contracts in `app/schemas/`, MANA AI contracts in
+  `app/mana_ai/`, and operational contracts in `app/mana_operation_ai/domain/`.
+- `app/mana_ai` must never import repositories, ORM models, operational agents, Meta
+  integrations, action executors, or `app.mana_operation_ai`.
+- Operational domain code must not import FastAPI, SQLAlchemy, Redis, Meta SDKs, or the
+  OpenAI SDK.
+- External providers implement typed application ports. Translate provider payloads at
+  adapter boundaries.
 - Keep settings in `app/core/config.py` and load them through `get_settings()`.
 - Preserve DRY and Single Responsibility. Add abstractions only when they remove real duplication or isolate a concrete responsibility.
 - Prefer async code for I/O-bound provider integrations.
 
 ## Quality gates
 
+- Run `make lint` after code changes.
+- Run `make typecheck` after changing typed Python or TypeScript code.
+- Run `make test` after changing routes, schemas, services, configuration, or UI flows.
+- Run `make verify` before handing off a completed checkpoint or release.
 - Run `ruff check .` after code changes.
 - Run `mypy .` after changing typed Python code.
 - Run `pytest` after changing routes, schemas, services, or configuration.
 - Do not call the real OpenAI API from tests; use fakes or dependency overrides.
+- Do not call Meta write APIs from tests. Use the fake Meta adapter; live Meta tests are
+  opt-in and read-only.
+
+## Common commands
+
+- Backend: `uvicorn app.main:create_app --factory --reload`
+- Admin UI: `cd admin-ui && npm run dev`
+- Apply migrations: `make migrate`
+- Create migration: `make migration name=description`
+- Lint: `make lint`
+- Typecheck: `make typecheck`
+- Tests: `make test`
+- Full verification: `make verify`
+- Fake Meta lifecycle demo: `make demo`
 
 ## Docker and deployment
 
