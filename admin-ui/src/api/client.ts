@@ -36,13 +36,15 @@ export type Audience = components["schemas"]["Audience"];
 export type BreakdownPerformance =
   components["schemas"]["BreakdownPerformance"];
 export type Metric = components["schemas"]["Metric"];
-export type ActorSession = components["schemas"]["ActorResponse"];
-
-export interface ClientCredentials {
-  apiKey: string;
-  actorId: string;
-  developmentRole: ActorSession["role"];
-}
+export type AuthSession = components["schemas"]["AuthSessionResponse"];
+export type AdminUser = components["schemas"]["AdminUserResponse"];
+export type AdminUserPage = components["schemas"]["UserPage"];
+export type AuthAuditPage = components["schemas"]["AuthAuditPage"];
+export type RequestCodeResponse = components["schemas"]["RequestCodeResponse"];
+export type AuthenticatedSession = AuthSession & {
+  authenticated: true;
+  user: NonNullable<AuthSession["user"]>;
+};
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(
   /\/+$/,
@@ -59,12 +61,6 @@ export class ApiError extends Error {
   }
 }
 
-let credentials: ClientCredentials | null = null;
-
-export function configureCredentials(next: ClientCredentials | null): void {
-  credentials = next;
-}
-
 export async function apiGet<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: "GET" });
 }
@@ -77,20 +73,22 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return apiRequest<T>(path, { method: "PUT", body: JSON.stringify(body) });
 }
 
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return apiRequest<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+
 async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   headers.set("Content-Type", "application/json");
-  if (credentials !== null) {
-    headers.set("X-MANA-Actor-ID", credentials.actorId);
-    headers.set("X-MANA-Role", credentials.developmentRole);
-    if (credentials.apiKey) {
-      headers.set("X-API-Key", credentials.apiKey);
-    }
+  const csrfToken = readCookie("mana_csrf");
+  if (!isSafeMethod(init.method) && csrfToken !== null) {
+    headers.set("X-CSRF-Token", csrfToken);
   }
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     cache: "no-store",
+    credentials: "same-origin",
     headers,
     redirect: "error",
   });
@@ -108,10 +106,37 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
             "message" in rawDetail
           ? String((rawDetail as Record<string, unknown>).message)
           : `Request failed with status ${String(response.status)}`;
-    if (response.status === 401 && typeof window !== "undefined") {
+    if (
+      response.status === 401 &&
+      typeof window !== "undefined" &&
+      csrfToken !== null
+    ) {
       window.dispatchEvent(new Event("mana:unauthorized"));
     }
     throw new ApiError(response.status, detail);
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+export function isAuthenticatedSession(
+  session: AuthSession,
+): session is AuthenticatedSession {
+  return session.authenticated && session.user !== null;
+}
+
+function isSafeMethod(method: string | undefined): boolean {
+  return method === undefined || ["GET", "HEAD", "OPTIONS"].includes(method);
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = `${encodeURIComponent(name)}=`;
+  const item = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+  return item === undefined
+    ? null
+    : decodeURIComponent(item.slice(prefix.length));
 }

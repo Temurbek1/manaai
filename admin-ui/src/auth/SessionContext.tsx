@@ -2,11 +2,11 @@
 
 import { createContext, useContext } from "react";
 
-import type { ActorSession } from "../api/client";
+import type { AuthenticatedSession } from "../api/client";
 
 interface SessionContextValue {
-  session: ActorSession;
-  signOut: () => void;
+  session: AuthenticatedSession;
+  signOut: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -21,7 +21,7 @@ export function useSession(): SessionContextValue {
   return value;
 }
 
-const ROLE_RANK: Record<ActorSession["role"], number> = {
+const ROLE_RANK: Record<AuthenticatedSession["user"]["role"], number> = {
   viewer: 0,
   operator: 1,
   approver: 2,
@@ -29,8 +29,8 @@ const ROLE_RANK: Record<ActorSession["role"], number> = {
 };
 
 export function hasRole(
-  session: ActorSession,
-  minimum: ActorSession["role"],
+  session: AuthenticatedSession,
+  minimum: AuthenticatedSession["user"]["role"],
 ): boolean {
-  return ROLE_RANK[session.role] >= ROLE_RANK[minimum];
+  return ROLE_RANK[session.user.role] >= ROLE_RANK[minimum];
 }

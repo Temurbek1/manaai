@@ -230,7 +230,8 @@ export function ApprovalsPage(): React.JSX.Element {
           const approval = approvalByProposal.get(proposal.proposal_id);
           const isBusy = busyProposal === proposal.proposal_id;
           const isLiveAdvisory = proposal.execution_forbidden;
-          const isSelfApproval = approval?.requested_by === session.actor_id;
+          const isSelfApproval =
+            approval?.requested_by === session.user.user_id;
           const decisionDisabled =
             !canDecide ||
             isBusy ||

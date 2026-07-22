@@ -12,11 +12,12 @@ interface AuthenticatedShellProps {
 }
 
 const NAVIGATION = [
-  { href: "/", label: "Overview", icon: "⌂" },
-  { href: "/marketing", label: "Marketing Agent", icon: "↗" },
-  { href: "/approvals", label: "Approvals", icon: "✓" },
-  { href: "/runs", label: "Runs & audit", icon: "≋" },
-  { href: "/agents", label: "Agent registry", icon: "◇" },
+  { href: "/", label: "Overview", icon: "⌂", adminOnly: false },
+  { href: "/marketing", label: "Marketing Agent", icon: "↗", adminOnly: false },
+  { href: "/approvals", label: "Approvals", icon: "✓", adminOnly: false },
+  { href: "/runs", label: "Runs & audit", icon: "≋", adminOnly: false },
+  { href: "/agents", label: "Agent registry", icon: "◇", adminOnly: false },
+  { href: "/users", label: "Пользователи", icon: "◎", adminOnly: true },
 ] as const;
 
 export function AuthenticatedShell({
@@ -51,6 +52,7 @@ export function AuthenticatedShell({
         </div>
         <nav aria-label="Primary navigation">
           {NAVIGATION.map((item) => {
+            if (item.adminOnly && session.user.role !== "admin") return null;
             const active = pathname === item.href;
             return (
               <Link
@@ -83,11 +85,15 @@ export function AuthenticatedShell({
         </div>
         <div className="session-box">
           <span>
-            <strong>{session.actor_id}</strong>
-            <small>{session.role}</small>
+            <strong>
+              {session.user.display_name ??
+                session.user.username ??
+                String(session.user.telegram_id)}
+            </strong>
+            <small>{session.user.role}</small>
           </span>
-          <button onClick={signOut} type="button">
-            Sign out
+          <button onClick={() => void signOut()} type="button">
+            Выйти
           </button>
         </div>
       </aside>

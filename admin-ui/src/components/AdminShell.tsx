@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 
 import {
   apiGet,
-  configureCredentials,
-  type ActorSession,
-  type ClientCredentials,
+  apiPost,
+  type AuthSession,
+  type AuthenticatedSession,
+  isAuthenticatedSession,
 } from "@/api/client";
 import { SessionProvider } from "@/auth/SessionContext";
 
@@ -19,45 +20,66 @@ interface AdminShellProps {
 }
 
 export function AdminShell({ children }: AdminShellProps): React.JSX.Element {
-  const [session, setSession] = useState<ActorSession | null>(null);
-  const [loginBusy, setLoginBusy] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [session, setSession] = useState<AuthenticatedSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void apiGet<AuthSession>("/api/v1/auth/session")
+      .then((current) => {
+        if (active && isAuthenticatedSession(current)) setSession(current);
+      })
+      .catch(() => {
+        if (active)
+          setLoginNotice("Не удалось проверить сессию. Попробуйте ещё раз.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     function expireSession(): void {
-      configureCredentials(null);
       setSession(null);
-      setLoginError("Your session is no longer authorized. Sign in again.");
+      setLoginNotice("Сессия завершена. Войдите снова.");
     }
     window.addEventListener("mana:unauthorized", expireSession);
     return () => window.removeEventListener("mana:unauthorized", expireSession);
   }, []);
 
-  async function login(credentials: ClientCredentials): Promise<void> {
-    setLoginBusy(true);
-    setLoginError(null);
-    configureCredentials(credentials);
+  async function signOut(): Promise<void> {
     try {
-      const actor = await apiGet<ActorSession>(
-        "/api/v1/admin/operation/session",
-      );
-      setSession(actor);
-    } catch (error) {
-      configureCredentials(null);
-      setLoginError(error instanceof Error ? error.message : "Sign in failed");
+      await apiPost<void>("/api/v1/auth/logout", {});
     } finally {
-      setLoginBusy(false);
+      setSession(null);
+      setLoginNotice(null);
     }
   }
 
-  function signOut(): void {
-    configureCredentials(null);
-    setSession(null);
-    setLoginError(null);
+  if (loading) {
+    return (
+      <main className="login-page" aria-busy="true">
+        <div className="auth-loading" role="status">
+          Проверяем защищённую сессию…
+        </div>
+      </main>
+    );
   }
 
   if (session === null) {
-    return <LoginPanel busy={loginBusy} error={loginError} onLogin={login} />;
+    return (
+      <LoginPanel
+        notice={loginNotice}
+        onAuthenticated={(authenticated) => {
+          setLoginNotice(null);
+          setSession(authenticated);
+        }}
+      />
+    );
   }
 
   return (

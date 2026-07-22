@@ -22,7 +22,7 @@ export default function RootLayout({
   children,
 }: RootLayoutProps): React.JSX.Element {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body>
         <Providers>
           <AdminShell>{children}</AdminShell>
