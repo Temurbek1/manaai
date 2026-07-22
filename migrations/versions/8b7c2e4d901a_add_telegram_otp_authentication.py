@@ -30,7 +30,6 @@ def upgrade() -> None:
         sa.Column("auth_locked_until", sa.DateTime(timezone=True), nullable=True),
         sa.Column("payload", sa.JSON(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
-        sa.UniqueConstraint("telegram_id"),
     )
     op.create_index(
         op.f("ix_operation_admin_users_telegram_id"),
@@ -94,7 +93,6 @@ def upgrade() -> None:
         sa.Column("payload", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["operation_admin_users.user_id"]),
         sa.PrimaryKeyConstraint("session_id"),
-        sa.UniqueConstraint("token_hmac"),
     )
     op.create_index(
         "idx_operation_admin_session_user_expiry",
