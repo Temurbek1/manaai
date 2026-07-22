@@ -6,6 +6,36 @@ All 15 platform checkpoints and the live Meta read-only milestone are complete. 
 verified against the selected account; live Meta writes are permanently forbidden and none was
 attempted.
 
+## Telegram OTP authentication baseline
+
+Status: recorded before authentication changes on 2026-07-22
+
+- Git baseline: clean `feat/nextjs-admin-panel` at `192bb6f`, matching its remote branch. Telegram
+  work starts from that exact commit on the separate `feat/telegram-otp-auth` branch.
+- The human Next.js login currently asks for an internal API key, development actor ID, and role.
+  The browser stores these values in module memory and sends `X-API-Key`, `X-MANA-Actor-ID`, and
+  `X-MANA-Role` on every request; refresh intentionally loses the session.
+- FastAPI has no administrative-user, OTP-challenge, or server-session tables/cookies. In
+  production, shared role-specific API keys resolve to synthetic actors; local mode trusts the
+  caller-supplied actor/role headers. RBAC and self-approval checks consume that resolved actor.
+- The shared application and operation role keys remain necessary for compatibility APIs,
+  service-to-service clients, automation, and existing hermetic tests. They will remain as an
+  explicit technical authentication path but will be removed from the human browser flow; normal
+  local runtime will no longer trust browser-selected identity or role.
+- The generated OpenAPI contract exposes the current operation session response. The Next.js
+  client has no cookie/CSRF transport yet. Compose already keeps the browser same-origin through
+  the private FastAPI rewrite and enables credentialed CORS.
+- No existing users can be mapped automatically to Telegram because the current identities are
+  shared-key role aliases rather than user records. The configured bootstrap Telegram IDs will
+  create the first durable admins idempotently.
+- The ignored local `.env` contains a Telegram bot token under the legacy variable name
+  `BOT_TOKEN`; its value was not read. Runtime configuration will prefer
+  `MANA_TELEGRAM_BOT_TOKEN` while accepting that legacy alias without logging or modifying it.
+- Migration plan: add typed users/challenges/sessions/audit records and Alembic migration; add
+  HMAC-protected OTP policy, persistent rate limits, Telegram and isolated fake senders, cookie and
+  CSRF authentication, user-management APIs/UI, browser E2E, deployment configuration, and full
+  auth/admin/audit verification before normal push.
+
 ## Next.js migration baseline
 
 Status: recorded before migration on 2026-07-22
