@@ -27,6 +27,29 @@ Status: recorded before migration on 2026-07-22
   route/page migration, test and E2E expansion, and deployment/documentation verification as
   separate migration commits on `feat/nextjs-admin-panel`.
 
+## Next.js admin migration
+
+Status: implementation and dedicated admin verification complete; repository-wide and live
+read-only verification pending
+
+- Replaced the single-view Vite SPA with Next.js 16 App Router routes for overview, Marketing,
+  approvals, runs/audit, and agent management. Server route/layout boundaries compose focused
+  interactive feature clients.
+- Preserved server-verified, memory-only authentication and all RBAC restrictions. Added controlled
+  401 expiry, self-approval denial, fresh approval/kill-switch reads, and inline confirmation for
+  global/per-agent emergency controls.
+- Preserved the generated FastAPI contract and same-origin browser transport. Private
+  `FASTAPI_BASE_URL` config powers local/Docker server rewrites without exposing credentials.
+- Migrated Vitest coverage to 15 Jest scenarios and updated the real FastAPI/fake-provider browser
+  lifecycle for native routes, direct nested refresh, keyboard behavior, and mobile layout.
+- Replaced the nginx/static image with Next.js standalone output and `/healthz`; removed Vite
+  configuration, entry points, dependencies, and obsolete runtime files.
+- Added `make admin-verify`, standalone production smoke, Vite-absence validation, Docker build,
+  and an opt-in non-mutating live Meta admin-page smoke.
+- `make admin-verify` passes synchronized OpenAPI generation, Prettier, ESLint, strict TypeScript,
+  15 Jest tests, optimized/standalone builds, npm and secret audits, fake-provider browser E2E,
+  Vite-absence validation, and the non-root Docker image build.
+
 ## Checkpoint 1 - Repository audit and baseline
 
 Status: completed
@@ -142,13 +165,14 @@ Verification: FastAPI API tests and generated OpenAPI validation pass.
 
 Status: completed
 
-- Added a React 19 + strict TypeScript admin app with registry-driven navigation, dashboard,
+- Added a Next.js 16 + React 19 + strict TypeScript admin app with registry-driven navigation, dashboard,
   Marketing Agent, approval, run/audit, and agent-management pages.
 - Added responsive configuration/schedule controls, health/KPIs/entities/breakdowns, safe bulk
   decisions, action history, reports, emergency controls, and a generated OpenAPI contract.
 
-Verification: ESLint, strict TypeScript, 2 Vitest flows, production build, zero high-severity npm
-audit findings, and browser smoke testing of Overview/Marketing/Approvals/Runs all pass.
+Verification: Prettier, Next-aware ESLint, strict TypeScript, 15 Jest flows, production and
+standalone builds, zero npm audit findings, and browser testing of
+Overview/Marketing/Approvals/Runs all pass. Final Docker and repository-wide gates remain below.
 
 ## Checkpoint 12 - End-to-end tests
 
@@ -189,7 +213,8 @@ Status: completed
 - Added all required architecture, boundary, platform, Marketing Agent, safety, admin, runbook,
   testing, and capability-matrix documents plus `.env.example`, root `AGENTS.md`, and Make targets.
 - Capability matrix covers both PDFs and distinguishes implemented, foundation, and planned work.
-- Added production API/admin Docker images and Compose deployment with migrations and liveness.
+- Added production API/standalone-Next.js admin Docker images and Compose deployment with
+  migrations and liveness.
 
 Final evidence is recorded in `docs/live-read-only-test-evidence.md`. The final opt-in Make target
 passed Ruff/ESLint, strict Python/TypeScript checks, 95 hermetic backend tests, 12 frontend tests,

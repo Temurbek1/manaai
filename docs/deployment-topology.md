@@ -4,7 +4,7 @@
 
 ```text
                     +--------------------+
-browser / gateway ->| admin Nginx :8080 |---- /api ----+
+browser / gateway ->| Next.js admin :3000 |---- /api ----+
                     +--------------------+              |
                                                         v
                                                +-----------------+
@@ -28,9 +28,15 @@ browser / gateway ->| admin Nginx :8080 |---- /api ----+
 ```
 
 Compose implements this shape with `postgres`, one-shot `migrate`, scheduler-disabled `api`, a
-separate scheduler-enabled `worker`, and the `admin` static server. API and worker start only after
-migration succeeds. Production sets `APP_ENV=production` and disables application-time schema
-creation. `/api/v1/health/live` remains unauthenticated for container health checks.
+separate scheduler-enabled `worker`, and the standalone Next.js `admin` server. API and worker
+start only after migration succeeds. Production sets `APP_ENV=production` and disables
+application-time schema creation. `/api/v1/health/live` remains unauthenticated for API container
+health checks; `/healthz` checks the admin Node process.
+
+The admin build receives `ADMIN_FASTAPI_BASE_URL` as the private `FASTAPI_BASE_URL` build argument.
+The default Compose value is `http://api:8000`, so browser requests remain same-origin and the
+Next.js server performs the internal rewrite. This variable is a network destination, never a
+credential, and is not exposed through `NEXT_PUBLIC_*`.
 
 The included Compose file forces dry-run and disables real Meta writes for both API and worker.
 Changing only one gate must not enable writes. The migration service also has writes disabled.
@@ -52,7 +58,7 @@ Changing only one gate must not enable writes. The migration service also has wr
 ## Release sequence
 
 1. Back up and verify restore capability for both stores.
-2. Build immutable API/admin images and run `make audit-verify` in CI.
+2. Build immutable API/admin images and run `make admin-verify` and `make audit-verify` in CI.
 3. Run the migration job once against the target PostgreSQL database.
 4. Start scheduler-disabled API replicas and verify liveness/authenticated readiness.
 5. Start worker replicas and inspect schedule leases, run/audit events, and provider health.

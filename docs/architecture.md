@@ -29,7 +29,21 @@ Meta integrations, and action executors imported into the product context.
 - `background/`: a persisted scheduler used by a standalone production worker; local in-process
   scheduling is optional and disabled by default.
 - `api/`: versioned internal endpoints, Pydantic response models, RBAC, and HTTP error mapping.
-- `admin-ui/`: strict React/TypeScript client generated from FastAPI OpenAPI.
+- `admin-ui/`: Next.js App Router control room with strict React/TypeScript and synchronized
+  FastAPI OpenAPI contracts.
+
+## Admin rendering boundary
+
+The admin root layout and route entry points are Server Components. They own stable HTML,
+metadata, route loading/error boundaries, and composition. Authentication, SWR operational
+freshness, filters, forms, confirmations, and mutations are isolated Client Components. The
+browser calls same-origin `/api` URLs; a server-side Next.js rewrite forwards them to FastAPI using
+private `FASTAPI_BASE_URL` configuration. Next.js contains no business endpoint, policy, identity
+store, or provider integration.
+
+Operational data is deliberately uncached in the browser transport. Volatile dashboards use
+bounded polling plus focus/reconnect revalidation. Approval and kill-switch mutations force a
+fresh read first, while FastAPI remains the final concurrency, authorization, and staleness gate.
 
 ## Dependency decisions
 

@@ -12,7 +12,7 @@ make run
 make admin-dev
 ```
 
-API: `http://localhost:8000`; admin: `http://localhost:5173`; local API docs:
+API: `http://localhost:8000`; Next.js admin: `http://localhost:3000`; local API docs:
 `http://localhost:8000/docs`.
 
 ## Docker startup
@@ -27,7 +27,8 @@ docker compose up --build
 Compose forces `APP_ENV=production`, runs Alembic in a one-shot migration service, keeps the API
 scheduler disabled, and runs scheduling in a separate worker. API and worker force
 dry-run/live-write-disabled. The admin panel is on port 3000. `.env` is injected only as container
-environment and is excluded from images.
+environment and is excluded from images. The admin container serves Next.js standalone output,
+rewrites same-origin `/api` requests to `http://api:8000`, and reports health at `/healthz`.
 
 ## Common commands
 
@@ -36,6 +37,7 @@ make migrate
 make migration name=describe_change
 make demo
 make verify
+make admin-verify
 make audit-verify
 ```
 
@@ -73,7 +75,9 @@ configuration, recommendation, and report records are retained.
 4. Keep `OPERATION_DRY_RUN=true`, `META_LIVE_MODE=read_only`, and
    `META_REAL_WRITES_ENABLED=false`.
 5. Run `META_LIVE_READONLY_VERIFY=1 make meta-live-readonly-verify`; inspect the sanitized evidence
-   and portable report without printing payloads or identifiers.
+   and portable report without printing payloads or identifiers. The command also opens the real
+   Next.js Marketing page and verifies its read-only banner, safe account alias, missing execute
+   control, and desktop/mobile overflow without issuing an action mutation.
 
 The 2026-07-22 validation passed for account alias `2b6c4ddcc5`. Live writes are unsupported even if
 the token has a write-capable scope.

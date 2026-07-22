@@ -2,8 +2,12 @@
 
 ## Verification entry points
 
-`make verify` runs formatting, Ruff, ESLint, mypy, TypeScript, backend/frontend tests, the frontend
-production build, and the npm high-severity audit.
+`make verify` runs Ruff and Prettier formatting, Ruff and Next-aware ESLint, mypy, strict
+TypeScript, backend/Jest tests, the Next.js production build, and the npm high-severity audit.
+
+`make admin-verify` additionally checks generated contracts, standalone direct-route startup,
+forbidden secrets, Vite removal, the real-browser fake-provider/mobile lifecycle, and the standalone
+Docker image.
 
 `make audit-verify` additionally runs:
 
@@ -23,7 +27,8 @@ that exact opt-in skip.
 ## Verified 2026-07-22 result
 
 - Python: 89 passed, 1 documented PostgreSQL opt-in skip; the isolated PostgreSQL run then passed.
-- Frontend: 6 files and 11 tests passed; lint, typecheck, and production build passed.
+- Frontend migration checkpoint: 6 suites and 15 Jest tests passed; Prettier, ESLint, strict
+  TypeScript, Next.js production build, standalone direct-route smoke, and npm audit passed.
 - Focused architecture/safety/provider suite: 25 passed.
 - Mutation audit: all 15 deliberate invariant violations were caught.
 - SQLite and PostgreSQL: upgrade/downgrade/upgrade and autogenerate drift checks passed.
@@ -32,8 +37,8 @@ that exact opt-in skip.
   audit, and report passed against the real API.
 
 The historical baseline collected 32 Python cases (31 passed and one environment-isolation failure),
-so the audited slice has a net 58 additional Python cases. The new admin UI contributes 11
-frontend tests, plus the 15 isolated mutation probes and one browser lifecycle gate.
+so the audited slice has a net 58 additional Python cases. The Next.js admin UI contributes 15
+frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates.
 
 ## Adversarial matrix
 
@@ -75,7 +80,7 @@ requires the named regression test to fail. All 15 are caught:
 
 ## Browser lifecycle
 
-`scripts/browser_e2e.sh` starts a fresh temporary database, API, and Vite client. The fake adapter
+`scripts/browser_e2e.sh` starts a fresh temporary database, API, and Next.js development server. The fake adapter
 creates its own provider snapshot during startup; the script does not insert finished database
 rows. It performs:
 
@@ -84,11 +89,13 @@ login operator -> run agent -> inspect finding/proposal -> sign out
 -> login different approver -> approve scale action -> provider write -> verification
 -> reject remaining action -> inspect succeeded execution/report
 -> open completed run -> inspect approval/execution/verification/report audit events
--> verify responsive menu and Escape behavior
+-> direct-refresh /runs -> re-authenticate on the preserved route
+-> verify responsive menu, overflow, and Escape behavior
 ```
 
 The audit also manually confirmed that trying to approve as the same browser actor returns `403`.
-No OpenAI or live Meta endpoint is called by automated tests.
+No OpenAI or live Meta endpoint is called by hermetic tests. The separately opted-in live target
+runs only bounded provider GETs and a non-mutating Next.js page smoke.
 
 Final command counts and the exact successful `make audit-verify` run are recorded in the final
 audit handoff; command exit status, not this document, is the source of truth.

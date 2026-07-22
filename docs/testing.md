@@ -17,6 +17,10 @@
 `make audit-verify` adds mutation, PostgreSQL, clean migration/drift, dependency, generated-schema,
 secret/TODO, focused safety, and real-browser fake-provider gates.
 
+`make admin-verify` is the complete frontend gate: synchronized OpenAPI types, Prettier, ESLint,
+strict TypeScript, Jest, Next.js build, standalone nested-route smoke, npm audit, secret and Vite
+absence scans, fake-provider browser/mobile E2E, and Docker build.
+
 ## Test coverage
 
 - Existing product AI and legacy marketing endpoints remain covered.
@@ -32,14 +36,17 @@ secret/TODO, focused safety, and real-browser fake-provider gates.
   self-approval, dry-run state preservation, stale proposals, provider-object concurrency locks,
   explicit retry, and nightly reports with approvals.
 - E2E covers fake snapshot through approved execution, verification, complete audit, and report.
-- Frontend tests cover server-verified login/RBAC, viewer-disabled controls, approvals and expiry,
+- Jest frontend tests cover server-verified login/logout/RBAC, viewer/operator restrictions,
+  self-approval denial, approvals and expiry,
   action states, kill switches, configuration/schedules, manual runs, loading/error/empty states,
   pagination/filtering, reports/timelines, redaction/XSS, responsive navigation, and keyboard use.
 - Browser E2E starts a fresh database and traverses the real API plus fake provider from agent run
-  through finding, separate-actor approval, execution, verification, audit, and report.
+  through finding, separate-actor approval, execution, verification, audit, report, direct nested
+  refresh, keyboard navigation, and mobile layout.
 
-No test calls OpenAI or a live Meta endpoint. `httpx.MockTransport`, dependency overrides, and the
-mutable fake Meta adapter are used. Live Meta verification is an opt-in read-only runbook step.
+No hermetic test calls OpenAI or a live Meta endpoint. `httpx.MockTransport`, dependency overrides,
+and the mutable fake Meta adapter are used. Live Meta verification is an opt-in read-only runbook
+step and includes a GET-only provider workflow plus a non-mutating admin-page browser smoke.
 
 ## Migrations
 

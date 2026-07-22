@@ -3,7 +3,7 @@
 Production-oriented FastAPI-платформа с двумя независимыми контурами: продуктовым
 `MANA AI` и внутренним `MANA OPERATION AI`. Помимо совместимого legacy API проект содержит
 универсальное ядро операционных агентов, законченный Marketing Agent для Meta Ads,
-SQLAlchemy/Alembic persistence, безопасный action lifecycle, scheduler и React admin panel.
+SQLAlchemy/Alembic persistence, безопасный action lifecycle, scheduler и Next.js admin panel.
 
 Быстрая проверка полного vertical slice без внешних расходов:
 
@@ -37,7 +37,7 @@ make verify
 - Строгая import-граница `app/mana_ai` и `app/mana_operation_ai`
 - Generic agent registry, state machines, versioned configs/schedules и audit trail
 - Provider-neutral AdsPlatform с безопасным live Meta и полноценным fake Meta
-- React/TypeScript strict admin UI в `admin-ui`
+- Next.js 16 App Router admin UI с React 19 и strict TypeScript в `admin-ui`
 
 ## API endpoints
 
@@ -96,9 +96,10 @@ uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 docker compose up --build
 ```
 
-Admin panel: `http://localhost:3000` в Docker или `http://localhost:5173` через
-`make admin-dev`. В production войдите с role-specific internal API key на login screen. Ключ
-хранится только в памяти процесса страницы и очищается при refresh/sign-out.
+Admin panel: `http://localhost:3000` через `make admin-dev` или Docker Compose. Next.js проксирует
+same-origin `/api` к FastAPI через private `FASTAPI_BASE_URL`; бизнес-логика остаётся в FastAPI. В
+production войдите с role-specific internal API key на login screen. Ключ хранится только в памяти
+процесса страницы и очищается при refresh/sign-out.
 
 Swagger UI доступен локально на `http://localhost:8000/docs`, ReDoc на `http://localhost:8000/redoc`, OpenAPI schema на `http://localhost:8000/openapi.json`. В `APP_ENV=production` документация отключается.
 
@@ -118,6 +119,7 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `OPENAI_MAX_OUTPUT_TOKENS` | no | `512` | Максимум output tokens |
 | `OPENAI_TEMPERATURE` | no | `0.2` | Температура генерации |
 | `CORS_ORIGINS` | no | `[]` | JSON список разрешенных origins |
+| `ADMIN_FASTAPI_BASE_URL` | Compose build | `http://api:8000` | Internal FastAPI destination for the Next.js server rewrite; never a credential |
 | `MARKETING_DATABASE_PATH` | no | `data/manaai.db` | SQLite path для raw records и reports |
 | `OPERATION_DATABASE_URL` | no | derived SQLite URL | Async SQLAlchemy URL для operation tables |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Compose | see `.env.example` | PostgreSQL database and credentials; use a secret manager in production |
@@ -474,10 +476,9 @@ server {
 ## Проверки качества
 
 ```bash
-pip install -e ".[dev]"
-ruff check .
-mypy .
-pytest
+make verify
+make admin-verify
+make audit-verify
 ```
 
 ## Security notes
