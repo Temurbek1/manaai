@@ -20,9 +20,11 @@ import { MetricCard } from "../components/MetricCard";
 import { PageHeader } from "../components/PageHeader";
 import { PerformanceBreakdownTable } from "../components/PerformanceBreakdownTable";
 import { StatusBadge } from "../components/StatusBadge";
+import { useSession } from "../auth/SessionContext";
 import { compactId, displayValue, formatDate, isRecord } from "../ui/format";
 
 export function MarketingPage(): React.JSX.Element {
+  const { session } = useSession();
   const [entityQuery, setEntityQuery] = useState("");
   const [deliveryStatus, setDeliveryStatus] = useState("all");
   const [selectedStart, setSelectedStart] = useState("");
@@ -72,7 +74,8 @@ export function MarketingPage(): React.JSX.Element {
       : {};
   const kpis = isRecord(structured.kpis) ? structured.kpis : {};
   const snapshot = overview?.snapshot;
-  const liveReadOnly = snapshot?.provider_mode === "live_read_only";
+  const liveReadOnly =
+    session.live_meta_read_only || snapshot?.provider_mode === "live_read_only";
   const account = snapshot ? snapshot.accounts[0] : undefined;
   const healthDiagnostics = isRecord(overview?.integration_health.diagnostics)
     ? overview.integration_health.diagnostics

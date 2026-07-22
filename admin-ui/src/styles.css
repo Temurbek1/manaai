@@ -450,6 +450,7 @@ a.button {
 .metric-card strong {
   display: block;
   max-width: 90%;
+  overflow-wrap: anywhere;
   font-size: 25px;
   letter-spacing: -0.035em;
 }
@@ -459,8 +460,10 @@ a.button {
   margin-top: 8px;
   color: var(--muted);
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 .panel {
+  min-width: 0;
   margin-bottom: 20px;
   border: 1px solid var(--line);
   border-radius: 15px;
@@ -1180,7 +1183,7 @@ tbody tr:hover {
   .management-layout,
   .health-detail-grid,
   .live-browser-filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .approval-card {
     padding: 18px;

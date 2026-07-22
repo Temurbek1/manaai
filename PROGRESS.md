@@ -29,8 +29,7 @@ Status: recorded before migration on 2026-07-22
 
 ## Next.js admin migration
 
-Status: implementation and dedicated admin verification complete; repository-wide and live
-read-only verification pending
+Status: completed and verified
 
 - Replaced the single-view Vite SPA with Next.js 16 App Router routes for overview, Marketing,
   approvals, runs/audit, and agent management. Server route/layout boundaries compose focused
@@ -40,15 +39,18 @@ read-only verification pending
   global/per-agent emergency controls.
 - Preserved the generated FastAPI contract and same-origin browser transport. Private
   `FASTAPI_BASE_URL` config powers local/Docker server rewrites without exposing credentials.
-- Migrated Vitest coverage to 15 Jest scenarios and updated the real FastAPI/fake-provider browser
+- Migrated Vitest coverage to 16 Jest scenarios and updated the real FastAPI/fake-provider browser
   lifecycle for native routes, direct nested refresh, keyboard behavior, and mobile layout.
 - Replaced the nginx/static image with Next.js standalone output and `/healthz`; removed Vite
   configuration, entry points, dependencies, and obsolete runtime files.
 - Added `make admin-verify`, standalone production smoke, Vite-absence validation, Docker build,
   and an opt-in non-mutating live Meta admin-page smoke.
 - `make admin-verify` passes synchronized OpenAPI generation, Prettier, ESLint, strict TypeScript,
-  15 Jest tests, optimized/standalone builds, npm and secret audits, fake-provider browser E2E,
+  16 Jest tests, optimized/standalone builds, npm and secret audits, fake-provider browser E2E,
   Vite-absence validation, and the non-root Docker image build.
+- `make audit-verify` passes all repository, mutation, dependency, SQLite/PostgreSQL migration,
+  browser, production, and Docker gates. The opt-in bounded live workflow and real Marketing-page
+  desktop/mobile smoke pass with zero proposals or executions.
 
 ## Checkpoint 1 - Repository audit and baseline
 
@@ -170,9 +172,9 @@ Status: completed
 - Added responsive configuration/schedule controls, health/KPIs/entities/breakdowns, safe bulk
   decisions, action history, reports, emergency controls, and a generated OpenAPI contract.
 
-Verification: Prettier, Next-aware ESLint, strict TypeScript, 15 Jest flows, production and
+Verification: Prettier, Next-aware ESLint, strict TypeScript, 16 Jest flows, production and
 standalone builds, zero npm audit findings, and browser testing of
-Overview/Marketing/Approvals/Runs all pass. Final Docker and repository-wide gates remain below.
+Overview/Marketing/Approvals/Runs all pass, including the Docker and repository-wide gates below.
 
 ## Checkpoint 12 - End-to-end tests
 
@@ -217,10 +219,10 @@ Status: completed
   migrations and liveness.
 
 Final evidence is recorded in `docs/live-read-only-test-evidence.md`. The final opt-in Make target
-passed Ruff/ESLint, strict Python/TypeScript checks, 95 hermetic backend tests, 12 frontend tests,
+passed Ruff/ESLint, strict Python/TypeScript checks, 95 hermetic backend tests, 16 frontend tests,
 focused and mutation safety suites, SQLite/PostgreSQL migrations, dependency/secret/schema/Compose
-checks, production build, browser E2E, the marked live GET test, live nightly workflow, and portable
-report verification.
+checks, production build, browser E2E, the marked live GET test, live nightly workflow, read-only
+admin desktop/mobile smoke, and portable report verification.
 
 ## Live Meta read-only milestone
 

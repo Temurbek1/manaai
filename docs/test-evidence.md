@@ -27,7 +27,7 @@ that exact opt-in skip.
 ## Verified 2026-07-22 result
 
 - Python: 89 passed, 1 documented PostgreSQL opt-in skip; the isolated PostgreSQL run then passed.
-- Frontend migration checkpoint: 6 suites and 15 Jest tests passed; Prettier, ESLint, strict
+- Frontend migration checkpoint: 6 suites and 16 Jest tests passed; Prettier, ESLint, strict
   TypeScript, Next.js production build, standalone direct-route smoke, and npm audit passed.
 - Focused architecture/safety/provider suite: 25 passed.
 - Mutation audit: all 15 deliberate invariant violations were caught.
@@ -37,7 +37,7 @@ that exact opt-in skip.
   audit, and report passed against the real API.
 
 The historical baseline collected 32 Python cases (31 passed and one environment-isolation failure),
-so the audited slice has a net 58 additional Python cases. The Next.js admin UI contributes 15
+so the audited slice has a net 58 additional Python cases. The Next.js admin UI contributes 16
 frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates.
 
 ## Adversarial matrix

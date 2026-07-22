@@ -9,6 +9,7 @@ import { SessionProvider } from "../auth/SessionContext";
 export function renderWithSession(
   ui: ReactNode,
   role: ActorSession["role"] = "admin",
+  sessionOverrides: Partial<ActorSession> = {},
 ): RenderResult {
   return render(
     <SessionProvider
@@ -19,6 +20,7 @@ export function renderWithSession(
           ads_provider: "fake_meta",
           provider_mode: "fake_executable",
           live_meta_read_only: false,
+          ...sessionOverrides,
         },
         signOut: () => undefined,
       }}

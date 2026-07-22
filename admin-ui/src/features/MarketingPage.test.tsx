@@ -140,4 +140,41 @@ describe("MarketingPage", () => {
     expect(screen.getByText("failed")).toBeInTheDocument();
     expect(screen.getByText("executing")).toBeInTheDocument();
   });
+
+  it("shows enforced read-only safety from the authenticated server session", async () => {
+    jest.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      if (url.includes("marketing/overview")) {
+        return jsonResponse({
+          integration_health: {
+            integration_id: "meta",
+            status: "healthy",
+            checked_at: "2026-07-22T12:00:00Z",
+            message: "GET-only provider ready",
+            diagnostics: { selected_account_alias: "2b6c4ddcc5" },
+          },
+          last_synchronized_at: null,
+          snapshot: null,
+          breakdown_performance: [],
+          configuration: null,
+          schedules: [],
+        });
+      }
+      return jsonResponse({ items: [], total: 0, limit: 100, offset: 0 });
+    });
+
+    renderWithSession(<MarketingPage />, "admin", {
+      ads_provider: "meta",
+      provider_mode: "live_read_only",
+      live_meta_read_only: true,
+    });
+
+    expect(await screen.findByText("Enforced")).toBeInTheDocument();
+    expect(screen.getByText("live read only")).toBeInTheDocument();
+  });
 });

@@ -80,11 +80,13 @@ browser find label "Development actor ID" fill "live-readonly-ui-auditor" >/dev/
 browser eval '(() => { const select = [...document.querySelectorAll("select")].find((item) => item.closest("label")?.textContent?.includes("Development role")); if (!(select instanceof HTMLSelectElement)) throw new Error("development role selector missing"); const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set; setter?.call(select, "admin"); select.dispatchEvent(new Event("change", { bubbles: true })); return "selected"; })()' >/dev/null
 browser find role button click --name "Sign in" >/dev/null
 browser wait --load networkidle >/dev/null
+browser wait --text "READ-ONLY MODE" >/dev/null
+browser wait --text "Enforced" >/dev/null
 
 assert_browser 'location.pathname === "/marketing"' 'live Marketing route changed unexpectedly'
 assert_browser 'document.body.innerText.includes("LIVE META — READ ONLY")' 'live read-only banner is missing'
 assert_browser 'document.body.innerText.includes("Meta Ads intelligence")' 'live Marketing page did not render'
-assert_browser 'document.body.innerText.includes("Read-only mode") && document.body.innerText.includes("Enforced")' 'read-only provider state is not explicit'
+assert_browser '(() => { const term = [...document.querySelectorAll("dt")].find((item) => item.textContent?.trim() === "Read-only mode"); return term?.parentElement?.querySelector("dd")?.textContent?.trim() === "Enforced"; })()' 'read-only provider state is not explicit'
 assert_browser '(() => { const term = [...document.querySelectorAll("dt")].find((item) => item.textContent?.trim() === "Selected account"); const value = term?.parentElement?.querySelector("dd")?.textContent?.trim(); return value === "unavailable" || Boolean(value?.match(/^[a-f0-9]{10}$/)); })()' 'selected account is not represented by a safe alias'
 assert_browser '![...document.querySelectorAll("button")].some((button) => /execute/i.test(button.textContent ?? ""))' 'an execute control is visible in live read-only mode'
 assert_browser 'document.documentElement.scrollWidth <= document.documentElement.clientWidth' 'desktop live page has horizontal overflow'
