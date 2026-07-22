@@ -3,10 +3,13 @@ from fastapi import APIRouter, Depends
 from app.api.routes import ai, health, marketing
 from app.api.security import require_api_key
 from app.mana_ai.api.router import router as mana_ai_router
+from app.mana_operation_ai.api.auth_router import auth_router, users_router
 from app.mana_operation_ai.api.router import router as operation_router
 
 api_router = APIRouter()
 api_router.include_router(health.router, prefix="/health", tags=["health"])
+api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
+api_router.include_router(users_router, prefix="/admin/users", tags=["admin-users"])
 api_router.include_router(
     ai.router,
     prefix="/ai",

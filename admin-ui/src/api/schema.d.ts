@@ -549,6 +549,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List administrative users */
+        get: operations["list_users_api_v1_admin_users_get"];
+        put?: never;
+        /** Grant administrative-panel access to a Telegram identity */
+        post: operations["create_user_api_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change an administrative user's role or access status */
+        patch: operations["update_user_api_v1_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read security audit events for an administrative user */
+        get: operations["user_audit_api_v1_admin_users__user_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/sessions/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke all active sessions for an administrative user */
+        post: operations["revoke_user_sessions_api_v1_admin_users__user_id__sessions_revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/chat": {
         parameters: {
             query?: never;
@@ -583,6 +652,74 @@ export interface paths {
          * @description Summarizes user-provided text with the configured OpenAI model.
          */
         post: operations["summarize_api_v1_ai_summarize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the current administrative browser session */
+        get: operations["auth_session_api_v1_auth_session_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/telegram/request-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a Telegram one-time login code */
+        post: operations["request_telegram_code_api_v1_auth_telegram_request_code_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/telegram/verify-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify a Telegram one-time code and establish a session */
+        post: operations["verify_telegram_code_api_v1_auth_telegram_verify_code_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1138,6 +1275,46 @@ export interface components {
          * @enum {string}
          */
         AdEntityType: "account" | "campaign" | "ad_set" | "ad" | "creative" | "audience";
+        /** AdminUserResponse */
+        AdminUserResponse: {
+            /** Auth Locked Until */
+            auth_locked_until: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Disabled Reason */
+            disabled_reason: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Last Login At */
+            last_login_at: string | null;
+            /** Profile Metadata */
+            profile_metadata: {
+                [key: string]: unknown;
+            };
+            role: components["schemas"]["UserRole"];
+            status: components["schemas"]["AdminUserStatus"];
+            /** Telegram Id */
+            telegram_id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** User Id */
+            user_id: string;
+            /** Username */
+            username: string | null;
+        };
+        /**
+         * AdminUserStatus
+         * @enum {string}
+         */
+        AdminUserStatus: "active" | "disabled" | "pending" | "revoked";
         /** AdsSnapshot */
         AdsSnapshot: {
             /** Accounts */
@@ -1515,6 +1692,56 @@ export interface components {
          * @enum {string}
          */
         AuditEventType: "agent_registered" | "agent_status_changed" | "configuration_created" | "schedule_changed" | "run_stage_changed" | "finding_created" | "recommendation_created" | "action_proposed" | "policy_evaluated" | "approval_decided" | "action_executed" | "action_verified" | "report_created" | "kill_switch_changed" | "integration_checked" | "write_forbidden";
+        /** AuthAuditEventResponse */
+        AuthAuditEventResponse: {
+            /** Actor User Id */
+            actor_user_id: string | null;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+            /** Event Id */
+            event_id: string;
+            event_type: components["schemas"]["AuthAuditEventType"];
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Subject User Id */
+            subject_user_id: string | null;
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * AuthAuditEventType
+         * @enum {string}
+         */
+        AuthAuditEventType: "bootstrap_applied" | "login_code_requested" | "login_code_delivery_failed" | "login_failed" | "login_succeeded" | "session_revoked" | "logout" | "user_created" | "user_profile_changed" | "user_role_changed" | "user_status_changed" | "user_sessions_revoked" | "auth_rate_limited";
+        /** AuthAuditPage */
+        AuthAuditPage: {
+            /** Items */
+            items: components["schemas"]["AuthAuditEventResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** AuthSessionResponse */
+        AuthSessionResponse: {
+            /** Ads Provider */
+            ads_provider?: string | null;
+            /** Authenticated */
+            authenticated: boolean;
+            /** Expires At */
+            expires_at?: string | null;
+            /**
+             * Live Meta Read Only
+             * @default false
+             */
+            live_meta_read_only: boolean;
+            /** Provider Mode */
+            provider_mode?: string | null;
+            user?: components["schemas"]["SessionUserResponse"] | null;
+        };
         /**
          * Breakdown
          * @enum {string}
@@ -1585,6 +1812,16 @@ export interface components {
             values: {
                 [key: string]: components["schemas"]["JsonValue"];
             };
+        };
+        /** CreateAdminUserRequest */
+        CreateAdminUserRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            role: components["schemas"]["UserRole"];
+            /** Telegram Id */
+            telegram_id: number;
+            /** Username */
+            username?: string | null;
         };
         /** Creative */
         Creative: {
@@ -2924,6 +3161,20 @@ export interface components {
             /** Run Id */
             run_id: string;
         };
+        /** RequestCodeResponse */
+        RequestCodeResponse: {
+            /** Bot Url */
+            bot_url: string | null;
+            /**
+             * Expires In Seconds
+             * @constant
+             */
+            expires_in_seconds: 60;
+            /** Message */
+            message: string;
+            /** Resend After Seconds */
+            resend_after_seconds: number;
+        };
         /** RunDetailResponse */
         RunDetailResponse: {
             /** Findings */
@@ -2959,6 +3210,25 @@ export interface components {
             /** Timezone */
             timezone: string;
         };
+        /** SessionRevocationResponse */
+        SessionRevocationResponse: {
+            /** Revoked Sessions */
+            revoked_sessions: number;
+        };
+        /** SessionUserResponse */
+        SessionUserResponse: {
+            /** Display Name */
+            display_name: string | null;
+            /** Permissions */
+            permissions: string[];
+            role: components["schemas"]["UserRole"];
+            /** Telegram Id */
+            telegram_id: number;
+            /** User Id */
+            user_id: string;
+            /** Username */
+            username: string | null;
+        };
         /** StatusActionParameters */
         StatusActionParameters: {
             /** Current Status */
@@ -2988,6 +3258,18 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** TelegramCodeRequest */
+        TelegramCodeRequest: {
+            /** Code */
+            code: string;
+            /** Telegram Id */
+            telegram_id: number;
+        };
+        /** TelegramIdentityRequest */
+        TelegramIdentityRequest: {
+            /** Telegram Id */
+            telegram_id: number;
+        };
         /** TestProposalParameters */
         TestProposalParameters: {
             /** Hypothesis */
@@ -3005,6 +3287,25 @@ export interface components {
          * @enum {string}
          */
         TriggerType: "schedule" | "user" | "orchestrator" | "api";
+        /** UpdateAdminUserRequest */
+        UpdateAdminUserRequest: {
+            /** Disabled Reason */
+            disabled_reason?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            role?: components["schemas"]["UserRole"] | null;
+            /** Status */
+            status?: ("active" | "disabled") | null;
+            /** Username */
+            username?: string | null;
+        };
+        /** UserPage */
+        UserPage: {
+            /** Items */
+            items: components["schemas"]["AdminUserResponse"][];
+            /** Total */
+            total: number;
+        };
         /**
          * UserRole
          * @enum {string}
@@ -3076,6 +3377,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3109,6 +3411,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 proposal_id: string;
@@ -3162,6 +3465,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3195,6 +3499,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3230,6 +3535,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3267,6 +3573,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3302,6 +3609,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3341,6 +3649,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3376,6 +3685,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3411,6 +3721,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3446,6 +3757,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3481,6 +3793,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3516,6 +3829,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3555,6 +3869,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3598,6 +3913,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3631,6 +3947,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3668,6 +3985,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 proposal_id: string;
@@ -3712,6 +4030,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3745,6 +4064,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3782,6 +4102,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3819,6 +4140,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3852,6 +4174,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 provider: string;
@@ -3887,6 +4210,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 agent_id: string;
@@ -3926,6 +4250,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -3963,6 +4288,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -4000,6 +4326,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -4037,6 +4364,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -4070,6 +4398,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 report_id: string;
@@ -4110,6 +4439,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -4143,6 +4473,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 run_id: string;
@@ -4180,6 +4511,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -4213,6 +4545,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path: {
                 schedule_id: string;
@@ -4252,6 +4585,7 @@ export interface operations {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
                 "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -4265,6 +4599,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPage"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAdminUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    user_audit_api_v1_admin_users__user_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthAuditPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_user_sessions_api_v1_admin_users__user_id__sessions_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRevocationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4331,6 +4821,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SummarizeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auth_session_api_v1_auth_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
+                };
+            };
+        };
+    };
+    request_telegram_code_api_v1_auth_telegram_request_code_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramIdentityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestCodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_telegram_code_api_v1_auth_telegram_verify_code_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSessionResponse"];
                 };
             };
             /** @description Validation Error */

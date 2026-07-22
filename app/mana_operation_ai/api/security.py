@@ -6,7 +6,13 @@ from pydantic import BaseModel, ConfigDict
 
 from app.core.auth_rate_limiter import AuthenticationRateLimiter
 from app.core.config import Settings
+from app.mana_operation_ai.api.auth_security import (
+    CSRF_HEADER_NAME,
+    SESSION_COOKIE_NAME,
+    require_csrf,
+)
 from app.mana_operation_ai.application.admin_service import ActorContext
+from app.mana_operation_ai.application.auth_service import AdminAuthService
 from app.mana_operation_ai.domain.enums import ProviderMode, UserRole
 
 
@@ -33,34 +39,40 @@ async def resolve_actor(
     supplied_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
     supplied_actor_id: Annotated[str | None, Header(alias="X-MANA-Actor-ID")] = None,
     supplied_role: Annotated[str | None, Header(alias="X-MANA-Role")] = None,
+    supplied_csrf: Annotated[str | None, Header(alias=CSRF_HEADER_NAME)] = None,
 ) -> ActorContext:
     settings = request.app.state.settings
     if not isinstance(settings, Settings):
         raise HTTPException(status_code=500, detail="Application settings are unavailable")
-    actor_id = supplied_actor_id or settings.operation_default_actor_id
-    if settings.app_env == "production":
-        role = _production_role(settings, supplied_api_key)
-        if role is None:
-            client_key = request.client.host if request.client is not None else "unknown"
-            limiter = request.app.state.auth_rate_limiter
-            if not isinstance(limiter, AuthenticationRateLimiter):
-                raise HTTPException(status_code=500, detail="Authentication limiter is unavailable")
-            retry_after = await limiter.record_failure(client_key)
-            if retry_after is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many failed authentication attempts",
-                    headers={"Retry-After": str(retry_after)},
-                )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or missing internal operation API key",
-            )
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    auth_service = getattr(request.app.state, "admin_auth_service", None)
+    if settings.mana_telegram_auth_enabled and session_token is not None:
+        if not isinstance(auth_service, AdminAuthService):
+            raise HTTPException(status_code=503, detail="Authentication service is unavailable")
+        identity = await auth_service.authenticate_session(session_token)
+        if identity is not None:
+            if request.method not in {"GET", "HEAD", "OPTIONS"}:
+                require_csrf(request, identity, supplied_csrf)
+            return ActorContext(actor_id=identity.user.user_id, role=identity.user.role)
+
+    role = _technical_role(settings, supplied_api_key)
+    if role is not None:
         client_key = request.client.host if request.client is not None else "unknown"
         limiter = request.app.state.auth_rate_limiter
         if isinstance(limiter, AuthenticationRateLimiter):
             await limiter.clear(client_key)
-        return ActorContext(actor_id=f"internal-{role.value}", role=role)
+        actor_id = supplied_actor_id or f"internal-{role.value}"
+        return ActorContext(actor_id=actor_id, role=role)
+
+    if supplied_api_key is not None or settings.app_env in {"staging", "production"}:
+        await _reject_invalid_api_key(request)
+
+    if not settings.operation_allow_insecure_dev_headers:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
+        )
+
+    actor_id = supplied_actor_id or settings.operation_default_actor_id
     try:
         role = UserRole(supplied_role or settings.operation_default_role)
     except ValueError as exc:
@@ -76,7 +88,7 @@ def require_role(actor: ActorContext, minimum: UserRole) -> None:
         )
 
 
-def _production_role(settings: Settings, supplied_api_key: str | None) -> UserRole | None:
+def _technical_role(settings: Settings, supplied_api_key: str | None) -> UserRole | None:
     if supplied_api_key is None:
         return None
     candidates = [
@@ -93,6 +105,24 @@ def _production_role(settings: Settings, supplied_api_key: str | None) -> UserRo
         ):
             return role
     return None
+
+
+async def _reject_invalid_api_key(request: Request) -> None:
+    client_key = request.client.host if request.client is not None else "unknown"
+    limiter = request.app.state.auth_rate_limiter
+    if not isinstance(limiter, AuthenticationRateLimiter):
+        raise HTTPException(status_code=500, detail="Authentication limiter is unavailable")
+    retry_after = await limiter.record_failure(client_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed authentication attempts",
+            headers={"Retry-After": str(retry_after)},
+        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or missing internal operation API key",
+    )
 
 
 ActorDep = Annotated[ActorContext, Depends(resolve_actor)]

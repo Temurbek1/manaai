@@ -13,6 +13,8 @@ from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETER
 from app.mana_operation_ai.application.action_lifecycle import ActionLifecycleService
 from app.mana_operation_ai.application.admin_service import OperationAdminService
 from app.mana_operation_ai.application.agent_service import AgentService
+from app.mana_operation_ai.application.auth_ports import TelegramOtpSender
+from app.mana_operation_ai.application.auth_service import AdminAuthService
 from app.mana_operation_ai.application.maintenance import OperationMaintenanceService
 from app.mana_operation_ai.application.marketing.agent import MarketingAgent
 from app.mana_operation_ai.application.marketing.analytics import MarketingAnalyticsEngine
@@ -21,14 +23,23 @@ from app.mana_operation_ai.application.policy import PolicyService
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
 from app.mana_operation_ai.application.runtime import SystemClock, UuidGenerator
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
+from app.mana_operation_ai.domain.auth import AuthPolicy
 from app.mana_operation_ai.infrastructure.ads.fake_meta import FakeMetaAdsAdapter
 from app.mana_operation_ai.infrastructure.ads.meta import MetaAdsAdapter
 from app.mana_operation_ai.infrastructure.notifications.logging import (
     StructuredLogNotificationAdapter,
 )
+from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
+    SqlAlchemyAdminAuthRepository,
+)
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.repository import (
     SqlAlchemyOperationRepository,
+)
+from app.mana_operation_ai.infrastructure.telegram.sender import (
+    FileTelegramOtpSender,
+    TelegramBotOtpSender,
+    UnavailableTelegramOtpSender,
 )
 from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_graph_service import MarketingGraphService
@@ -52,8 +63,47 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.operation_auto_create_schema:
         await operation_database.create_schema()
     operation_repository = SqlAlchemyOperationRepository(operation_database)
+    auth_repository = SqlAlchemyAdminAuthRepository(operation_database)
     clock = SystemClock()
     ids = UuidGenerator()
+    otp_sender: TelegramOtpSender
+    if settings.mana_auth_test_mode:
+        if settings.mana_auth_test_otp_sink_path is None:
+            raise RuntimeError("Telegram authentication test sink is unavailable")
+        otp_sender = FileTelegramOtpSender(settings.mana_auth_test_otp_sink_path)
+    elif settings.mana_telegram_bot_token is not None:
+        otp_sender = TelegramBotOtpSender(
+            bot_token=settings.mana_telegram_bot_token.get_secret_value(),
+        )
+    else:
+        otp_sender = UnavailableTelegramOtpSender()
+    auth_service = AdminAuthService(
+        repository=auth_repository,
+        sender=otp_sender,
+        clock=clock,
+        ids=ids,
+        policy=AuthPolicy(
+            otp_ttl_seconds=settings.mana_otp_ttl_seconds,
+            resend_cooldown_seconds=settings.mana_otp_resend_cooldown_seconds,
+            max_verify_attempts=settings.mana_otp_max_verify_attempts,
+            request_limit_per_user=settings.mana_otp_request_limit_per_user,
+            request_limit_per_ip=settings.mana_otp_request_limit_per_ip,
+            verify_limit_per_ip=settings.mana_otp_verify_limit_per_ip,
+            global_request_limit=settings.mana_otp_global_request_limit,
+            rate_window_seconds=settings.mana_otp_rate_window_seconds,
+            lockout_failures=settings.mana_otp_lockout_failures,
+            lockout_seconds=settings.mana_otp_lockout_seconds,
+            session_ttl_seconds=settings.mana_session_ttl_seconds,
+        ),
+        hmac_secret=(
+            settings.mana_otp_hmac_secret.get_secret_value()
+            if settings.mana_otp_hmac_secret is not None
+            else None
+        ),
+        bot_username=settings.mana_telegram_bot_username,
+    )
+    if settings.mana_telegram_auth_enabled:
+        await auth_service.bootstrap_admins(settings.bootstrap_admin_telegram_ids)
     ads_platforms = AdsPlatformRegistry()
     ads_platforms.register(FakeMetaAdsAdapter(clock=clock))
     ads_platforms.register(MetaAdsAdapter(client=meta_client, settings=settings, clock=clock))
@@ -156,6 +206,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.operation_database = operation_database
     app.state.operation_repository = operation_repository
+    app.state.admin_auth_repository = auth_repository
+    app.state.admin_auth_service = auth_service
     app.state.operation_agent_registry = agent_registry
     app.state.operation_ads_platforms = ads_platforms
     app.state.operation_agent_service = agent_service
@@ -178,6 +230,16 @@ def create_app() -> FastAPI:
             settings.openai_api_key.get_secret_value(),
             settings.meta_access_token.get_secret_value() if settings.meta_access_token else "",
             settings.app_api_key.get_secret_value() if settings.app_api_key else "",
+            (
+                settings.mana_telegram_bot_token.get_secret_value()
+                if settings.mana_telegram_bot_token
+                else ""
+            ),
+            (
+                settings.mana_otp_hmac_secret.get_secret_value()
+                if settings.mana_otp_hmac_secret
+                else ""
+            ),
             *(
                 secret.get_secret_value()
                 for secret in [

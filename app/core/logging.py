@@ -5,7 +5,8 @@ from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 
 SECRET_ASSIGNMENT = re.compile(
-    r"(?i)(access_token|api_key|authorization|client_secret)(\s*[=:]\s*)([^\s,&]+)",
+    r"(?i)(access_token|api_key|authorization|bot_token|client_secret|csrf_token|"
+    r"hmac_secret|login_code|one_time_code|otp|session_token)(\s*[=:]\s*)([^\s,&]+)",
 )
 STANDARD_LOG_RECORD_FIELDS = frozenset(logging.makeLogRecord({}).__dict__)
 
@@ -61,3 +62,6 @@ def configure_application_logging(*, level: str, secrets: Iterable[str]) -> None
     application_logger.addHandler(handler)
     application_logger.setLevel(level.upper())
     application_logger.propagate = False
+    # httpx logs full request URLs at INFO; Telegram embeds its bot token in the URL path.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
