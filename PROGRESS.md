@@ -235,8 +235,9 @@ Status: completed on 2026-07-22
 - Proved bounded structure/Insights compatibility for 13 query plans. The completed seven-day period
   was genuinely empty, so the agent emitted one `insufficient_data` finding and two advisory
   recommendations without proposals or executions.
-- Persisted reversible calibration configuration version 7 with every account override unavailable
-  and inherited, plus structured/human nightly report evidence.
+- Persisted reversible calibration configuration version 7 in the initial validation and version 13
+  in the final immutable rerun, with every account override unavailable/inherited plus
+  structured/human nightly report evidence.
 - Generated a sanitized canonical artifact and portable HTML report that passed source, desktop,
   mobile, overflow, and external-request verification.
 - Added explicit live-test opt-in, manual Ads Manager reconciliation placeholders, least-privilege,

@@ -23,9 +23,10 @@ row/day counts, unavailable thresholds, and human-readable rationale.
 
 The live period had zero normalized base rows. No quantile, variability, confidence, completeness,
 baseline length, comparison length, conversion lag, or performance target can be estimated from that
-evidence. Configuration version 7 therefore stores `null` for all 15 account overrides and inherits
-lower-layer defaults. This is provisional and must be recalibrated after sufficient completed
-delivery data exists.
+evidence. The initial documented validation's configuration version 7 therefore stored `null` for
+all 15 account overrides and inherited lower-layer defaults. Bounded verification reruns preserve
+immutable history (the final migration run created version 13) with the same unavailable values.
+This is provisional and must be recalibrated after sufficient completed delivery data exists.
 
 A zero-row calibration must never substitute convenient fallback numbers as if they were
 account-derived. The focused regression test enforces this invariant.

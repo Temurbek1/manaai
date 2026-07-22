@@ -17,9 +17,10 @@ including publisher/placement, region, age/gender, and advertiser-time-zone hour
 check was explicitly empty because the account has no delivery data in the period.
 
 The nightly run persisted one `insufficient_data` finding and two advisory recommendations
-(`observe` and `propose_test`). It created no proposals and no executions. Configuration version 7
-was persisted. Because there were no base rows, all 15 account calibration overrides are
-unavailable and inherit lower-layer defaults.
+(`observe` and `propose_test`). It created no proposals and no executions. The initial documented
+validation persisted configuration version 7; immutable verification reruns culminated in version
+13 during the Next.js migration with the same zero proposals/executions result. Because there were
+no base rows, all 15 account calibration overrides are unavailable and inherit lower-layer defaults.
 
 ## Request evidence
 

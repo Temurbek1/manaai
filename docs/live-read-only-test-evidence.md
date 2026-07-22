@@ -13,7 +13,8 @@ becomes an accidental default.
 - Transport: 15 GET requests, 15 pages, 0 retries, 0 provider errors
 - Analytics: one `insufficient_data` finding
 - Advisory output: one `observe`, one `propose_test`, zero proposals, zero executions
-- Calibration: version 7, all 15 account overrides unavailable/inherited
+- Calibration: latest bounded rerun version 13, all 15 account overrides unavailable/inherited;
+  the initial documented validation was version 7
 - Nightly report: structured and human-readable records persisted
 - Portable report: schema, source interaction, 1440px and 390px rendering, overflow, and external
   request checks passed
@@ -43,9 +44,10 @@ zero provider calls, and a redacted `write_forbidden` audit event.
 
 `META_LIVE_READONLY_VERIFY=1 make meta-live-readonly-verify` passed end to end:
 
-- Ruff format/lint and strict mypy: passed for 109 Python source files;
+- Ruff format/lint and strict mypy: passed for 111 Python source files;
 - backend: 95 passed, one documented PostgreSQL skip, and one live deselection in the hermetic run;
-- frontend: 12 tests, strict TypeScript, ESLint, and production build passed;
+- frontend: 16 Jest tests, Prettier, strict TypeScript, Next-aware ESLint, optimized/standalone
+  builds, bundle scan, and npm audit passed;
 - focused safety suite: 28 passed; mutation audit caught 15/15 safety mutations;
 - SQLite clean round-trip/drift/existing-copy and PostgreSQL upgrade/downgrade/drift audits passed;
 - PostgreSQL integration: 1 passed;
@@ -53,5 +55,7 @@ zero provider calls, and a redacted `write_forbidden` audit event.
 - secret/quality-marker/OpenAPI/Compose checks: passed;
 - browser E2E: fake collect through approved execution, verification, audit, and report passed;
 - marked live Meta health: 1 passed;
+- live Next.js Marketing page: enforced read-only state, safe alias, no execute control, and
+  desktop/mobile no-overflow checks passed without action mutations;
 - canonical portable report: validation, packaging, source interaction, desktop/mobile, overflow, and
-  external-request checks passed.
+  external-request checks passed through the repository-owned generator.
