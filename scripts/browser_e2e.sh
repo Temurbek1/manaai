@@ -42,6 +42,14 @@ APP_ENV=local \
 APP_API_KEY= \
 OPENAI_API_KEY=test-openai-key \
 META_ACCESS_TOKEN= \
+MANA_TELEGRAM_AUTH_ENABLED=true \
+MANA_OTP_HMAC_SECRET=test-browser-auth-hmac-secret-with-enough-entropy-123456 \
+MANA_TELEGRAM_BOT_USERNAME=mana_test_bot \
+MANA_BOOTSTRAP_ADMIN_TELEGRAM_IDS=976835256,51456737 \
+MANA_TRUSTED_ORIGINS="[\"http://127.0.0.1:${AUDIT_UI_PORT}\"]" \
+MANA_AUTH_TEST_MODE=true \
+MANA_AUTH_TEST_OTP_SINK_PATH="$AUDIT_TMP_DIR/otp-sink.jsonl" \
+OPERATION_ALLOW_INSECURE_DEV_HEADERS=false \
 OPERATION_ADS_PROVIDER=fake_meta \
 OPERATION_DRY_RUN=false \
 OPERATION_ALLOW_SELF_APPROVAL=false \
@@ -79,16 +87,39 @@ assert_browser() {
   browser eval "if (!($condition)) { throw new Error('$message'); } 'OK'" >/dev/null
 }
 
+login_browser() {
+  local telegram_id=$1
+  local otp_code=""
+  browser find label "Telegram ID" fill "$telegram_id" >/dev/null
+  browser find role button click --name "Получить код" >/dev/null
+  for _ in $(seq 1 40); do
+    if otp_code=$("$PROJECT_ROOT/.venv/bin/python" -c \
+      'import json, pathlib, sys; p=pathlib.Path(sys.argv[1]); target=int(sys.argv[2]); rows=[json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []; matches=[row for row in rows if row.get("telegram_id") == target]; print(matches[-1]["code"] if matches else ""); raise SystemExit(0 if matches else 1)' \
+      "$AUDIT_TMP_DIR/otp-sink.jsonl" "$telegram_id" 2>/dev/null); then
+      break
+    fi
+    sleep 0.1
+  done
+  if [[ ! "$otp_code" =~ ^[0-9]{6}$ ]]; then
+    echo "Fake Telegram harness did not capture a six-digit OTP" >&2
+    return 1
+  fi
+  browser find label "Код из Telegram" fill "$otp_code" >/dev/null
+  unset otp_code
+  browser find role button click --name "Войти" >/dev/null
+  browser wait --load networkidle >/dev/null
+}
+
 browser open "http://127.0.0.1:${AUDIT_UI_PORT}/" >/dev/null
 browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("Sign in to the control room")' 'login did not render'
+assert_browser 'document.body.innerText.includes("Вход в MANA")' 'Telegram login did not render'
+assert_browser '!document.body.innerText.includes("Internal API key")' 'human login still exposes API-key input'
 assert_browser '!document.querySelector("nextjs-portal")?.shadowRoot?.querySelector("[data-nextjs-dialog-overlay]")' 'Next.js error overlay is visible'
 
-browser find label "Development actor ID" fill "browser-operator" >/dev/null
-browser eval '(() => { const select = [...document.querySelectorAll("select")].find((item) => item.closest("label")?.textContent?.includes("Development role")); if (!(select instanceof HTMLSelectElement)) throw new Error("development role selector missing"); const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set; setter?.call(select, "admin"); select.dispatchEvent(new Event("change", { bubbles: true })); return "selected"; })()' >/dev/null
-browser find role button click --name "Sign in" >/dev/null
-browser wait --load networkidle >/dev/null
+login_browser 976835256
 assert_browser 'document.body.innerText.includes("Operation overview")' 'dashboard did not render'
+assert_browser 'document.querySelector(".session-box small")?.textContent?.trim() === "admin"' 'server session role is not admin'
+assert_browser '!document.cookie.includes("mana_admin_session")' 'HttpOnly session cookie is browser-readable'
 
 browser eval '(() => { const link = document.querySelector("a[href=\"/marketing\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("marketing route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
@@ -102,11 +133,9 @@ browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("Best-performing creative")' 'finding was not rendered'
 assert_browser 'document.body.innerText.includes("scale_audience")' 'scale proposal was not rendered'
 
-browser find role button click --name "Sign out" >/dev/null
-browser find label "Development actor ID" fill "browser-approver" >/dev/null
-browser eval '(() => { const select = [...document.querySelectorAll("select")].find((item) => item.closest("label")?.textContent?.includes("Development role")); if (!(select instanceof HTMLSelectElement)) throw new Error("development role selector missing"); const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set; setter?.call(select, "admin"); select.dispatchEvent(new Event("change", { bubbles: true })); return "selected"; })()' >/dev/null
-browser find role button click --name "Sign in" >/dev/null
-browser wait --load networkidle >/dev/null
+browser find role button click --name "Выйти" >/dev/null
+assert_browser 'document.body.innerText.includes("Вход в MANA")' 'logout did not restore login boundary'
+login_browser 51456737
 browser eval '(() => { const link = document.querySelector("a[href=\"/approvals\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("approvals route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
 
@@ -136,12 +165,7 @@ assert_browser '!document.querySelector("nextjs-portal")?.shadowRoot?.querySelec
 browser open "http://127.0.0.1:${AUDIT_UI_PORT}/runs" >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'location.pathname === "/runs"' 'direct nested navigation changed the route'
-assert_browser 'document.body.innerText.includes("Sign in to the control room")' 'direct refresh did not restore the secure login boundary'
-browser find label "Development actor ID" fill "browser-refresh-admin" >/dev/null
-browser eval '(() => { const select = [...document.querySelectorAll("select")].find((item) => item.closest("label")?.textContent?.includes("Development role")); if (!(select instanceof HTMLSelectElement)) throw new Error("development role selector missing"); const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set; setter?.call(select, "admin"); select.dispatchEvent(new Event("change", { bubbles: true })); return "selected"; })()' >/dev/null
-browser find role button click --name "Sign in" >/dev/null
-browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("Runs & audit")' 'nested route did not render after re-authentication'
+assert_browser 'document.body.innerText.includes("Runs & audit")' 'server session did not survive direct refresh'
 
 browser set viewport 390 844 >/dev/null
 assert_browser 'getComputedStyle(document.querySelector(".mobile-bar")).display !== "none"' 'responsive navigation did not render'
@@ -150,4 +174,9 @@ assert_browser 'document.querySelector("[aria-label=\"Open menu\"]")?.getAttribu
 browser press Escape >/dev/null
 assert_browser 'document.querySelector("[aria-label=\"Open menu\"]")?.getAttribute("aria-expanded") === "false"' 'Escape did not close the mobile menu'
 
-echo "Browser E2E passed: fake data -> run -> finding -> approve -> execute -> verify -> audit/report"
+browser eval '(() => { const button = document.querySelector(".session-box button"); if (!(button instanceof HTMLButtonElement)) throw new Error("logout button missing"); button.click(); return "clicked"; })()' >/dev/null
+browser open "http://127.0.0.1:${AUDIT_UI_PORT}/runs" >/dev/null
+browser wait --load networkidle >/dev/null
+assert_browser 'document.body.innerText.includes("Вход в MANA")' 'protected route did not return to login after logout'
+
+echo "Browser E2E passed: fake Telegram OTP -> HttpOnly session -> run -> separate-admin approval -> refresh -> logout"

@@ -11,4 +11,6 @@ def isolate_local_secrets(monkeypatch: MonkeyPatch, request: FixtureRequest) -> 
     monkeypatch.setenv("APP_API_KEY", "")
     monkeypatch.setenv("META_ACCESS_TOKEN", "")
     monkeypatch.setenv("OPERATION_ADS_PROVIDER", "fake_meta")
+    monkeypatch.setenv("MANA_TELEGRAM_AUTH_ENABLED", "0")
+    monkeypatch.setenv("OPERATION_ALLOW_INSECURE_DEV_HEADERS", "1")
     monkeypatch.setenv("META_LIVE_READONLY_VERIFY", "0")

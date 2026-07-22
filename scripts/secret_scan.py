@@ -9,7 +9,8 @@ PATTERNS = {
     "Meta-style token": re.compile(r"\bEAA[A-Za-z0-9]{20,}\b"),
     "bearer token": re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~-]{12,}"),
     "named secret": re.compile(
-        r"(?i)(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)[\"']?"
+        r"(?i)(?:api[_-]?key|access[_-]?token|bot[_-]?token|client[_-]?secret|"
+        r"hmac[_-]?secret|password)[\"']?"
         r"\s*[:=]\s*[\"']([^\"'\r\n]{12,})[\"']",
     ),
 }

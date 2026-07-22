@@ -166,7 +166,7 @@ describe("ApprovalsPage", () => {
       proposal_id: proposal.proposal_id,
       requested_at: "2026-07-22T08:00:00Z",
       expires_at: proposal.expires_at,
-      requested_by: "test-approver",
+      requested_by: "00000000-0000-4000-8000-000000000001",
       required_role: "approver",
       status: "pending",
     };
