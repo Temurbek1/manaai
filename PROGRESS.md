@@ -38,7 +38,7 @@ Status: recorded before authentication changes on 2026-07-22
 
 ## Telegram OTP authentication implementation
 
-Status: implementation complete; release verification and push pending
+Status: implementation and release verification complete
 
 - Added Alembic revision `8b7c2e4d901a` with durable UUID users, HMAC-only 60-second challenges,
   HMAC-only fixed sessions/CSRF, authentication audit, rolling-rate events, and a cross-worker guard.
@@ -56,10 +56,13 @@ Status: implementation complete; release verification and push pending
   60-second countdown, resend, Start-bot guidance, refresh restoration, logout, role-aware navigation,
   and admin user/profile/role/status/session/audit management. Browser transport contains no custom
   identity or key headers and writes no auth secrets to browser storage.
-- Focused evidence currently passes: strict Ruff/mypy, architecture boundaries, 20 backend
-  auth/sender/redaction scenarios, three full HTTP cookie/session flows, 20 Jest scenarios, strict
-  ESLint/TypeScript, and synchronized OpenAPI. Fake-Telegram browser E2E and full release gates are
-  the remaining verification step before logical commits and push.
+- Final evidence passes: `make test` (121 backend tests plus 21 Jest tests), `make verify`,
+  `make auth-verify`, `make admin-verify`, and `make audit-verify`. This includes Ruff, mypy,
+  ESLint, TypeScript, synchronized OpenAPI, dependency/secret/bundle scans, production and standalone
+  Next.js builds, fake-Telegram browser E2E, both API/admin Docker builds, safety mutations, and
+  clean SQLite/PostgreSQL migration round trips and drift checks. The real-bot smoke remains an
+  explicit manual operator action because it sends a Telegram message; no live Telegram or Meta
+  write call was made during automated verification.
 
 ## Next.js migration baseline
 
