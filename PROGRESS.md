@@ -45,6 +45,8 @@ Status: completed and verified
   configuration, entry points, dependencies, and obsolete runtime files.
 - Added `make admin-verify`, standalone production smoke, Vite-absence validation, Docker build,
   and an opt-in non-mutating live Meta admin-page smoke.
+- Replaced the stale version-specific external report-packager path with a repository-owned,
+  typed, secret-scanning portable HTML generator and browser smoke.
 - `make admin-verify` passes synchronized OpenAPI generation, Prettier, ESLint, strict TypeScript,
   16 Jest tests, optimized/standalone builds, npm and secret audits, fake-provider browser E2E,
   Vite-absence validation, and the non-root Docker image build.

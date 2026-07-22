@@ -3,7 +3,7 @@ RUFF := .venv/bin/ruff
 MYPY := .venv/bin/mypy
 PYTEST := .venv/bin/pytest
 ALEMBIC := .venv/bin/alembic
-REPORT_DELIVERER ?= $(HOME)/.codex/plugins/cache/openai-curated-remote/data-analytics/0.2.8-13ceeea1f599/skills/build-report/scripts/deliver_portable_artifact.mjs
+REPORT_DELIVERER ?= scripts/deliver_portable_artifact.py
 ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 
 .PHONY: install run admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
@@ -89,9 +89,10 @@ meta-live-readonly-verify: audit-verify
 		OPERATION_ADS_PROVIDER=meta $(PYTEST) -q -m live_meta tests/test_meta_live_optin.py && \
 		OPERATION_ADS_PROVIDER=meta $(PYTHON) scripts/meta_live_readonly_verify.py && \
 		META_LIVE_READONLY_VERIFY=1 scripts/admin_live_readonly_smoke.sh && \
-		node $(REPORT_DELIVERER) \
+		$(PYTHON) $(REPORT_DELIVERER) \
 			--input docs/artifacts/meta-live-readonly-report.artifact.json \
-			--output docs/artifacts/meta-live-readonly-report.html; \
+			--output docs/artifacts/meta-live-readonly-report.html && \
+		scripts/portable_report_smoke.sh; \
 	else \
 		echo "Live Meta section skipped: set META_LIVE_READONLY_VERIFY=1 to enable bounded GET-only validation."; \
 	fi

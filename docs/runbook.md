@@ -77,7 +77,9 @@ configuration, recommendation, and report records are retained.
 5. Run `META_LIVE_READONLY_VERIFY=1 make meta-live-readonly-verify`; inspect the sanitized evidence
    and portable report without printing payloads or identifiers. The command also opens the real
    Next.js Marketing page and verifies its read-only banner, safe account alias, missing execute
-   control, and desktop/mobile overflow without issuing an action mutation.
+   control, and desktop/mobile overflow without issuing an action mutation. The repository-owned
+   portable-report generator validates the canonical artifact, embeds no external resources, and
+   browser-checks source interaction plus desktop/mobile layout.
 
 The 2026-07-22 validation passed for account alias `2b6c4ddcc5`. Live writes are unsupported even if
 the token has a write-capable scope.
