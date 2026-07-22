@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     ForeignKey,
@@ -16,6 +17,108 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     """Declarative base for operation-platform persistence rows."""
+
+
+class AdminUserRow(Base):
+    __tablename__ = "operation_admin_users"
+
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    role: Mapped[str] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    created_by: Mapped[str] = mapped_column(String(128))
+    auth_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class OtpChallengeRow(Base):
+    __tablename__ = "operation_auth_otp_challenges"
+    __table_args__ = (
+        UniqueConstraint("user_id", "active_slot", name="uq_operation_auth_active_challenge"),
+        Index("idx_operation_auth_challenge_user_issued", "user_id", "issued_at"),
+    )
+
+    challenge_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_admin_users.user_id"),
+        index=True,
+    )
+    telegram_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    code_hmac: Mapped[str] = mapped_column(String(64))
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempts_count: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    active_slot: Mapped[int | None] = mapped_column(Integer)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class AdminSessionRow(Base):
+    __tablename__ = "operation_admin_sessions"
+    __table_args__ = (Index("idx_operation_admin_session_user_expiry", "user_id", "expires_at"),)
+
+    session_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_admin_users.user_id"),
+        index=True,
+    )
+    token_hmac: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    csrf_hmac: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class AuthAuditEventRow(Base):
+    __tablename__ = "operation_auth_audit_events"
+    __table_args__ = (
+        Index("idx_operation_auth_audit_subject_time", "subject_user_id", "occurred_at"),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    actor_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("operation_admin_users.user_id"),
+        index=True,
+    )
+    subject_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("operation_admin_users.user_id"),
+        index=True,
+    )
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class AuthRateEventRow(Base):
+    __tablename__ = "operation_auth_rate_events"
+    __table_args__ = (
+        Index(
+            "idx_operation_auth_rate_scope_time",
+            "scope",
+            "scope_hmac",
+            "action",
+            "occurred_at",
+        ),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(24))
+    scope_hmac: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AuthStateRow(Base):
+    __tablename__ = "operation_auth_state"
+
+    state_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer)
 
 
 class AgentRow(Base):

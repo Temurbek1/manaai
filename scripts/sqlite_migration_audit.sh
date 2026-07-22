@@ -28,7 +28,13 @@ if [[ -f "$PROJECT_ROOT/data/manaai.db" ]]; then
   migration_version_exists=$(sqlite3 "$MIGRATION_TMP_DIR/existing-copy.db" \
     "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='alembic_version';")
   if [[ "$operation_schema_exists" == "1" && "$migration_version_exists" == "0" ]]; then
-    .venv/bin/alembic stamp head
+    auth_schema_exists=$(sqlite3 "$MIGRATION_TMP_DIR/existing-copy.db" \
+      "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='operation_admin_users';")
+    if [[ "$auth_schema_exists" == "1" ]]; then
+      .venv/bin/alembic stamp head
+    else
+      .venv/bin/alembic stamp 6ddfe7f9abc8
+    fi
   fi
   .venv/bin/alembic upgrade head
   .venv/bin/alembic check

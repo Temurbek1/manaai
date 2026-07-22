@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,33 @@ class Settings(BaseSettings):
     app_api_key: SecretStr | None = None
     auth_failure_limit: int = Field(default=10, ge=2, le=1_000)
     auth_failure_window_seconds: int = Field(default=60, ge=10, le=86_400)
+
+    mana_telegram_auth_enabled: bool = True
+    mana_telegram_bot_token: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("MANA_TELEGRAM_BOT_TOKEN", "BOT_TOKEN"),
+    )
+    mana_telegram_bot_username: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z][A-Za-z0-9_]{4,31}$",
+    )
+    mana_otp_hmac_secret: SecretStr | None = None
+    mana_bootstrap_admin_telegram_ids: str = "976835256,51456737"
+    mana_otp_ttl_seconds: Literal[60] = 60
+    mana_otp_resend_cooldown_seconds: int = Field(default=30, ge=5, le=300)
+    mana_otp_max_verify_attempts: int = Field(default=5, ge=3, le=10)
+    mana_otp_request_limit_per_user: int = Field(default=5, ge=1, le=100)
+    mana_otp_request_limit_per_ip: int = Field(default=20, ge=2, le=1_000)
+    mana_otp_verify_limit_per_ip: int = Field(default=30, ge=5, le=2_000)
+    mana_otp_global_request_limit: int = Field(default=1_000, ge=20, le=100_000)
+    mana_otp_rate_window_seconds: int = Field(default=900, ge=60, le=86_400)
+    mana_otp_lockout_failures: int = Field(default=10, ge=5, le=100)
+    mana_otp_lockout_seconds: int = Field(default=900, ge=30, le=86_400)
+    mana_session_ttl_seconds: int = Field(default=28_800, ge=900, le=604_800)
+    mana_trusted_origins: list[str] = Field(default_factory=list)
+    mana_auth_test_mode: bool = False
+    mana_auth_test_otp_sink_path: Path | None = None
+    operation_allow_insecure_dev_headers: bool = False
 
     openai_api_key: SecretStr
     openai_model: str = "gpt-5.4-nano"
@@ -252,7 +279,38 @@ class Settings(BaseSettings):
             raise ValueError("META_MAX_RETRIES exceeds the live read-only retry budget")
         if self.meta_max_pages > self.meta_live_max_pages:
             raise ValueError("META_MAX_PAGES exceeds the live read-only page budget")
+        if self.mana_auth_test_mode:
+            if self.app_env != "local":
+                raise ValueError("MANA_AUTH_TEST_MODE is allowed only in the local environment")
+            if self.mana_auth_test_otp_sink_path is None:
+                raise ValueError("MANA_AUTH_TEST_OTP_SINK_PATH is required in test mode")
+        elif self.mana_auth_test_otp_sink_path is not None:
+            raise ValueError("MANA_AUTH_TEST_OTP_SINK_PATH requires MANA_AUTH_TEST_MODE")
+        if self.app_env in {"staging", "production"} and self.mana_telegram_auth_enabled:
+            if not self.has_strong_otp_hmac_secret:
+                raise ValueError(
+                    "MANA_OTP_HMAC_SECRET must contain at least 32 non-placeholder characters",
+                )
+            if not self.is_telegram_bot_configured:
+                raise ValueError(
+                    "MANA_TELEGRAM_BOT_TOKEN and MANA_TELEGRAM_BOT_USERNAME are required",
+                )
+            if not self.mana_trusted_origins:
+                raise ValueError("MANA_TRUSTED_ORIGINS is required for browser sessions")
         return self
+
+    @field_validator("mana_bootstrap_admin_telegram_ids")
+    @classmethod
+    def validate_bootstrap_admin_ids(cls, value: str) -> str:
+        parts = [part.strip() for part in value.split(",") if part.strip()]
+        if not parts or any(not part.isdigit() for part in parts):
+            raise ValueError("MANA_BOOTSTRAP_ADMIN_TELEGRAM_IDS must be comma-separated integers")
+        ids = [int(part) for part in parts]
+        if len(ids) != len(set(ids)):
+            raise ValueError("MANA_BOOTSTRAP_ADMIN_TELEGRAM_IDS cannot contain duplicates")
+        if any(item <= 0 or item > 9_007_199_254_740_991 for item in ids):
+            raise ValueError("Bootstrap Telegram ID is outside the supported range")
+        return ",".join(str(item) for item in ids)
 
     @property
     def is_docs_enabled(self) -> bool:
@@ -275,6 +333,36 @@ class Settings(BaseSettings):
         return self.meta_access_token is not None and bool(
             self.meta_access_token.get_secret_value(),
         )
+
+    @property
+    def bootstrap_admin_telegram_ids(self) -> tuple[int, ...]:
+        return tuple(int(part) for part in self.mana_bootstrap_admin_telegram_ids.split(","))
+
+    @property
+    def has_strong_otp_hmac_secret(self) -> bool:
+        if self.mana_otp_hmac_secret is None:
+            return False
+        value = self.mana_otp_hmac_secret.get_secret_value()
+        normalized = value.strip().lower()
+        weak_values = {
+            "change-me",
+            "changeme",
+            "replace_with_secret",
+            "replace-with-secret",
+        }
+        return len(value) >= 32 and normalized not in weak_values and len(set(value)) >= 8
+
+    @property
+    def is_telegram_bot_configured(self) -> bool:
+        return (
+            self.mana_telegram_bot_token is not None
+            and bool(self.mana_telegram_bot_token.get_secret_value())
+            and self.mana_telegram_bot_username is not None
+        )
+
+    @property
+    def is_secure_cookie_environment(self) -> bool:
+        return self.app_env in {"staging", "production"}
 
     @property
     def effective_operation_database_url(self) -> str:

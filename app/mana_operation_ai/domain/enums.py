@@ -142,6 +142,38 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
+class AdminUserStatus(StrEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    PENDING = "pending"
+    REVOKED = "revoked"
+
+
+class OtpChallengeStatus(StrEnum):
+    ACTIVE = "active"
+    CONSUMED = "consumed"
+    EXPIRED = "expired"
+    INVALIDATED = "invalidated"
+    ATTEMPTS_EXHAUSTED = "attempts_exhausted"
+    DELIVERY_FAILED = "delivery_failed"
+
+
+class AuthAuditEventType(StrEnum):
+    BOOTSTRAP_APPLIED = "bootstrap_applied"
+    LOGIN_CODE_REQUESTED = "login_code_requested"
+    LOGIN_CODE_DELIVERY_FAILED = "login_code_delivery_failed"
+    LOGIN_FAILED = "login_failed"
+    LOGIN_SUCCEEDED = "login_succeeded"
+    SESSION_REVOKED = "session_revoked"
+    LOGOUT = "logout"
+    USER_CREATED = "user_created"
+    USER_PROFILE_CHANGED = "user_profile_changed"
+    USER_ROLE_CHANGED = "user_role_changed"
+    USER_STATUS_CHANGED = "user_status_changed"
+    USER_SESSIONS_REVOKED = "user_sessions_revoked"
+    AUTH_RATE_LIMITED = "auth_rate_limited"
+
+
 class AuditEventType(StrEnum):
     AGENT_REGISTERED = "agent_registered"
     AGENT_STATUS_CHANGED = "agent_status_changed"
