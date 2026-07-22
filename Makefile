@@ -6,7 +6,7 @@ ALEMBIC := .venv/bin/alembic
 REPORT_DELIVERER ?= scripts/deliver_portable_artifact.py
 ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 
-.PHONY: install run admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
+.PHONY: install run admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -80,6 +80,41 @@ admin-verify: audit-schema admin-format-check
 	$(MAKE) admin-no-vite
 	$(MAKE) audit-browser
 	$(MAKE) admin-docker
+
+auth-backend-tests:
+	$(PYTEST) -q tests/test_telegram_auth.py tests/test_telegram_auth_api.py tests/test_telegram_auth_config.py tests/test_telegram_sender.py tests/test_secret_redaction.py tests/test_architecture_boundaries.py tests/test_security.py
+
+auth-frontend-tests:
+	cd admin-ui && npm run test -- --runInBand src/components/LoginPanel.test.tsx src/components/AdminShell.test.tsx src/features/UsersPage.test.tsx src/features/ApprovalsPage.test.tsx
+
+auth-security:
+	$(PYTHON) scripts/secret_scan.py
+	$(PYTEST) -q tests/test_telegram_auth_api.py tests/test_telegram_sender.py tests/test_secret_redaction.py
+	@! rg -n 'X-MANA-Actor-ID|X-MANA-Role|X-API-Key' admin-ui/src/api/client.ts admin-ui/src/components/LoginPanel.tsx
+	@! rg -n 'Internal API key|Development actor ID|Development role' admin-ui/src/components/LoginPanel.tsx
+
+auth-docker:
+	docker build --tag manaai-api:auth-verify .
+	$(MAKE) admin-docker
+
+auth-verify: audit-migrations format-check
+	$(RUFF) check .
+	$(MYPY) .
+	$(MAKE) auth-backend-tests
+	$(MAKE) admin-format-check
+	cd admin-ui && npm run lint
+	cd admin-ui && npm run typecheck
+	$(MAKE) auth-frontend-tests
+	cd admin-ui && npm run build
+	$(MAKE) audit-browser
+	$(MAKE) auth-security
+	$(MAKE) audit-dependencies
+	$(MAKE) auth-docker
+
+telegram-auth-smoke:
+	@test "$${MANA_TELEGRAM_AUTH_SMOKE:-0}" = "1" || (echo "Set MANA_TELEGRAM_AUTH_SMOKE=1 for this manual check" && exit 2)
+	@test -n "$${MANA_TELEGRAM_AUTH_SMOKE_USER_ID:-}" || (echo "Set MANA_TELEGRAM_AUTH_SMOKE_USER_ID explicitly" && exit 2)
+	$(PYTHON) scripts/telegram_auth_smoke.py
 
 meta-readonly-smoke:
 	$(PYTHON) scripts/meta_readonly_smoke.py --confirm-read-only

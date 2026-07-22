@@ -39,6 +39,16 @@ CORS_ORIGINS="[\"http://127.0.0.1:${UI_PORT}\"]" \
 APP_ENV=local \
 APP_API_KEY= \
 OPENAI_API_KEY=test-openai-key \
+MANA_TELEGRAM_AUTH_ENABLED=true \
+MANA_OTP_HMAC_SECRET=test-live-ui-auth-hmac-secret-with-enough-entropy-123456 \
+MANA_TELEGRAM_BOT_USERNAME=mana_test_bot \
+MANA_BOOTSTRAP_ADMIN_TELEGRAM_IDS=976835256,51456737 \
+MANA_TRUSTED_ORIGINS="[\"http://127.0.0.1:${UI_PORT}\"]" \
+MANA_AUTH_TEST_MODE=true \
+MANA_AUTH_TEST_OTP_SINK_PATH="$SMOKE_TMP_DIR/otp-sink.jsonl" \
+OPERATION_ALLOW_INSECURE_DEV_HEADERS=false \
+OPERATION_DATABASE_URL="sqlite+aiosqlite:///$SMOKE_TMP_DIR/operation.db" \
+MARKETING_DATABASE_PATH="$SMOKE_TMP_DIR/legacy.db" \
 OPERATION_ADS_PROVIDER=meta \
 OPERATION_DRY_RUN=true \
 OPERATION_SCHEDULER_ENABLED=false \
@@ -76,9 +86,21 @@ assert_browser() {
 
 browser open "http://127.0.0.1:${UI_PORT}/marketing" >/dev/null
 browser wait --load networkidle >/dev/null
-browser find label "Development actor ID" fill "live-readonly-ui-auditor" >/dev/null
-browser eval '(() => { const select = [...document.querySelectorAll("select")].find((item) => item.closest("label")?.textContent?.includes("Development role")); if (!(select instanceof HTMLSelectElement)) throw new Error("development role selector missing"); const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set; setter?.call(select, "admin"); select.dispatchEvent(new Event("change", { bubbles: true })); return "selected"; })()' >/dev/null
-browser find role button click --name "Sign in" >/dev/null
+browser find label "Telegram ID" fill "976835256" >/dev/null
+browser find role button click --name "Получить код" >/dev/null
+for _ in $(seq 1 40); do
+  if OTP_CODE=$("$PROJECT_ROOT/.venv/bin/python" -c \
+    'import json, pathlib, sys; p=pathlib.Path(sys.argv[1]); rows=[json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []; print(rows[-1]["code"] if rows else ""); raise SystemExit(0 if rows else 1)' \
+    "$SMOKE_TMP_DIR/otp-sink.jsonl" 2>/dev/null); then break; fi
+  sleep 0.1
+done
+if [[ ! "${OTP_CODE:-}" =~ ^[0-9]{6}$ ]]; then
+  echo "Fake Telegram harness did not capture an OTP" >&2
+  exit 1
+fi
+browser find label "Код из Telegram" fill "$OTP_CODE" >/dev/null
+unset OTP_CODE
+browser find role button click --name "Войти" >/dev/null
 browser wait --load networkidle >/dev/null
 browser wait --text "READ-ONLY MODE" >/dev/null
 browser wait --text "Enforced" >/dev/null
