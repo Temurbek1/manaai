@@ -622,9 +622,7 @@ def _wasted_spend_patterns(
 ) -> list[MarketingPattern]:
     spend_floor = max(min_spend, total_spend * 0.05)
     candidates = [
-        row
-        for row in rows
-        if row.spend >= spend_floor and row.conversions == 0 and row.clicks > 0
+        row for row in rows if row.spend >= spend_floor and row.conversions == 0 and row.clicks > 0
     ]
     return [
         _pattern(
@@ -664,14 +662,10 @@ def _efficiency_opportunity_patterns(
             continue
         spend_share = row.spend / total_spend if total_spend else 0.0
         efficient_cpa = (
-            summary.cpa is not None
-            and row.cpa is not None
-            and row.cpa <= summary.cpa * 0.7
+            summary.cpa is not None and row.cpa is not None and row.cpa <= summary.cpa * 0.7
         )
         efficient_roas = (
-            summary.roas is not None
-            and row.roas is not None
-            and row.roas >= summary.roas * 1.3
+            summary.roas is not None and row.roas is not None and row.roas >= summary.roas * 1.3
         )
         if spend_share <= 0.25 and (efficient_cpa or efficient_roas):
             patterns.append(
@@ -791,9 +785,7 @@ def _frequency_fatigue_patterns(
             continue
         conversion_issue = row.conversions == 0 and row.clicks > 0
         ctr_issue = (
-            low_ctr_threshold is not None
-            and row.ctr is not None
-            and row.ctr <= low_ctr_threshold
+            low_ctr_threshold is not None and row.ctr is not None and row.ctr <= low_ctr_threshold
         )
         if conversion_issue or ctr_issue:
             candidates.append(row)
@@ -944,9 +936,11 @@ def _hierarchy_rollup_patterns(
         ),
     )
 
-    campaign_rows = ad_rows if ad_rows else [
-        row for row in rows if row.level == "adset" and row.entity_id is not None
-    ]
+    campaign_rows = (
+        ad_rows
+        if ad_rows
+        else [row for row in rows if row.level == "adset" and row.entity_id is not None]
+    )
     campaign_groups: dict[str, list[MarketingKpiRow]] = defaultdict(list)
     for row in campaign_rows:
         campaign_id = _row_campaign_id(row=row, hierarchy_context=hierarchy_context)
@@ -1033,8 +1027,8 @@ def _parent_rollup_patterns(
             and parent_summary.roas >= summary.roas * 1.3
         )
         if parent_summary.total_conversions > 0 and (efficient_cpa or efficient_roas):
-            metric = f"{parent_level}_rollup_cpa" if efficient_cpa else (
-                f"{parent_level}_rollup_roas"
+            metric = (
+                f"{parent_level}_rollup_cpa" if efficient_cpa else (f"{parent_level}_rollup_roas")
             )
             value = parent_summary.cpa if efficient_cpa else parent_summary.roas
             benchmark = summary.cpa if efficient_cpa else summary.roas
@@ -1354,8 +1348,7 @@ def _unmapped_action_signal_patterns(
     unmapped_totals = {
         action_type: total
         for action_type, total in action_signal_context.action_totals.items()
-        if action_type not in action_signal_context.configured_conversion_action_types
-        and total > 0
+        if action_type not in action_signal_context.configured_conversion_action_types and total > 0
     }
     if not unmapped_totals:
         return []
@@ -1372,9 +1365,7 @@ def _unmapped_action_signal_patterns(
         if len(evidence_record_ids) >= 20:
             break
 
-    action_label = ", ".join(
-        f"{action_type}={total:g}" for action_type, total in top_actions
-    )
+    action_label = ", ".join(f"{action_type}={total:g}" for action_type, total in top_actions)
     return [
         MarketingPattern(
             type="unmapped_action_signal",

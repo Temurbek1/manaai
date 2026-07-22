@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: list[str] = Field(default_factory=list)
     app_api_key: SecretStr | None = None
+    auth_failure_limit: int = Field(default=10, ge=2, le=1_000)
+    auth_failure_window_seconds: int = Field(default=60, ge=10, le=86_400)
 
     openai_api_key: SecretStr
     openai_model: str = "gpt-5.4-nano"
@@ -28,6 +30,26 @@ class Settings(BaseSettings):
     openai_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
 
     marketing_database_path: Path = Path("data/manaai.db")
+    operation_database_url: str | None = None
+    operation_auto_create_schema: bool = True
+    operation_scheduler_enabled: bool = False
+    operation_scheduler_poll_seconds: float = Field(default=30.0, gt=0, le=300)
+    operation_job_timeout_seconds: int = Field(default=900, ge=10, le=86_400)
+    operation_data_retention_days: int = Field(default=90, ge=7, le=3_650)
+    operation_verification_attempts: int = Field(default=4, ge=1, le=20)
+    operation_verification_delay_seconds: float = Field(default=1.0, ge=0, le=60)
+    operation_dry_run: bool = True
+    operation_global_kill_switch: bool = False
+    operation_global_execution_limit_per_day: int = Field(default=20, ge=0, le=10_000)
+    operation_agent_execution_limit_per_day: int = Field(default=10, ge=0, le=1_000)
+    operation_allow_self_approval: bool = False
+    operation_default_actor_id: str = "local-admin"
+    operation_default_role: Literal["viewer", "operator", "approver", "admin"] = "viewer"
+    operation_ads_provider: Literal["fake_meta", "meta"] = "fake_meta"
+    operation_viewer_api_key: SecretStr | None = None
+    operation_operator_api_key: SecretStr | None = None
+    operation_approver_api_key: SecretStr | None = None
+    operation_admin_api_key: SecretStr | None = None
     marketing_conversion_action_types: list[str] = Field(
         default_factory=lambda: [
             "purchase",
@@ -47,11 +69,23 @@ class Settings(BaseSettings):
 
     meta_graph_base_url: str = "https://graph.facebook.com"
     meta_graph_api_version: str = "v25.0"
+    meta_live_mode: Literal["read_only"] = "read_only"
+    meta_live_readonly_verify: bool = False
+    meta_live_max_requests: int = Field(default=40, ge=1, le=200)
+    meta_live_max_duration_seconds: int = Field(default=120, ge=10, le=900)
+    meta_live_max_total_retries: int = Field(default=8, ge=0, le=50)
+    meta_live_max_pages: int = Field(default=40, ge=1, le=50)
+    meta_live_max_accounts: int = Field(default=1, ge=1, le=10)
+    meta_live_initial_lookback_days: int = Field(default=7, ge=3, le=14)
+    meta_live_evidence_path: Path = Path("data/meta-live-readonly-evidence.json")
     meta_app_id: str | None = None
     meta_business_id: str | None = None
     meta_access_token: SecretStr | None = None
     meta_ad_account_ids: list[str] = Field(default_factory=list)
     meta_request_timeout_seconds: float = Field(default=30.0, gt=0)
+    meta_max_retries: int = Field(default=4, ge=0, le=10)
+    meta_retry_backoff_seconds: float = Field(default=0.5, ge=0.01, le=30)
+    meta_real_writes_enabled: bool = False
     meta_page_limit: int = Field(default=100, ge=1, le=500)
     meta_max_pages: int = Field(default=25, ge=1, le=500)
     meta_business_fields: list[str] = Field(
@@ -175,6 +209,8 @@ class Settings(BaseSettings):
             "name",
             "currency",
             "timezone_name",
+            "timezone_offset_hours_utc",
+            "min_daily_budget",
             "account_status",
             "business",
         ],
@@ -204,6 +240,20 @@ class Settings(BaseSettings):
         default_factory=lambda: ["1d_click", "7d_click"],
     )
 
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        if self.app_env == "production" and "*" in self.cors_origins:
+            raise ValueError("Wildcard CORS origins are forbidden in production")
+        if self.meta_real_writes_enabled:
+            raise ValueError("META_REAL_WRITES_ENABLED must remain false in read-only Meta mode")
+        if self.operation_ads_provider == "meta" and not self.operation_dry_run:
+            raise ValueError("OPERATION_DRY_RUN must remain true for the live Meta provider")
+        if self.meta_max_retries > self.meta_live_max_total_retries:
+            raise ValueError("META_MAX_RETRIES exceeds the live read-only retry budget")
+        if self.meta_max_pages > self.meta_live_max_pages:
+            raise ValueError("META_MAX_PAGES exceeds the live read-only page budget")
+        return self
+
     @property
     def is_docs_enabled(self) -> bool:
         return self.app_env != "production"
@@ -225,6 +275,12 @@ class Settings(BaseSettings):
         return self.meta_access_token is not None and bool(
             self.meta_access_token.get_secret_value(),
         )
+
+    @property
+    def effective_operation_database_url(self) -> str:
+        if self.operation_database_url:
+            return self.operation_database_url
+        return f"sqlite+aiosqlite:///{self.marketing_database_path}"
 
 
 @lru_cache

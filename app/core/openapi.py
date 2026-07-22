@@ -1,12 +1,11 @@
 from typing import Any
 
 API_DESCRIPTION = """
-ManaAI API is the backend AI integration layer for application features.
-
-The current public surface includes health checks and test OpenAI-powered
-endpoints. OpenAI model selection remains configurable through environment
-variables so deployments can change pricing/performance tradeoffs without code
-changes.
+ManaAI exposes physically separated product-inference and internal operation
+bounded contexts. The operation API manages typed agents, schedules, runs,
+evidence, approvals, guarded actions, verification, reports, and audit events.
+Legacy product and marketing endpoints remain backward compatible. Provider and
+OpenAI model selection remain configurable rather than embedded in domain logic.
 """
 
 OPENAPI_TAGS: list[dict[str, Any]] = [
@@ -32,6 +31,14 @@ OPENAPI_TAGS: list[dict[str, Any]] = [
             "description": "Meta Marketing API documentation",
             "url": "https://developers.facebook.com/documentation/ads-commerce/marketing-api",
         },
+    },
+    {
+        "name": "mana-ai",
+        "description": "Payload-scoped product inference contracts without operational access.",
+    },
+    {
+        "name": "operation-admin",
+        "description": "RBAC-protected internal operational-agent management and audit API.",
     },
 ]
 

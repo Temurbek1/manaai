@@ -7,6 +7,12 @@ from starlette.middleware.base import RequestResponseEndpoint
 REQUEST_ID_HEADER = "X-Request-ID"
 PROCESS_TIME_HEADER = "X-Process-Time-Ms"
 EXPOSED_RESPONSE_HEADERS = [REQUEST_ID_HEADER, PROCESS_TIME_HEADER]
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+}
 
 
 async def request_trace_middleware(
@@ -22,6 +28,8 @@ async def request_trace_middleware(
     elapsed_ms = (time.perf_counter() - started_at) * 1000
     response.headers[REQUEST_ID_HEADER] = request_id
     response.headers[PROCESS_TIME_HEADER] = f"{elapsed_ms:.3f}"
+    for name, value in SECURITY_HEADERS.items():
+        response.headers[name] = value
     return response
 
 

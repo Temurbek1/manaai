@@ -1,0 +1,1 @@
+"""MANA AI domain contracts."""

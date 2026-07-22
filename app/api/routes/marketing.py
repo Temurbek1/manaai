@@ -35,7 +35,11 @@ from app.schemas.marketing import (
     RawMarketingRecordListResponse,
     RawMarketingRecordSearchRequest,
 )
-from app.services.meta_marketing_client import MetaAPIError, MetaConfigurationError
+from app.services.meta_marketing_client import (
+    MetaAPIError,
+    MetaConfigurationError,
+    MetaReadOnlyViolation,
+)
 from app.services.openai_service import AIConfigurationError, AIProviderError
 
 router = APIRouter()
@@ -204,6 +208,15 @@ async def create_meta_insights_job(
 ) -> MetaInsightsAsyncJobCreateResponse:
     try:
         return await sync_service.create_insights_async_job(payload)
+    except MetaReadOnlyViolation as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "meta_live_read_only",
+                "message": str(exc),
+                "provider_request_sent": False,
+            },
+        ) from exc
     except MetaConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

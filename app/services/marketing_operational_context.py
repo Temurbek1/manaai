@@ -132,7 +132,5 @@ def _business_name(payload: dict[str, JsonValue]) -> str | None:
 
 def _context_attributes(payload: dict[str, JsonValue]) -> dict[str, JsonValue]:
     return {
-        key: value
-        for key in _CONTEXT_ATTRIBUTE_KEYS
-        if (value := payload.get(key)) is not None
+        key: value for key in _CONTEXT_ATTRIBUTE_KEYS if (value := payload.get(key)) is not None
     }
