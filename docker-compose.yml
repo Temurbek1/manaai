@@ -1,15 +1,52 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    env_file:
+      - .env
+    volumes:
+      - manaai_postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      OPERATION_AUTO_CREATE_SCHEMA: "false"
+      OPERATION_SCHEDULER_ENABLED: "false"
+      META_REAL_WRITES_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build:
       context: .
     env_file:
       - .env
     environment:
+      APP_ENV: production
       MARKETING_DATABASE_PATH: /data/manaai.db
+      OPERATION_AUTO_CREATE_SCHEMA: "false"
+      OPERATION_SCHEDULER_ENABLED: "false"
+      OPERATION_DRY_RUN: "true"
+      META_REAL_WRITES_ENABLED: "false"
     ports:
       - "8000:8000"
     volumes:
       - manaai_data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=2)"]
@@ -18,5 +55,36 @@ services:
       retries: 3
       start_period: 10s
 
+  worker:
+    build:
+      context: .
+    command: ["python", "-m", "app.mana_operation_ai.background.worker"]
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      MARKETING_DATABASE_PATH: /data/manaai.db
+      OPERATION_AUTO_CREATE_SCHEMA: "false"
+      OPERATION_SCHEDULER_ENABLED: "true"
+      OPERATION_DRY_RUN: "true"
+      META_REAL_WRITES_ENABLED: "false"
+    volumes:
+      - manaai_data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ./admin-ui
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:8080"
+    restart: unless-stopped
+
 volumes:
   manaai_data:
+  manaai_postgres:

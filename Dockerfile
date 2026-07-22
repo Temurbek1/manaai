@@ -10,12 +10,15 @@ RUN addgroup --system app && adduser --system --ingroup app app
 RUN mkdir -p /data && chown app:app /data
 
 COPY pyproject.toml README.md ./
+COPY app ./app
 RUN pip install --upgrade pip && pip install .
 
-COPY app ./app
+COPY alembic.ini ./
+COPY migrations ./migrations
+COPY scripts/start_api.sh ./scripts/start_api.sh
 
 USER app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "scripts/start_api.sh"]
