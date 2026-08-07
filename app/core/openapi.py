@@ -34,7 +34,11 @@ OPENAPI_TAGS: list[dict[str, Any]] = [
     },
     {
         "name": "mana-ai",
-        "description": "Payload-scoped product inference contracts without operational access.",
+        "description": (
+            "Read-only request/response product inference for family safety, digital wellbeing, "
+            "location, content protection, assistants, agreements, and behavior anomalies. "
+            "Action proposals are never executed by this API."
+        ),
     },
     {
         "name": "operation-admin",

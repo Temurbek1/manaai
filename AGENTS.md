@@ -16,6 +16,9 @@
   `app/mana_ai/`, and operational contracts in `app/mana_operation_ai/domain/`.
 - `app/mana_ai` must never import repositories, ORM models, operational agents, Meta
   integrations, action executors, or `app.mana_operation_ai`.
+- Keep MANA AI HTTP transport in `app/api/routes/`; `app/mana_ai` must not import FastAPI.
+- Keep one public endpoint-specific request and response schema per MANA AI capability. Do not
+  reintroduce a generic capability-discriminated `/mana-ai/analyze` endpoint.
 - Operational domain code must not import FastAPI, SQLAlchemy, Redis, Meta SDKs, or the
   OpenAI SDK.
 - External providers implement typed application ports. Translate provider payloads at

@@ -6,14 +6,20 @@ ALEMBIC := .venv/bin/alembic
 REPORT_DELIVERER ?= scripts/deliver_portable_artifact.py
 ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 
-.PHONY: install run admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
+.PHONY: install run mana-ai-run mana-ai-docker admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
 
 install:
-	$(PYTHON) -m pip install -e ".[dev]"
+	$(PYTHON) -m pip install -e ".[operation,dev]"
 	cd admin-ui && npm ci
 
 run:
 	.venv/bin/uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
+
+mana-ai-run:
+	.venv/bin/uvicorn app.product_ai_main:create_app --factory --reload --host 0.0.0.0 --port 8000
+
+mana-ai-docker:
+	docker compose -f docker-compose.mana-ai.yml up --build
 
 admin-dev:
 	cd admin-ui && FASTAPI_BASE_URL=$${FASTAPI_BASE_URL:-http://127.0.0.1:8000} npm run dev

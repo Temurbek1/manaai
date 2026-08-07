@@ -1,6 +1,13 @@
 from typing import TypeVar
 
-from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AsyncOpenAI,
+    ContentFilterFinishReasonError,
+    LengthFinishReasonError,
+)
 from pydantic import BaseModel
 
 from app.core.config import Settings
@@ -56,6 +63,7 @@ class OpenAIService:
         text_format: type[StructuredResponseT],
         system_prompt: str,
         user_input: str,
+        safety_identifier: str | None = None,
     ) -> StructuredResponseT:
         self._ensure_configured()
         try:
@@ -64,11 +72,19 @@ class OpenAIService:
                 instructions=system_prompt,
                 input=user_input,
                 max_output_tokens=self._settings.openai_max_output_tokens,
-                temperature=self._settings.openai_temperature,
+                reasoning={"effort": self._settings.openai_reasoning_effort},
+                safety_identifier=safety_identifier,
                 text_format=text_format,
                 store=False,
+                verbosity=self._settings.openai_verbosity,
             )
-        except (APIConnectionError, APITimeoutError, APIStatusError) as exc:
+        except (
+            APIConnectionError,
+            APITimeoutError,
+            APIStatusError,
+            ContentFilterFinishReasonError,
+            LengthFinishReasonError,
+        ) as exc:
             raise AIProviderError("OpenAI API request failed") from exc
 
         if response.output_parsed is None:

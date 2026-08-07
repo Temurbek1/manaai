@@ -11,7 +11,7 @@ RUN mkdir -p /data && chown app:app /data
 
 COPY pyproject.toml README.md ./
 COPY app ./app
-RUN pip install --upgrade pip && pip install .
+RUN pip install --upgrade pip && pip install ".[operation]"
 
 COPY alembic.ini ./
 COPY migrations ./migrations

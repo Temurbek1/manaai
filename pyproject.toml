@@ -10,12 +10,24 @@ dependencies = [
     "httpx==0.28.1",
     "uvicorn[standard]==0.35.0",
     "pydantic-settings==2.10.1",
-    "openai==1.97.0",
+    "openai==2.53.0",
+]
+
+[project.optional-dependencies]
+operation = [
     "SQLAlchemy[asyncio]==2.0.41",
     "aiosqlite==0.21.0",
     "asyncpg==0.31.0",
     "alembic==1.16.2",
     "croniter==6.0.0",
+]
+dev = [
+    "mypy==1.20.2",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.12.4",
+    "types-croniter==6.0.0.20250809",
+    "pip-audit==2.10.1",
 ]
 
 [build-system]
@@ -24,16 +36,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
-
-[project.optional-dependencies]
-dev = [
-    "mypy==1.16.1",
-    "pytest==9.1.1",
-    "pytest-asyncio==1.4.0",
-    "ruff==0.12.4",
-    "types-croniter==6.0.0.20250809",
-    "pip-audit==2.10.1",
-]
 
 [tool.ruff]
 line-length = 100

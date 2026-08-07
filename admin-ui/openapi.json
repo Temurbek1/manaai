@@ -1,6 +1,284 @@
 {
   "components": {
     "schemas": {
+      "AIGamingSafetyActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_app_restriction": "#/components/schemas/AppRestrictionAction",
+                "propose_limit_change": "#/components/schemas/LimitChangeAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/LimitChangeAction"
+              },
+              {
+                "$ref": "#/components/schemas/AppRestrictionAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "AIGamingSafetyActionProposal",
+        "type": "object"
+      },
+      "AIGamingSafetyDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_packages": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Affected Packages",
+            "type": "array"
+          },
+          "ai_service_summary": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Ai Service Summary",
+            "type": "string"
+          },
+          "gaming_summary": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Gaming Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ai_service_summary",
+          "gaming_summary"
+        ],
+        "title": "AIGamingSafetyDetails",
+        "type": "object"
+      },
+      "AIGamingSafetyInput": {
+        "additionalProperties": false,
+        "properties": {
+          "app_usage": {
+            "items": {
+              "$ref": "#/components/schemas/AppUsageSignal"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "App Usage",
+            "type": "array"
+          },
+          "extra_time_requests": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraTimeRequest"
+            },
+            "maxItems": 500,
+            "title": "Extra Time Requests",
+            "type": "array"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/AppLimit"
+            },
+            "maxItems": 500,
+            "title": "Limits",
+            "type": "array"
+          },
+          "schedules": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleWindow"
+            },
+            "maxItems": 100,
+            "title": "Schedules",
+            "type": "array"
+          },
+          "usage_baselines": {
+            "items": {
+              "$ref": "#/components/schemas/UsageBaseline"
+            },
+            "maxItems": 500,
+            "title": "Usage Baselines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_usage"
+        ],
+        "title": "AIGamingSafetyInput",
+        "type": "object"
+      },
+      "AIGamingSafetyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/AIGamingSafetyInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "AIGamingSafetyRequest",
+        "type": "object"
+      },
+      "AIGamingSafetyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "ai_gaming_safety",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/AIGamingSafetyDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/AIGamingSafetyActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "AIGamingSafetyResponse",
+        "type": "object"
+      },
       "ActionExecution": {
         "additionalProperties": false,
         "properties": {
@@ -610,6 +888,292 @@
         "title": "AdEntityType",
         "type": "string"
       },
+      "AdaptiveScreenTimeActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_app_restriction": "#/components/schemas/AppRestrictionAction",
+                "propose_limit_change": "#/components/schemas/LimitChangeAction",
+                "propose_study_mode": "#/components/schemas/StudyModeAction",
+                "propose_temporary_access": "#/components/schemas/TemporaryAccessAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/LimitChangeAction"
+              },
+              {
+                "$ref": "#/components/schemas/StudyModeAction"
+              },
+              {
+                "$ref": "#/components/schemas/AppRestrictionAction"
+              },
+              {
+                "$ref": "#/components/schemas/TemporaryAccessAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "AdaptiveScreenTimeActionProposal",
+        "type": "object"
+      },
+      "AdaptiveScreenTimeDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "app_classifications": {
+            "items": {
+              "$ref": "#/components/schemas/AppClassification"
+            },
+            "maxItems": 500,
+            "title": "App Classifications",
+            "type": "array"
+          },
+          "limit_assessment": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Limit Assessment",
+            "type": "array"
+          }
+        },
+        "title": "AdaptiveScreenTimeDetails",
+        "type": "object"
+      },
+      "AdaptiveScreenTimeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "app_usage": {
+            "items": {
+              "$ref": "#/components/schemas/AppUsageSignal"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "App Usage",
+            "type": "array"
+          },
+          "extra_time_requests": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraTimeRequest"
+            },
+            "maxItems": 500,
+            "title": "Extra Time Requests",
+            "type": "array"
+          },
+          "family_rules": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyRule"
+            },
+            "maxItems": 200,
+            "title": "Family Rules",
+            "type": "array"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/AppLimit"
+            },
+            "maxItems": 500,
+            "title": "Limits",
+            "type": "array"
+          },
+          "schedules": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleWindow"
+            },
+            "maxItems": 100,
+            "title": "Schedules",
+            "type": "array"
+          },
+          "usage_baselines": {
+            "items": {
+              "$ref": "#/components/schemas/UsageBaseline"
+            },
+            "maxItems": 500,
+            "title": "Usage Baselines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_usage"
+        ],
+        "title": "AdaptiveScreenTimeInput",
+        "type": "object"
+      },
+      "AdaptiveScreenTimeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/AdaptiveScreenTimeInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "AdaptiveScreenTimeRequest",
+        "type": "object"
+      },
+      "AdaptiveScreenTimeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "adaptive_screen_time",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/AdaptiveScreenTimeDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/AdaptiveScreenTimeActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "AdaptiveScreenTimeResponse",
+        "type": "object"
+      },
       "AdminUserResponse": {
         "additionalProperties": false,
         "properties": {
@@ -892,6 +1456,16 @@
         ],
         "title": "AdsSnapshot",
         "type": "object"
+      },
+      "AgeBand": {
+        "enum": [
+          "under_7",
+          "age_7_12",
+          "age_13_15",
+          "age_16_17"
+        ],
+        "title": "AgeBand",
+        "type": "string"
       },
       "AgentCapability": {
         "additionalProperties": false,
@@ -1452,6 +2026,294 @@
         "title": "AgentStatusRequest",
         "type": "object"
       },
+      "AgreementMode": {
+        "enum": [
+          "draft",
+          "review",
+          "child_request"
+        ],
+        "title": "AgreementMode",
+        "type": "string"
+      },
+      "AgreementUpdateAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "propose_agreement_update",
+            "title": "Kind",
+            "type": "string"
+          },
+          "proposed_changes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Proposed Changes",
+            "type": "array"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "proposed_changes",
+          "rationale"
+        ],
+        "title": "AgreementUpdateAction",
+        "type": "object"
+      },
+      "AnalysisStatus": {
+        "enum": [
+          "completed",
+          "degraded"
+        ],
+        "title": "AnalysisStatus",
+        "type": "string"
+      },
+      "AnalysisVerdict": {
+        "enum": [
+          "no_risk_detected",
+          "observe",
+          "warn",
+          "alert",
+          "block",
+          "insufficient_data"
+        ],
+        "title": "AnalysisVerdict",
+        "type": "string"
+      },
+      "AppCategory": {
+        "enum": [
+          "education",
+          "messaging",
+          "social",
+          "game",
+          "ai_service",
+          "video",
+          "browser",
+          "productivity",
+          "other",
+          "unknown"
+        ],
+        "title": "AppCategory",
+        "type": "string"
+      },
+      "AppClassification": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/AppCategory"
+          },
+          "explanation": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "package_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Package Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package_name",
+          "category",
+          "explanation"
+        ],
+        "title": "AppClassification",
+        "type": "object"
+      },
+      "AppLimit": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppCategory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "daily_limit_seconds": {
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Daily Limit Seconds",
+            "type": "integer"
+          },
+          "package_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Name"
+          }
+        },
+        "required": [
+          "daily_limit_seconds"
+        ],
+        "title": "AppLimit",
+        "type": "object"
+      },
+      "AppRestrictionAction": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 43200.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "kind": {
+            "const": "propose_app_restriction",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "warn",
+              "limit",
+              "block"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "package_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Package Name",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "package_name",
+          "mode",
+          "rationale"
+        ],
+        "title": "AppRestrictionAction",
+        "type": "object"
+      },
+      "AppUsageSignal": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/AppCategory",
+            "default": "unknown"
+          },
+          "configured_limit_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured Limit Seconds"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "extra_time_request_count": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Extra Time Request Count",
+            "type": "integer"
+          },
+          "foreground_seconds": {
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Foreground Seconds",
+            "type": "integer"
+          },
+          "launch_count": {
+            "default": 0,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Launch Count",
+            "type": "integer"
+          },
+          "night_seconds": {
+            "default": 0,
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Night Seconds",
+            "type": "integer"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "package_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Package Name",
+            "type": "string"
+          },
+          "source": {
+            "const": "app_usage",
+            "default": "app_usage",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "package_name",
+          "foreground_seconds"
+        ],
+        "title": "AppUsageSignal",
+        "type": "object"
+      },
       "ApprovalDecision": {
         "additionalProperties": false,
         "properties": {
@@ -1965,6 +2827,349 @@
         "title": "AuthSessionResponse",
         "type": "object"
       },
+      "BatterySignal": {
+        "additionalProperties": false,
+        "properties": {
+          "charging": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charging"
+          },
+          "drain_percent_per_hour": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drain Percent Per Hour"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "online": {
+            "default": true,
+            "title": "Online",
+            "type": "boolean"
+          },
+          "percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Percent",
+            "type": "integer"
+          },
+          "source": {
+            "const": "battery",
+            "default": "battery",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "percent"
+        ],
+        "title": "BatterySignal",
+        "type": "object"
+      },
+      "BehaviourAnomalyActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "request_check_in": "#/components/schemas/RequestCheckInAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/RequestCheckInAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "BehaviourAnomalyActionProposal",
+        "type": "object"
+      },
+      "BehaviourAnomalyDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_metrics": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Changed Metrics",
+            "type": "array"
+          },
+          "diagnosis_made": {
+            "const": false,
+            "default": false,
+            "title": "Diagnosis Made",
+            "type": "boolean"
+          },
+          "explanation": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "explanation"
+        ],
+        "title": "BehaviourAnomalyDetails",
+        "type": "object"
+      },
+      "BehaviourAnomalyInput": {
+        "additionalProperties": false,
+        "properties": {
+          "app_usage": {
+            "items": {
+              "$ref": "#/components/schemas/AppUsageSignal"
+            },
+            "maxItems": 2000,
+            "title": "App Usage",
+            "type": "array"
+          },
+          "battery": {
+            "items": {
+              "$ref": "#/components/schemas/BatterySignal"
+            },
+            "maxItems": 1000,
+            "title": "Battery",
+            "type": "array"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/LocationPoint"
+            },
+            "maxItems": 2000,
+            "title": "Locations",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricComparison"
+            },
+            "maxItems": 500,
+            "title": "Metrics",
+            "type": "array"
+          },
+          "protection_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProtectionStateSignal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usage_baselines": {
+            "items": {
+              "$ref": "#/components/schemas/UsageBaseline"
+            },
+            "maxItems": 500,
+            "title": "Usage Baselines",
+            "type": "array"
+          }
+        },
+        "title": "BehaviourAnomalyInput",
+        "type": "object"
+      },
+      "BehaviourAnomalyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/BehaviourAnomalyInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "BehaviourAnomalyRequest",
+        "type": "object"
+      },
+      "BehaviourAnomalyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "behaviour_anomaly",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/BehaviourAnomalyDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/BehaviourAnomalyActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "BehaviourAnomalyResponse",
+        "type": "object"
+      },
       "Breakdown": {
         "enum": [
           "placement",
@@ -2132,6 +3337,308 @@
         "title": "ChatResponse",
         "type": "object"
       },
+      "CheckResult": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/FindingCategory"
+          },
+          "explanation": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus"
+          }
+        },
+        "required": [
+          "category",
+          "status",
+          "explanation"
+        ],
+        "title": "CheckResult",
+        "type": "object"
+      },
+      "CheckStatus": {
+        "enum": [
+          "risk_detected",
+          "no_risk_detected",
+          "insufficient_data",
+          "not_applicable"
+        ],
+        "title": "CheckStatus",
+        "type": "string"
+      },
+      "ChildSafetyAssistantActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "contact_parent": "#/components/schemas/ContactParentAction",
+                "submit_extra_time_request": "#/components/schemas/SubmitExtraTimeRequestAction",
+                "submit_incident_report": "#/components/schemas/SubmitIncidentReportAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/ContactParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitExtraTimeRequestAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitIncidentReportAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "ChildSafetyAssistantActionProposal",
+        "type": "object"
+      },
+      "ChildSafetyAssistantDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "maxLength": 1500,
+            "minLength": 1,
+            "title": "Answer",
+            "type": "string"
+          },
+          "explanation": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "should_contact_parent": {
+            "title": "Should Contact Parent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "answer",
+          "explanation",
+          "should_contact_parent"
+        ],
+        "title": "ChildSafetyAssistantDetails",
+        "type": "object"
+      },
+      "ChildSafetyAssistantInput": {
+        "additionalProperties": false,
+        "properties": {
+          "active_rules": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyRule"
+            },
+            "maxItems": 200,
+            "title": "Active Rules",
+            "type": "array"
+          },
+          "current_resource": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceSignal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppUsageSignal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ChildSafetyAssistantInput",
+        "type": "object"
+      },
+      "ChildSafetyAssistantRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/ChildSafetyAssistantInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "ChildSafetyAssistantRequest",
+        "type": "object"
+      },
+      "ChildSafetyAssistantResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "child_safety_assistant",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ChildSafetyAssistantDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ChildSafetyAssistantActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "ChildSafetyAssistantResponse",
+        "type": "object"
+      },
       "CompatibilityStatus": {
         "enum": [
           "supported",
@@ -2162,6 +3669,28 @@
           "values"
         ],
         "title": "ConfigurationCreateRequest",
+        "type": "object"
+      },
+      "ContactParentAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "contact_parent",
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reason"
+        ],
+        "title": "ContactParentAction",
         "type": "object"
       },
       "CreateAdminUserRequest": {
@@ -2276,6 +3805,27 @@
           "name"
         ],
         "title": "Creative",
+        "type": "object"
+      },
+      "DailyTimeWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "ends_at": {
+            "format": "time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "title": "DailyTimeWindow",
         "type": "object"
       },
       "DashboardAgent": {
@@ -2517,6 +4067,15 @@
         "title": "ExecuteApprovedRequest",
         "type": "object"
       },
+      "ExecutionPolicy": {
+        "enum": [
+          "information_only",
+          "application_policy_required",
+          "parent_confirmation_required"
+        ],
+        "title": "ExecutionPolicy",
+        "type": "string"
+      },
       "ExecutionStatus": {
         "enum": [
           "pending",
@@ -2528,6 +4087,758 @@
         ],
         "title": "ExecutionStatus",
         "type": "string"
+      },
+      "ExtraTimeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "package_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Package Name",
+            "type": "string"
+          },
+          "previous_request_count_7d": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Previous Request Count 7D",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "requested_minutes": {
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Requested Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "request_id",
+          "package_name",
+          "requested_minutes",
+          "reason",
+          "requested_at"
+        ],
+        "title": "ExtraTimeRequest",
+        "type": "object"
+      },
+      "FamilyAgreementActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "propose_agreement_update": "#/components/schemas/AgreementUpdateAction",
+                "submit_extra_time_request": "#/components/schemas/SubmitExtraTimeRequestAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AgreementUpdateAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitExtraTimeRequestAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "FamilyAgreementActionProposal",
+        "type": "object"
+      },
+      "FamilyAgreementDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "draft_rules": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedFamilyRule"
+            },
+            "maxItems": 100,
+            "title": "Draft Rules",
+            "type": "array"
+          },
+          "request_context": {
+            "anyOf": [
+              {
+                "maxLength": 700,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Context"
+          }
+        },
+        "title": "FamilyAgreementDetails",
+        "type": "object"
+      },
+      "FamilyAgreementInput": {
+        "additionalProperties": false,
+        "properties": {
+          "child_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtraTimeRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_rules": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyRule"
+            },
+            "maxItems": 200,
+            "title": "Current Rules",
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/AgreementMode"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/FamilyPreferences"
+          }
+        },
+        "required": [
+          "mode",
+          "preferences"
+        ],
+        "title": "FamilyAgreementInput",
+        "type": "object"
+      },
+      "FamilyAgreementRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/FamilyAgreementInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "FamilyAgreementRequest",
+        "type": "object"
+      },
+      "FamilyAgreementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "family_agreement",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/FamilyAgreementDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyAgreementActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "FamilyAgreementResponse",
+        "type": "object"
+      },
+      "FamilyDigestActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "generate_family_report": "#/components/schemas/FamilyReportAction",
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "request_check_in": "#/components/schemas/RequestCheckInAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/RequestCheckInAction"
+              },
+              {
+                "$ref": "#/components/schemas/FamilyReportAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "FamilyDigestActionProposal",
+        "type": "object"
+      },
+      "FamilyDigestDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "highlights": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Highlights",
+            "type": "array"
+          },
+          "minor_anomalies": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Minor Anomalies",
+            "type": "array"
+          },
+          "period_summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Period Summary",
+            "type": "string"
+          },
+          "positive_changes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Positive Changes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "period_summary"
+        ],
+        "title": "FamilyDigestDetails",
+        "type": "object"
+      },
+      "FamilyDigestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "app_usage": {
+            "items": {
+              "$ref": "#/components/schemas/AppUsageSignal"
+            },
+            "maxItems": 2000,
+            "title": "App Usage",
+            "type": "array"
+          },
+          "battery": {
+            "items": {
+              "$ref": "#/components/schemas/BatterySignal"
+            },
+            "maxItems": 2000,
+            "title": "Battery",
+            "type": "array"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/LocationPoint"
+            },
+            "maxItems": 5000,
+            "title": "Locations",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricComparison"
+            },
+            "maxItems": 500,
+            "title": "Metrics",
+            "type": "array"
+          },
+          "notification_activity": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationActivity"
+            },
+            "maxItems": 500,
+            "title": "Notification Activity",
+            "type": "array"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "protection_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProtectionStateSignal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "safety_events": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyEventSignal"
+            },
+            "maxItems": 500,
+            "title": "Safety Events",
+            "type": "array"
+          },
+          "usage_baselines": {
+            "items": {
+              "$ref": "#/components/schemas/UsageBaseline"
+            },
+            "maxItems": 500,
+            "title": "Usage Baselines",
+            "type": "array"
+          },
+          "websites": {
+            "items": {
+              "$ref": "#/components/schemas/WebsiteActivitySignal"
+            },
+            "maxItems": 2000,
+            "title": "Websites",
+            "type": "array"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end"
+        ],
+        "title": "FamilyDigestInput",
+        "type": "object"
+      },
+      "FamilyDigestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/FamilyDigestInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "FamilyDigestRequest",
+        "type": "object"
+      },
+      "FamilyDigestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "family_digest",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/FamilyDigestDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyDigestActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "FamilyDigestResponse",
+        "type": "object"
+      },
+      "FamilyPreferences": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_applications": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Allowed Applications",
+            "type": "array"
+          },
+          "blocked_applications": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Blocked Applications",
+            "type": "array"
+          },
+          "control_relaxation_notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Relaxation Notes"
+          },
+          "goals": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Goals",
+            "type": "array"
+          },
+          "night_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DailyTimeWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_visible_data": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Parent Visible Data",
+            "type": "array"
+          }
+        },
+        "title": "FamilyPreferences",
+        "type": "object"
+      },
+      "FamilyReportAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "generate_family_report",
+            "title": "Kind",
+            "type": "string"
+          },
+          "period": {
+            "enum": [
+              "daily",
+              "weekly"
+            ],
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "period"
+        ],
+        "title": "FamilyReportAction",
+        "type": "object"
+      },
+      "FamilyRule": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "default": true,
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          },
+          "rule_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "title",
+          "description"
+        ],
+        "title": "FamilyRule",
+        "type": "object"
       },
       "Finding": {
         "additionalProperties": false,
@@ -2739,6 +5050,39 @@
         "title": "Finding",
         "type": "object"
       },
+      "FindingCategory": {
+        "enum": [
+          "bullying",
+          "threat",
+          "pressure_or_manipulation",
+          "personal_data_request",
+          "scam",
+          "phishing",
+          "unsafe_link_or_site",
+          "unsafe_content",
+          "suspicious_download",
+          "protection_disabled",
+          "screen_time_change",
+          "night_activity",
+          "limit_exceeded",
+          "app_usage_change",
+          "website_usage_change",
+          "location_deviation",
+          "delayed_arrival",
+          "long_stop",
+          "unusual_speed",
+          "location_spoofing",
+          "battery_anomaly",
+          "device_offline",
+          "extra_time_request_change",
+          "sudden_silence",
+          "positive_change",
+          "family_rule_conflict",
+          "informational"
+        ],
+        "title": "FindingCategory",
+        "type": "string"
+      },
       "FindingSeverity": {
         "enum": [
           "info",
@@ -2747,6 +5091,94 @@
         ],
         "title": "FindingSeverity",
         "type": "string"
+      },
+      "Geofence": {
+        "additionalProperties": false,
+        "properties": {
+          "geofence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Geofence Id",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "latitude": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "type": "number"
+          },
+          "radius_meters": {
+            "maximum": 50000.0,
+            "minimum": 25.0,
+            "title": "Radius Meters",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "geofence_id",
+          "label",
+          "latitude",
+          "longitude",
+          "radius_meters"
+        ],
+        "title": "Geofence",
+        "type": "object"
+      },
+      "GeofenceAction": {
+        "additionalProperties": false,
+        "properties": {
+          "center_evidence_id": {
+            "description": "Location evidence ID resolved to coordinates by the application.",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Center Evidence Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "propose_geofence",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "radius_meters": {
+            "maximum": 50000.0,
+            "minimum": 25.0,
+            "title": "Radius Meters",
+            "type": "integer"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "center_evidence_id",
+          "radius_meters",
+          "rationale"
+        ],
+        "title": "GeofenceAction",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3028,10 +5460,435 @@
         "title": "KillSwitchResponse",
         "type": "object"
       },
+      "LimitChangeAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "propose_limit_change",
+            "title": "Kind",
+            "type": "string"
+          },
+          "proposed_daily_limit_minutes": {
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Proposed Daily Limit Minutes",
+            "type": "integer"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "target_kind": {
+            "enum": [
+              "application",
+              "category"
+            ],
+            "title": "Target Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "target_kind",
+          "target",
+          "proposed_daily_limit_minutes",
+          "rationale"
+        ],
+        "title": "LimitChangeAction",
+        "type": "object"
+      },
+      "LocationIntelligenceActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_geofence": "#/components/schemas/GeofenceAction",
+                "request_check_in": "#/components/schemas/RequestCheckInAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/RequestCheckInAction"
+              },
+              {
+                "$ref": "#/components/schemas/GeofenceAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "LocationIntelligenceActionProposal",
+        "type": "object"
+      },
+      "LocationIntelligenceDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_arrival_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Arrival At"
+          },
+          "eta_confidence": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Confidence"
+          },
+          "explanation": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "route_status": {
+            "enum": [
+              "usual",
+              "deviated",
+              "delayed",
+              "unknown"
+            ],
+            "title": "Route Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_status",
+          "explanation"
+        ],
+        "title": "LocationIntelligenceDetails",
+        "type": "object"
+      },
+      "LocationIntelligenceInput": {
+        "additionalProperties": false,
+        "properties": {
+          "battery": {
+            "items": {
+              "$ref": "#/components/schemas/BatterySignal"
+            },
+            "maxItems": 1000,
+            "title": "Battery",
+            "type": "array"
+          },
+          "geofences": {
+            "items": {
+              "$ref": "#/components/schemas/Geofence"
+            },
+            "maxItems": 200,
+            "title": "Geofences",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/LocationPoint"
+            },
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RouteContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "points"
+        ],
+        "title": "LocationIntelligenceInput",
+        "type": "object"
+      },
+      "LocationIntelligenceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/LocationIntelligenceInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "LocationIntelligenceRequest",
+        "type": "object"
+      },
+      "LocationIntelligenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "location_intelligence",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/LocationIntelligenceDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/LocationIntelligenceActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "LocationIntelligenceResponse",
+        "type": "object"
+      },
+      "LocationPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy_meters": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy Meters"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "is_mocked": {
+            "default": false,
+            "title": "Is Mocked",
+            "type": "boolean"
+          },
+          "latitude": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "type": "number"
+          },
+          "location_source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "longitude": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "type": "number"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "online": {
+            "default": true,
+            "title": "Online",
+            "type": "boolean"
+          },
+          "source": {
+            "const": "location",
+            "default": "location",
+            "title": "Source",
+            "type": "string"
+          },
+          "speed_meters_per_second": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed Meters Per Second"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "latitude",
+          "longitude",
+          "location_source"
+        ],
+        "title": "LocationPoint",
+        "type": "object"
+      },
+      "LocationSource": {
+        "enum": [
+          "phone",
+          "mana_tracker"
+        ],
+        "title": "LocationSource",
+        "type": "string"
+      },
       "ManaAICapabilitiesResponse": {
         "additionalProperties": false,
         "properties": {
           "bounded_context": {
+            "const": "mana_ai",
             "default": "mana_ai",
             "title": "Bounded Context",
             "type": "string"
@@ -3070,24 +5927,107 @@
       "ManaAICapabilityInfo": {
         "additionalProperties": false,
         "properties": {
-          "accepts_payload_only": {
-            "default": true,
-            "title": "Accepts Payload Only",
-            "type": "boolean"
-          },
           "capability": {
             "$ref": "#/components/schemas/ManaAICapability"
           },
+          "method": {
+            "const": "POST",
+            "default": "POST",
+            "title": "Method",
+            "type": "string"
+          },
+          "mutates_application_data": {
+            "const": false,
+            "default": false,
+            "title": "Mutates Application Data",
+            "type": "boolean"
+          },
+          "path": {
+            "pattern": "^/api/v1/mana-ai/[a-z-]+$",
+            "title": "Path",
+            "type": "string"
+          },
+          "request_response_only": {
+            "const": true,
+            "default": true,
+            "title": "Request Response Only",
+            "type": "boolean"
+          },
           "status": {
+            "const": "implemented",
+            "default": "implemented",
             "title": "Status",
             "type": "string"
           }
         },
         "required": [
           "capability",
-          "status"
+          "path"
         ],
         "title": "ManaAICapabilityInfo",
+        "type": "object"
+      },
+      "ManaAIFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/FindingCategory"
+          },
+          "confidence": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "integer"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "finding_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "recommendation": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Recommendation",
+            "type": "string"
+          },
+          "risk_level": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "summary": {
+            "description": "Minimized context; must not reproduce full private content.",
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "risk_level",
+          "confidence",
+          "title",
+          "summary",
+          "evidence_ids",
+          "recommendation",
+          "finding_id"
+        ],
+        "title": "ManaAIFinding",
         "type": "object"
       },
       "ManualRunAccepted": {
@@ -4966,6 +7906,58 @@
         "title": "Metric",
         "type": "object"
       },
+      "MetricComparison": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "title": "Baseline Value",
+            "type": "number"
+          },
+          "current_value": {
+            "title": "Current Value",
+            "type": "number"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "higher_is_positive": {
+            "default": false,
+            "title": "Higher Is Positive",
+            "type": "boolean"
+          },
+          "metric": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "significant_change_percent": {
+            "default": 50,
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Significant Change Percent",
+            "type": "number"
+          },
+          "unit": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "metric",
+          "current_value",
+          "baseline_value",
+          "unit"
+        ],
+        "title": "MetricComparison",
+        "type": "object"
+      },
       "MetricValue": {
         "additionalProperties": false,
         "properties": {
@@ -5035,6 +8027,138 @@
           "kind"
         ],
         "title": "NoChangeActionParameters",
+        "type": "object"
+      },
+      "NotificationActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "application": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Application",
+            "type": "string"
+          },
+          "baseline_count": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Count"
+          },
+          "count": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "application",
+          "count"
+        ],
+        "title": "NotificationActivity",
+        "type": "object"
+      },
+      "NotificationPreviewSignal": {
+        "additionalProperties": false,
+        "properties": {
+          "application": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Application",
+            "type": "string"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "description": "Minimized notification excerpt. Do not send full conversation history.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "link_evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Link Evidence Ids",
+            "type": "array"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "sender_is_known": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Is Known"
+          },
+          "source": {
+            "const": "notification_preview",
+            "default": "notification_preview",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "application",
+          "excerpt"
+        ],
+        "title": "NotificationPreviewSignal",
+        "type": "object"
+      },
+      "NotifyParentAction": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "kind": {
+            "const": "notify_parent",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "urgency": {
+            "$ref": "#/components/schemas/RiskLevel"
+          }
+        },
+        "required": [
+          "kind",
+          "urgency",
+          "message"
+        ],
+        "title": "NotifyParentAction",
         "type": "object"
       },
       "Page_ActionExecution_": {
@@ -5389,6 +8513,298 @@
         "title": "Page[Recommendation]",
         "type": "object"
       },
+      "ParentCopilotActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "generate_family_report": "#/components/schemas/FamilyReportAction",
+                "propose_app_restriction": "#/components/schemas/AppRestrictionAction",
+                "propose_geofence": "#/components/schemas/GeofenceAction",
+                "propose_limit_change": "#/components/schemas/LimitChangeAction",
+                "propose_study_mode": "#/components/schemas/StudyModeAction",
+                "propose_temporary_access": "#/components/schemas/TemporaryAccessAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LimitChangeAction"
+              },
+              {
+                "$ref": "#/components/schemas/StudyModeAction"
+              },
+              {
+                "$ref": "#/components/schemas/GeofenceAction"
+              },
+              {
+                "$ref": "#/components/schemas/AppRestrictionAction"
+              },
+              {
+                "$ref": "#/components/schemas/TemporaryAccessAction"
+              },
+              {
+                "$ref": "#/components/schemas/FamilyReportAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "ParentCopilotActionProposal",
+        "type": "object"
+      },
+      "ParentCopilotDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Answer",
+            "type": "string"
+          },
+          "suggested_sequence": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Suggested Sequence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "ParentCopilotDetails",
+        "type": "object"
+      },
+      "ParentCopilotInput": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_action_kinds": {
+            "items": {
+              "enum": [
+                "propose_limit_change",
+                "propose_study_mode",
+                "propose_geofence",
+                "propose_app_restriction",
+                "propose_temporary_access",
+                "generate_family_report"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Allowed Action Kinds",
+            "type": "array"
+          },
+          "app_usage": {
+            "items": {
+              "$ref": "#/components/schemas/AppUsageSignal"
+            },
+            "maxItems": 500,
+            "title": "App Usage",
+            "type": "array"
+          },
+          "family_rules": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyRule"
+            },
+            "maxItems": 200,
+            "title": "Family Rules",
+            "type": "array"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/LocationPoint"
+            },
+            "maxItems": 500,
+            "title": "Locations",
+            "type": "array"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "safety_events": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyEventSignal"
+            },
+            "maxItems": 200,
+            "title": "Safety Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ParentCopilotInput",
+        "type": "object"
+      },
+      "ParentCopilotRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/ParentCopilotInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "ParentCopilotRequest",
+        "type": "object"
+      },
+      "ParentCopilotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "parent_copilot",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ParentCopilotDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ParentCopilotActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "ParentCopilotResponse",
+        "type": "object"
+      },
       "PerformanceMetrics": {
         "additionalProperties": false,
         "properties": {
@@ -5466,6 +8882,114 @@
         ],
         "title": "PolicyDecision",
         "type": "string"
+      },
+      "PrivacyGuarantees": {
+        "additionalProperties": false,
+        "properties": {
+          "application_data_mutated": {
+            "const": false,
+            "default": false,
+            "title": "Application Data Mutated",
+            "type": "boolean"
+          },
+          "provider_store_disabled": {
+            "const": true,
+            "default": true,
+            "title": "Provider Store Disabled",
+            "type": "boolean"
+          },
+          "raw_input_returned": {
+            "const": false,
+            "default": false,
+            "title": "Raw Input Returned",
+            "type": "boolean"
+          }
+        },
+        "title": "PrivacyGuarantees",
+        "type": "object"
+      },
+      "ProposedFamilyRule": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "requires_parent_confirmation": {
+            "default": true,
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description"
+        ],
+        "title": "ProposedFamilyRule",
+        "type": "object"
+      },
+      "ProtectionStateSignal": {
+        "additionalProperties": false,
+        "properties": {
+          "disable_attempt_count": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Disable Attempt Count",
+            "type": "integer"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "location_permission": {
+            "title": "Location Permission",
+            "type": "boolean"
+          },
+          "notification_access": {
+            "title": "Notification Access",
+            "type": "boolean"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "source": {
+            "const": "protection_state",
+            "default": "protection_state",
+            "title": "Source",
+            "type": "string"
+          },
+          "usage_access": {
+            "title": "Usage Access",
+            "type": "boolean"
+          },
+          "vpn_enabled": {
+            "title": "Vpn Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "location_permission",
+          "notification_access",
+          "vpn_enabled",
+          "usage_access"
+        ],
+        "title": "ProtectionStateSignal",
+        "type": "object"
       },
       "ProviderCompatibilityCheck": {
         "additionalProperties": false,
@@ -6381,6 +9905,38 @@
         "title": "Recommendation",
         "type": "object"
       },
+      "ReputationVerdict": {
+        "enum": [
+          "safe",
+          "suspicious",
+          "malicious",
+          "unknown"
+        ],
+        "title": "ReputationVerdict",
+        "type": "string"
+      },
+      "RequestCheckInAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "request_check_in",
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reason"
+        ],
+        "title": "RequestCheckInAction",
+        "type": "object"
+      },
       "RequestCodeResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6416,6 +9972,230 @@
           "bot_url"
         ],
         "title": "RequestCodeResponse",
+        "type": "object"
+      },
+      "ResourceBlockAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "propose_resource_block",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "resource_evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Resource Evidence Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "resource_evidence_id",
+          "rationale"
+        ],
+        "title": "ResourceBlockAction",
+        "type": "object"
+      },
+      "ResourceKind": {
+        "enum": [
+          "url",
+          "domain",
+          "qr_code",
+          "apk"
+        ],
+        "title": "ResourceKind",
+        "type": "string"
+      },
+      "ResourceSignal": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ResourceKind"
+          },
+          "normalized_value": {
+            "description": "Normalized URL, domain, QR payload, or APK package identifier.",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Normalized Value",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "reputation": {
+            "$ref": "#/components/schemas/ReputationVerdict",
+            "default": "unknown"
+          },
+          "requests_sensitive_permissions": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requests Sensitive Permissions"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SignalSource"
+          },
+          "source_application": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Application"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "source",
+          "kind",
+          "normalized_value"
+        ],
+        "title": "ResourceSignal",
+        "type": "object"
+      },
+      "RiskLevel": {
+        "enum": [
+          "informational",
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "RiskLevel",
+        "type": "string"
+      },
+      "RouteContext": {
+        "additionalProperties": false,
+        "properties": {
+          "destination_geofence_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination Geofence Id"
+          },
+          "distance_from_usual_route_meters": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance From Usual Route Meters"
+          },
+          "expected_arrival_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Arrival At"
+          },
+          "left_school_early": {
+            "default": false,
+            "title": "Left School Early",
+            "type": "boolean"
+          },
+          "long_stop_threshold_seconds": {
+            "default": 3600,
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Long Stop Threshold Seconds",
+            "type": "integer"
+          },
+          "missed_usual_waypoint": {
+            "default": false,
+            "title": "Missed Usual Waypoint",
+            "type": "boolean"
+          },
+          "stopped_duration_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped Duration Seconds"
+          },
+          "unusual_route_threshold_meters": {
+            "default": 500,
+            "maximum": 100000.0,
+            "minimum": 25.0,
+            "title": "Unusual Route Threshold Meters",
+            "type": "number"
+          },
+          "usual_max_speed_meters_per_second": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usual Max Speed Meters Per Second"
+          }
+        },
+        "title": "RouteContext",
         "type": "object"
       },
       "RunDetailResponse": {
@@ -6509,6 +10289,621 @@
         "title": "RunNowRequest",
         "type": "object"
       },
+      "SafetyEventSignal": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "severity": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Severity",
+            "type": "integer"
+          },
+          "source": {
+            "const": "safety_event",
+            "default": "safety_event",
+            "title": "Source",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "category",
+          "severity",
+          "summary"
+        ],
+        "title": "SafetyEventSignal",
+        "type": "object"
+      },
+      "SafetyMonitorActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "contact_parent": "#/components/schemas/ContactParentAction",
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_resource_block": "#/components/schemas/ResourceBlockAction",
+                "request_check_in": "#/components/schemas/RequestCheckInAction",
+                "submit_incident_report": "#/components/schemas/SubmitIncidentReportAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/RequestCheckInAction"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBlockAction"
+              },
+              {
+                "$ref": "#/components/schemas/ContactParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitIncidentReportAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "SafetyMonitorActionProposal",
+        "type": "object"
+      },
+      "SafetyMonitorDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "all_clear_categories": {
+            "items": {
+              "$ref": "#/components/schemas/FindingCategory"
+            },
+            "maxItems": 50,
+            "title": "All Clear Categories",
+            "type": "array"
+          },
+          "parent_context": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Parent Context",
+            "type": "string"
+          },
+          "significant_event_count": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Significant Event Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parent_context",
+          "significant_event_count"
+        ],
+        "title": "SafetyMonitorDetails",
+        "type": "object"
+      },
+      "SafetyMonitorInput": {
+        "additionalProperties": false,
+        "properties": {
+          "app_usage": {
+            "items": {
+              "$ref": "#/components/schemas/AppUsageSignal"
+            },
+            "maxItems": 500,
+            "title": "App Usage",
+            "type": "array"
+          },
+          "battery": {
+            "items": {
+              "$ref": "#/components/schemas/BatterySignal"
+            },
+            "maxItems": 500,
+            "title": "Battery",
+            "type": "array"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/LocationPoint"
+            },
+            "maxItems": 2000,
+            "title": "Locations",
+            "type": "array"
+          },
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationPreviewSignal"
+            },
+            "maxItems": 100,
+            "title": "Notifications",
+            "type": "array"
+          },
+          "protection_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProtectionStateSignal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceSignal"
+            },
+            "maxItems": 100,
+            "title": "Resources",
+            "type": "array"
+          },
+          "websites": {
+            "items": {
+              "$ref": "#/components/schemas/WebsiteActivitySignal"
+            },
+            "maxItems": 500,
+            "title": "Websites",
+            "type": "array"
+          }
+        },
+        "title": "SafetyMonitorInput",
+        "type": "object"
+      },
+      "SafetyMonitorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/SafetyMonitorInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "SafetyMonitorRequest",
+        "type": "object"
+      },
+      "SafetyMonitorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "safety_monitor",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/SafetyMonitorDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyMonitorActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "SafetyMonitorResponse",
+        "type": "object"
+      },
+      "ScamPrivacyShieldActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "contact_parent": "#/components/schemas/ContactParentAction",
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_resource_block": "#/components/schemas/ResourceBlockAction",
+                "submit_incident_report": "#/components/schemas/SubmitIncidentReportAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBlockAction"
+              },
+              {
+                "$ref": "#/components/schemas/ContactParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitIncidentReportAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "ScamPrivacyShieldActionProposal",
+        "type": "object"
+      },
+      "ScamPrivacyShieldDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "detected_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Detected Patterns",
+            "type": "array"
+          },
+          "explanation": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "requested_data_types": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Requested Data Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "explanation"
+        ],
+        "title": "ScamPrivacyShieldDetails",
+        "type": "object"
+      },
+      "ScamPrivacyShieldInput": {
+        "additionalProperties": false,
+        "properties": {
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationPreviewSignal"
+            },
+            "maxItems": 100,
+            "title": "Notifications",
+            "type": "array"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceSignal"
+            },
+            "maxItems": 100,
+            "title": "Resources",
+            "type": "array"
+          }
+        },
+        "title": "ScamPrivacyShieldInput",
+        "type": "object"
+      },
+      "ScamPrivacyShieldRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/ScamPrivacyShieldInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "ScamPrivacyShieldRequest",
+        "type": "object"
+      },
+      "ScamPrivacyShieldResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "scam_privacy_shield",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ScamPrivacyShieldDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ScamPrivacyShieldActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "ScamPrivacyShieldResponse",
+        "type": "object"
+      },
+      "ScheduleKind": {
+        "enum": [
+          "sleep",
+          "school",
+          "exam",
+          "study",
+          "free_time"
+        ],
+        "title": "ScheduleKind",
+        "type": "string"
+      },
       "ScheduleUpdateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6535,6 +10930,38 @@
           "enabled"
         ],
         "title": "ScheduleUpdateRequest",
+        "type": "object"
+      },
+      "ScheduleWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ScheduleKind"
+          },
+          "schedule_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "kind",
+          "starts_at",
+          "ends_at"
+        ],
+        "title": "ScheduleWindow",
         "type": "object"
       },
       "SessionRevocationResponse": {
@@ -6607,6 +11034,300 @@
         "title": "SessionUserResponse",
         "type": "object"
       },
+      "SignalSource": {
+        "enum": [
+          "app_usage",
+          "notification_preview",
+          "website",
+          "link_check",
+          "qr_check",
+          "location",
+          "battery",
+          "connectivity",
+          "protection_state",
+          "family_rule",
+          "safety_event",
+          "user_message",
+          "application"
+        ],
+        "title": "SignalSource",
+        "type": "string"
+      },
+      "SmartContentFilterActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_resource_block": "#/components/schemas/ResourceBlockAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBlockAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "SmartContentFilterActionProposal",
+        "type": "object"
+      },
+      "SmartContentFilterDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "decision": {
+            "enum": [
+              "allow",
+              "observe",
+              "warn",
+              "block"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "explanation": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "reputation": {
+            "$ref": "#/components/schemas/ReputationVerdict"
+          }
+        },
+        "required": [
+          "decision",
+          "reputation",
+          "explanation"
+        ],
+        "title": "SmartContentFilterDetails",
+        "type": "object"
+      },
+      "SmartContentFilterInput": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked_categories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Blocked Categories",
+            "type": "array"
+          },
+          "family_rules": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyRule"
+            },
+            "maxItems": 200,
+            "title": "Family Rules",
+            "type": "array"
+          },
+          "notification_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationPreviewSignal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceSignal"
+          }
+        },
+        "required": [
+          "resource"
+        ],
+        "title": "SmartContentFilterInput",
+        "type": "object"
+      },
+      "SmartContentFilterRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "data_minimized": {
+            "const": true,
+            "description": "Confirms that the application minimized sensitive content before submission.",
+            "title": "Data Minimized",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/SmartContentFilterInput"
+          },
+          "locale": {
+            "default": "ru",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$",
+            "title": "Locale",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SubjectContext"
+          }
+        },
+        "required": [
+          "request_id",
+          "occurred_at",
+          "subject",
+          "input",
+          "data_minimized"
+        ],
+        "title": "SmartContentFilterRequest",
+        "type": "object"
+      },
+      "SmartContentFilterResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "const": "smart_content_filter",
+            "title": "Capability",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/SmartContentFilterDetails"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/SmartContentFilterActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "SmartContentFilterResponse",
+        "type": "object"
+      },
       "StatusActionParameters": {
         "additionalProperties": false,
         "properties": {
@@ -6633,6 +11354,150 @@
           "proposed_status"
         ],
         "title": "StatusActionParameters",
+        "type": "object"
+      },
+      "StudyModeAction": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_minutes": {
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kind": {
+            "const": "propose_study_mode",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "enabled",
+          "duration_minutes",
+          "rationale"
+        ],
+        "title": "StudyModeAction",
+        "type": "object"
+      },
+      "SubjectContext": {
+        "additionalProperties": false,
+        "properties": {
+          "age_band": {
+            "$ref": "#/components/schemas/AgeBand"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "subject_id": {
+            "description": "Opaque application-scoped child identifier; do not send a name or email.",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "timezone": {
+            "examples": [
+              "Asia/Samarkand"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "age_band",
+          "timezone"
+        ],
+        "title": "SubjectContext",
+        "type": "object"
+      },
+      "SubmitExtraTimeRequestAction": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "submit_extra_time_request",
+            "title": "Kind",
+            "type": "string"
+          },
+          "package_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Package Name",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "requested_minutes": {
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Requested Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "package_name",
+          "requested_minutes",
+          "reason"
+        ],
+        "title": "SubmitExtraTimeRequestAction",
+        "type": "object"
+      },
+      "SubmitIncidentReportAction": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "kind": {
+            "const": "submit_incident_report",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 700,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "summary"
+        ],
+        "title": "SubmitIncidentReportAction",
         "type": "object"
       },
       "SummarizeRequest": {
@@ -6713,6 +11578,42 @@
           "telegram_id"
         ],
         "title": "TelegramIdentityRequest",
+        "type": "object"
+      },
+      "TemporaryAccessAction": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_minutes": {
+            "maximum": 1440.0,
+            "minimum": 1.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "propose_temporary_access",
+            "title": "Kind",
+            "type": "string"
+          },
+          "package_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Package Name",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "package_name",
+          "duration_minutes",
+          "rationale"
+        ],
+        "title": "TemporaryAccessAction",
         "type": "object"
       },
       "TestProposalParameters": {
@@ -6825,6 +11726,50 @@
         "title": "UpdateAdminUserRequest",
         "type": "object"
       },
+      "UsageBaseline": {
+        "additionalProperties": false,
+        "properties": {
+          "average_extra_time_requests": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Average Extra Time Requests",
+            "type": "number"
+          },
+          "average_launch_count": {
+            "default": 0,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Average Launch Count",
+            "type": "integer"
+          },
+          "average_night_seconds": {
+            "default": 0,
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Average Night Seconds",
+            "type": "integer"
+          },
+          "average_seconds": {
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Average Seconds",
+            "type": "integer"
+          },
+          "key": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "average_seconds"
+        ],
+        "title": "UsageBaseline",
+        "type": "object"
+      },
       "UserPage": {
         "additionalProperties": false,
         "properties": {
@@ -6905,6 +11850,87 @@
         ],
         "title": "VerificationStatus",
         "type": "string"
+      },
+      "WarnChildAction": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "kind": {
+            "const": "warn_child",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "message"
+        ],
+        "title": "WarnChildAction",
+        "type": "object"
+      },
+      "WebsiteActivitySignal": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "default": false,
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "category": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "domain": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          },
+          "evidence_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "reputation": {
+            "$ref": "#/components/schemas/ReputationVerdict",
+            "default": "unknown"
+          },
+          "source": {
+            "const": "website",
+            "default": "website",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "observed_at",
+          "domain",
+          "category"
+        ],
+        "title": "WebsiteActivitySignal",
+        "type": "object"
       },
       "WriteForbiddenDetail": {
         "additionalProperties": false,
@@ -11400,8 +16426,244 @@
         ]
       }
     },
+    "/api/v1/mana-ai/adaptive-screen-time": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "analyze_adaptive_screen_time",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Assess adaptive screen-time limits",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "app_usage": [
+                        {
+                          "category": "education",
+                          "display_name": "Learning App",
+                          "evidence_id": "usage-481",
+                          "foreground_seconds": 1800,
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "package_name": "org.example.learning",
+                          "source": "app_usage"
+                        }
+                      ]
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-adaptive_screen_time-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/AdaptiveScreenTimeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdaptiveScreenTimeResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Assess adaptive screen-time limits",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/ai-gaming-safety": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "analyze_ai_gaming_safety",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Analyze AI-service and gaming usage metadata",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "app_usage": [
+                        {
+                          "category": "game",
+                          "display_name": "Learning App",
+                          "evidence_id": "usage-481",
+                          "foreground_seconds": 1800,
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "package_name": "org.example.learning",
+                          "source": "app_usage"
+                        }
+                      ]
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-ai_gaming_safety-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/AIGamingSafetyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIGamingSafetyResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Analyze AI-service and gaming usage metadata",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/behaviour-anomaly": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "analyze_behaviour_anomaly",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Analyze changes against supplied baselines",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "metrics": [
+                        {
+                          "baseline_value": 120,
+                          "current_value": 300,
+                          "evidence_id": "metric-481",
+                          "metric": "night_screen_time_seconds",
+                          "unit": "seconds"
+                        }
+                      ]
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-behaviour_anomaly-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/BehaviourAnomalyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BehaviourAnomalyResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Analyze changes against supplied baselines",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
     "/api/v1/mana-ai/capabilities": {
       "get": {
+        "description": "Returns the exact method and path for every independent read-only capability.",
         "operationId": "list_capabilities_api_v1_mana_ai_capabilities_get",
         "responses": {
           "200": {
@@ -11420,7 +16682,627 @@
             "APIKeyHeader": []
           }
         ],
-        "summary": "List the payload-scoped MANA AI contracts",
+        "summary": "List implemented MANA AI endpoints",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety-assistant": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "respond_with_child_safety_assistant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Give child-safe contextual guidance",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "message": "Why was this website blocked?"
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-child_safety_assistant-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyAssistantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyAssistantResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Give child-safe contextual guidance",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/family-agreement": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "generate_family_agreement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Draft transparent family rules",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "mode": "draft",
+                      "preferences": {
+                        "goals": [
+                          "No games during sleep time"
+                        ]
+                      }
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-family_agreement-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/FamilyAgreementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyAgreementResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Draft transparent family rules",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/family-digest": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "generate_family_digest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Generate a daily family digest",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "app_usage": [
+                        {
+                          "category": "education",
+                          "display_name": "Learning App",
+                          "evidence_id": "usage-481",
+                          "foreground_seconds": 1800,
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "package_name": "org.example.learning",
+                          "source": "app_usage"
+                        }
+                      ],
+                      "period_end": "2026-08-07T14:20:00+05:00",
+                      "period_start": "2026-08-07T00:00:00+05:00"
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-family_digest-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/FamilyDigestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyDigestResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Generate a daily family digest",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/location-intelligence": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "analyze_location_intelligence",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Analyze a route deviation",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "points": [
+                        {
+                          "accuracy_meters": 18,
+                          "evidence_id": "location-481",
+                          "is_mocked": false,
+                          "latitude": 41.3111,
+                          "location_source": "phone",
+                          "longitude": 69.2797,
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "online": true,
+                          "source": "location",
+                          "speed_meters_per_second": 0
+                        }
+                      ],
+                      "route": {
+                        "distance_from_usual_route_meters": 850,
+                        "expected_arrival_at": "2026-08-07T13:45:00+05:00",
+                        "unusual_route_threshold_meters": 500
+                      }
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-location_intelligence-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/LocationIntelligenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationIntelligenceResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Analyze a route deviation",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-copilot": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "respond_with_parent_copilot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Answer a parent using supplied family context",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "message": "Explain today's important changes and suggest the next step."
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-parent_copilot-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ParentCopilotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentCopilotResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Answer a parent using supplied family context",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/safety-monitor": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "analyze_safety_monitor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Analyze available family-safety signals",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "notifications": [
+                        {
+                          "application": "Telegram",
+                          "evidence_id": "notification-481",
+                          "excerpt": "A minimized notification preview supplied by the application.",
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "source": "notification_preview"
+                        }
+                      ],
+                      "resources": [
+                        {
+                          "evidence_id": "resource-481",
+                          "kind": "url",
+                          "normalized_value": "https://example.test/path",
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "reputation": "safe",
+                          "source": "link_check"
+                        }
+                      ]
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-safety_monitor-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SafetyMonitorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyMonitorResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Analyze available family-safety signals",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/scam-privacy-shield": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "check_scam_privacy_shield",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Check for scam and privacy risks",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "notifications": [
+                        {
+                          "application": "Telegram",
+                          "evidence_id": "notification-481",
+                          "excerpt": "A minimized notification preview supplied by the application.",
+                          "observed_at": "2026-08-07T14:20:00+05:00",
+                          "source": "notification_preview"
+                        }
+                      ]
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-scam_privacy_shield-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ScamPrivacyShieldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScamPrivacyShieldResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Check for scam and privacy risks",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/smart-content-filter": {
+      "post": {
+        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "operationId": "check_smart_content_filter",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Check a URL, domain, QR payload, or APK",
+                  "value": {
+                    "data_minimized": true,
+                    "input": {
+                      "resource": {
+                        "evidence_id": "resource-481",
+                        "kind": "url",
+                        "normalized_value": "https://example.test/path",
+                        "observed_at": "2026-08-07T14:20:00+05:00",
+                        "reputation": "safe",
+                        "source": "link_check"
+                      }
+                    },
+                    "locale": "ru",
+                    "occurred_at": "2026-08-07T14:20:00+05:00",
+                    "request_id": "req-smart_content_filter-20260807-001",
+                    "subject": {
+                      "age_band": "age_7_12",
+                      "policy_version": "family-policy-7",
+                      "subject_id": "child_opaque_12",
+                      "timezone": "Asia/Samarkand"
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SmartContentFilterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartContentFilterResponse"
+                }
+              }
+            },
+            "description": "Completed or explicitly degraded read-only analysis."
+          },
+          "401": {
+            "description": "Missing or invalid API key."
+          },
+          "413": {
+            "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
+          },
+          "422": {
+            "description": "The capability-specific request is invalid."
+          },
+          "429": {
+            "description": "Too many failed authentication attempts; honor Retry-After."
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Check a URL, domain, QR payload, or APK",
         "tags": [
           "mana-ai"
         ]
@@ -12204,7 +18086,7 @@
       "name": "marketing"
     },
     {
-      "description": "Payload-scoped product inference contracts without operational access.",
+      "description": "Read-only request/response product inference for family safety, digital wellbeing, location, content protection, assistants, agreements, and behavior anomalies. Action proposals are never executed by this API.",
       "name": "mana-ai"
     },
     {

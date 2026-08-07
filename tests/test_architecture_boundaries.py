@@ -12,8 +12,18 @@ MANA_AI_FORBIDDEN_PREFIXES = (
     "app.services.marketing",
     "app.services.meta",
     "alembic",
+    "fastapi",
     "openai",
     "redis",
+    "sqlalchemy",
+)
+PRODUCT_AI_RUNTIME_FORBIDDEN_PREFIXES = (
+    "app.mana_operation_ai",
+    "app.services.marketing",
+    "app.services.meta",
+    "aiosqlite",
+    "alembic",
+    "asyncpg",
     "sqlalchemy",
 )
 OPERATION_DOMAIN_FORBIDDEN_PREFIXES = (
@@ -104,6 +114,16 @@ def _boundary_violations(start_prefix: str, forbidden: tuple[str, ...]) -> list[
 
 def test_mana_ai_has_no_direct_or_transitive_operational_dependencies() -> None:
     assert _boundary_violations("app.mana_ai", MANA_AI_FORBIDDEN_PREFIXES) == []
+
+
+def test_product_ai_runtime_has_no_database_or_operation_dependencies() -> None:
+    assert (
+        _boundary_violations(
+            "app.product_ai_main",
+            PRODUCT_AI_RUNTIME_FORBIDDEN_PREFIXES,
+        )
+        == []
+    )
 
 
 def test_mana_ai_cannot_use_fastapi_di_background_tasks_or_app_state() -> None:

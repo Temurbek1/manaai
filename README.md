@@ -16,12 +16,14 @@ make verify
 
 Архитектура и эксплуатация описаны в `docs/architecture.md`,
 `docs/operation-ai-platform.md`, `docs/marketing-agent.md`, `docs/action-safety.md` и
-`docs/runbook.md`. Индивидуальный вход в admin panel описан в
+`docs/runbook.md`. Контракт продуктового AI API для разработчиков приложения описан в
+`docs/mana-ai-api.md`. Индивидуальный вход в admin panel описан в
 `docs/telegram-otp-auth.md`.
 
 ## Что внутри
 
-- FastAPI application factory: `app.main:create_app`
+- Standalone read-only MANA AI factory: `app.product_ai_main:create_app`
+- Совместимая полная platform factory: `app.main:create_app`
 - Версионированный API prefix: `/api/v1`
 - OpenAI интеграция через `AsyncOpenAI`
 - Настраиваемая через `OPENAI_MODEL` модель для существующего product AI gateway
@@ -59,6 +61,9 @@ Browser authentication endpoints:
 - `GET /api/v1/health/ready` - readiness probe
 - `POST /api/v1/ai/chat` - тестовый чат-запрос к OpenAI
 - `POST /api/v1/ai/summarize` - тестовая суммаризация текста
+- `GET /api/v1/mana-ai/capabilities` - каталог 11 read-only MANA AI capabilities
+- `POST /api/v1/mana-ai/{capability}` - 11 отдельных typed endpoints без capability в body;
+  точные paths возвращает `GET /api/v1/mana-ai/capabilities`
 - `GET /api/v1/marketing/config` - non-secret статус Meta/OpenAI конфигурации
 - `POST /api/v1/marketing/raw` - загрузка raw marketing JSON records
 - `GET /api/v1/marketing/raw` - просмотр сохраненных raw records
@@ -95,14 +100,26 @@ curl -X POST http://localhost:8000/api/v1/ai/chat \
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[operation,dev]"
 uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
+```
+
+Для независимого MANA AI без подключения к каким-либо базам используйте:
+
+```bash
+uvicorn app.product_ai_main:create_app --factory --reload --host 0.0.0.0 --port 8000
 ```
 
 Через Docker:
 
 ```bash
 docker compose up --build
+```
+
+Standalone AI API без Postgres, migrations, worker и admin:
+
+```bash
+docker compose -f docker-compose.mana-ai.yml up --build
 ```
 
 Admin panel: `http://localhost:3000` через `make admin-dev` или Docker Compose. Next.js проксирует
@@ -135,8 +152,11 @@ Swagger UI доступен локально на `http://localhost:8000/docs`, 
 | `OPENAI_API_KEY` | yes | - | API key OpenAI |
 | `OPENAI_MODEL` | no | `gpt-5.4-nano` | Модель OpenAI |
 | `OPENAI_TIMEOUT_SECONDS` | no | `30` | Timeout запросов к OpenAI |
-| `OPENAI_MAX_OUTPUT_TOKENS` | no | `512` | Максимум output tokens |
+| `OPENAI_MAX_OUTPUT_TOKENS` | no | `2048` | Максимум output tokens structured response |
 | `OPENAI_TEMPERATURE` | no | `0.2` | Температура генерации |
+| `OPENAI_REASONING_EFFORT` | no | `none` | Reasoning effort для structured analysis |
+| `OPENAI_VERBOSITY` | no | `low` | Детальность structured response |
+| `MANA_AI_MAX_REQUEST_BODY_BYTES` | no | `1048576` | Максимальный JSON body standalone MANA AI API |
 | `CORS_ORIGINS` | no | `[]` | JSON список разрешенных origins |
 | `ADMIN_FASTAPI_BASE_URL` | Compose build | `http://api:8000` | Internal FastAPI destination for the Next.js server rewrite; never a credential |
 | `MARKETING_DATABASE_PATH` | no | `data/manaai.db` | SQLite path для raw records и reports |
@@ -396,9 +416,11 @@ curl http://localhost:8000/api/v1/marketing/reports/{report_id}/evidence
 
 Evidence bundle возвращает сохраненный `report`, все найденные `raw_records`, на которые ссылаются `source_record_ids`, KPI rows, patterns и graph, плюс `missing_record_ids` для старых/неполных переносов.
 
-## Прод-распаковка на сервере
+## Прод-распаковка MANA AI API на сервере
 
-Ниже вариант для обычного Linux VPS с Docker. Команды выполняются на сервере.
+Ниже основной вариант для независимого read-only AI API на обычном Linux VPS с Docker.
+Он не запускает PostgreSQL, SQLite, migrations, scheduler, worker или admin UI. Команды
+выполняются на сервере.
 
 1. Установите Docker и Compose plugin:
 
@@ -439,27 +461,32 @@ cp .env.example .env
 nano .env
 ```
 
-Минимально проверьте:
+Оставьте только необходимые standalone-настройки и сгенерируйте отдельный high-entropy
+`APP_API_KEY`:
 
 ```env
 APP_ENV=production
 APP_API_KEY=replace_with_server_api_key
 OPENAI_API_KEY=replace_with_real_secret
 OPENAI_MODEL=gpt-5.4-nano
-CORS_ORIGINS=["https://your-frontend-domain.com"]
-MARKETING_DATABASE_PATH=/data/manaai.db
-META_GRAPH_API_VERSION=v25.0
-META_APP_ID=replace_with_meta_app_id
-META_BUSINESS_ID=replace_with_business_id
-META_ACCESS_TOKEN=replace_with_system_user_access_token
+OPENAI_REASONING_EFFORT=none
+OPENAI_VERBOSITY=low
+OPENAI_MAX_OUTPUT_TOKENS=2048
+MANA_AI_MAX_REQUEST_BODY_BYTES=1048576
+CORS_ORIGINS=[]
+MANA_TELEGRAM_AUTH_ENABLED=false
+OPERATION_AUTO_CREATE_SCHEMA=false
+OPERATION_SCHEDULER_ENABLED=false
+META_REAL_WRITES_ENABLED=false
 ```
 
 4. Соберите и запустите контейнер:
 
 ```bash
-docker compose up -d --build
-docker compose ps
-docker compose logs -f api
+docker compose -f docker-compose.mana-ai.yml config --quiet
+docker compose -f docker-compose.mana-ai.yml up -d --build
+docker compose -f docker-compose.mana-ai.yml ps
+docker compose -f docker-compose.mana-ai.yml logs -f mana-ai-api
 ```
 
 5. Проверьте health endpoint:
@@ -474,12 +501,31 @@ curl http://127.0.0.1:8000/api/v1/health/live
 {"status":"ok"}
 ```
 
+Проверьте authenticated-каталог контрактов:
+
+```bash
+read -rsp "APP_API_KEY: " APP_API_KEY && echo
+curl -H "X-API-Key: $APP_API_KEY" \
+  http://127.0.0.1:8000/api/v1/mana-ai/capabilities
+unset APP_API_KEY
+```
+
+В production Swagger отключён. Для просмотра и генерации клиентских SDK поднимите тот же factory
+в доверенном staging с `APP_ENV=staging` и откройте `/docs` или `/openapi.json`. Полная platform
+с БД и operation-модулями разворачивается отдельно через основной `docker-compose.yml` и не нужна
+для MANA AI request/response integration.
+
+`APP_API_KEY` используется только между доверенным backend приложения и MANA AI. Не встраивайте
+его в mobile/browser bundle. Compose публикует порт только на `127.0.0.1`; для другого сервера
+используйте приватную сеть/VPN либо TLS reverse proxy с сетевым allowlist.
+
 ## Nginx reverse proxy пример
 
 ```nginx
 server {
     listen 80;
     server_name api.example.com;
+    client_max_body_size 1m;
 
     location / {
         proxy_pass http://127.0.0.1:8000;

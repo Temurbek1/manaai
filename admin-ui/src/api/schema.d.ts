@@ -766,6 +766,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/adaptive-screen-time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assess adaptive screen-time limits
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["analyze_adaptive_screen_time"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/ai-gaming-safety": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze AI-service and gaming usage metadata
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["analyze_ai_gaming_safety"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/behaviour-anomaly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze changes against supplied baselines
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["analyze_behaviour_anomaly"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/capabilities": {
         parameters: {
             query?: never;
@@ -773,10 +833,173 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List the payload-scoped MANA AI contracts */
+        /**
+         * List implemented MANA AI endpoints
+         * @description Returns the exact method and path for every independent read-only capability.
+         */
         get: operations["list_capabilities_api_v1_mana_ai_capabilities_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/child-safety-assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give child-safe contextual guidance
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["respond_with_child_safety_assistant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/family-agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft transparent family rules
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["generate_family_agreement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/family-digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a daily family digest
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["generate_family_digest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/location-intelligence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze a route deviation
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["analyze_location_intelligence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-copilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a parent using supplied family context
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["respond_with_parent_copilot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/safety-monitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze available family-safety signals
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["analyze_safety_monitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/scam-privacy-shield": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check for scam and privacy risks
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["check_scam_privacy_shield"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/smart-content-filter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a URL, domain, QR payload, or APK
+         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         */
+        post: operations["check_smart_content_filter"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1071,6 +1294,110 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AIGamingSafetyActionProposal */
+        AIGamingSafetyActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["WarnChildAction"] | components["schemas"]["LimitChangeAction"] | components["schemas"]["AppRestrictionAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** AIGamingSafetyDetails */
+        AIGamingSafetyDetails: {
+            /** Affected Packages */
+            affected_packages?: string[];
+            /** Ai Service Summary */
+            ai_service_summary: string;
+            /** Gaming Summary */
+            gaming_summary: string;
+        };
+        /** AIGamingSafetyInput */
+        AIGamingSafetyInput: {
+            /** App Usage */
+            app_usage: components["schemas"]["AppUsageSignal"][];
+            /** Extra Time Requests */
+            extra_time_requests?: components["schemas"]["ExtraTimeRequest"][];
+            /** Limits */
+            limits?: components["schemas"]["AppLimit"][];
+            /** Schedules */
+            schedules?: components["schemas"]["ScheduleWindow"][];
+            /** Usage Baselines */
+            usage_baselines?: components["schemas"]["UsageBaseline"][];
+        };
+        /** AIGamingSafetyRequest */
+        AIGamingSafetyRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["AIGamingSafetyInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** AIGamingSafetyResponse */
+        AIGamingSafetyResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "ai_gaming_safety";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["AIGamingSafetyDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["AIGamingSafetyActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
         /** ActionExecution */
         ActionExecution: {
             /**
@@ -1275,6 +1602,110 @@ export interface components {
          * @enum {string}
          */
         AdEntityType: "account" | "campaign" | "ad_set" | "ad" | "creative" | "audience";
+        /** AdaptiveScreenTimeActionProposal */
+        AdaptiveScreenTimeActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["WarnChildAction"] | components["schemas"]["LimitChangeAction"] | components["schemas"]["StudyModeAction"] | components["schemas"]["AppRestrictionAction"] | components["schemas"]["TemporaryAccessAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** AdaptiveScreenTimeDetails */
+        AdaptiveScreenTimeDetails: {
+            /** App Classifications */
+            app_classifications?: components["schemas"]["AppClassification"][];
+            /** Limit Assessment */
+            limit_assessment?: string[];
+        };
+        /** AdaptiveScreenTimeInput */
+        AdaptiveScreenTimeInput: {
+            /** App Usage */
+            app_usage: components["schemas"]["AppUsageSignal"][];
+            /** Extra Time Requests */
+            extra_time_requests?: components["schemas"]["ExtraTimeRequest"][];
+            /** Family Rules */
+            family_rules?: components["schemas"]["FamilyRule"][];
+            /** Limits */
+            limits?: components["schemas"]["AppLimit"][];
+            /** Schedules */
+            schedules?: components["schemas"]["ScheduleWindow"][];
+            /** Usage Baselines */
+            usage_baselines?: components["schemas"]["UsageBaseline"][];
+        };
+        /** AdaptiveScreenTimeRequest */
+        AdaptiveScreenTimeRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["AdaptiveScreenTimeInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** AdaptiveScreenTimeResponse */
+        AdaptiveScreenTimeResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "adaptive_screen_time";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["AdaptiveScreenTimeDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["AdaptiveScreenTimeActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
         /** AdminUserResponse */
         AdminUserResponse: {
             /** Auth Locked Until */
@@ -1372,6 +1803,11 @@ export interface components {
              */
             schema_version: string;
         };
+        /**
+         * AgeBand
+         * @enum {string}
+         */
+        AgeBand: "under_7" | "age_7_12" | "age_13_15" | "age_16_17";
         /** AgentCapability */
         AgentCapability: {
             /** Description */
@@ -1569,6 +2005,114 @@ export interface components {
         AgentStatusRequest: {
             status: components["schemas"]["AgentStatus"];
         };
+        /**
+         * AgreementMode
+         * @enum {string}
+         */
+        AgreementMode: "draft" | "review" | "child_request";
+        /** AgreementUpdateAction */
+        AgreementUpdateAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_agreement_update";
+            /** Proposed Changes */
+            proposed_changes: string[];
+            /** Rationale */
+            rationale: string;
+        };
+        /**
+         * AnalysisStatus
+         * @enum {string}
+         */
+        AnalysisStatus: "completed" | "degraded";
+        /**
+         * AnalysisVerdict
+         * @enum {string}
+         */
+        AnalysisVerdict: "no_risk_detected" | "observe" | "warn" | "alert" | "block" | "insufficient_data";
+        /**
+         * AppCategory
+         * @enum {string}
+         */
+        AppCategory: "education" | "messaging" | "social" | "game" | "ai_service" | "video" | "browser" | "productivity" | "other" | "unknown";
+        /** AppClassification */
+        AppClassification: {
+            category: components["schemas"]["AppCategory"];
+            /** Explanation */
+            explanation: string;
+            /** Package Name */
+            package_name: string;
+        };
+        /** AppLimit */
+        AppLimit: {
+            category?: components["schemas"]["AppCategory"] | null;
+            /** Daily Limit Seconds */
+            daily_limit_seconds: number;
+            /** Package Name */
+            package_name?: string | null;
+        };
+        /** AppRestrictionAction */
+        AppRestrictionAction: {
+            /** Duration Minutes */
+            duration_minutes?: number | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_app_restriction";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "warn" | "limit" | "block";
+            /** Package Name */
+            package_name: string;
+            /** Rationale */
+            rationale: string;
+        };
+        /** AppUsageSignal */
+        AppUsageSignal: {
+            /** @default unknown */
+            category: components["schemas"]["AppCategory"];
+            /** Configured Limit Seconds */
+            configured_limit_seconds?: number | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Extra Time Request Count
+             * @default 0
+             */
+            extra_time_request_count: number;
+            /** Foreground Seconds */
+            foreground_seconds: number;
+            /**
+             * Launch Count
+             * @default 0
+             */
+            launch_count: number;
+            /**
+             * Night Seconds
+             * @default 0
+             */
+            night_seconds: number;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Package Name */
+            package_name: string;
+            /**
+             * Source
+             * @default app_usage
+             * @constant
+             */
+            source: "app_usage";
+        };
         /** ApprovalDecision */
         ApprovalDecision: {
             /** Approval Id */
@@ -1742,6 +2286,142 @@ export interface components {
             provider_mode?: string | null;
             user?: components["schemas"]["SessionUserResponse"] | null;
         };
+        /** BatterySignal */
+        BatterySignal: {
+            /** Charging */
+            charging?: boolean | null;
+            /** Drain Percent Per Hour */
+            drain_percent_per_hour?: number | null;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Online
+             * @default true
+             */
+            online: boolean;
+            /** Percent */
+            percent: number;
+            /**
+             * Source
+             * @default battery
+             * @constant
+             */
+            source: "battery";
+        };
+        /** BehaviourAnomalyActionProposal */
+        BehaviourAnomalyActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["WarnChildAction"] | components["schemas"]["RequestCheckInAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** BehaviourAnomalyDetails */
+        BehaviourAnomalyDetails: {
+            /** Changed Metrics */
+            changed_metrics?: string[];
+            /**
+             * Diagnosis Made
+             * @default false
+             * @constant
+             */
+            diagnosis_made: false;
+            /** Explanation */
+            explanation: string;
+        };
+        /** BehaviourAnomalyInput */
+        BehaviourAnomalyInput: {
+            /** App Usage */
+            app_usage?: components["schemas"]["AppUsageSignal"][];
+            /** Battery */
+            battery?: components["schemas"]["BatterySignal"][];
+            /** Locations */
+            locations?: components["schemas"]["LocationPoint"][];
+            /** Metrics */
+            metrics?: components["schemas"]["MetricComparison"][];
+            protection_state?: components["schemas"]["ProtectionStateSignal"] | null;
+            /** Usage Baselines */
+            usage_baselines?: components["schemas"]["UsageBaseline"][];
+        };
+        /** BehaviourAnomalyRequest */
+        BehaviourAnomalyRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["BehaviourAnomalyInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** BehaviourAnomalyResponse */
+        BehaviourAnomalyResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "behaviour_anomaly";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["BehaviourAnomalyDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["BehaviourAnomalyActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
         /**
          * Breakdown
          * @enum {string}
@@ -1801,6 +2481,118 @@ export interface components {
             /** Model */
             model: string;
         };
+        /** CheckResult */
+        CheckResult: {
+            category: components["schemas"]["FindingCategory"];
+            /** Explanation */
+            explanation: string;
+            status: components["schemas"]["CheckStatus"];
+        };
+        /**
+         * CheckStatus
+         * @enum {string}
+         */
+        CheckStatus: "risk_detected" | "no_risk_detected" | "insufficient_data" | "not_applicable";
+        /** ChildSafetyAssistantActionProposal */
+        ChildSafetyAssistantActionProposal: {
+            /** Action */
+            action: components["schemas"]["WarnChildAction"] | components["schemas"]["ContactParentAction"] | components["schemas"]["SubmitExtraTimeRequestAction"] | components["schemas"]["SubmitIncidentReportAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** ChildSafetyAssistantDetails */
+        ChildSafetyAssistantDetails: {
+            /** Answer */
+            answer: string;
+            /** Explanation */
+            explanation: string;
+            /** Should Contact Parent */
+            should_contact_parent: boolean;
+        };
+        /** ChildSafetyAssistantInput */
+        ChildSafetyAssistantInput: {
+            /** Active Rules */
+            active_rules?: components["schemas"]["FamilyRule"][];
+            current_resource?: components["schemas"]["ResourceSignal"] | null;
+            current_usage?: components["schemas"]["AppUsageSignal"] | null;
+            /** Message */
+            message: string;
+        };
+        /** ChildSafetyAssistantRequest */
+        ChildSafetyAssistantRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["ChildSafetyAssistantInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** ChildSafetyAssistantResponse */
+        ChildSafetyAssistantResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "child_safety_assistant";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["ChildSafetyAssistantDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["ChildSafetyAssistantActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
         /**
          * CompatibilityStatus
          * @enum {string}
@@ -1812,6 +2604,16 @@ export interface components {
             values: {
                 [key: string]: components["schemas"]["JsonValue"];
             };
+        };
+        /** ContactParentAction */
+        ContactParentAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "contact_parent";
+            /** Reason */
+            reason: string;
         };
         /** CreateAdminUserRequest */
         CreateAdminUserRequest: {
@@ -1839,6 +2641,19 @@ export interface components {
             provider_id: string;
             /** Title */
             title?: string | null;
+        };
+        /** DailyTimeWindow */
+        DailyTimeWindow: {
+            /**
+             * Ends At
+             * Format: time
+             */
+            ends_at: string;
+            /**
+             * Starts At
+             * Format: time
+             */
+            starts_at: string;
         };
         /** DashboardAgent */
         DashboardAgent: {
@@ -1929,10 +2744,302 @@ export interface components {
             correlation_id: string;
         };
         /**
+         * ExecutionPolicy
+         * @enum {string}
+         */
+        ExecutionPolicy: "information_only" | "application_policy_required" | "parent_confirmation_required";
+        /**
          * ExecutionStatus
          * @enum {string}
          */
         ExecutionStatus: "pending" | "executing" | "succeeded" | "partially_applied" | "failed" | "dry_run";
+        /** ExtraTimeRequest */
+        ExtraTimeRequest: {
+            /** Package Name */
+            package_name: string;
+            /**
+             * Previous Request Count 7D
+             * @default 0
+             */
+            previous_request_count_7d: number;
+            /** Reason */
+            reason: string;
+            /** Request Id */
+            request_id: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Requested Minutes */
+            requested_minutes: number;
+        };
+        /** FamilyAgreementActionProposal */
+        FamilyAgreementActionProposal: {
+            /** Action */
+            action: components["schemas"]["AgreementUpdateAction"] | components["schemas"]["SubmitExtraTimeRequestAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** FamilyAgreementDetails */
+        FamilyAgreementDetails: {
+            /** Draft Rules */
+            draft_rules?: components["schemas"]["ProposedFamilyRule"][];
+            /** Request Context */
+            request_context?: string | null;
+        };
+        /** FamilyAgreementInput */
+        FamilyAgreementInput: {
+            child_request?: components["schemas"]["ExtraTimeRequest"] | null;
+            /** Current Rules */
+            current_rules?: components["schemas"]["FamilyRule"][];
+            mode: components["schemas"]["AgreementMode"];
+            preferences: components["schemas"]["FamilyPreferences"];
+        };
+        /** FamilyAgreementRequest */
+        FamilyAgreementRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["FamilyAgreementInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** FamilyAgreementResponse */
+        FamilyAgreementResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "family_agreement";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["FamilyAgreementDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["FamilyAgreementActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /** FamilyDigestActionProposal */
+        FamilyDigestActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["RequestCheckInAction"] | components["schemas"]["FamilyReportAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** FamilyDigestDetails */
+        FamilyDigestDetails: {
+            /** Highlights */
+            highlights?: string[];
+            /** Minor Anomalies */
+            minor_anomalies?: string[];
+            /** Period Summary */
+            period_summary: string;
+            /** Positive Changes */
+            positive_changes?: string[];
+        };
+        /** FamilyDigestInput */
+        FamilyDigestInput: {
+            /** App Usage */
+            app_usage?: components["schemas"]["AppUsageSignal"][];
+            /** Battery */
+            battery?: components["schemas"]["BatterySignal"][];
+            /** Locations */
+            locations?: components["schemas"]["LocationPoint"][];
+            /** Metrics */
+            metrics?: components["schemas"]["MetricComparison"][];
+            /** Notification Activity */
+            notification_activity?: components["schemas"]["NotificationActivity"][];
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            protection_state?: components["schemas"]["ProtectionStateSignal"] | null;
+            /** Safety Events */
+            safety_events?: components["schemas"]["SafetyEventSignal"][];
+            /** Usage Baselines */
+            usage_baselines?: components["schemas"]["UsageBaseline"][];
+            /** Websites */
+            websites?: components["schemas"]["WebsiteActivitySignal"][];
+        };
+        /** FamilyDigestRequest */
+        FamilyDigestRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["FamilyDigestInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** FamilyDigestResponse */
+        FamilyDigestResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "family_digest";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["FamilyDigestDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["FamilyDigestActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /** FamilyPreferences */
+        FamilyPreferences: {
+            /** Allowed Applications */
+            allowed_applications?: string[];
+            /** Blocked Applications */
+            blocked_applications?: string[];
+            /** Control Relaxation Notes */
+            control_relaxation_notes?: string | null;
+            /** Goals */
+            goals?: string[];
+            night_window?: components["schemas"]["DailyTimeWindow"] | null;
+            /** Parent Visible Data */
+            parent_visible_data?: string[];
+        };
+        /** FamilyReportAction */
+        FamilyReportAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "generate_family_report";
+            /**
+             * Period
+             * @enum {string}
+             */
+            period: "daily" | "weekly";
+        };
+        /** FamilyRule */
+        FamilyRule: {
+            /** Description */
+            description: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Requires Parent Confirmation
+             * @default true
+             */
+            requires_parent_confirmation: boolean;
+            /** Rule Id */
+            rule_id: string;
+            /** Title */
+            title: string;
+        };
         /** Finding */
         Finding: {
             /** Analysis Id */
@@ -1989,10 +3096,47 @@ export interface components {
             title: string;
         };
         /**
+         * FindingCategory
+         * @enum {string}
+         */
+        FindingCategory: "bullying" | "threat" | "pressure_or_manipulation" | "personal_data_request" | "scam" | "phishing" | "unsafe_link_or_site" | "unsafe_content" | "suspicious_download" | "protection_disabled" | "screen_time_change" | "night_activity" | "limit_exceeded" | "app_usage_change" | "website_usage_change" | "location_deviation" | "delayed_arrival" | "long_stop" | "unusual_speed" | "location_spoofing" | "battery_anomaly" | "device_offline" | "extra_time_request_change" | "sudden_silence" | "positive_change" | "family_rule_conflict" | "informational";
+        /**
          * FindingSeverity
          * @enum {string}
          */
         FindingSeverity: "info" | "warning" | "critical";
+        /** Geofence */
+        Geofence: {
+            /** Geofence Id */
+            geofence_id: string;
+            /** Label */
+            label: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Radius Meters */
+            radius_meters: number;
+        };
+        /** GeofenceAction */
+        GeofenceAction: {
+            /**
+             * Center Evidence Id
+             * @description Location evidence ID resolved to coordinates by the application.
+             */
+            center_evidence_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_geofence";
+            /** Label */
+            label: string;
+            /** Radius Meters */
+            radius_meters: number;
+            /** Rationale */
+            rationale: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2085,13 +3229,179 @@ export interface components {
             /** Scope */
             scope: string;
         };
+        /** LimitChangeAction */
+        LimitChangeAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_limit_change";
+            /** Proposed Daily Limit Minutes */
+            proposed_daily_limit_minutes: number;
+            /** Rationale */
+            rationale: string;
+            /** Target */
+            target: string;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "application" | "category";
+        };
+        /** LocationIntelligenceActionProposal */
+        LocationIntelligenceActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["RequestCheckInAction"] | components["schemas"]["GeofenceAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** LocationIntelligenceDetails */
+        LocationIntelligenceDetails: {
+            /** Estimated Arrival At */
+            estimated_arrival_at?: string | null;
+            /** Eta Confidence */
+            eta_confidence?: number | null;
+            /** Explanation */
+            explanation: string;
+            /**
+             * Route Status
+             * @enum {string}
+             */
+            route_status: "usual" | "deviated" | "delayed" | "unknown";
+        };
+        /** LocationIntelligenceInput */
+        LocationIntelligenceInput: {
+            /** Battery */
+            battery?: components["schemas"]["BatterySignal"][];
+            /** Geofences */
+            geofences?: components["schemas"]["Geofence"][];
+            /** Points */
+            points: components["schemas"]["LocationPoint"][];
+            route?: components["schemas"]["RouteContext"] | null;
+        };
+        /** LocationIntelligenceRequest */
+        LocationIntelligenceRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["LocationIntelligenceInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** LocationIntelligenceResponse */
+        LocationIntelligenceResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "location_intelligence";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["LocationIntelligenceDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["LocationIntelligenceActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /** LocationPoint */
+        LocationPoint: {
+            /** Accuracy Meters */
+            accuracy_meters?: number | null;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Is Mocked
+             * @default false
+             */
+            is_mocked: boolean;
+            /** Latitude */
+            latitude: number;
+            location_source: components["schemas"]["LocationSource"];
+            /** Longitude */
+            longitude: number;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Online
+             * @default true
+             */
+            online: boolean;
+            /**
+             * Source
+             * @default location
+             * @constant
+             */
+            source: "location";
+            /** Speed Meters Per Second */
+            speed_meters_per_second?: number | null;
+        };
+        /**
+         * LocationSource
+         * @enum {string}
+         */
+        LocationSource: "phone" | "mana_tracker";
         /** ManaAICapabilitiesResponse */
         ManaAICapabilitiesResponse: {
             /**
              * Bounded Context
              * @default mana_ai
+             * @constant
              */
-            bounded_context: string;
+            bounded_context: "mana_ai";
             /** Capabilities */
             capabilities: components["schemas"]["ManaAICapabilityInfo"][];
         };
@@ -2102,14 +3412,53 @@ export interface components {
         ManaAICapability: "safety_monitor" | "family_digest" | "adaptive_screen_time" | "location_intelligence" | "smart_content_filter" | "scam_privacy_shield" | "ai_gaming_safety" | "parent_copilot" | "child_safety_assistant" | "family_agreement" | "behaviour_anomaly";
         /** ManaAICapabilityInfo */
         ManaAICapabilityInfo: {
-            /**
-             * Accepts Payload Only
-             * @default true
-             */
-            accepts_payload_only: boolean;
             capability: components["schemas"]["ManaAICapability"];
-            /** Status */
-            status: string;
+            /**
+             * Method
+             * @default POST
+             * @constant
+             */
+            method: "POST";
+            /**
+             * Mutates Application Data
+             * @default false
+             * @constant
+             */
+            mutates_application_data: false;
+            /** Path */
+            path: string;
+            /**
+             * Request Response Only
+             * @default true
+             * @constant
+             */
+            request_response_only: true;
+            /**
+             * Status
+             * @default implemented
+             * @constant
+             */
+            status: "implemented";
+        };
+        /** ManaAIFinding */
+        ManaAIFinding: {
+            category: components["schemas"]["FindingCategory"];
+            /** Confidence */
+            confidence: number;
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Finding Id */
+            finding_id: string;
+            /** Recommendation */
+            recommendation: string;
+            risk_level: components["schemas"]["RiskLevel"];
+            /**
+             * Summary
+             * @description Minimized context; must not reproduce full private content.
+             */
+            summary: string;
+            /** Title */
+            title: string;
         };
         /** ManualRunAccepted */
         ManualRunAccepted: {
@@ -2686,6 +4035,29 @@ export interface components {
             /** Value */
             value: string | null;
         };
+        /** MetricComparison */
+        MetricComparison: {
+            /** Baseline Value */
+            baseline_value: number;
+            /** Current Value */
+            current_value: number;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Higher Is Positive
+             * @default false
+             */
+            higher_is_positive: boolean;
+            /** Metric */
+            metric: string;
+            /**
+             * Significant Change Percent
+             * @default 50
+             */
+            significant_change_percent: number;
+            /** Unit */
+            unit: string;
+        };
         /** MetricValue */
         MetricValue: {
             availability: components["schemas"]["DataAvailability"];
@@ -2705,6 +4077,55 @@ export interface components {
             kind: "maintain" | "observe";
             /** Observation Until */
             observation_until?: string | null;
+        };
+        /** NotificationActivity */
+        NotificationActivity: {
+            /** Application */
+            application: string;
+            /** Baseline Count */
+            baseline_count?: number | null;
+            /** Count */
+            count: number;
+        };
+        /** NotificationPreviewSignal */
+        NotificationPreviewSignal: {
+            /** Application */
+            application: string;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Excerpt
+             * @description Minimized notification excerpt. Do not send full conversation history.
+             */
+            excerpt: string;
+            /** Link Evidence Ids */
+            link_evidence_ids?: string[];
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Sender Is Known */
+            sender_is_known?: boolean | null;
+            /**
+             * Source
+             * @default notification_preview
+             * @constant
+             */
+            source: "notification_preview";
+        };
+        /** NotifyParentAction */
+        NotifyParentAction: {
+            /** Evidence Ids */
+            evidence_ids?: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "notify_parent";
+            /** Message */
+            message: string;
+            urgency: components["schemas"]["RiskLevel"];
         };
         /** Page[ActionExecution] */
         Page_ActionExecution_: {
@@ -2827,6 +4248,110 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** ParentCopilotActionProposal */
+        ParentCopilotActionProposal: {
+            /** Action */
+            action: components["schemas"]["LimitChangeAction"] | components["schemas"]["StudyModeAction"] | components["schemas"]["GeofenceAction"] | components["schemas"]["AppRestrictionAction"] | components["schemas"]["TemporaryAccessAction"] | components["schemas"]["FamilyReportAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** ParentCopilotDetails */
+        ParentCopilotDetails: {
+            /** Answer */
+            answer: string;
+            /** Suggested Sequence */
+            suggested_sequence?: string[];
+        };
+        /** ParentCopilotInput */
+        ParentCopilotInput: {
+            /** Allowed Action Kinds */
+            allowed_action_kinds?: ("propose_limit_change" | "propose_study_mode" | "propose_geofence" | "propose_app_restriction" | "propose_temporary_access" | "generate_family_report")[];
+            /** App Usage */
+            app_usage?: components["schemas"]["AppUsageSignal"][];
+            /** Family Rules */
+            family_rules?: components["schemas"]["FamilyRule"][];
+            /** Locations */
+            locations?: components["schemas"]["LocationPoint"][];
+            /** Message */
+            message: string;
+            /** Safety Events */
+            safety_events?: components["schemas"]["SafetyEventSignal"][];
+        };
+        /** ParentCopilotRequest */
+        ParentCopilotRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["ParentCopilotInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** ParentCopilotResponse */
+        ParentCopilotResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "parent_copilot";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["ParentCopilotDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["ParentCopilotActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
         /** PerformanceMetrics */
         PerformanceMetrics: {
             clicks: components["schemas"]["Metric"];
@@ -2850,6 +4375,68 @@ export interface components {
          * @enum {string}
          */
         PolicyDecision: "allow" | "require_approval" | "deny";
+        /** PrivacyGuarantees */
+        PrivacyGuarantees: {
+            /**
+             * Application Data Mutated
+             * @default false
+             * @constant
+             */
+            application_data_mutated: false;
+            /**
+             * Provider Store Disabled
+             * @default true
+             * @constant
+             */
+            provider_store_disabled: true;
+            /**
+             * Raw Input Returned
+             * @default false
+             * @constant
+             */
+            raw_input_returned: false;
+        };
+        /** ProposedFamilyRule */
+        ProposedFamilyRule: {
+            /** Description */
+            description: string;
+            /**
+             * Requires Parent Confirmation
+             * @default true
+             */
+            requires_parent_confirmation: boolean;
+            /** Title */
+            title: string;
+        };
+        /** ProtectionStateSignal */
+        ProtectionStateSignal: {
+            /**
+             * Disable Attempt Count
+             * @default 0
+             */
+            disable_attempt_count: number;
+            /** Evidence Id */
+            evidence_id: string;
+            /** Location Permission */
+            location_permission: boolean;
+            /** Notification Access */
+            notification_access: boolean;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Source
+             * @default protection_state
+             * @constant
+             */
+            source: "protection_state";
+            /** Usage Access */
+            usage_access: boolean;
+            /** Vpn Enabled */
+            vpn_enabled: boolean;
+        };
         /** ProviderCompatibilityCheck */
         ProviderCompatibilityCheck: {
             /** Breakdowns */
@@ -3161,6 +4748,21 @@ export interface components {
             /** Run Id */
             run_id: string;
         };
+        /**
+         * ReputationVerdict
+         * @enum {string}
+         */
+        ReputationVerdict: "safe" | "suspicious" | "malicious" | "unknown";
+        /** RequestCheckInAction */
+        RequestCheckInAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "request_check_in";
+            /** Reason */
+            reason: string;
+        };
         /** RequestCodeResponse */
         RequestCodeResponse: {
             /** Bot Url */
@@ -3174,6 +4776,86 @@ export interface components {
             message: string;
             /** Resend After Seconds */
             resend_after_seconds: number;
+        };
+        /** ResourceBlockAction */
+        ResourceBlockAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_resource_block";
+            /** Rationale */
+            rationale: string;
+            /** Resource Evidence Id */
+            resource_evidence_id: string;
+        };
+        /**
+         * ResourceKind
+         * @enum {string}
+         */
+        ResourceKind: "url" | "domain" | "qr_code" | "apk";
+        /** ResourceSignal */
+        ResourceSignal: {
+            /** Category */
+            category?: string | null;
+            /** Evidence Id */
+            evidence_id: string;
+            kind: components["schemas"]["ResourceKind"];
+            /**
+             * Normalized Value
+             * @description Normalized URL, domain, QR payload, or APK package identifier.
+             */
+            normalized_value: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** @default unknown */
+            reputation: components["schemas"]["ReputationVerdict"];
+            /** Requests Sensitive Permissions */
+            requests_sensitive_permissions?: boolean | null;
+            source: components["schemas"]["SignalSource"];
+            /** Source Application */
+            source_application?: string | null;
+        };
+        /**
+         * RiskLevel
+         * @enum {string}
+         */
+        RiskLevel: "informational" | "low" | "medium" | "high" | "critical";
+        /** RouteContext */
+        RouteContext: {
+            /** Destination Geofence Id */
+            destination_geofence_id?: string | null;
+            /** Distance From Usual Route Meters */
+            distance_from_usual_route_meters?: number | null;
+            /** Expected Arrival At */
+            expected_arrival_at?: string | null;
+            /**
+             * Left School Early
+             * @default false
+             */
+            left_school_early: boolean;
+            /**
+             * Long Stop Threshold Seconds
+             * @default 3600
+             */
+            long_stop_threshold_seconds: number;
+            /**
+             * Missed Usual Waypoint
+             * @default false
+             */
+            missed_usual_waypoint: boolean;
+            /** Stopped Duration Seconds */
+            stopped_duration_seconds?: number | null;
+            /**
+             * Unusual Route Threshold Meters
+             * @default 500
+             */
+            unusual_route_threshold_meters: number;
+            /** Usual Max Speed Meters Per Second */
+            usual_max_speed_meters_per_second?: number | null;
         };
         /** RunDetailResponse */
         RunDetailResponse: {
@@ -3201,6 +4883,238 @@ export interface components {
              */
             job_type: string;
         };
+        /** SafetyEventSignal */
+        SafetyEventSignal: {
+            /** Category */
+            category: string;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Severity */
+            severity: number;
+            /**
+             * Source
+             * @default safety_event
+             * @constant
+             */
+            source: "safety_event";
+            /** Summary */
+            summary: string;
+        };
+        /** SafetyMonitorActionProposal */
+        SafetyMonitorActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["WarnChildAction"] | components["schemas"]["RequestCheckInAction"] | components["schemas"]["ResourceBlockAction"] | components["schemas"]["ContactParentAction"] | components["schemas"]["SubmitIncidentReportAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** SafetyMonitorDetails */
+        SafetyMonitorDetails: {
+            /** All Clear Categories */
+            all_clear_categories?: components["schemas"]["FindingCategory"][];
+            /** Parent Context */
+            parent_context: string;
+            /** Significant Event Count */
+            significant_event_count: number;
+        };
+        /** SafetyMonitorInput */
+        SafetyMonitorInput: {
+            /** App Usage */
+            app_usage?: components["schemas"]["AppUsageSignal"][];
+            /** Battery */
+            battery?: components["schemas"]["BatterySignal"][];
+            /** Locations */
+            locations?: components["schemas"]["LocationPoint"][];
+            /** Notifications */
+            notifications?: components["schemas"]["NotificationPreviewSignal"][];
+            protection_state?: components["schemas"]["ProtectionStateSignal"] | null;
+            /** Resources */
+            resources?: components["schemas"]["ResourceSignal"][];
+            /** Websites */
+            websites?: components["schemas"]["WebsiteActivitySignal"][];
+        };
+        /** SafetyMonitorRequest */
+        SafetyMonitorRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["SafetyMonitorInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** SafetyMonitorResponse */
+        SafetyMonitorResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "safety_monitor";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["SafetyMonitorDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["SafetyMonitorActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /** ScamPrivacyShieldActionProposal */
+        ScamPrivacyShieldActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["WarnChildAction"] | components["schemas"]["ResourceBlockAction"] | components["schemas"]["ContactParentAction"] | components["schemas"]["SubmitIncidentReportAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** ScamPrivacyShieldDetails */
+        ScamPrivacyShieldDetails: {
+            /** Detected Patterns */
+            detected_patterns?: string[];
+            /** Explanation */
+            explanation: string;
+            /** Requested Data Types */
+            requested_data_types?: string[];
+        };
+        /** ScamPrivacyShieldInput */
+        ScamPrivacyShieldInput: {
+            /** Notifications */
+            notifications?: components["schemas"]["NotificationPreviewSignal"][];
+            /** Resources */
+            resources?: components["schemas"]["ResourceSignal"][];
+        };
+        /** ScamPrivacyShieldRequest */
+        ScamPrivacyShieldRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["ScamPrivacyShieldInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** ScamPrivacyShieldResponse */
+        ScamPrivacyShieldResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "scam_privacy_shield";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["ScamPrivacyShieldDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["ScamPrivacyShieldActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /**
+         * ScheduleKind
+         * @enum {string}
+         */
+        ScheduleKind: "sleep" | "school" | "exam" | "study" | "free_time";
         /** ScheduleUpdateRequest */
         ScheduleUpdateRequest: {
             /** Cron Expression */
@@ -3209,6 +5123,22 @@ export interface components {
             enabled: boolean;
             /** Timezone */
             timezone: string;
+        };
+        /** ScheduleWindow */
+        ScheduleWindow: {
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            kind: components["schemas"]["ScheduleKind"];
+            /** Schedule Id */
+            schedule_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
         };
         /** SessionRevocationResponse */
         SessionRevocationResponse: {
@@ -3229,6 +5159,115 @@ export interface components {
             /** Username */
             username: string | null;
         };
+        /**
+         * SignalSource
+         * @enum {string}
+         */
+        SignalSource: "app_usage" | "notification_preview" | "website" | "link_check" | "qr_check" | "location" | "battery" | "connectivity" | "protection_state" | "family_rule" | "safety_event" | "user_message" | "application";
+        /** SmartContentFilterActionProposal */
+        SmartContentFilterActionProposal: {
+            /** Action */
+            action: components["schemas"]["NotifyParentAction"] | components["schemas"]["WarnChildAction"] | components["schemas"]["ResourceBlockAction"];
+            /**
+             * Executed
+             * @default false
+             * @constant
+             */
+            executed: false;
+            execution_policy: components["schemas"]["ExecutionPolicy"];
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Proposal Only
+             * @default true
+             * @constant
+             */
+            proposal_only: true;
+            /** Requires Parent Confirmation */
+            requires_parent_confirmation: boolean;
+        };
+        /** SmartContentFilterDetails */
+        SmartContentFilterDetails: {
+            /** Category */
+            category?: string | null;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "allow" | "observe" | "warn" | "block";
+            /** Explanation */
+            explanation: string;
+            reputation: components["schemas"]["ReputationVerdict"];
+        };
+        /** SmartContentFilterInput */
+        SmartContentFilterInput: {
+            /** Blocked Categories */
+            blocked_categories?: string[];
+            /** Family Rules */
+            family_rules?: components["schemas"]["FamilyRule"][];
+            notification_context?: components["schemas"]["NotificationPreviewSignal"] | null;
+            resource: components["schemas"]["ResourceSignal"];
+        };
+        /** SmartContentFilterRequest */
+        SmartContentFilterRequest: {
+            /**
+             * Data Minimized
+             * @description Confirms that the application minimized sensitive content before submission.
+             * @constant
+             */
+            data_minimized: true;
+            input: components["schemas"]["SmartContentFilterInput"];
+            /**
+             * Locale
+             * @default ru
+             */
+            locale: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Request Id */
+            request_id: string;
+            subject: components["schemas"]["SubjectContext"];
+        };
+        /** SmartContentFilterResponse */
+        SmartContentFilterResponse: {
+            /**
+             * Capability
+             * @constant
+             */
+            capability: "smart_content_filter";
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Data Quality Notes */
+            data_quality_notes: string[];
+            details: components["schemas"]["SmartContentFilterDetails"];
+            /** Findings */
+            findings: components["schemas"]["ManaAIFinding"][];
+            /** Model Name */
+            model_name: string;
+            privacy?: components["schemas"]["PrivacyGuarantees"];
+            /**
+             * Processed At
+             * Format: date-time
+             */
+            processed_at: string;
+            /** Proposed Actions */
+            proposed_actions: components["schemas"]["SmartContentFilterActionProposal"][];
+            /**
+             * Read Only
+             * @default true
+             * @constant
+             */
+            read_only: true;
+            /** Request Id */
+            request_id: string;
+            status: components["schemas"]["AnalysisStatus"];
+            /** Summary */
+            summary: string;
+            verdict: components["schemas"]["AnalysisVerdict"];
+        };
         /** StatusActionParameters */
         StatusActionParameters: {
             /** Current Status */
@@ -3240,6 +5279,62 @@ export interface components {
             kind: "pause" | "resume";
             /** Proposed Status */
             proposed_status: string;
+        };
+        /** StudyModeAction */
+        StudyModeAction: {
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_study_mode";
+            /** Rationale */
+            rationale: string;
+        };
+        /** SubjectContext */
+        SubjectContext: {
+            age_band: components["schemas"]["AgeBand"];
+            /** Policy Version */
+            policy_version?: string | null;
+            /**
+             * Subject Id
+             * @description Opaque application-scoped child identifier; do not send a name or email.
+             */
+            subject_id: string;
+            /**
+             * Timezone
+             * @example Asia/Samarkand
+             */
+            timezone: string;
+        };
+        /** SubmitExtraTimeRequestAction */
+        SubmitExtraTimeRequestAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "submit_extra_time_request";
+            /** Package Name */
+            package_name: string;
+            /** Reason */
+            reason: string;
+            /** Requested Minutes */
+            requested_minutes: number;
+        };
+        /** SubmitIncidentReportAction */
+        SubmitIncidentReportAction: {
+            /** Evidence Ids */
+            evidence_ids?: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "submit_incident_report";
+            /** Summary */
+            summary: string;
         };
         /** SummarizeRequest */
         SummarizeRequest: {
@@ -3270,6 +5365,20 @@ export interface components {
             /** Telegram Id */
             telegram_id: number;
         };
+        /** TemporaryAccessAction */
+        TemporaryAccessAction: {
+            /** Duration Minutes */
+            duration_minutes: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "propose_temporary_access";
+            /** Package Name */
+            package_name: string;
+            /** Rationale */
+            rationale: string;
+        };
         /** TestProposalParameters */
         TestProposalParameters: {
             /** Hypothesis */
@@ -3298,6 +5407,28 @@ export interface components {
             status?: ("active" | "disabled") | null;
             /** Username */
             username?: string | null;
+        };
+        /** UsageBaseline */
+        UsageBaseline: {
+            /**
+             * Average Extra Time Requests
+             * @default 0
+             */
+            average_extra_time_requests: number;
+            /**
+             * Average Launch Count
+             * @default 0
+             */
+            average_launch_count: number;
+            /**
+             * Average Night Seconds
+             * @default 0
+             */
+            average_night_seconds: number;
+            /** Average Seconds */
+            average_seconds: number;
+            /** Key */
+            key: string;
         };
         /** UserPage */
         UserPage: {
@@ -3329,6 +5460,45 @@ export interface components {
          * @enum {string}
          */
         VerificationStatus: "verified" | "mismatch" | "unavailable";
+        /** WarnChildAction */
+        WarnChildAction: {
+            /** Evidence Ids */
+            evidence_ids?: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "warn_child";
+            /** Message */
+            message: string;
+        };
+        /** WebsiteActivitySignal */
+        WebsiteActivitySignal: {
+            /**
+             * Blocked
+             * @default false
+             */
+            blocked: boolean;
+            /** Category */
+            category: string;
+            /** Domain */
+            domain: string;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** @default unknown */
+            reputation: components["schemas"]["ReputationVerdict"];
+            /**
+             * Source
+             * @default website
+             * @constant
+             */
+            source: "website";
+        };
         /** WriteForbiddenDetail */
         WriteForbiddenDetail: {
             /**
@@ -4989,6 +7159,162 @@ export interface operations {
             };
         };
     };
+    analyze_adaptive_screen_time: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdaptiveScreenTimeRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptiveScreenTimeResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analyze_ai_gaming_safety: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIGamingSafetyRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIGamingSafetyResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analyze_behaviour_anomaly: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BehaviourAnomalyRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BehaviourAnomalyResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_capabilities_api_v1_mana_ai_capabilities_get: {
         parameters: {
             query?: never;
@@ -5006,6 +7332,422 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ManaAICapabilitiesResponse"];
                 };
+            };
+        };
+    };
+    respond_with_child_safety_assistant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChildSafetyAssistantRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChildSafetyAssistantResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    generate_family_agreement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FamilyAgreementRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyAgreementResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    generate_family_digest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FamilyDigestRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyDigestResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analyze_location_intelligence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationIntelligenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationIntelligenceResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    respond_with_parent_copilot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentCopilotRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentCopilotResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analyze_safety_monitor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SafetyMonitorRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyMonitorResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    check_scam_privacy_shield: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScamPrivacyShieldRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScamPrivacyShieldResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    check_smart_content_filter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SmartContentFilterRequest"];
+            };
+        };
+        responses: {
+            /** @description Completed or explicitly degraded read-only analysis. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmartContentFilterResponse"];
+                };
+            };
+            /** @description Missing or invalid API key. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The capability-specific request is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many failed authentication attempts; honor Retry-After. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

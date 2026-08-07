@@ -1,1 +1,1 @@
-"""MANA AI domain contracts."""
+"""Pure, provider-independent product inference contracts."""

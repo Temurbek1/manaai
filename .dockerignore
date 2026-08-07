@@ -11,3 +11,6 @@ __pycache__
 data
 tests
 AGENTS.md
+admin-ui/node_modules
+admin-ui/.next
+admin-ui/coverage

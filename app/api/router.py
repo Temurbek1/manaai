@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends
 
-from app.api.routes import ai, health, marketing
+from app.api.routes import ai, health, mana_ai, marketing
 from app.api.security import require_api_key
-from app.mana_ai.api.router import router as mana_ai_router
 from app.mana_operation_ai.api.auth_router import auth_router, users_router
 from app.mana_operation_ai.api.router import router as operation_router
 
@@ -28,7 +27,7 @@ api_router.include_router(
     dependencies=[Depends(require_api_key)],
 )
 api_router.include_router(
-    mana_ai_router,
+    mana_ai.router,
     prefix="/mana-ai",
     tags=["mana-ai"],
     dependencies=[Depends(require_api_key)],

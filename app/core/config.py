@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     app_api_key: SecretStr | None = None
     auth_failure_limit: int = Field(default=10, ge=2, le=1_000)
     auth_failure_window_seconds: int = Field(default=60, ge=10, le=86_400)
+    mana_ai_max_request_body_bytes: int = Field(
+        default=1_048_576,
+        ge=16_384,
+        le=16_777_216,
+    )
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -53,8 +58,10 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr
     openai_model: str = "gpt-5.4-nano"
     openai_timeout_seconds: float = Field(default=30.0, gt=0)
-    openai_max_output_tokens: int = Field(default=512, ge=16, le=4096)
+    openai_max_output_tokens: int = Field(default=2_048, ge=16, le=16_384)
     openai_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    openai_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] = "none"
+    openai_verbosity: Literal["low", "medium", "high"] = "low"
 
     marketing_database_path: Path = Path("data/manaai.db")
     operation_database_url: str | None = None

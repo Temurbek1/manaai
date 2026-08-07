@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_application_logging
 from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
+from app.mana_ai.application.service import ManaAIAnalysisService
 from app.mana_operation_ai.application.action_lifecycle import ActionLifecycleService
 from app.mana_operation_ai.application.admin_service import OperationAdminService
 from app.mana_operation_ai.application.agent_service import AgentService
@@ -41,6 +42,7 @@ from app.mana_operation_ai.infrastructure.telegram.sender import (
     TelegramBotOtpSender,
     UnavailableTelegramOtpSender,
 )
+from app.services.mana_ai_openai_gateway import ManaAIOpenAIModelGateway, SystemManaAIClock
 from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_graph_service import MarketingGraphService
 from app.services.marketing_metrics import MarketingMetricsBuilder
@@ -56,6 +58,10 @@ from app.services.openai_service import OpenAIService
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     openai_service = OpenAIService(settings=settings)
+    mana_ai_analysis_service = ManaAIAnalysisService(
+        gateway=ManaAIOpenAIModelGateway(openai_service),
+        clock=SystemManaAIClock(),
+    )
     marketing_repository = MarketingRepository(database_path=settings.marketing_database_path)
     await marketing_repository.initialize()
     meta_client = MetaMarketingClient(settings=settings)
@@ -184,6 +190,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.settings = settings
     app.state.openai_service = openai_service
+    app.state.mana_ai_analysis_service = mana_ai_analysis_service
     app.state.marketing_repository = marketing_repository
     app.state.meta_marketing_client = meta_client
     app.state.marketing_sync_service = MarketingSyncService(

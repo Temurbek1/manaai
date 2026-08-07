@@ -1,0 +1,29 @@
+services:
+  mana-ai-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mana-ai
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      MANA_TELEGRAM_AUTH_ENABLED: "false"
+      OPERATION_AUTO_CREATE_SCHEMA: "false"
+      OPERATION_SCHEDULER_ENABLED: "false"
+      META_REAL_WRITES_ENABLED: "false"
+      MANA_AI_MAX_REQUEST_BODY_BYTES: "1048576"
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=2)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
