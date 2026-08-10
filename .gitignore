@@ -8,7 +8,8 @@ __pycache__/
 .coverage
 htmlcov/
 coverage/
-docs/artifacts/
+docs/artifacts/*
+!docs/artifacts/mana-ai-live-evaluation.md
 .env
 .env.*
 !.env.example

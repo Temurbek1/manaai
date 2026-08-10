@@ -35,7 +35,7 @@ class ManaAIOpenAIModelGateway:
                 text_format=ModelAnalysis,
                 system_prompt=build_system_instructions(request.input.capability),
                 user_input=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
-                safety_identifier=_safety_identifier(request.subject.subject_id),
+                safety_identifier=build_safety_identifier(request.subject.subject_id),
             )
         except (AIConfigurationError, AIProviderError) as exc:
             raise ModelGatewayError("MANA AI semantic analysis is unavailable") from exc
@@ -46,6 +46,6 @@ class SystemManaAIClock:
         return datetime.now(UTC)
 
 
-def _safety_identifier(subject_id: str) -> str:
+def build_safety_identifier(subject_id: str) -> str:
     digest = hashlib.sha256(subject_id.encode()).hexdigest()
     return f"mana_{digest[:59]}"

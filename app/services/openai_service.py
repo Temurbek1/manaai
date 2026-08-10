@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import TypeVar
 
 from openai import (
@@ -14,6 +15,32 @@ from app.core.config import Settings
 from app.schemas.ai import ChatRequest, ChatResponse, SummarizeRequest, SummarizeResponse
 
 StructuredResponseT = TypeVar("StructuredResponseT", bound=BaseModel)
+
+
+@dataclass(frozen=True, slots=True)
+class ModelAccessMetadata:
+    model_id: str
+    owned_by: str
+    created_at: int
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredResponseMetadata:
+    response_id: str
+    model: str
+    created_at: float
+    status: str | None
+    input_tokens: int | None
+    cached_input_tokens: int | None
+    output_tokens: int | None
+    reasoning_output_tokens: int | None
+    total_tokens: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredResponseResult[ResponseT: BaseModel]:
+    output: ResponseT
+    metadata: StructuredResponseMetadata
 
 
 class AIProviderError(RuntimeError):
@@ -35,6 +62,22 @@ class OpenAIService:
     @property
     def model_name(self) -> str:
         return self._settings.openai_model
+
+    async def retrieve_configured_model(self) -> ModelAccessMetadata:
+        self._ensure_configured()
+        try:
+            model = await self._client.models.retrieve(self._settings.openai_model)
+        except (
+            APIConnectionError,
+            APITimeoutError,
+            APIStatusError,
+        ) as exc:
+            raise AIProviderError("OpenAI API request failed") from exc
+        return ModelAccessMetadata(
+            model_id=model.id,
+            owned_by=model.owned_by,
+            created_at=model.created,
+        )
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
         system_prompt = request.system_prompt or (
@@ -65,6 +108,22 @@ class OpenAIService:
         user_input: str,
         safety_identifier: str | None = None,
     ) -> StructuredResponseT:
+        result = await self.create_structured_response_with_metadata(
+            text_format=text_format,
+            system_prompt=system_prompt,
+            user_input=user_input,
+            safety_identifier=safety_identifier,
+        )
+        return result.output
+
+    async def create_structured_response_with_metadata(
+        self,
+        *,
+        text_format: type[StructuredResponseT],
+        system_prompt: str,
+        user_input: str,
+        safety_identifier: str | None = None,
+    ) -> StructuredResponseResult[StructuredResponseT]:
         self._ensure_configured()
         try:
             response = await self._client.responses.parse(
@@ -76,7 +135,7 @@ class OpenAIService:
                 safety_identifier=safety_identifier,
                 text_format=text_format,
                 store=False,
-                verbosity=self._settings.openai_verbosity,
+                text={"verbosity": self._settings.openai_verbosity},
             )
         except (
             APIConnectionError,
@@ -89,7 +148,25 @@ class OpenAIService:
 
         if response.output_parsed is None:
             raise AIProviderError("OpenAI API returned an empty structured response")
-        return response.output_parsed
+        usage = response.usage
+        return StructuredResponseResult(
+            output=response.output_parsed,
+            metadata=StructuredResponseMetadata(
+                response_id=response.id,
+                model=response.model,
+                created_at=response.created_at,
+                status=response.status,
+                input_tokens=usage.input_tokens if usage is not None else None,
+                cached_input_tokens=(
+                    usage.input_tokens_details.cached_tokens if usage is not None else None
+                ),
+                output_tokens=usage.output_tokens if usage is not None else None,
+                reasoning_output_tokens=(
+                    usage.output_tokens_details.reasoning_tokens if usage is not None else None
+                ),
+                total_tokens=usage.total_tokens if usage is not None else None,
+            ),
+        )
 
     async def _create_text_response(self, system_prompt: str, user_input: str) -> str:
         self._ensure_configured()

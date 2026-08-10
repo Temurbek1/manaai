@@ -48,6 +48,12 @@ No hermetic test calls OpenAI or a live Meta endpoint. `httpx.MockTransport`, de
 and the mutable fake Meta adapter are used. Live Meta verification is an opt-in read-only runbook
 step and includes a GET-only provider workflow plus a non-mutating admin-page browser smoke.
 
+The separately opted-in `MANA_AI_LIVE_EVAL=1 make mana-ai-live-eval` command uses synthetic MANA AI
+requests only. It records sanitized provider inputs, parsed outputs, guardrailed endpoint outputs,
+latency, response metadata, token usage, automatic checks, and a manual review checklist in
+`docs/artifacts/mana-ai-live-evaluation.md`. It stops further generations after a confirmed
+`credit_balance_exhausted` response and is never part of `make test` or `make verify`.
+
 ## Migrations
 
 Verify migrations separately against a fresh temporary database:

@@ -372,6 +372,20 @@ Factory завершается при старте production без `APP_API_KE
 нужен отдельный eval dataset на русском и узбекском языках с false-positive/false-negative
 метриками по каждому endpoint.
 
+Для ручной проверки реального провайдера есть отдельный opt-in прогон на синтетических данных:
+
+```bash
+MANA_AI_LIVE_EVAL=1 make mana-ai-live-eval
+```
+
+Он делает один read-only model-access запрос и не более одного Structured Output запроса на каждый
+из 11 endpoints. При `credit_balance_exhausted` прогон сразу прекращает последующие вызовы модели.
+Отчет дописывается в `docs/artifacts/mana-ai-live-evaluation.md`: API payload, минимизированный
+provider payload, raw Structured Output, итог после guardrails, response ID, latency, token usage,
+автоматические проверки и пустой чек-лист для ручной оценки. Ключи, HTTP headers, Firebase и
+данные приложения в отчет не попадают. Обычные `make test` и `make verify` реальный OpenAI не
+вызывают.
+
 `store=false` отключает сохранение response как application state, но само по себе не означает
 Zero Data Retention: по стандартным правилам OpenAI abuse-monitoring logs могут хранить customer
 content ограниченное время. Для соответствующего юридического требования владельцу проекта нужно

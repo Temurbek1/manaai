@@ -547,6 +547,17 @@ make admin-verify
 make audit-verify
 ```
 
+Реальный OpenAI не вызывается обычными тестами. Ограниченный ручной прогон всех MANA AI
+capabilities на синтетических данных запускается отдельно:
+
+```bash
+MANA_AI_LIVE_EVAL=1 make mana-ai-live-eval
+```
+
+История запросов, ответов, latency, token usage и чек-листы ручной оценки сохраняются в
+`docs/artifacts/mana-ai-live-evaluation.md`. После ошибки `credit_balance_exhausted` следующие
+платные запросы не отправляются.
+
 ## Security notes
 
 - Не коммитьте `.env` и реальные API keys.
