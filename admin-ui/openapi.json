@@ -11979,10 +11979,10 @@
       }
     },
     "securitySchemes": {
-      "APIKeyHeader": {
-        "in": "header",
-        "name": "X-API-Key",
-        "type": "apiKey"
+      "BearerToken": {
+        "description": "Send APP_API_KEY as `Authorization: Bearer <token>`.",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -16181,7 +16181,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Create a test chat completion",
@@ -16228,7 +16228,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Summarize text",
@@ -16496,7 +16496,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Assess adaptive screen-time limits",
@@ -16575,7 +16575,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze AI-service and gaming usage metadata",
@@ -16652,7 +16652,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze changes against supplied baselines",
@@ -16679,7 +16679,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "List implemented MANA AI endpoints",
@@ -16748,7 +16748,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Give child-safe contextual guidance",
@@ -16822,7 +16822,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Draft transparent family rules",
@@ -16903,7 +16903,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Generate a daily family digest",
@@ -16990,7 +16990,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze a route deviation",
@@ -17059,7 +17059,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Answer a parent using supplied family context",
@@ -17146,7 +17146,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze available family-safety signals",
@@ -17223,7 +17223,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Check for scam and privacy risks",
@@ -17299,7 +17299,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Check a URL, domain, QR payload, or APK",
@@ -17346,7 +17346,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Generate marketing analytics report",
@@ -17373,7 +17373,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Show marketing integration configuration",
@@ -17420,7 +17420,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Build marketing entity graph",
@@ -17447,7 +17447,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Discover Meta app and ad accounts",
@@ -17494,7 +17494,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Create Meta async insights job",
@@ -17542,7 +17542,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Get Meta async insights job status",
@@ -17600,7 +17600,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Ingest Meta async insights job results",
@@ -17647,7 +17647,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Sync Meta Marketing API data",
@@ -17694,7 +17694,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Detect deterministic marketing patterns",
@@ -17804,7 +17804,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "List raw marketing records",
@@ -17849,7 +17849,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Ingest raw marketing records",
@@ -17896,7 +17896,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Search raw marketing records",
@@ -17958,7 +17958,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "List saved marketing analysis reports",
@@ -18006,7 +18006,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Get saved marketing analysis report",
@@ -18054,7 +18054,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Get saved marketing report evidence bundle",

@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health, mana_ai
-from app.api.security import require_api_key
+from app.api.security import require_bearer_token
 from app.core.auth_rate_limiter import AuthenticationRateLimiter
 from app.core.config import get_settings
 from app.core.logging import configure_application_logging
 from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
+from app.core.rate_limiter import RequestRateLimiter
 from app.core.request_body_limit import RequestBodyLimitMiddleware
 from app.mana_ai.application.service import ManaAIAnalysisService
 from app.services.mana_ai_openai_gateway import ManaAIOpenAIModelGateway, SystemManaAIClock
@@ -66,6 +67,10 @@ def create_app() -> FastAPI:
         failure_limit=settings.auth_failure_limit,
         window_seconds=settings.auth_failure_window_seconds,
     )
+    app.state.request_rate_limiter = RequestRateLimiter(
+        request_limit=settings.api_rate_limit_requests,
+        window_seconds=settings.api_rate_limit_window_seconds,
+    )
     app.middleware("http")(request_trace_middleware)
     app.add_middleware(
         RequestBodyLimitMiddleware,
@@ -86,7 +91,7 @@ def create_app() -> FastAPI:
         mana_ai.router,
         prefix="/mana-ai",
         tags=["mana-ai"],
-        dependencies=[Depends(require_api_key)],
+        dependencies=[Depends(require_bearer_token)],
     )
     app.include_router(api_router, prefix="/api/v1")
     return app

@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     app_api_key: SecretStr | None = None
     auth_failure_limit: int = Field(default=10, ge=2, le=1_000)
     auth_failure_window_seconds: int = Field(default=60, ge=10, le=86_400)
+    api_rate_limit_requests: int = Field(default=60, ge=1, le=100_000)
+    api_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3_600)
     mana_ai_max_request_body_bytes: int = Field(
         default=1_048_576,
         ge=16_384,
@@ -305,6 +307,23 @@ class Settings(BaseSettings):
             if not self.mana_trusted_origins:
                 raise ValueError("MANA_TRUSTED_ORIGINS is required for browser sessions")
         return self
+
+    @field_validator("mana_telegram_bot_token", "mana_telegram_bot_username", mode="before")
+    @classmethod
+    def treat_blank_as_unset(cls, value: object) -> object:
+        """An env file spells "unset" as an empty value, which must not reach the username
+        pattern as an empty string."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("mana_otp_ttl_seconds", mode="before")
+    @classmethod
+    def coerce_otp_ttl(cls, value: object) -> object:
+        """Env values arrive as strings, and pydantic will not coerce "60" to Literal[60]."""
+        if isinstance(value, str) and value.strip().isdigit():
+            return int(value)
+        return value
 
     @field_validator("mana_bootstrap_admin_telegram_ids")
     @classmethod

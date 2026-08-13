@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_application_logging
 from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
+from app.core.rate_limiter import RequestRateLimiter
 from app.mana_ai.application.service import ManaAIAnalysisService
 from app.mana_operation_ai.application.action_lifecycle import ActionLifecycleService
 from app.mana_operation_ai.application.admin_service import OperationAdminService
@@ -280,6 +281,10 @@ def create_app() -> FastAPI:
     app.state.auth_rate_limiter = AuthenticationRateLimiter(
         failure_limit=settings.auth_failure_limit,
         window_seconds=settings.auth_failure_window_seconds,
+    )
+    app.state.request_rate_limiter = RequestRateLimiter(
+        request_limit=settings.api_rate_limit_requests,
+        window_seconds=settings.api_rate_limit_window_seconds,
     )
 
     app.middleware("http")(request_trace_middleware)

@@ -161,7 +161,7 @@ async def test_standalone_production_secures_ai_routes_and_hides_docs(
         unauthenticated = await client.get("/api/v1/mana-ai/capabilities")
         authenticated = await client.get(
             "/api/v1/mana-ai/capabilities",
-            headers={"X-API-Key": api_key},
+            headers={"Authorization": f"Bearer {api_key}"},
         )
         docs = await client.get("/docs")
         openapi = await client.get("/openapi.json")
