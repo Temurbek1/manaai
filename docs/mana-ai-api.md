@@ -50,6 +50,27 @@ MANA AI:
 `GET /api/v1/mana-ai/capabilities` возвращает тот же machine-readable каталог с точными
 `method` и `path`. Endpoint `/api/v1/mana-ai/analyze` намеренно отсутствует.
 
+## Аутентификация
+
+Bearer token. На каждый вызов `/api/v1/mana-ai/*` передавайте `APP_API_KEY`:
+
+```
+Authorization: Bearer <APP_API_KEY>
+```
+
+Отказ возвращает `401` с заголовком `WWW-Authenticate: Bearer`. Заголовок `X-API-Key` больше не
+поддерживается. Аутентификация включена, когда `APP_ENV=production` либо когда задан `APP_API_KEY`;
+в `APP_ENV=local` без заданного ключа она выключена, что удобно для разработки.
+
+Токен предназначен только для связи backend приложения с этим API. Не встраивайте его в
+mobile/browser bundle.
+
+Действуют два независимых лимита, оба отвечают `429` с `Retry-After`: на неуспешные попытки
+аутентификации (`AUTH_FAILURE_LIMIT`, по умолчанию 10 за 60 с) и на успешные запросы
+(`API_RATE_LIMIT_REQUESTS`, по умолчанию 60 за 60 с). Оба считаются на процесс и на client IP.
+
+`/api/v1/health/live` и `/api/v1/health/ready` остаются открытыми для orchestrator probes.
+
 ## Общий request envelope
 
 У всех 11 request-моделей одинаковы только транспортные и privacy-поля:
@@ -143,7 +164,7 @@ study mode, restriction и temporary access всегда остаются propos
 ```bash
 curl -X POST http://localhost:8000/api/v1/mana-ai/location-intelligence \
   -H 'Content-Type: application/json' \
-  -H 'X-API-Key: replace_with_internal_api_key' \
+  -H 'Authorization: Bearer replace_with_internal_api_token' \
   -d '{
     "request_id": "req-location-20260807-001",
     "occurred_at": "2026-08-07T14:20:00+05:00",
@@ -315,10 +336,10 @@ parent confirmation. MANA AI не является источником разр
 | Код | Значение |
 | --- | --- |
 | `200` | completed или degraded typed analysis |
-| `401` | отсутствует/неверен `X-API-Key` |
+| `401` | отсутствует/неверен bearer token; ответ содержит `WWW-Authenticate: Bearer` |
 | `413` | body превышает `MANA_AI_MAX_REQUEST_BODY_BYTES` |
 | `422` | request не соответствует конкретному endpoint schema |
-| `429` | превышен лимит неуспешной аутентификации; учитывать `Retry-After` |
+| `429` | превышен лимит неуспешной аутентификации **или** лимит частоты запросов; учитывать `Retry-After` |
 
 Retry допустим для timeout/network error и `429`. Используйте exponential backoff с jitter и тот
 же `request_id`. API stateless: повтор запроса снова вызывает модель и сам по себе не является

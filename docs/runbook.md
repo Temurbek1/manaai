@@ -1,12 +1,27 @@
 # Operations runbook
 
+This runbook covers day-to-day operation of the **MANA OPERATION AI** admin platform. For
+first-time setup use [../README.operation-ai.md](../README.operation-ai.md); the standalone product
+API has its own guide in [../README.mana-ai.md](../README.mana-ai.md).
+
 ## Local startup
 
+Create the virtualenv before `make install`, and write a local `.env` rather than copying
+`.env.example` — that template targets Docker and points the database at the Compose host
+`postgres`, which does not resolve on a developer machine.
+
 ```bash
-cp .env.example .env
-# configure the real local MANA Telegram bot, its public username, and a separate strong OTP HMAC
-# secret; replace OPENAI_API_KEY for legacy AI routes; keep fake_meta/dry-run for operation work
+python -m venv .venv && source .venv/bin/activate
 make install
+
+cat > .env <<'ENV'
+APP_ENV=local
+OPENAI_API_KEY=sk-your-real-key
+MARKETING_DATABASE_PATH=data/manaai.db
+OPERATION_ADS_PROVIDER=fake_meta
+OPERATION_DRY_RUN=true
+ENV
+
 make migrate
 make run
 # second terminal
@@ -14,7 +29,10 @@ make admin-dev
 ```
 
 API: `http://localhost:8000`; Next.js admin: `http://localhost:3000`; local API docs:
-`http://localhost:8000/docs`.
+`http://localhost:8000/docs`. The docs endpoints exist only while `APP_ENV` is not `production`.
+
+Logging into the admin UI needs a Telegram OTP session; see the local login options in
+[../README.operation-ai.md](../README.operation-ai.md).
 
 ## Docker startup
 
