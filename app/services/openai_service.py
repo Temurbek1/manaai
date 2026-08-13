@@ -9,7 +9,7 @@ from openai import (
     ContentFilterFinishReasonError,
     LengthFinishReasonError,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import Settings
 from app.schemas.ai import ChatRequest, ChatResponse, SummarizeRequest, SummarizeResponse
@@ -145,6 +145,10 @@ class OpenAIService:
             LengthFinishReasonError,
         ) as exc:
             raise AIProviderError("OpenAI API request failed") from exc
+        except ValidationError as exc:
+            # A response truncated by max_output_tokens reaches the SDK parser as malformed
+            # JSON rather than LengthFinishReasonError, so it must not escape as a 500.
+            raise AIProviderError("OpenAI API returned an unparsable structured response") from exc
 
         if response.output_parsed is None:
             raise AIProviderError("OpenAI API returned an empty structured response")

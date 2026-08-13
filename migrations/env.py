@@ -13,7 +13,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().effective_operation_database_url)
+settings = get_settings()
+if not settings.operation_database_url:
+    # Migrations run before the application creates the SQLite directory, so a fresh
+    # checkout would otherwise fail with an opaque "unable to open database file".
+    settings.marketing_database_path.parent.mkdir(parents=True, exist_ok=True)
+config.set_main_option("sqlalchemy.url", settings.effective_operation_database_url)
 target_metadata = Base.metadata
 
 

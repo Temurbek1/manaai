@@ -103,7 +103,11 @@ class MetaAdsAdapter:
                 "request_budget": ProviderRequestBudget.model_validate(
                     asdict(budget_snapshot),
                 ),
-                "observability": _observability(snapshot, budget_snapshot),
+                "observability": _observability(
+                    snapshot,
+                    budget_snapshot,
+                    today=self._clock.now().date(),
+                ),
             },
         )
 
@@ -700,6 +704,8 @@ def _provider_diagnostic(item: MetaRequestDiagnostic) -> ProviderDiagnostic:
 def _observability(
     snapshot: AdsSnapshot,
     budget: MetaRequestBudgetSnapshot,
+    *,
+    today: date,
 ) -> ProviderObservability:
     unavailable_metrics = sum(
         metric.availability is DataAvailability.UNAVAILABLE
@@ -755,7 +761,7 @@ def _observability(
         ),
         duplicate_rows_rejected=budget.duplicate_rows_rejected,
         unavailable_metrics=unavailable_metrics,
-        data_freshness_days=(date.today() - freshest).days if freshest is not None else None,
+        data_freshness_days=(today - freshest).days if freshest is not None else None,
     )
 
 
