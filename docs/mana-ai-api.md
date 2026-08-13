@@ -164,7 +164,7 @@ study mode, restriction и temporary access всегда остаются propos
 ```bash
 curl -X POST http://localhost:8000/api/v1/mana-ai/location-intelligence \
   -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer replace_with_internal_api_token' \
+  -H "Authorization: Bearer $APP_API_KEY" \
   -d '{
     "request_id": "req-location-20260807-001",
     "occurred_at": "2026-08-07T14:20:00+05:00",
