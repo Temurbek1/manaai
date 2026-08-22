@@ -1,9 +1,5 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { MarketingPage } from "@/features/MarketingPage";
-
-export const metadata: Metadata = { title: "Marketing Agent" };
-
-export default function MarketingRoute(): React.JSX.Element {
-  return <MarketingPage />;
+export default function MarketingCompatibilityRoute(): never {
+  redirect("/growth");
 }

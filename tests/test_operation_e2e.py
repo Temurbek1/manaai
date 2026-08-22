@@ -40,7 +40,11 @@ async def test_fake_meta_complete_marketing_agent_lifecycle(
     ):
         agents = await client.get("/api/v1/admin/operation/agents", headers=operator_headers)
         assert agents.status_code == 200
-        assert agents.json()["items"][0]["agent_id"] == "marketing-agent"
+        assert agents.json()["items"][0]["agent_id"] == "growth-agent"
+        assert {item["key"] for item in agents.json()["items"][0]["capabilities"]} == {
+            "growth.advertising",
+            "growth.funnel.analyze",
+        }
 
         run_response = await client.post(
             "/api/v1/admin/operation/agents/marketing-agent/run",
@@ -54,6 +58,8 @@ async def test_fake_meta_complete_marketing_agent_lifecycle(
         assert run_response.status_code == 202
         accepted = run_response.json()
         assert accepted["status"] == "accepted"
+        assert accepted["agent_id"] == "growth-agent"
+        assert accepted["capability_key"] == "growth.advertising"
         runs_response = await client.get(
             "/api/v1/admin/operation/runs?agent_id=marketing-agent&limit=20",
             headers=operator_headers,

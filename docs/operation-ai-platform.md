@@ -2,30 +2,31 @@
 
 ## Generic contracts
 
-The domain defines `AgentDefinition`, `AgentRegistry`, `AgentCapability`, `AgentStatus`, `AgentRun`,
+The domain defines `AgentDefinition`, `AgentRegistry`, `CapabilityDefinition`, `AgentStatus`, `AgentRun`,
 `AgentRunResult`, `AgentConfiguration`, `AgentSchedule`, `Integration`, `IntegrationHealth`,
 `DataSnapshot`, `Analysis`, `Finding`, `Recommendation`, `ActionProposal`, `ActionPolicy`,
 `ApprovalRequest`, `ApprovalDecision`, `ActionExecution`, `ActionVerification`, `AgentReport`, and
-`AuditEvent`.
+`AuditEvent`, and `OutcomeEvaluation`.
 
-`AgentRegistry` dispatches implementations by registration. Each implementation supplies its
-definition, typed configuration schema/default, schedules, health checks, execution, and deferred
-finalization. Configuration versions and schedules are persisted. Changing the Marketing Agent
-schedule fields recalculates the persisted next occurrence in the configured timezone.
+`AgentRegistry` dispatches implementations by registration. A domain agent composes typed
+`CapabilityHandler` implementations through `CapabilityRegistry`; each handler supplies its own
+configuration schema/default, schedules, health checks, execution, and deferred finalization.
+Configuration versions, schedules, run locks, and kill switches are capability-scoped.
 
 The target registry contains four domain agents: Operations Orchestrator, Growth & Conversion,
 Retention & Loyalty, and Technical Reliability. Their executable units are independently typed and
 configured capability tasks. See `docs/operation-agent-model.md`. The current registry contains
-only `marketing-agent`; target names and capabilities must not be represented as implemented until
-their handlers, integrations, policies, and tests exist.
+only `growth-agent`, with loaded `growth.advertising` and `growth.funnel.analyze` handlers.
+`marketing-agent` is a compatibility alias rather than a second implementation. The other three
+agents and unloaded Growth capability names must not be represented as implemented.
 
 ## Lifecycle
 
-The Marketing Agent demonstrates the full reusable lifecycle:
+Growth advertising and the funnel experiment sandbox demonstrate the reusable lifecycle:
 
 `collect -> normalize -> analyze -> propose -> policy_check -> approval -> execute -> verify -> report`
 
-All records use a run/correlation ID. A database lock prevents overlapping runs for one agent.
+All records use a run/correlation ID. A database lock prevents overlapping runs for one capability.
 Scheduled retry attempts reuse one run idempotency key and increment `retry_count` after a failed
 run. Actions have a second deterministic idempotency key based on target, typed change, and provider
 state. Cooldowns and current-state hashes protect repeated scaling.
@@ -36,7 +37,7 @@ state. Cooldowns and current-state hashes protect repeated scaling.
 and by the standalone production worker:
 
 - persisted cron expressions and next-run timestamps;
-- six-hour Marketing Agent analysis and nightly report;
+- six-hour Growth advertising analysis, nightly advertising report, and twice-daily funnel analysis;
 - collection is part of each analysis/report job, so every analysis uses a saved current snapshot;
 - hourly interrupted-action reconciliation;
 - daily snapshot/lock retention cleanup;

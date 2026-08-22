@@ -35,23 +35,26 @@ export function AgentsPage(): React.JSX.Element {
     refreshInterval: 30_000,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedCapability, setSelectedCapability] = useState<string | null>(
+    null,
+  );
   const { data: detail, error: detailError } = useSWR<AgentDetail, Error>(
     selectedId ? `/api/v1/admin/operation/agents/${selectedId}` : null,
     { refreshInterval: 15_000 },
   );
   const { data: schema } = useSWR<Record<string, unknown>>(
     selectedId
-      ? `/api/v1/admin/operation/agents/${selectedId}/configuration-schema`
+      ? `/api/v1/admin/operation/agents/${selectedId}/configuration-schema${selectedCapability ? `?capability_key=${encodeURIComponent(selectedCapability)}` : ""}`
       : null,
   );
   const { data: runs } = useSWR<RunPage>(
     selectedId
-      ? `/api/v1/admin/operation/runs?agent_id=${selectedId}&limit=5`
+      ? `/api/v1/admin/operation/runs?agent_id=${selectedId}${selectedCapability ? `&capability_key=${encodeURIComponent(selectedCapability)}` : ""}&limit=5`
       : null,
   );
   const { data: reports } = useSWR<ReportPage>(
     selectedId
-      ? `/api/v1/admin/operation/reports?agent_id=${selectedId}&limit=5`
+      ? `/api/v1/admin/operation/reports?agent_id=${selectedId}${selectedCapability ? `&capability_key=${encodeURIComponent(selectedCapability)}` : ""}&limit=5`
       : null,
   );
   const { mutate } = useSWRConfig();
@@ -59,14 +62,19 @@ export function AgentsPage(): React.JSX.Element {
     null,
   );
   const [message, setMessage] = useState<string | null>(null);
-  const activeConfigurationText = detail?.configuration
-    ? JSON.stringify(detail.configuration.values, null, 2)
+  const effectiveCapability =
+    selectedCapability ?? detail?.agent.default_capability_key ?? null;
+  const activeConfiguration = (detail?.configurations ?? []).find(
+    (item) => item.capability_key === effectiveCapability && item.active,
+  );
+  const activeConfigurationText = activeConfiguration
+    ? JSON.stringify(activeConfiguration.values, null, 2)
     : "";
 
   async function changeStatus(
     action: "enable" | "disable" | "pause" | "resume",
   ): Promise<void> {
-    if (!selectedId) return;
+    if (!selectedId || !effectiveCapability) return;
     try {
       await apiPost(
         `/api/v1/admin/operation/agents/${selectedId}/${action}`,
@@ -84,7 +92,7 @@ export function AgentsPage(): React.JSX.Element {
   }
 
   async function saveConfiguration(): Promise<void> {
-    if (!selectedId) return;
+    if (!selectedId || !effectiveCapability) return;
     try {
       const parsed: unknown = JSON.parse(
         configurationText ?? activeConfigurationText,
@@ -92,7 +100,7 @@ export function AgentsPage(): React.JSX.Element {
       if (!isRecord(parsed))
         throw new Error("Configuration must be a JSON object");
       const saved = await apiPost<Configuration>(
-        `/api/v1/admin/operation/agents/${selectedId}/configurations`,
+        `/api/v1/admin/operation/agents/${selectedId}/configurations?capability_key=${encodeURIComponent(effectiveCapability)}`,
         { values: parsed },
       );
       setMessage(`Configuration version ${String(saved.version)} activated.`);
@@ -117,6 +125,25 @@ export function AgentsPage(): React.JSX.Element {
         error instanceof Error
           ? error.message
           : "Agent kill switch update failed",
+      );
+    }
+  }
+
+  async function toggleCapabilityKillSwitch(): Promise<void> {
+    if (!selectedId || !detail || !effectiveCapability) return;
+    const enabled =
+      detail.capability_kill_switches[effectiveCapability] ?? false;
+    try {
+      await apiPut(
+        `/api/v1/admin/operation/kill-switch/agents/${selectedId}/capabilities/${encodeURIComponent(effectiveCapability)}`,
+        { enabled: !enabled },
+      );
+      await mutate(`/api/v1/admin/operation/agents/${selectedId}`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Capability kill switch update failed",
       );
     }
   }
@@ -169,6 +196,7 @@ export function AgentsPage(): React.JSX.Element {
               key={agent.agent_id}
               onClick={() => {
                 setSelectedId(agent.agent_id);
+                setSelectedCapability(agent.default_capability_key);
                 setConfigurationText(null);
               }}
               type="button"
@@ -241,13 +269,57 @@ export function AgentsPage(): React.JSX.Element {
               <h3>Capabilities</h3>
               <div className="capability-list">
                 {detail.agent.capabilities.map((capability) => (
-                  <div key={capability.key}>
-                    <strong>{capability.key}</strong>
-                    <span>{capability.description}</span>
+                  <button
+                    className={
+                      effectiveCapability === capability.key
+                        ? "agent-button active"
+                        : "agent-button"
+                    }
+                    key={capability.key}
+                    onClick={() => {
+                      setSelectedCapability(capability.key);
+                      setConfigurationText(null);
+                    }}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{capability.key}</strong>
+                      <small>{capability.description}</small>
+                    </span>
                     <StatusBadge status={capability.risk} />
-                  </div>
+                  </button>
                 ))}
               </div>
+              {effectiveCapability ? (
+                <div className="button-row">
+                  <StatusBadge
+                    status={
+                      detail.capability_kill_switches[effectiveCapability]
+                        ? "stopped"
+                        : "armed"
+                    }
+                  />
+                  <ConfirmAction
+                    className={
+                      detail.capability_kill_switches[effectiveCapability]
+                        ? "button"
+                        : "button danger"
+                    }
+                    confirmLabel={
+                      detail.capability_kill_switches[effectiveCapability]
+                        ? "Confirm capability re-arm"
+                        : "Confirm capability stop"
+                    }
+                    disabled={!canAdminister}
+                    label={
+                      detail.capability_kill_switches[effectiveCapability]
+                        ? "Re-arm capability"
+                        : "Emergency stop capability"
+                    }
+                    onConfirm={() => void toggleCapabilityKillSwitch()}
+                  />
+                </div>
+              ) : null}
               <div className="section-heading">
                 <h3>Typed configuration</h3>
                 <span>{properties} schema fields</span>
@@ -276,14 +348,19 @@ export function AgentsPage(): React.JSX.Element {
               </button>
               <h3>Schedules</h3>
               <div className="schedule-editors">
-                {detail.schedules.map((schedule) => (
-                  <ScheduleEditor
-                    disabled={!canAdminister}
-                    key={`${schedule.schedule_id}:${schedule.cron_expression}:${schedule.timezone}:${String(schedule.enabled)}`}
-                    onSave={saveSchedule}
-                    schedule={schedule}
-                  />
-                ))}
+                {detail.schedules
+                  .filter(
+                    (schedule) =>
+                      schedule.capability_key === effectiveCapability,
+                  )
+                  .map((schedule) => (
+                    <ScheduleEditor
+                      disabled={!canAdminister}
+                      key={`${schedule.schedule_id}:${schedule.cron_expression}:${schedule.timezone}:${String(schedule.enabled)}`}
+                      onSave={saveSchedule}
+                      schedule={schedule}
+                    />
+                  ))}
               </div>
               <div className="section-heading">
                 <h3>Recent runs</h3>

@@ -13,7 +13,10 @@ from pydantic import JsonValue
 
 from app.core.config import get_settings
 from app.mana_operation_ai.application.admin_service import ActorContext
-from app.mana_operation_ai.application.marketing.agent import MARKETING_AGENT_ID
+from app.mana_operation_ai.application.growth.constants import (
+    ADVERTISING_CAPABILITY_KEY,
+    GROWTH_AGENT_ID,
+)
 from app.mana_operation_ai.application.marketing.analytics import aggregate_metrics
 from app.mana_operation_ai.application.marketing.calibration import calibrate_account
 from app.mana_operation_ai.domain.enums import (
@@ -60,7 +63,10 @@ async def run() -> dict[str, JsonValue]:
             )
 
         actor = ActorContext(actor_id="meta-live-readonly-verify", role=UserRole.ADMIN)
-        latest = await repository.latest_configuration(MARKETING_AGENT_ID)
+        latest = await repository.latest_configuration(
+            GROWTH_AGENT_ID,
+            ADVERTISING_CAPABILITY_KEY,
+        )
         if latest is None:
             raise RuntimeError("Marketing Agent has no typed configuration")
         bootstrap = MarketingAgentConfiguration.model_validate(
@@ -79,12 +85,14 @@ async def run() -> dict[str, JsonValue]:
             },
         )
         await admin.create_configuration(
-            agent_id=MARKETING_AGENT_ID,
+            agent_id=GROWTH_AGENT_ID,
+            capability_key=ADVERTISING_CAPABILITY_KEY,
             values=cast(dict[str, JsonValue], bootstrap.model_dump(mode="json")),
             actor=actor,
         )
         calibration_run = await admin.run_now(
-            agent_id=MARKETING_AGENT_ID,
+            agent_id=GROWTH_AGENT_ID,
+            capability_key=ADVERTISING_CAPABILITY_KEY,
             job_type="meta_sync",
             actor=actor,
             correlation_id=admin.new_identifier(),
@@ -121,12 +129,14 @@ async def run() -> dict[str, JsonValue]:
             },
         )
         configuration = await admin.create_configuration(
-            agent_id=MARKETING_AGENT_ID,
+            agent_id=GROWTH_AGENT_ID,
+            capability_key=ADVERTISING_CAPABILITY_KEY,
             values=cast(dict[str, JsonValue], calibrated.model_dump(mode="json")),
             actor=actor,
         )
         nightly = await admin.run_now(
-            agent_id=MARKETING_AGENT_ID,
+            agent_id=GROWTH_AGENT_ID,
+            capability_key=ADVERTISING_CAPABILITY_KEY,
             job_type="nightly_report",
             actor=actor,
             correlation_id=admin.new_identifier(),
@@ -143,7 +153,10 @@ async def run() -> dict[str, JsonValue]:
         findings, _ = await repository.list_findings(run_id=nightly.run_id)
         recommendations, _ = await repository.list_recommendations(run_id=nightly.run_id)
         proposals, _ = await repository.list_proposals(run_id=nightly.run_id)
-        executions, _ = await repository.list_executions(agent_id=MARKETING_AGENT_ID)
+        executions, _ = await repository.list_executions(
+            agent_id=GROWTH_AGENT_ID,
+            capability_key=ADVERTISING_CAPABILITY_KEY,
+        )
         report = await repository.get_report(nightly.report_id)
         if report is None:
             raise RuntimeError("Nightly report record is unavailable")
@@ -684,7 +697,11 @@ async def rebuild_artifact() -> dict[str, JsonValue]:
     application = create_app()
     async with application.router.lifespan_context(application):
         repository = application.state.operation_repository
-        reports, _ = await repository.list_reports(agent_id=MARKETING_AGENT_ID, limit=25)
+        reports, _ = await repository.list_reports(
+            agent_id=GROWTH_AGENT_ID,
+            capability_key=ADVERTISING_CAPABILITY_KEY,
+            limit=25,
+        )
         report = next(
             (item for item in reports if item.structured.get("provider_mode") == "live_read_only"),
             None,

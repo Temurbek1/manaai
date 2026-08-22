@@ -1,6 +1,7 @@
 # Meta live-readiness
 
-The Marketing Agent is live-read-ready in a permanent read-only mode. Graph/Marketing API `v25.0`
+The `growth.advertising` capability (formerly Marketing Agent) is live-read-ready in a permanent
+read-only mode. Graph/Marketing API `v25.0`
 was validated on 2026-07-22 against exactly one accessible account. Detailed evidence is in
 `docs/meta-live-validation.md`; operations are in `docs/live-read-only-runbook.md`.
 

@@ -12,13 +12,26 @@ from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middlewa
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
 from app.core.rate_limiter import RequestRateLimiter
 from app.mana_ai.application.service import ManaAIAnalysisService
+from app.mana_operation_ai.application.action_executors import (
+    ActionExecutorRegistry,
+    AdvertisingActionExecutor,
+    ExperimentActionExecutor,
+)
 from app.mana_operation_ai.application.action_lifecycle import ActionLifecycleService
+from app.mana_operation_ai.application.action_policies import (
+    ActionPolicyRegistry,
+    AdvertisingPolicyEvaluator,
+    GrowthExperimentPolicyEvaluator,
+)
 from app.mana_operation_ai.application.admin_service import OperationAdminService
 from app.mana_operation_ai.application.agent_service import AgentService
 from app.mana_operation_ai.application.auth_ports import TelegramOtpSender
 from app.mana_operation_ai.application.auth_service import AdminAuthService
+from app.mana_operation_ai.application.capabilities import CapabilityRegistry
+from app.mana_operation_ai.application.growth.agent import GrowthAgent
+from app.mana_operation_ai.application.growth.funnel import GrowthFunnelCapabilityHandler
 from app.mana_operation_ai.application.maintenance import OperationMaintenanceService
-from app.mana_operation_ai.application.marketing.agent import MarketingAgent
+from app.mana_operation_ai.application.marketing.agent import AdvertisingCapabilityHandler
 from app.mana_operation_ai.application.marketing.analytics import MarketingAnalyticsEngine
 from app.mana_operation_ai.application.marketing.reporting import MarketingReportBuilder
 from app.mana_operation_ai.application.policy import PolicyService
@@ -28,6 +41,12 @@ from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
 from app.mana_operation_ai.infrastructure.ads.fake_meta import FakeMetaAdsAdapter
 from app.mana_operation_ai.infrastructure.ads.meta import MetaAdsAdapter
+from app.mana_operation_ai.infrastructure.growth.fake import (
+    FakeAttributionAdapter,
+    FakeBillingReadAdapter,
+    FakeExperimentAdapter,
+    FakeProductAnalyticsAdapter,
+)
 from app.mana_operation_ai.infrastructure.notifications.logging import (
     StructuredLogNotificationAdapter,
 )
@@ -121,10 +140,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         global_execution_limit_per_day=settings.operation_global_execution_limit_per_day,
         agent_execution_limit_per_day=settings.operation_agent_execution_limit_per_day,
     )
+    experiment_platform = FakeExperimentAdapter(clock=clock)
+    action_executors = ActionExecutorRegistry()
+    for platform_name in ("fake_meta", "meta"):
+        action_executors.register(AdvertisingActionExecutor(ads_platforms.get(platform_name)))
+    action_executors.register(ExperimentActionExecutor(experiment_platform))
+    action_policies = ActionPolicyRegistry()
+    action_policies.register(AdvertisingPolicyEvaluator(policy_service))
+    action_policies.register(
+        GrowthExperimentPolicyEvaluator(
+            repository=operation_repository,
+            clock=clock,
+            ids=ids,
+            global_execution_limit_per_day=settings.operation_global_execution_limit_per_day,
+            agent_execution_limit_per_day=settings.operation_agent_execution_limit_per_day,
+        ),
+    )
     action_lifecycle = ActionLifecycleService(
         repository=operation_repository,
-        platforms=ads_platforms,
-        policy=policy_service,
+        executors=action_executors,
+        policies=action_policies,
         clock=clock,
         ids=ids,
         dry_run=settings.operation_dry_run,
@@ -134,9 +169,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         verification_attempts=settings.operation_verification_attempts,
         verification_delay_seconds=settings.operation_verification_delay_seconds,
     )
-    agent_registry = AgentRegistry()
-    agent_registry.register(
-        MarketingAgent(
+    capability_registry = CapabilityRegistry()
+    capability_registry.register(
+        AdvertisingCapabilityHandler(
             provider=ads_platforms.get(settings.operation_ads_provider),
             repository=operation_repository,
             analytics=MarketingAnalyticsEngine(ids=ids),
@@ -147,6 +182,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ids=ids,
         ),
     )
+    capability_registry.register(
+        GrowthFunnelCapabilityHandler(
+            product_analytics=FakeProductAnalyticsAdapter(clock=clock),
+            billing=FakeBillingReadAdapter(clock=clock),
+            attribution=FakeAttributionAdapter(clock=clock),
+            experiments=experiment_platform,
+            actions=action_lifecycle,
+            repository=operation_repository,
+            clock=clock,
+            ids=ids,
+        ),
+    )
+    agent_registry = AgentRegistry()
+    agent_registry.register(
+        GrowthAgent(
+            capabilities=capability_registry,
+            repository=operation_repository,
+            clock=clock,
+        ),
+    )
+    agent_registry.register_alias("marketing-agent", "growth-agent")
     agent_service = AgentService(
         registry=agent_registry,
         repository=operation_repository,
@@ -168,7 +224,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     maintenance_service = OperationMaintenanceService(
         repository=operation_repository,
-        platforms=ads_platforms,
+        executors=action_executors,
         agents=agent_registry,
         clock=clock,
         ids=ids,
@@ -218,6 +274,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.admin_auth_service = auth_service
     app.state.operation_agent_registry = agent_registry
     app.state.operation_ads_platforms = ads_platforms
+    app.state.operation_experiment_platform = experiment_platform
     app.state.operation_agent_service = agent_service
     app.state.operation_action_lifecycle = action_lifecycle
     app.state.operation_admin_service = operation_admin_service

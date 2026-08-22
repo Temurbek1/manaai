@@ -111,6 +111,7 @@ class InProcessScheduler:
                 async with asyncio.timeout(self._job_timeout_seconds):
                     await self._admin.run_now(
                         agent_id=schedule.agent_id,
+                        capability_key=schedule.capability_key,
                         job_type=schedule.job_type,
                         actor=actor,
                         correlation_id=str(uuid.uuid4()),

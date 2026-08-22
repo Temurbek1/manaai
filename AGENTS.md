@@ -21,9 +21,16 @@
 - Operations Orchestrator may create and manage goals/tasks but must delegate infrastructure,
   financial, customer-contact, and deployment mutations to the owning domain agent. Do not give
   the orchestrator arbitrary provider payloads or unrestricted integration credentials.
-- Clearly distinguish current implementation from target architecture: only `marketing-agent` is
-  implemented today; its write lifecycle runs against `fake_meta`, while live Meta remains
-  read-only.
+- Clearly distinguish current implementation from target architecture: `growth-agent` is currently
+  loaded with `growth.advertising` and `growth.funnel.analyze`. `marketing-agent` is a temporary
+  compatibility alias and historical ID, not a second scheduler. Advertising writes use
+  `fake_meta`; funnel sources and experiment writes are fake/sandbox; live Meta remains read-only.
+- Keep capability configuration, schedules, run locks, audit, and kill switches independently
+  scoped by `agent_id` plus `capability_key`. New actions use domain-specific action enums and the
+  typed executor/policy registries; do not expand advertising `ActionType` across domains.
+- Preserve the delivery order after Growth: Retention & Loyalty, Operations Orchestrator, then
+  Technical Reliability last. Do not represent any of those three agents as implemented until
+  their handlers, integrations, policies, UI, and tests exist.
 - Keep FastAPI route handlers thin. Existing compatibility logic remains in
   `app/services/`; new operational business logic belongs in
   `app/mana_operation_ai/application/`.

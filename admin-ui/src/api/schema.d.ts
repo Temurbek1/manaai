@@ -448,6 +448,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/kill-switch/agents/{agent_id}/capabilities/{capability_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a capability kill switch
+         * @description Enables or disables one capability without stopping sibling capabilities of the same agent. The control is enforced both before runs and before approved actions execute. Requires the `admin` role.
+         */
+        put: operations["capability_kill_switch_api_v1_admin_operation_kill_switch_agents__agent_id__capabilities__capability_key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/kill-switch/global": {
         parameters: {
             query?: never;
@@ -480,6 +500,26 @@ export interface paths {
          * @description Returns the latest Marketing Agent picture: freshly probed integration health for the default ads provider, the most recent stored ads snapshot with its per-breakdown performance, the active configuration and the agent schedules. Requires at least the `viewer` role. The snapshot fields stay `null` until a run has stored ads data.
          */
         get: operations["marketing_overview_api_v1_admin_operation_marketing_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/outcome-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List persisted action outcome evaluations
+         * @description Returns pending, measured, or inconclusive outcome evaluations, optionally filtered by run or proposal. Provider-state verification and business-outcome measurement are reported separately. Requires at least the `viewer` role.
+         */
+        get: operations["list_outcome_evaluations_api_v1_admin_operation_outcome_evaluations_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1662,9 +1702,20 @@ export interface components {
         };
         /** ActionPolicy */
         ActionPolicy: {
-            action_type: components["schemas"]["ActionType"];
+            /**
+             * Action Family
+             * @default advertising
+             */
+            action_family: string;
+            /** Action Type */
+            action_type: components["schemas"]["ActionType"] | components["schemas"]["GrowthActionType"];
             /** Agent Id */
             agent_id: string;
+            /**
+             * Capability Key
+             * @default growth.advertising
+             */
+            capability_key: string;
             /**
              * Checked At
              * Format: date-time
@@ -1680,9 +1731,20 @@ export interface components {
         };
         /** ActionProposal */
         ActionProposal: {
-            action_type: components["schemas"]["ActionType"];
+            /**
+             * Action Family
+             * @default advertising
+             */
+            action_family: string;
+            /** Action Type */
+            action_type: components["schemas"]["ActionType"] | components["schemas"]["GrowthActionType"];
             /** Agent Id */
             agent_id: string;
+            /**
+             * Capability Key
+             * @default growth.advertising
+             */
+            capability_key: string;
             /** Confidence */
             confidence: string;
             /**
@@ -1715,7 +1777,7 @@ export interface components {
             /** Object Type */
             object_type: string;
             /** Parameters */
-            parameters: components["schemas"]["BudgetActionParameters"] | components["schemas"]["StatusActionParameters"] | components["schemas"]["AudienceActionParameters"] | components["schemas"]["NoChangeActionParameters"] | components["schemas"]["TestProposalParameters"];
+            parameters: components["schemas"]["BudgetActionParameters"] | components["schemas"]["StatusActionParameters"] | components["schemas"]["AudienceActionParameters"] | components["schemas"]["NoChangeActionParameters"] | components["schemas"]["TestProposalParameters"] | components["schemas"]["CreateExperimentActionParameters"] | components["schemas"]["StopExperimentActionParameters"];
             policy: components["schemas"]["ActionPolicy"];
             /** Proposal Id */
             proposal_id: string;
@@ -2033,15 +2095,6 @@ export interface components {
          * @enum {string}
          */
         AgeBand: "under_7" | "age_7_12" | "age_13_15" | "age_16_17";
-        /** AgentCapability */
-        AgentCapability: {
-            /** Description */
-            description: string;
-            /** Key */
-            key: string;
-            minimum_role: components["schemas"]["UserRole"];
-            risk: components["schemas"]["CapabilityRisk"];
-        };
         /** AgentConfiguration */
         AgentConfiguration: {
             /**
@@ -2051,6 +2104,8 @@ export interface components {
             active: boolean;
             /** Agent Id */
             agent_id: string;
+            /** Capability Key */
+            capability_key: string;
             /** Configuration Id */
             configuration_id: string;
             /**
@@ -2072,11 +2127,13 @@ export interface components {
             /** Agent Id */
             agent_id: string;
             /** Capabilities */
-            capabilities: components["schemas"]["AgentCapability"][];
+            capabilities: components["schemas"]["CapabilityDefinition"][];
             /** Configuration Schema */
             configuration_schema: {
                 [key: string]: components["schemas"]["JsonValue"];
             };
+            /** Default Capability Key */
+            default_capability_key: string;
             /** Description */
             description: string;
             /** Display Name */
@@ -2093,7 +2150,13 @@ export interface components {
         /** AgentDetailResponse */
         AgentDetailResponse: {
             agent: components["schemas"]["AgentDefinition"];
+            /** Capability Kill Switches */
+            capability_kill_switches: {
+                [key: string]: boolean;
+            };
             configuration: components["schemas"]["AgentConfiguration"] | null;
+            /** Configurations */
+            configurations: components["schemas"]["AgentConfiguration"][];
             /** Integration Health */
             integration_health: components["schemas"]["IntegrationHealth"][];
             /** Kill Switch Enabled */
@@ -2105,6 +2168,11 @@ export interface components {
         AgentReport: {
             /** Agent Id */
             agent_id: string;
+            /**
+             * Capability Key
+             * @default growth.advertising
+             */
+            capability_key: string;
             /**
              * Created At
              * Format: date-time
@@ -2139,6 +2207,8 @@ export interface components {
         AgentRun: {
             /** Agent Id */
             agent_id: string;
+            /** Capability Key */
+            capability_key: string;
             /** Completed At */
             completed_at?: string | null;
             /** Configuration Version */
@@ -2206,6 +2276,8 @@ export interface components {
         AgentSchedule: {
             /** Agent Id */
             agent_id: string;
+            /** Capability Key */
+            capability_key: string;
             /** Cron Expression */
             cron_expression: string;
             /** Enabled */
@@ -2437,6 +2509,8 @@ export interface components {
             actor_role: components["schemas"]["UserRole"];
             /** Agent Id */
             agent_id?: string | null;
+            /** Capability Key */
+            capability_key?: string | null;
             /** Correlation Id */
             correlation_id: string;
             /** Details */
@@ -2684,6 +2758,29 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** CapabilityDefinition */
+        CapabilityDefinition: {
+            /** Agent Id */
+            agent_id: string;
+            /** Description */
+            description: string;
+            /** Input Schema */
+            input_schema?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Key */
+            key: string;
+            minimum_role: components["schemas"]["UserRole"];
+            /** Output Schema */
+            output_schema?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Required Integrations */
+            required_integrations?: string[];
+            risk: components["schemas"]["CapabilityRisk"];
+            /** Supported Triggers */
+            supported_triggers?: components["schemas"]["TriggerType"][];
+        };
         /**
          * CapabilityRisk
          * @enum {string}
@@ -2850,6 +2947,32 @@ export interface components {
             /** Username */
             username?: string | null;
         };
+        /** CreateExperimentActionParameters */
+        CreateExperimentActionParameters: {
+            /** Allocation Percent */
+            allocation_percent: number;
+            /** Audience Segment */
+            audience_segment: string;
+            /** Duration Days */
+            duration_days: number;
+            /** Experiment Key */
+            experiment_key: string;
+            /** Hypothesis */
+            hypothesis: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "create_experiment";
+            /** Primary Metric */
+            primary_metric: string;
+            /**
+             * Proposed Status
+             * @default DRAFT
+             * @constant
+             */
+            proposed_status: "DRAFT";
+        };
         /** Creative */
         Creative: {
             /** Account Id */
@@ -2922,6 +3045,8 @@ export interface components {
         DataSnapshot: {
             /** Agent Id */
             agent_id: string;
+            /** Capability Key */
+            capability_key: string;
             /** Checksum */
             checksum: string;
             /**
@@ -2931,6 +3056,8 @@ export interface components {
             collected_at: string;
             /** Completeness */
             completeness: string;
+            /** Evidence Refs */
+            evidence_refs?: components["schemas"]["EvidenceRef"][];
             /** Payload */
             payload: {
                 [key: string]: components["schemas"]["JsonValue"];
@@ -2962,6 +3089,36 @@ export interface components {
             current: components["schemas"]["MetricValue"];
             /** Name */
             name: string;
+        };
+        /** EvidenceRef */
+        EvidenceRef: {
+            /** Checksum */
+            checksum: string;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Completeness */
+            completeness: string;
+            /** Freshness Seconds */
+            freshness_seconds: number;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /** Privacy Classification */
+            privacy_classification: string;
+            /** Source */
+            source: string;
+            /** Subject Scope */
+            subject_scope: string;
         };
         /** ExecuteApprovedRequest */
         ExecuteApprovedRequest: {
@@ -3362,6 +3519,11 @@ export interface components {
             /** Rationale */
             rationale: string;
         };
+        /**
+         * GrowthActionType
+         * @enum {string}
+         */
+        GrowthActionType: "create_experiment" | "stop_experiment";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3689,6 +3851,8 @@ export interface components {
         ManualRunAccepted: {
             /** Agent Id */
             agent_id: string;
+            /** Capability Key */
+            capability_key: string;
             /** Correlation Id */
             correlation_id: string;
             /** Job Type */
@@ -4352,6 +4516,42 @@ export interface components {
             message: string;
             urgency: components["schemas"]["RiskLevel"];
         };
+        /** OutcomeEvaluation */
+        OutcomeEvaluation: {
+            /** Agent Id */
+            agent_id: string;
+            /** Attribution Limitations */
+            attribution_limitations?: string[];
+            /** Baseline Value */
+            baseline_value?: string | null;
+            /** Capability Key */
+            capability_key: string;
+            /**
+             * Evaluated At
+             * Format: date-time
+             */
+            evaluated_at: string;
+            /** Evaluation Id */
+            evaluation_id: string;
+            /** Measurement Due At */
+            measurement_due_at?: string | null;
+            /** Metric Name */
+            metric_name: string;
+            /** Observed Value */
+            observed_value?: string | null;
+            /** Proposal Id */
+            proposal_id?: string | null;
+            /** Run Id */
+            run_id: string;
+            status: components["schemas"]["OutcomeEvaluationStatus"];
+            /** Target Value */
+            target_value?: string | null;
+        };
+        /**
+         * OutcomeEvaluationStatus
+         * @enum {string}
+         */
+        OutcomeEvaluationStatus: "pending" | "measured" | "inconclusive";
         /** Page[ActionExecution] */
         Page_ActionExecution_: {
             /** Items */
@@ -4455,6 +4655,17 @@ export interface components {
         Page_Finding_: {
             /** Items */
             items: components["schemas"]["Finding"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OutcomeEvaluation] */
+        Page_OutcomeEvaluation_: {
+            /** Items */
+            items: components["schemas"]["OutcomeEvaluation"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -4937,7 +5148,18 @@ export interface components {
         };
         /** Recommendation */
         Recommendation: {
-            action_type: components["schemas"]["ActionType"];
+            /**
+             * Action Family
+             * @default advertising
+             */
+            action_family: string;
+            /** Action Type */
+            action_type: components["schemas"]["ActionType"] | components["schemas"]["GrowthActionType"];
+            /**
+             * Capability Key
+             * @default growth.advertising
+             */
+            capability_key: string;
             /** Confidence */
             confidence: string;
             /**
@@ -4961,7 +5183,7 @@ export interface components {
             /** Object Type */
             object_type: string;
             /** Parameters */
-            parameters: components["schemas"]["BudgetActionParameters"] | components["schemas"]["StatusActionParameters"] | components["schemas"]["AudienceActionParameters"] | components["schemas"]["NoChangeActionParameters"] | components["schemas"]["TestProposalParameters"];
+            parameters: components["schemas"]["BudgetActionParameters"] | components["schemas"]["StatusActionParameters"] | components["schemas"]["AudienceActionParameters"] | components["schemas"]["NoChangeActionParameters"] | components["schemas"]["TestProposalParameters"] | components["schemas"]["CreateExperimentActionParameters"] | components["schemas"]["StopExperimentActionParameters"];
             /** Provider Object Id */
             provider_object_id: string;
             /** Reasoning */
@@ -5086,6 +5308,8 @@ export interface components {
         RunDetailResponse: {
             /** Findings */
             findings: components["schemas"]["Finding"][];
+            /** Outcomes */
+            outcomes: components["schemas"]["OutcomeEvaluation"][];
             /** Proposals */
             proposals: components["schemas"]["ActionProposal"][];
             /** Recommendations */
@@ -5098,6 +5322,8 @@ export interface components {
         };
         /** RunNowRequest */
         RunNowRequest: {
+            /** Capability Key */
+            capability_key?: string | null;
             /** Correlation Id */
             correlation_id?: string | null;
             /** Idempotency Key */
@@ -5504,6 +5730,27 @@ export interface components {
             kind: "pause" | "resume";
             /** Proposed Status */
             proposed_status: string;
+        };
+        /** StopExperimentActionParameters */
+        StopExperimentActionParameters: {
+            /**
+             * Current Status
+             * @enum {string}
+             */
+            current_status: "DRAFT" | "RUNNING";
+            /** Experiment Key */
+            experiment_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "stop_experiment";
+            /**
+             * Proposed Status
+             * @default STOPPED
+             * @constant
+             */
+            proposed_status: "STOPPED";
         };
         /** StudyModeAction */
         StudyModeAction: {
@@ -5925,7 +6172,9 @@ export interface operations {
     };
     configuration_schema_api_v1_admin_operation_agents__agent_id__configuration_schema_get: {
         parameters: {
-            query?: never;
+            query?: {
+                capability_key?: string | null;
+            };
             header?: {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
@@ -5963,7 +6212,9 @@ export interface operations {
     };
     list_configurations_api_v1_admin_operation_agents__agent_id__configurations_get: {
         parameters: {
-            query?: never;
+            query?: {
+                capability_key?: string | null;
+            };
             header?: {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
@@ -5999,7 +6250,9 @@ export interface operations {
     };
     create_configuration_api_v1_admin_operation_agents__agent_id__configurations_post: {
         parameters: {
-            query?: never;
+            query?: {
+                capability_key?: string | null;
+            };
             header?: {
                 "X-API-Key"?: string | null;
                 "X-MANA-Actor-ID"?: string | null;
@@ -6490,6 +6743,7 @@ export interface operations {
         parameters: {
             query?: {
                 agent_id?: string | null;
+                capability_key?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -6638,6 +6892,47 @@ export interface operations {
             };
         };
     };
+    capability_kill_switch_api_v1_admin_operation_kill_switch_agents__agent_id__capabilities__capability_key__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                agent_id: string;
+                capability_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KillSwitchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KillSwitchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     global_kill_switch_api_v1_admin_operation_kill_switch_global_put: {
         parameters: {
             query?: never;
@@ -6710,6 +7005,45 @@ export interface operations {
             };
         };
     };
+    list_outcome_evaluations_api_v1_admin_operation_outcome_evaluations_get: {
+        parameters: {
+            query?: {
+                run_id?: string | null;
+                proposal_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OutcomeEvaluation_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_recommendations_api_v1_admin_operation_recommendations_get: {
         parameters: {
             query?: {
@@ -6752,6 +7086,7 @@ export interface operations {
         parameters: {
             query?: {
                 agent_id?: string | null;
+                capability_key?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -6826,6 +7161,7 @@ export interface operations {
         parameters: {
             query?: {
                 agent_id?: string | null;
+                capability_key?: string | null;
                 status?: components["schemas"]["AgentRunStatus"] | null;
                 limit?: number;
                 offset?: number;
@@ -6901,6 +7237,7 @@ export interface operations {
         parameters: {
             query?: {
                 agent_id?: string | null;
+                capability_key?: string | null;
             };
             header?: {
                 "X-API-Key"?: string | null;

@@ -21,8 +21,8 @@ Browser -> Next.js same-origin rewrite -> FastAPI Telegram OTP/session API
 
 Admin/API/scheduler -> app/mana_operation_ai/application
                     -> domain contracts and state machines
-                    -> repository / AdsPlatform / Notification ports
-                    -> SQLAlchemy, Meta Graph, fake Meta, logging adapters
+                    -> capability registry and typed source/action ports
+                    -> SQLAlchemy, Meta Graph, fake Meta/funnel/experiment, logging adapters
 ```
 
 Target operational control flow:
@@ -40,7 +40,9 @@ Agent recommendation -> typed action -> policy/approval -> executor -> verificat
 The orchestrator coordinates but does not bypass domain ownership. Provider, billing, messaging,
 issue-tracker, and deployment actions are performed only by the owning agent's scoped, typed
 executor. All four agents are expected to act as well as analyze, with risk-appropriate policy and
-approval. Current live Meta remains read-only; fake Meta is the implemented executable adapter.
+approval. Current live Meta remains read-only. `growth-agent` is the only loaded operational agent
+and composes `growth.advertising` plus `growth.funnel.analyze`; fake Meta and the in-memory
+experiment sandbox are the only executable write adapters.
 
 `app/mana_ai` cannot import `app.mana_operation_ai`. The AST test in
 `tests/test_architecture_boundaries.py` also rejects operational repositories, database models,
@@ -80,8 +82,8 @@ fresh read first, while FastAPI remains the final concurrency, authorization, an
 
 ## Dependency decisions
 
-1. The generic registry contains implementations, not names. Adding an agent means implementing
-   `OperationalAgent` and registering it; central `if agent_name == ...` dispatch does not exist.
+1. The generic agent registry contains implementations, not names. Each domain agent composes a
+   typed `CapabilityRegistry`; central agent-name or job-type dispatch does not exist.
 2. `AdsPlatform` isolates Meta payloads. Marketing analytics sees only normalized domain models.
 3. SQLAlchemy rows are persistence envelopes. JSON domain payloads preserve versioned contracts;
    indexed columns support operational queries. ORM rows never leave the repository.
@@ -95,7 +97,8 @@ fresh read first, while FastAPI remains the final concurrency, authorization, an
 
 ## Persistence
 
-Alembic owns the operational tables covering agents, configuration versions, schedules, runs,
+Alembic owns the operational tables covering agents, capability configuration versions and
+schedules, runs,
 snapshots, analyses, findings, recommendations, proposals, approvals, decisions, executions,
 verifications, reports, audit events, integration health, controls, and locks. UTC timestamps are
 serialized with offsets in domain payloads. Money and financial thresholds serialize from Decimal.
@@ -105,11 +108,16 @@ HMAC-only sessions, authentication audit, rolling rate events, and a database gu
 serialize cross-worker security mutations. The domain/application layers stay free of SQLAlchemy,
 FastAPI, httpx, and Telegram payloads.
 
+Revision `c41d9e7a2f30` adds capability scope to configurations, schedules, runs, and audit, preserves
+legacy `marketing-agent` payloads, changes uniqueness to be capability-aware, and adds persisted
+outcome evaluations.
+
 ## Request and execution flow
 
 Manual run endpoints return `202 accepted` and use a background task. Scheduled runs and manual
-runs call the same runner. The runner checks status and kill switches, creates an idempotent queued
-run, acquires an agent lock, and executes the registered implementation. Approval execution reads
+runs call the same runner. The runner checks agent/capability status and kill switches, creates an
+idempotent capability-scoped run, acquires a capability lock, and dispatches its typed handler.
+Approval execution reads
 provider state again, re-evaluates the active policy, checks the state hash and idempotency key,
 writes only a typed action, reads again, and persists verification plus audit events.
 

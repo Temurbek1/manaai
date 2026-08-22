@@ -10,6 +10,10 @@ from typing import cast
 from pydantic import JsonValue
 
 from app.mana_operation_ai.application.action_lifecycle import ActionLifecycleService
+from app.mana_operation_ai.application.growth.constants import (
+    ADVERTISING_CAPABILITY_KEY,
+    GROWTH_AGENT_ID,
+)
 from app.mana_operation_ai.application.marketing.analytics import MarketingAnalyticsEngine
 from app.mana_operation_ai.application.marketing.reporting import MarketingReportBuilder
 from app.mana_operation_ai.application.ports import (
@@ -24,10 +28,10 @@ from app.mana_operation_ai.domain.enums import (
     ActionStatus,
     AgentRunStage,
     AgentRunStatus,
-    AgentStatus,
     AuditEventType,
     CapabilityRisk,
     ProviderMode,
+    TriggerType,
     UserRole,
 )
 from app.mana_operation_ai.domain.marketing import (
@@ -38,14 +42,13 @@ from app.mana_operation_ai.domain.marketing import (
 from app.mana_operation_ai.domain.models import (
     ActionExecution,
     ActionProposal,
-    AgentCapability,
     AgentConfiguration,
-    AgentDefinition,
     AgentReport,
     AgentRun,
     AgentRunResult,
     AgentSchedule,
     AuditEvent,
+    CapabilityDefinition,
     DataSnapshot,
     Finding,
     IntegrationHealth,
@@ -53,11 +56,10 @@ from app.mana_operation_ai.domain.models import (
 )
 from app.mana_operation_ai.domain.state_machine import RUN_TRANSITIONS, require_transition
 
-MARKETING_AGENT_ID = "marketing-agent"
 logger = logging.getLogger(__name__)
 
 
-class MarketingAgent:
+class AdvertisingCapabilityHandler:
     def __init__(
         self,
         *,
@@ -78,49 +80,32 @@ class MarketingAgent:
         self._notifications = notifications
         self._clock = clock
         self._ids = ids
-        capabilities = [
-            AgentCapability(
-                key="marketing.collect",
-                description="Collect normalized advertising snapshots",
-                risk=CapabilityRisk.READ,
-                minimum_role=UserRole.VIEWER,
-            ),
-            AgentCapability(
-                key="marketing.analyze",
-                description="Calculate deterministic performance findings",
-                risk=CapabilityRisk.PROPOSE,
-                minimum_role=UserRole.OPERATOR,
-            ),
-        ]
-        if provider.provider_mode is ProviderMode.FAKE_EXECUTABLE:
-            capabilities.append(
-                AgentCapability(
-                    key="marketing.execute",
-                    description="Execute approved typed advertising actions in the fake sandbox",
-                    risk=CapabilityRisk.FINANCIAL,
-                    minimum_role=UserRole.APPROVER,
-                ),
-            )
-        self._definition = AgentDefinition(
-            agent_id=MARKETING_AGENT_ID,
-            display_name="Marketing Agent",
+        risk = (
+            CapabilityRisk.FINANCIAL
+            if provider.provider_mode is ProviderMode.FAKE_EXECUTABLE
+            else CapabilityRisk.PROPOSE
+        )
+        self._definition = CapabilityDefinition(
+            key=ADVERTISING_CAPABILITY_KEY,
+            agent_id=GROWTH_AGENT_ID,
             description=(
                 "Collects and analyzes live advertising data as read-only advisory intelligence."
                 if provider.provider_mode is ProviderMode.LIVE_READ_ONLY
                 else "Collects, analyzes, proposes, and safely executes sandbox actions."
             ),
-            version="1.0.0",
-            status=AgentStatus.ENABLED,
-            capabilities=capabilities,
-            configuration_schema=cast(
+            risk=risk,
+            minimum_role=UserRole.OPERATOR,
+            input_schema=cast(
                 dict[str, JsonValue],
                 MarketingAgentConfiguration.model_json_schema(),
             ),
-            registered_at=self._clock.now(),
+            output_schema=cast(dict[str, JsonValue], AgentRunResult.model_json_schema()),
+            required_integrations=[provider.provider_name],
+            supported_triggers={TriggerType.USER, TriggerType.SCHEDULE},
         )
 
     @property
-    def definition(self) -> AgentDefinition:
+    def definition(self) -> CapabilityDefinition:
         return self._definition
 
     @property
@@ -130,13 +115,14 @@ class MarketingAgent:
             MarketingAgentConfiguration().model_dump(mode="json"),
         )
 
-    def default_schedules(self) -> list[AgentSchedule]:
+    def default_schedules(self, agent_id: str) -> list[AgentSchedule]:
         configuration = MarketingAgentConfiguration()
         now = self._clock.now()
         return [
             AgentSchedule(
-                schedule_id="marketing-agent-analysis",
-                agent_id=MARKETING_AGENT_ID,
+                schedule_id="growth-advertising-analysis",
+                agent_id=agent_id,
+                capability_key=ADVERTISING_CAPABILITY_KEY,
                 job_type="analysis",
                 cron_expression=configuration.analysis_schedule,
                 timezone=configuration.timezone,
@@ -148,8 +134,9 @@ class MarketingAgent:
                 ),
             ),
             AgentSchedule(
-                schedule_id="marketing-agent-nightly-report",
-                agent_id=MARKETING_AGENT_ID,
+                schedule_id="growth-advertising-nightly-report",
+                agent_id=agent_id,
+                capability_key=ADVERTISING_CAPABILITY_KEY,
                 job_type="nightly_report",
                 cron_expression=configuration.nightly_report_schedule,
                 timezone=configuration.timezone,
@@ -164,6 +151,8 @@ class MarketingAgent:
 
     def schedules_for_configuration(
         self,
+        *,
+        agent_id: str,
         values: dict[str, JsonValue],
         existing: Sequence[AgentSchedule],
     ) -> list[AgentSchedule]:
@@ -172,9 +161,9 @@ class MarketingAgent:
         now = self._clock.now()
         schedules: list[AgentSchedule] = []
         for schedule_id, job_type, expression in [
-            ("marketing-agent-analysis", "analysis", configuration.analysis_schedule),
+            ("growth-advertising-analysis", "analysis", configuration.analysis_schedule),
             (
-                "marketing-agent-nightly-report",
+                "growth-advertising-nightly-report",
                 "nightly_report",
                 configuration.nightly_report_schedule,
             ),
@@ -183,7 +172,8 @@ class MarketingAgent:
             schedules.append(
                 AgentSchedule(
                     schedule_id=schedule_id,
-                    agent_id=MARKETING_AGENT_ID,
+                    agent_id=agent_id,
+                    capability_key=ADVERTISING_CAPABILITY_KEY,
                     job_type=job_type,
                     cron_expression=expression,
                     timezone=configuration.timezone,
@@ -293,12 +283,17 @@ class MarketingAgent:
             auto_approved: list[ActionProposal] = []
             for recommendation in bundle.recommendations:
                 creation = await self._actions.create_proposal(
-                    agent_id=MARKETING_AGENT_ID,
+                    agent_id=run.agent_id,
                     provider_name=self._provider.provider_name,
                     run_id=run.run_id,
                     correlation_id=run.correlation_id,
                     recommendation=recommendation,
-                    configuration=effective_configuration.action_policy_configuration(),
+                    configuration=cast(
+                        dict[str, JsonValue],
+                        effective_configuration.action_policy_configuration().model_dump(
+                            mode="json",
+                        ),
+                    ),
                     configuration_version=configuration.version,
                     requested_by=run.initiated_by,
                 )
@@ -462,7 +457,7 @@ class MarketingAgent:
         report: AgentReport = self._reports.build(
             report_id=self._ids.new(),
             run_id=run.run_id,
-            agent_id=MARKETING_AGENT_ID,
+            agent_id=run.agent_id,
             snapshot=snapshot,
             findings=findings,
             recommendations=recommendations,
@@ -477,7 +472,8 @@ class MarketingAgent:
             AuditEvent(
                 event_id=self._ids.new(),
                 correlation_id=run.correlation_id,
-                agent_id=MARKETING_AGENT_ID,
+                agent_id=run.agent_id,
+                capability_key=run.capability_key,
                 run_id=run.run_id,
                 event_type=AuditEventType.REPORT_CREATED,
                 actor_id=run.initiated_by,
@@ -535,7 +531,8 @@ class MarketingAgent:
             AuditEvent(
                 event_id=self._ids.new(),
                 correlation_id=run.correlation_id,
-                agent_id=MARKETING_AGENT_ID,
+                agent_id=run.agent_id,
+                capability_key=run.capability_key,
                 run_id=run.run_id,
                 event_type=AuditEventType.RUN_STAGE_CHANGED,
                 actor_id=run.initiated_by,
@@ -557,7 +554,8 @@ class MarketingAgent:
         return DataSnapshot(
             snapshot_id=self._ids.new(),
             run_id=run.run_id,
-            agent_id=MARKETING_AGENT_ID,
+            agent_id=run.agent_id,
+            capability_key=run.capability_key,
             provider=snapshot.provider,
             schema_version=snapshot.schema_version,
             period_start=snapshot.period_start,

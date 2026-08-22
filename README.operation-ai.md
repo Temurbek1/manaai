@@ -8,7 +8,7 @@ runs without any of this — see [README.mana-ai.md](README.mana-ai.md).
 
 ## What this platform is
 
-- **FastAPI backend** (`app.main:create_app`) exposing 73 endpoints, including the 14 of the
+- **FastAPI backend** (`app.main:create_app`) exposing 75 endpoints, including the 14 of the
   product API layer.
 - **Next.js 16 / React 19 admin UI** in `admin-ui/`, served on port 3000, proxying same-origin
   `/api` to FastAPI. Business logic stays in FastAPI.
@@ -36,11 +36,13 @@ the first half of the product. Every external/internal mutation follows evidence
 -> typed intent -> policy -> approval -> fresh-state check -> idempotent execution -> verification
 -> outcome measurement -> audit.
 
-**Current versus target:** only `marketing-agent` is implemented today. Its end-to-end write path
-is executable against `fake_meta`; live Meta is deliberately read-only. The working implementation
-will become `growth.advertising` during a compatibility-preserving migration, not be discarded or
-duplicated. See [the canonical agent model](docs/operation-agent-model.md) for boundaries, action
-governance, migration rules, and delivery order.
+**Current versus target:** `growth-agent` is the implemented operational agent. It owns
+`growth.advertising` and `growth.funnel.analyze`; `marketing-agent` is a temporary alias that starts
+new advertising runs under `growth-agent` while historical rows retain their original agent ID.
+Advertising writes are executable only against `fake_meta`, funnel sources are deterministic fake
+ports, and experiment writes target only the in-memory sandbox. Live Meta is deliberately
+read-only. Retention, Operations Orchestrator, and Technical Reliability remain target agents. See
+[the Growth handoff](docs/growth-agent.md) for the concrete runtime map and extension rules.
 
 ### Endpoint groups
 
@@ -84,24 +86,24 @@ These reject internal role keys by design; a browser session is required.
 | --- | --- | --- |
 | GET | `/admin/operation/dashboard` | Per-agent status, health, next run, pending approvals, recent incidents, global kill-switch state. |
 | GET | `/admin/operation/session` | Resolves the acting identity and the provider mode in effect. |
-| GET | `/admin/operation/marketing/overview` | Marketing Agent view: integration health, token scopes, account context. |
+| GET | `/admin/operation/marketing/overview` | Compatibility view for `growth.advertising`: integration health, token scopes, account context. |
 | GET | `/admin/operation/agents` | Registered agents. |
 | GET | `/admin/operation/agents/{agent_id}` | One agent with its definition and current state. |
 | POST | `/admin/operation/agents/{agent_id}/register` | Registers an agent implementation loaded by the application. |
 | POST | `/admin/operation/agents/{agent_id}/status` | Sets status explicitly. |
 | POST | `/admin/operation/agents/{agent_id}/enable` · `/disable` · `/pause` · `/resume` | Status shortcuts. Paused keeps schedules; disabled stops them. |
-| POST | `/admin/operation/agents/{agent_id}/run` | Triggers a job. Returns **202 accepted** with a `correlation_id` — not a run id. Find the run by polling `/runs`. Pass `idempotency_key` to make retries safe. |
-| GET | `/admin/operation/runs` | Paginated run history with status and stage. |
-| GET | `/admin/operation/runs/{run_id}` | One run plus its timeline, snapshots, findings, recommendations, and proposals. |
+| POST | `/admin/operation/agents/{agent_id}/run` | Triggers a typed capability job. Pass `capability_key`; omitting it selects the agent default. Returns **202 accepted** with a `correlation_id`. |
+| GET | `/admin/operation/runs` | Paginated run history, filterable by `agent_id`, `capability_key`, and status. Growth/marketing filters include preserved legacy advertising history. |
+| GET | `/admin/operation/runs/{run_id}` | One run plus timeline, snapshots/evidence, findings, recommendations, proposals, and outcomes. |
 
 ### Configuration and schedules
 
 | Method | Path | What it does |
 | --- | --- | --- |
-| GET | `/admin/operation/agents/{agent_id}/configuration-schema` | JSON Schema for that agent's configuration — use it to build a form. |
-| GET | `/admin/operation/agents/{agent_id}/configurations` | Configuration version history. |
-| POST | `/admin/operation/agents/{agent_id}/configurations` | Creates a new immutable version. Runs record the version they used. |
-| GET | `/admin/operation/schedules` | Schedules with cron expression, timezone, and lease state. |
+| GET | `/admin/operation/agents/{agent_id}/configuration-schema` | JSON Schema for one capability configuration selected by `capability_key`. |
+| GET | `/admin/operation/agents/{agent_id}/configurations` | Configuration history, optionally scoped by `capability_key`. |
+| POST | `/admin/operation/agents/{agent_id}/configurations` | Creates an immutable capability configuration version. Runs record the version they used. |
+| GET | `/admin/operation/schedules` | Independently controlled capability schedules with cron expression and timezone. |
 | PUT | `/admin/operation/schedules/{schedule_id}` | Replaces cron, timezone, and enabled flag. |
 
 ### Analysis output
@@ -112,6 +114,7 @@ These reject internal role keys by design; a browser session is required.
 | GET | `/admin/operation/recommendations` | Recommendations derived from findings. |
 | GET | `/admin/operation/reports` | Stored agent reports. |
 | GET | `/admin/operation/reports/{report_id}` | One report. |
+| GET | `/admin/operation/outcome-evaluations` | Persisted business-outcome evaluations, distinct from provider-state verification. |
 | GET | `/admin/operation/audit-events` | Append-only audit trail of who did what. |
 | GET | `/admin/operation/integrations/{provider}/health` | Live provider check: reachability, token validity and scopes, latency. |
 
@@ -127,6 +130,7 @@ Where the safety controls live. Read [Safety model](#safety-model) before using 
 | POST | `/admin/operation/approvals/bulk-decision` | Same decision across up to 50 proposals. **409** unless they all share one action type — and bulk *approval* is further limited to `decrease_budget`, since lowering spend is the only change safe to wave through in bulk. Bulk rejection works for any type. |
 | POST | `/admin/operation/action-proposals/{proposal_id}/execute` | Re-checks every safeguard, then executes and verifies. Safe to repeat: the stored execution for the idempotency key is returned instead of writing twice. **423** when a safeguard blocks it — including a proposal that settled as `dry_run` rather than `approved`, which is what happens whenever `OPERATION_DRY_RUN=true`. |
 | GET | `/admin/operation/executions` | Execution attempts with before-state, requested change, and provider response. |
+| PUT | `/admin/operation/kill-switch/agents/{agent_id}/capabilities/{capability_key}` | Stops or re-arms one capability without stopping its siblings. |
 
 ### Kill switches
 
@@ -317,5 +321,5 @@ CI configuration in the repository, so these run locally.
 ## Further reading
 
 `docs/operation-agent-model.md`, `docs/architecture.md`, `docs/operation-ai-platform.md`,
-`docs/marketing-agent.md`, `docs/action-safety.md`, `docs/runbook.md`,
+`docs/growth-agent.md`, `docs/marketing-agent.md`, `docs/action-safety.md`, `docs/runbook.md`,
 `docs/deployment-topology.md`, `docs/telegram-otp-auth.md`, `docs/admin-panel.md`.

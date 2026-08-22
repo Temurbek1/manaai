@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
 
 from croniter import croniter
 from pydantic import JsonValue
@@ -23,6 +24,7 @@ from app.mana_operation_ai.application.scheduling import next_cron_occurrence
 from app.mana_operation_ai.domain.enums import (
     ActionStatus,
     ActionType,
+    AgentRunStatus,
     AgentStatus,
     ApprovalStatus,
     AuditEventType,
@@ -36,8 +38,11 @@ from app.mana_operation_ai.domain.marketing import (
     MarketingOverview,
 )
 from app.mana_operation_ai.domain.models import (
+    ActionExecution,
     AgentConfiguration,
     AgentDefinition,
+    AgentReport,
+    AgentRun,
     AgentRunResult,
     AgentSchedule,
     ApprovalDecision,
@@ -87,13 +92,14 @@ class OperationAdminService:
         agent_id: str,
         actor: ActorContext,
     ) -> AgentDefinition:
-        definition = self._agents.get(agent_id).definition
+        canonical_agent_id = self._agents.canonical_id(agent_id)
+        definition = self._agents.get(canonical_agent_id).definition
         await self.repository.register_agent(definition)
         await self._audit(
             event_type=AuditEventType.AGENT_REGISTERED,
             actor=actor,
             correlation_id=self._ids.new(),
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
             summary="Loaded agent registered in the operational catalog",
             details={"version": definition.version},
         )
@@ -106,12 +112,13 @@ class OperationAdminService:
         status: AgentStatus,
         actor: ActorContext,
     ) -> AgentDefinition:
-        definition = await self.repository.set_agent_status(agent_id, status)
+        canonical_agent_id = self._agents.canonical_id(agent_id)
+        definition = await self.repository.set_agent_status(canonical_agent_id, status)
         await self._audit(
             event_type=AuditEventType.AGENT_STATUS_CHANGED,
             actor=actor,
             correlation_id=self._ids.new(),
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
             summary=f"Agent status changed to {status.value}",
             details={"status": status.value},
         )
@@ -121,23 +128,34 @@ class OperationAdminService:
         self,
         *,
         agent_id: str,
+        capability_key: str | None,
         values: dict[str, JsonValue],
         actor: ActorContext,
     ) -> AgentConfiguration:
-        agent = self._agents.get(agent_id)
-        validated = agent.validate_configuration(values)
-        latest = await self.repository.latest_configuration(agent_id)
+        canonical_agent_id = self._agents.canonical_id(agent_id)
+        agent = self._agents.get(canonical_agent_id)
+        effective_capability_key = capability_key or agent.definition.default_capability_key
+        validated = agent.validate_capability_configuration(effective_capability_key, values)
+        latest = await self.repository.latest_configuration(
+            canonical_agent_id,
+            effective_capability_key,
+        )
         version = 1 if latest is None else latest.version + 1
         configuration = AgentConfiguration(
             configuration_id=self._ids.new(),
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=effective_capability_key,
             version=version,
             values=validated,
             created_at=self._clock.now(),
             created_by=actor.actor_id,
         )
-        existing_schedules = await self.repository.list_schedules(agent_id)
-        configured_schedules = agent.schedules_for_configuration(
+        existing_schedules = await self.repository.list_schedules(
+            canonical_agent_id,
+            effective_capability_key,
+        )
+        configured_schedules = agent.schedules_for_capability_configuration(
+            effective_capability_key,
             validated,
             existing_schedules,
         )
@@ -148,7 +166,8 @@ class OperationAdminService:
             event_type=AuditEventType.CONFIGURATION_CREATED,
             actor=actor,
             correlation_id=configuration.configuration_id,
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=effective_capability_key,
             summary=f"Agent configuration version {version} created",
             details={"version": version},
         )
@@ -202,6 +221,7 @@ class OperationAdminService:
         self,
         *,
         agent_id: str,
+        capability_key: str | None,
         job_type: str,
         actor: ActorContext,
         correlation_id: str | None,
@@ -210,6 +230,7 @@ class OperationAdminService:
     ) -> AgentRunResult:
         return await self._runner.run_now(
             agent_id=agent_id,
+            capability_key=capability_key,
             job_type=job_type,
             trigger=trigger,
             actor_id=actor.actor_id,
@@ -218,16 +239,125 @@ class OperationAdminService:
             idempotency_key=idempotency_key,
         )
 
-    async def validate_run(self, agent_id: str) -> None:
-        await self._runner.validate_run(agent_id)
+    async def validate_run(self, agent_id: str, capability_key: str | None = None) -> None:
+        await self._runner.validate_run(agent_id, capability_key)
 
     def new_identifier(self) -> str:
         return self._ids.new()
+
+    def canonical_agent_id(self, agent_id: str) -> str:
+        return self._agents.canonical_id(agent_id)
+
+    def default_capability_key(self, agent_id: str) -> str:
+        return self._agents.default_capability_key(agent_id)
+
+    def agent_identifiers(self, agent_id: str) -> set[str]:
+        return self._agents.identifiers_for(agent_id)
+
+    async def list_loaded_agents(self) -> list[AgentDefinition]:
+        """Expose only implementations loaded by this runtime, retaining persisted status."""
+        definitions: list[AgentDefinition] = []
+        for loaded in self._agents.definitions():
+            persisted = await self.repository.get_agent(loaded.agent_id)
+            definitions.append(
+                loaded
+                if persisted is None
+                else loaded.model_copy(update={"status": persisted.status})
+            )
+        return definitions
+
+    async def list_runs(
+        self,
+        *,
+        agent_id: str | None,
+        capability_key: str | None,
+        status: AgentRunStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[AgentRun], int]:
+        if agent_id is None:
+            return await self.repository.list_runs(
+                capability_key=capability_key,
+                status=status,
+                limit=limit,
+                offset=offset,
+            )
+        fetch_limit = limit + offset
+        items: list[AgentRun] = []
+        total = 0
+        for identifier in self._agents.identifiers_for(agent_id):
+            page, count = await self.repository.list_runs(
+                agent_id=identifier,
+                capability_key=capability_key,
+                status=status,
+                limit=fetch_limit,
+            )
+            items.extend(page)
+            total += count
+        items.sort(key=lambda item: item.started_at, reverse=True)
+        return items[offset : offset + limit], total
+
+    async def list_executions(
+        self,
+        *,
+        agent_id: str | None,
+        capability_key: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ActionExecution], int]:
+        if agent_id is None:
+            return await self.repository.list_executions(
+                capability_key=capability_key,
+                limit=limit,
+                offset=offset,
+            )
+        fetch_limit = limit + offset
+        items: list[ActionExecution] = []
+        total = 0
+        for identifier in self._agents.identifiers_for(agent_id):
+            page, count = await self.repository.list_executions(
+                agent_id=identifier,
+                capability_key=capability_key,
+                limit=fetch_limit,
+            )
+            items.extend(page)
+            total += count
+        items.sort(key=lambda item: item.attempted_at, reverse=True)
+        return items[offset : offset + limit], total
+
+    async def list_reports(
+        self,
+        *,
+        agent_id: str | None,
+        capability_key: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[AgentReport], int]:
+        if agent_id is None:
+            return await self.repository.list_reports(
+                capability_key=capability_key,
+                limit=limit,
+                offset=offset,
+            )
+        fetch_limit = limit + offset
+        items: list[AgentReport] = []
+        total = 0
+        for identifier in self._agents.identifiers_for(agent_id):
+            page, count = await self.repository.list_reports(
+                agent_id=identifier,
+                capability_key=capability_key,
+                limit=fetch_limit,
+            )
+            items.extend(page)
+            total += count
+        items.sort(key=lambda item: item.created_at, reverse=True)
+        return items[offset : offset + limit], total
 
     async def run_in_background(
         self,
         *,
         agent_id: str,
+        capability_key: str | None,
         job_type: str,
         actor: ActorContext,
         correlation_id: str,
@@ -236,6 +366,7 @@ class OperationAdminService:
         try:
             await self.run_now(
                 agent_id=agent_id,
+                capability_key=capability_key,
                 job_type=job_type,
                 actor=actor,
                 correlation_id=correlation_id,
@@ -333,25 +464,54 @@ class OperationAdminService:
         self,
         *,
         agent_id: str | None,
+        capability_key: str | None = None,
         enabled: bool,
         actor: ActorContext,
-    ) -> None:
-        key = "global_kill_switch" if agent_id is None else f"agent_kill_switch:{agent_id}"
+    ) -> str:
+        canonical_agent_id = self._agents.canonical_id(agent_id) if agent_id is not None else None
+        if capability_key is not None:
+            if canonical_agent_id is None:
+                raise ValueError("A capability kill switch requires an agent identifier")
+            capability_keys = {
+                item.key for item in self._agents.get(canonical_agent_id).capability_definitions()
+            }
+            if capability_key not in capability_keys:
+                raise LookupError(f"Capability {capability_key!r} was not found")
+            control_keys = [
+                f"capability_kill_switch:{identifier}:{capability_key}"
+                for identifier in self._agents.identifiers_for(canonical_agent_id)
+            ]
+            scope = f"{canonical_agent_id}/{capability_key}"
+        elif canonical_agent_id is not None:
+            control_keys = [
+                f"agent_kill_switch:{identifier}"
+                for identifier in self._agents.identifiers_for(canonical_agent_id)
+            ]
+            scope = canonical_agent_id
+        else:
+            control_keys = ["global_kill_switch"]
+            scope = "global"
         now = self._clock.now()
-        await self.repository.set_control(
-            key=key,
-            enabled=enabled,
-            updated_at=now,
-            updated_by=actor.actor_id,
-        )
+        for key in control_keys:
+            await self.repository.set_control(
+                key=key,
+                enabled=enabled,
+                updated_at=now,
+                updated_by=actor.actor_id,
+            )
         await self._audit(
             event_type=AuditEventType.KILL_SWITCH_CHANGED,
             actor=actor,
             correlation_id=self._ids.new(),
-            agent_id=agent_id,
-            summary=f"Kill switch {key} set to {enabled}",
-            details={"enabled": enabled},
+            agent_id=canonical_agent_id,
+            capability_key=capability_key,
+            summary=f"Kill switch {scope} set to {enabled}",
+            details={
+                "enabled": enabled,
+                "control_keys": cast(list[JsonValue], control_keys),
+            },
         )
+        return scope
 
     async def integration_health(self, provider: str) -> IntegrationHealth:
         health = await self._platforms.get(provider).health()
@@ -366,9 +526,21 @@ class OperationAdminService:
 
     async def marketing_overview(self) -> MarketingOverview:
         health = await self.integration_health(self._default_ads_provider)
-        configuration = await self.repository.latest_configuration("marketing-agent")
-        schedules = await self.repository.list_schedules("marketing-agent")
-        runs, _ = await self.repository.list_runs(agent_id="marketing-agent", limit=100)
+        configuration = await self.repository.latest_configuration(
+            "growth-agent",
+            "growth.advertising",
+        )
+        schedules = await self.repository.list_schedules(
+            "growth-agent",
+            "growth.advertising",
+        )
+        runs, _ = await self.list_runs(
+            agent_id="growth-agent",
+            capability_key="growth.advertising",
+            status=None,
+            limit=100,
+            offset=0,
+        )
         snapshot: AdsSnapshot | None = None
         for run in runs:
             snapshots = await self.repository.list_snapshots(run.run_id)
@@ -446,6 +618,7 @@ class OperationAdminService:
         actor: ActorContext,
         correlation_id: str,
         agent_id: str | None,
+        capability_key: str | None = None,
         summary: str,
         details: dict[str, JsonValue],
     ) -> None:
@@ -454,6 +627,7 @@ class OperationAdminService:
                 event_id=self._ids.new(),
                 correlation_id=correlation_id,
                 agent_id=agent_id,
+                capability_key=capability_key,
                 event_type=event_type,
                 actor_id=actor.actor_id,
                 actor_role=actor.role,

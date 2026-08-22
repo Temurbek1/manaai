@@ -38,7 +38,7 @@ export function MarketingPage(): React.JSX.Element {
     { refreshInterval: 30_000 },
   );
   const { data: runs, error: runsError } = useSWR<RunPage, Error>(
-    "/api/v1/admin/operation/runs?agent_id=marketing-agent&limit=20",
+    "/api/v1/admin/operation/runs?agent_id=growth-agent&capability_key=growth.advertising&limit=20",
     { refreshInterval: 15_000 },
   );
   const latestRun = runs?.items[0];
@@ -60,11 +60,14 @@ export function MarketingPage(): React.JSX.Element {
   const { data: executions, error: executionsError } = useSWR<
     ExecutionPage,
     Error
-  >("/api/v1/admin/operation/executions?agent_id=marketing-agent&limit=100", {
-    refreshInterval: 15_000,
-  });
+  >(
+    "/api/v1/admin/operation/executions?agent_id=growth-agent&capability_key=growth.advertising&limit=100",
+    {
+      refreshInterval: 15_000,
+    },
+  );
   const { data: reports, error: reportsError } = useSWR<ReportPage, Error>(
-    "/api/v1/admin/operation/reports?agent_id=marketing-agent&limit=20",
+    "/api/v1/admin/operation/reports?agent_id=growth-agent&capability_key=growth.advertising&limit=20",
     { refreshInterval: 30_000 },
   );
   const latestReport = reports?.items[0];
@@ -132,9 +135,9 @@ export function MarketingPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Marketing Agent"
-        title="Meta Ads intelligence"
-        description="Verified performance signals, complete provider snapshots, recommendations, and controlled execution history."
+        eyebrow="Growth & Conversion · Advertising"
+        title="Advertising intelligence"
+        description="The growth.advertising capability: verified Meta performance signals, recommendations, and controlled execution history."
         actions={
           overview ? (
             <StatusBadge status={overview.integration_health.status} />
@@ -149,8 +152,8 @@ export function MarketingPage(): React.JSX.Element {
       executionsError ||
       reportsError ? (
         <p className="error-banner" role="alert">
-          Some Marketing Agent data could not be refreshed. Unavailable values
-          are not inferred.
+          Some advertising capability data could not be refreshed. Unavailable
+          values are not inferred.
         </p>
       ) : null}
       {overviewLoading ? (

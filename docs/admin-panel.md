@@ -9,7 +9,7 @@ runtime. FastAPI remains the only business backend.
 
 - `src/app/layout.tsx` is a Server Component that owns document metadata, global CSS, and the
   stable application boundary.
-- Route `page.tsx` files are Server Components for `/`, `/marketing`, `/approvals`, `/runs`,
+- Route `page.tsx` files are Server Components for `/`, `/growth`, `/approvals`, `/runs`,
   `/agents`, and admin-only `/users`. They compose feature clients without duplicating transport
   logic.
 - `AdminShell`, `AuthenticatedShell`, and `Providers` are Client Components because session
@@ -40,15 +40,17 @@ runtime. FastAPI remains the only business backend.
 
 - Overview: registry-derived agents, status, integration health, last/next run, duration, success
   rate, approvals/incidents, manual run, and a confirmed global emergency stop.
-- Marketing Agent: Meta health, API version, permissions, safe account alias, currency/timezone,
-  request budget/freshness, inventory, KPIs, quality states, findings, recommendations, reports,
-  active configuration, and schedules.
+- Growth & Conversion: one capability selector for advertising and funnel analysis. Advertising
+  retains Meta health, inventory, KPIs, findings, actions, and reports; funnel shows deterministic
+  findings, hypotheses, approval-gated sandbox experiments, and outcomes. `/marketing` redirects
+  to `/growth` for compatibility.
 - Approvals: evidence, reasoning, old/new typed values, risk, expiration, reasoned approve/reject,
   safe bulk decisions, decision history, self-approval denial, and a fresh queue read before action.
 - Runs & audit: stage timeline, sanitized details, errors, retries, duration, correlation/initiator,
   snapshots, findings, recommendations, proposals, verification, and report audit events.
 - Agent management: registry entries, status, health, capabilities/permissions, typed configuration
-  validation/versioning, schedules, a confirmed per-agent kill switch, history, and reports.
+  validation/versioning, independent schedules, confirmed per-agent and per-capability kill
+  switches, capability-filtered history, and reports.
 - Users: admin-only Telegram identity grant, profile/role/status, last-login/creation metadata,
   disable/re-enable, session revocation, and authentication audit.
 

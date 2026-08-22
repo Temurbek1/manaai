@@ -390,11 +390,31 @@
       "ActionPolicy": {
         "additionalProperties": false,
         "properties": {
+          "action_family": {
+            "default": "advertising",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Action Family",
+            "type": "string"
+          },
           "action_type": {
-            "$ref": "#/components/schemas/ActionType"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionType"
+              },
+              {
+                "$ref": "#/components/schemas/GrowthActionType"
+              }
+            ],
+            "title": "Action Type"
           },
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
             "type": "string"
           },
           "checked_at": {
@@ -436,11 +456,31 @@
       "ActionProposal": {
         "additionalProperties": false,
         "properties": {
+          "action_family": {
+            "default": "advertising",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Action Family",
+            "type": "string"
+          },
           "action_type": {
-            "$ref": "#/components/schemas/ActionType"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionType"
+              },
+              {
+                "$ref": "#/components/schemas/GrowthActionType"
+              }
+            ],
+            "title": "Action Type"
           },
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
             "type": "string"
           },
           "confidence": {
@@ -503,6 +543,7 @@
           "parameters": {
             "discriminator": {
               "mapping": {
+                "create_experiment": "#/components/schemas/CreateExperimentActionParameters",
                 "decrease_budget": "#/components/schemas/BudgetActionParameters",
                 "disable_audience": "#/components/schemas/AudienceActionParameters",
                 "increase_budget": "#/components/schemas/BudgetActionParameters",
@@ -511,7 +552,8 @@
                 "pause": "#/components/schemas/StatusActionParameters",
                 "propose_test": "#/components/schemas/TestProposalParameters",
                 "resume": "#/components/schemas/StatusActionParameters",
-                "scale_audience": "#/components/schemas/AudienceActionParameters"
+                "scale_audience": "#/components/schemas/AudienceActionParameters",
+                "stop_experiment": "#/components/schemas/StopExperimentActionParameters"
               },
               "propertyName": "kind"
             },
@@ -530,6 +572,12 @@
               },
               {
                 "$ref": "#/components/schemas/TestProposalParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CreateExperimentActionParameters"
+              },
+              {
+                "$ref": "#/components/schemas/StopExperimentActionParameters"
               }
             ],
             "title": "Parameters"
@@ -1467,36 +1515,6 @@
         "title": "AgeBand",
         "type": "string"
       },
-      "AgentCapability": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "key": {
-            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
-            "title": "Key",
-            "type": "string"
-          },
-          "minimum_role": {
-            "$ref": "#/components/schemas/UserRole"
-          },
-          "risk": {
-            "$ref": "#/components/schemas/CapabilityRisk"
-          }
-        },
-        "required": [
-          "key",
-          "description",
-          "risk",
-          "minimum_role"
-        ],
-        "title": "AgentCapability",
-        "type": "object"
-      },
       "AgentConfiguration": {
         "additionalProperties": false,
         "properties": {
@@ -1507,6 +1525,11 @@
           },
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
             "type": "string"
           },
           "configuration_id": {
@@ -1538,6 +1561,7 @@
         "required": [
           "configuration_id",
           "agent_id",
+          "capability_key",
           "version",
           "values",
           "created_at",
@@ -1556,7 +1580,7 @@
           },
           "capabilities": {
             "items": {
-              "$ref": "#/components/schemas/AgentCapability"
+              "$ref": "#/components/schemas/CapabilityDefinition"
             },
             "title": "Capabilities",
             "type": "array"
@@ -1567,6 +1591,11 @@
             },
             "title": "Configuration Schema",
             "type": "object"
+          },
+          "default_capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Default Capability Key",
+            "type": "string"
           },
           "description": {
             "maxLength": 1000,
@@ -1602,6 +1631,7 @@
           "version",
           "status",
           "capabilities",
+          "default_capability_key",
           "configuration_schema",
           "registered_at"
         ],
@@ -1614,6 +1644,13 @@
           "agent": {
             "$ref": "#/components/schemas/AgentDefinition"
           },
+          "capability_kill_switches": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Capability Kill Switches",
+            "type": "object"
+          },
           "configuration": {
             "anyOf": [
               {
@@ -1623,6 +1660,13 @@
                 "type": "null"
               }
             ]
+          },
+          "configurations": {
+            "items": {
+              "$ref": "#/components/schemas/AgentConfiguration"
+            },
+            "title": "Configurations",
+            "type": "array"
           },
           "integration_health": {
             "items": {
@@ -1646,9 +1690,11 @@
         "required": [
           "agent",
           "configuration",
+          "configurations",
           "schedules",
           "integration_health",
-          "kill_switch_enabled"
+          "kill_switch_enabled",
+          "capability_kill_switches"
         ],
         "title": "AgentDetailResponse",
         "type": "object"
@@ -1658,6 +1704,11 @@
         "properties": {
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
             "type": "string"
           },
           "created_at": {
@@ -1726,6 +1777,11 @@
         "properties": {
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
             "type": "string"
           },
           "completed_at": {
@@ -1818,6 +1874,7 @@
         "required": [
           "run_id",
           "agent_id",
+          "capability_key",
           "correlation_id",
           "trigger",
           "initiated_by",
@@ -1940,6 +1997,11 @@
             "title": "Agent Id",
             "type": "string"
           },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
+            "type": "string"
+          },
           "cron_expression": {
             "maxLength": 120,
             "minLength": 5,
@@ -1994,6 +2056,7 @@
         "required": [
           "schedule_id",
           "agent_id",
+          "capability_key",
           "job_type",
           "cron_expression",
           "timezone",
@@ -2589,6 +2652,18 @@
               }
             ],
             "title": "Agent Id"
+          },
+          "capability_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capability Key"
           },
           "correlation_id": {
             "title": "Correlation Id",
@@ -3278,6 +3353,71 @@
         "title": "BulkApprovalDecisionRequest",
         "type": "object"
       },
+      "CapabilityDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "pattern": "^[a-z][a-z0-9_-]{1,79}$",
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "input_schema": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "minimum_role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "output_schema": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Output Schema",
+            "type": "object"
+          },
+          "required_integrations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Integrations",
+            "type": "array"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/CapabilityRisk"
+          },
+          "supported_triggers": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerType"
+            },
+            "title": "Supported Triggers",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "key",
+          "agent_id",
+          "description",
+          "risk",
+          "minimum_role"
+        ],
+        "title": "CapabilityDefinition",
+        "type": "object"
+      },
       "CapabilityRisk": {
         "enum": [
           "read",
@@ -3739,6 +3879,68 @@
         "title": "CreateAdminUserRequest",
         "type": "object"
       },
+      "CreateExperimentActionParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "allocation_percent": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Allocation Percent",
+            "type": "integer"
+          },
+          "audience_segment": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Audience Segment",
+            "type": "string"
+          },
+          "duration_days": {
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "experiment_key": {
+            "pattern": "^[a-z][a-z0-9_-]{2,79}$",
+            "title": "Experiment Key",
+            "type": "string"
+          },
+          "hypothesis": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Hypothesis",
+            "type": "string"
+          },
+          "kind": {
+            "const": "create_experiment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "primary_metric": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Primary Metric",
+            "type": "string"
+          },
+          "proposed_status": {
+            "const": "DRAFT",
+            "default": "DRAFT",
+            "title": "Proposed Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "experiment_key",
+          "hypothesis",
+          "primary_metric",
+          "audience_segment",
+          "allocation_percent",
+          "duration_days"
+        ],
+        "title": "CreateExperimentActionParameters",
+        "type": "object"
+      },
       "Creative": {
         "additionalProperties": false,
         "properties": {
@@ -3951,6 +4153,11 @@
             "title": "Agent Id",
             "type": "string"
           },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
+            "type": "string"
+          },
           "checksum": {
             "title": "Checksum",
             "type": "string"
@@ -3964,6 +4171,13 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Completeness",
             "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
           },
           "payload": {
             "additionalProperties": {
@@ -4010,6 +4224,7 @@
           "snapshot_id",
           "run_id",
           "agent_id",
+          "capability_key",
           "provider",
           "schema_version",
           "period_start",
@@ -4049,6 +4264,73 @@
           "current"
         ],
         "title": "EvidenceMetric",
+        "type": "object"
+      },
+      "EvidenceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Checksum",
+            "type": "string"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "completeness": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completeness",
+            "type": "string"
+          },
+          "freshness_seconds": {
+            "minimum": 0.0,
+            "title": "Freshness Seconds",
+            "type": "integer"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "privacy_classification": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Privacy Classification",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "subject_scope": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Subject Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "subject_scope",
+          "period_start",
+          "period_end",
+          "collected_at",
+          "freshness_seconds",
+          "completeness",
+          "checksum",
+          "privacy_classification"
+        ],
+        "title": "EvidenceRef",
         "type": "object"
       },
       "ExecuteApprovedRequest": {
@@ -5180,6 +5462,14 @@
         "title": "GeofenceAction",
         "type": "object"
       },
+      "GrowthActionType": {
+        "enum": [
+          "create_experiment",
+          "stop_experiment"
+        ],
+        "title": "GrowthActionType",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -6037,6 +6327,10 @@
             "title": "Agent Id",
             "type": "string"
           },
+          "capability_key": {
+            "title": "Capability Key",
+            "type": "string"
+          },
           "correlation_id": {
             "title": "Correlation Id",
             "type": "string"
@@ -6054,6 +6348,7 @@
         },
         "required": [
           "agent_id",
+          "capability_key",
           "job_type",
           "correlation_id"
         ],
@@ -8161,6 +8456,128 @@
         "title": "NotifyParentAction",
         "type": "object"
       },
+      "OutcomeEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "attribution_limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attribution Limitations",
+            "type": "array"
+          },
+          "baseline_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
+            "type": "string"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "measurement_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Due At"
+          },
+          "metric_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "observed_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Value"
+          },
+          "proposal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OutcomeEvaluationStatus"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "run_id",
+          "agent_id",
+          "capability_key",
+          "metric_name",
+          "status",
+          "evaluated_at"
+        ],
+        "title": "OutcomeEvaluation",
+        "type": "object"
+      },
+      "OutcomeEvaluationStatus": {
+        "enum": [
+          "pending",
+          "measured",
+          "inconclusive"
+        ],
+        "title": "OutcomeEvaluationStatus",
+        "type": "string"
+      },
       "Page_ActionExecution_": {
         "additionalProperties": false,
         "properties": {
@@ -8479,6 +8896,38 @@
           "items"
         ],
         "title": "Page[Finding]",
+        "type": "object"
+      },
+      "Page_OutcomeEvaluation_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeEvaluation"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ],
+        "title": "Page[OutcomeEvaluation]",
         "type": "object"
       },
       "Page_Recommendation_": {
@@ -9780,8 +10229,28 @@
       "Recommendation": {
         "additionalProperties": false,
         "properties": {
+          "action_family": {
+            "default": "advertising",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Action Family",
+            "type": "string"
+          },
           "action_type": {
-            "$ref": "#/components/schemas/ActionType"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionType"
+              },
+              {
+                "$ref": "#/components/schemas/GrowthActionType"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
+            "type": "string"
           },
           "confidence": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -9830,6 +10299,7 @@
           "parameters": {
             "discriminator": {
               "mapping": {
+                "create_experiment": "#/components/schemas/CreateExperimentActionParameters",
                 "decrease_budget": "#/components/schemas/BudgetActionParameters",
                 "disable_audience": "#/components/schemas/AudienceActionParameters",
                 "increase_budget": "#/components/schemas/BudgetActionParameters",
@@ -9838,7 +10308,8 @@
                 "pause": "#/components/schemas/StatusActionParameters",
                 "propose_test": "#/components/schemas/TestProposalParameters",
                 "resume": "#/components/schemas/StatusActionParameters",
-                "scale_audience": "#/components/schemas/AudienceActionParameters"
+                "scale_audience": "#/components/schemas/AudienceActionParameters",
+                "stop_experiment": "#/components/schemas/StopExperimentActionParameters"
               },
               "propertyName": "kind"
             },
@@ -9857,6 +10328,12 @@
               },
               {
                 "$ref": "#/components/schemas/TestProposalParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CreateExperimentActionParameters"
+              },
+              {
+                "$ref": "#/components/schemas/StopExperimentActionParameters"
               }
             ],
             "title": "Parameters"
@@ -10208,6 +10685,13 @@
             "title": "Findings",
             "type": "array"
           },
+          "outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeEvaluation"
+            },
+            "title": "Outcomes",
+            "type": "array"
+          },
           "proposals": {
             "items": {
               "$ref": "#/components/schemas/ActionProposal"
@@ -10246,7 +10730,8 @@
           "snapshots",
           "findings",
           "recommendations",
-          "proposals"
+          "proposals",
+          "outcomes"
         ],
         "title": "RunDetailResponse",
         "type": "object"
@@ -10254,6 +10739,18 @@
       "RunNowRequest": {
         "additionalProperties": false,
         "properties": {
+          "capability_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capability Key"
+          },
           "correlation_id": {
             "anyOf": [
               {
@@ -11354,6 +11851,42 @@
           "proposed_status"
         ],
         "title": "StatusActionParameters",
+        "type": "object"
+      },
+      "StopExperimentActionParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "current_status": {
+            "enum": [
+              "DRAFT",
+              "RUNNING"
+            ],
+            "title": "Current Status",
+            "type": "string"
+          },
+          "experiment_key": {
+            "pattern": "^[a-z][a-z0-9_-]{2,79}$",
+            "title": "Experiment Key",
+            "type": "string"
+          },
+          "kind": {
+            "const": "stop_experiment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "proposed_status": {
+            "const": "STOPPED",
+            "default": "STOPPED",
+            "title": "Proposed Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "experiment_key",
+          "current_status"
+        ],
+        "title": "StopExperimentActionParameters",
         "type": "object"
       },
       "StudyModeAction": {
@@ -12552,6 +13085,22 @@
             }
           },
           {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
+            }
+          },
+          {
             "in": "header",
             "name": "X-API-Key",
             "required": false,
@@ -12663,6 +13212,22 @@
             }
           },
           {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
+            }
+          },
+          {
             "in": "header",
             "name": "X-API-Key",
             "required": false,
@@ -12765,6 +13330,22 @@
             "schema": {
               "title": "Agent Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -14279,6 +14860,22 @@
           },
           {
             "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -14754,6 +15351,132 @@
         ]
       }
     },
+    "/api/v1/admin/operation/kill-switch/agents/{agent_id}/capabilities/{capability_key}": {
+      "put": {
+        "description": "Enables or disables one capability without stopping sibling capabilities of the same agent. The control is enforced both before runs and before approved actions execute. Requires the `admin` role.",
+        "operationId": "capability_kill_switch_api_v1_admin_operation_kill_switch_agents__agent_id__capabilities__capability_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "capability_key",
+            "required": true,
+            "schema": {
+              "title": "Capability Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a capability kill switch",
+        "tags": [
+          "operation-admin"
+        ]
+      }
+    },
     "/api/v1/admin/operation/kill-switch/global": {
       "put": {
         "description": "Enables or disables the global kill switch and records a `kill_switch_changed` audit event; the response echoes the resulting scope and state. Requires the `admin` role. While it is enabled every agent run is refused with 409 and every action execution is blocked with 423, whatever the per-agent settings are.",
@@ -14960,6 +15683,159 @@
         ]
       }
     },
+    "/api/v1/admin/operation/outcome-evaluations": {
+      "get": {
+        "description": "Returns pending, measured, or inconclusive outcome evaluations, optionally filtered by run or proposal. Provider-state verification and business-outcome measurement are reported separately. Requires at least the `viewer` role.",
+        "operationId": "list_outcome_evaluations_api_v1_admin_operation_outcome_evaluations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "proposal_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_OutcomeEvaluation_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List persisted action outcome evaluations",
+        "tags": [
+          "operation-admin"
+        ]
+      }
+    },
     "/api/v1/admin/operation/recommendations": {
       "get": {
         "description": "Returns the recommendations derived from findings, newest first, optionally restricted to one run through `run_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role. A recommendation is only advisory until it becomes an action proposal.",
@@ -15116,6 +15992,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -15360,6 +16252,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -15620,6 +16528,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {

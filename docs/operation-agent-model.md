@@ -9,8 +9,11 @@ model unless an explicit architecture decision replaces it.
 
 This document separates the target design from the current implementation:
 
-- **Current:** only `marketing-agent` is implemented. Its complete write lifecycle is executable
-  against `fake_meta`; the live Meta adapter is intentionally read-only.
+- **Current:** `growth-agent` is implemented with `growth.advertising` and
+  `growth.funnel.analyze`. `marketing-agent` remains a compatibility alias and historical ID.
+  Advertising writes execute only against `fake_meta`; funnel data ports and experiment execution
+  are deterministic fake/sandbox implementations. The live Meta adapter is intentionally
+  read-only.
 - **Target:** four action-capable agents operate through typed ports, policies, approvals,
   idempotent executors, verification, and outcome measurement.
 
@@ -225,33 +228,37 @@ The following implemented foundation remains valuable:
 - fake provider lifecycle;
 - admin authentication, RBAC, kill switches, API, UI, worker, PostgreSQL, and migrations.
 
-Required evolution:
+Implemented foundation:
 
-1. Add persisted goals, plans, tasks, dependencies, and outcome evaluations.
-2. Add `capability_key` to task/run/configuration/schedule/audit query models.
-3. Add a capability-handler registry inside each domain agent.
-4. Generalize the advertising-specific action lifecycle behind typed action executor and policy
-   registries while preserving current safety behavior.
-5. Introduce source ports and normalized facts capability by capability; do not create a broad
-   integration abstraction without a real consumer.
-6. Change the admin information architecture to Command Center, Growth, Retention, Reliability,
-   Approvals, Runs/Audit, and Integrations rather than one navigation entry per capability.
+1. `CapabilityDefinition`, typed handlers, and an internal capability registry compose one domain
+   agent without `if job_type` dispatch.
+2. Runs, configurations, schedules, reports, outcomes, and audit carry `capability_key`; capability
+   configurations, schedules, locks, and kill switches are independent.
+3. Advertising and experiment actions resolve through typed executor and policy registries rather
+   than a cross-domain marketing enum.
+4. Funnel product analytics, billing, and attribution ports return normalized facts with
+   freshness, completeness, and evidence lineage; authoritative ratios are deterministic.
+5. The experiment sandbox covers mandatory approval, fresh state, idempotent dispatch,
+   verification, uncertain-outcome reconciliation, audit, and persisted outcome evaluation.
 
-## Marketing Agent migration
+Still required in later milestones: real authorized funnel sources, offer/conversion executors,
+persisted orchestrator goals/plans/tasks/dependencies, and the remaining three agents. No current
+fake or sandbox integration is production customer/financial write capability.
 
-Do not discard the working Marketing Agent. Evolve it into the advertising capability of Growth &
-Conversion:
+## Marketing Agent migration status
 
-1. Extract collection, analytics, recommendations, reporting, and action mapping into a
-   `growth.advertising` capability handler without changing behavior.
-2. Introduce `growth-agent` and register the extracted handler under it.
-3. Keep `marketing-agent` temporarily as a compatibility implementation for historical API/data
-   access; do not run both sets of schedules.
-4. Preserve historical runs under `marketing-agent`; create new runs under `growth-agent` after a
-   controlled cutover.
-5. Add funnel, offer, conversion, upsell, and experimentation capabilities independently.
-6. Retire compatibility registration only after pending proposals/runs are settled and all callers
-   use `growth-agent`.
+The controlled cutover is implemented:
+
+1. Collection, analytics, recommendations, reporting, and action mapping run through the
+   `growth.advertising` handler without duplicating the proven behavior.
+2. `growth-agent` is the sole registered implementation; `marketing-agent` resolves as an alias.
+3. Only Growth schedule IDs are bootstrapped, so compatibility cannot start a second schedule set.
+4. Historical rows retain `marketing-agent`; list queries for either identifier merge legacy and
+   canonical history, while every new run is stored under `growth-agent`.
+5. `growth.funnel.analyze` is independently configured and scheduled. Conversion, offer, upsell,
+   additional channels, and real integrations remain later capability work.
+6. Retire the alias only after pending legacy proposals/runs are settled and every caller uses
+   `growth-agent`.
 
 Live Meta remains read-only until a separately approved product decision adds a real Meta action
 adapter, permission model, sandbox/canary evidence, incident procedure, and explicit production
@@ -259,15 +266,15 @@ policy. Target action capability must not be documented as current production wr
 
 ## Delivery sequence
 
-1. Restore all repository release gates and keep the current Marketing Agent stable.
-2. Add capability/task/configuration contracts and generic typed executor registration.
-3. Cut Marketing Agent over to `growth.advertising` with compatibility preserved.
-4. Add Growth funnel/conversion/offer capabilities in read-only and shadow modes.
-5. Add Retention classification/reporting, then governed offer/referral actions.
-6. Add Technical analysis/reporting, then governed issue/incident actions.
-7. Add read-only Operations Orchestrator over stable facts and agent outputs.
-8. Add persisted planning/delegation, then governed cross-agent goal loops.
-9. Permit narrowly bounded real actions only after integration-specific readiness evidence.
+1. **Growth & Conversion:** complete real read integrations and extend the current advertising,
+   funnel, conversion, offer, and experiment foundations without enabling unapproved live writes.
+2. **Retention & Loyalty:** add classification/reporting first, then governed offer/referral
+   actions.
+3. **Operations Orchestrator:** add read-only cross-domain analysis, then persisted goals,
+   planning/delegation, and governed cross-agent outcome loops.
+4. **Technical Reliability:** add analysis/reporting, then governed issue/incident actions; this is
+   deliberately the final top-level agent in the delivery sequence.
+5. Permit narrowly bounded real actions only after integration-specific readiness evidence.
 
 ## Completion criteria for a capability
 

@@ -133,12 +133,24 @@ class AgentRow(Base):
 class AgentConfigurationRow(Base):
     __tablename__ = "operation_agent_configurations"
     __table_args__ = (
-        UniqueConstraint("agent_id", "version"),
-        Index("idx_operation_configuration_active_version", "agent_id", "active", "version"),
+        UniqueConstraint(
+            "agent_id",
+            "capability_key",
+            "version",
+            name="uq_operation_configuration_capability_version",
+        ),
+        Index(
+            "idx_operation_configuration_active_version",
+            "agent_id",
+            "capability_key",
+            "active",
+            "version",
+        ),
     )
 
     configuration_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     agent_id: Mapped[str] = mapped_column(ForeignKey("operation_agents.agent_id"), index=True)
+    capability_key: Mapped[str] = mapped_column(String(80), index=True)
     version: Mapped[int] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -151,6 +163,7 @@ class AgentScheduleRow(Base):
 
     schedule_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     agent_id: Mapped[str] = mapped_column(ForeignKey("operation_agents.agent_id"), index=True)
+    capability_key: Mapped[str] = mapped_column(String(80), index=True)
     job_type: Mapped[str] = mapped_column(String(80), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, index=True)
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
@@ -160,13 +173,24 @@ class AgentScheduleRow(Base):
 class AgentRunRow(Base):
     __tablename__ = "operation_agent_runs"
     __table_args__ = (
-        UniqueConstraint("agent_id", "idempotency_key"),
-        Index("idx_operation_run_agent_started", "agent_id", "started_at"),
+        UniqueConstraint(
+            "agent_id",
+            "capability_key",
+            "idempotency_key",
+            name="uq_operation_run_capability_idempotency",
+        ),
+        Index(
+            "idx_operation_run_agent_started",
+            "agent_id",
+            "capability_key",
+            "started_at",
+        ),
         Index("idx_operation_run_status_updated", "status", "updated_at"),
     )
 
     run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     agent_id: Mapped[str] = mapped_column(ForeignKey("operation_agents.agent_id"), index=True)
+    capability_key: Mapped[str] = mapped_column(String(80), index=True)
     correlation_id: Mapped[str] = mapped_column(String(128), index=True)
     status: Mapped[str] = mapped_column(String(32), index=True)
     trigger: Mapped[str] = mapped_column(String(32), index=True)
@@ -364,6 +388,7 @@ class AuditEventRow(Base):
         ForeignKey("operation_agents.agent_id", name="fk_operation_audit_agent"),
         index=True,
     )
+    capability_key: Mapped[str | None] = mapped_column(String(80), index=True)
     run_id: Mapped[str | None] = mapped_column(
         ForeignKey("operation_agent_runs.run_id", name="fk_operation_audit_run"),
         index=True,
@@ -371,6 +396,29 @@ class AuditEventRow(Base):
     event_type: Mapped[str] = mapped_column(String(80), index=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     actor_id: Mapped[str] = mapped_column(String(128), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class OutcomeEvaluationRow(Base):
+    __tablename__ = "operation_outcome_evaluations"
+    __table_args__ = (Index("idx_operation_outcome_run_evaluated", "run_id", "evaluated_at"),)
+
+    evaluation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_agent_runs.run_id", name="fk_operation_outcome_run"),
+        index=True,
+    )
+    proposal_id: Mapped[str | None] = mapped_column(
+        ForeignKey("operation_action_proposals.proposal_id", name="fk_operation_outcome_proposal"),
+        index=True,
+    )
+    agent_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_agents.agent_id", name="fk_operation_outcome_agent"),
+        index=True,
+    )
+    capability_key: Mapped[str] = mapped_column(String(80), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
 
 

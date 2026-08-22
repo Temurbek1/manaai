@@ -92,6 +92,17 @@ class ActionType(StrEnum):
     PROPOSE_TEST = "propose_test"
 
 
+class GrowthActionType(StrEnum):
+    CREATE_EXPERIMENT = "create_experiment"
+    STOP_EXPERIMENT = "stop_experiment"
+
+
+class OutcomeEvaluationStatus(StrEnum):
+    PENDING = "pending"
+    MEASURED = "measured"
+    INCONCLUSIVE = "inconclusive"
+
+
 class ActionStatus(StrEnum):
     PROPOSED = "proposed"
     POLICY_REJECTED = "policy_rejected"

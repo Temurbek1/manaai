@@ -67,46 +67,60 @@ class AgentService:
                 definition = definition.model_copy(update={"status": current.status})
             await self._repository.register_agent(definition)
 
-            if await self._repository.latest_configuration(definition.agent_id) is None:
-                configuration = AgentConfiguration(
-                    configuration_id=self._ids.new(),
-                    agent_id=definition.agent_id,
-                    version=1,
-                    values=agent.default_configuration,
-                    created_at=now,
-                    created_by=actor_id,
-                )
-                try:
-                    await self._repository.save_configuration(configuration)
-                except ConcurrentOperationError:
-                    persisted_configuration = await self._repository.latest_configuration(
+            for capability in agent.capability_definitions():
+                if (
+                    await self._repository.latest_configuration(
                         definition.agent_id,
+                        capability.key,
                     )
-                    if persisted_configuration is None:
-                        raise
-                    configuration = persisted_configuration
-                await self._audit(
-                    agent_id=definition.agent_id,
-                    correlation_id=configuration.configuration_id,
-                    event_type=AuditEventType.CONFIGURATION_CREATED,
-                    actor_id=actor_id,
-                    actor_role=UserRole.ADMIN,
-                    summary="Default agent configuration created",
-                    details={"version": 1},
-                )
+                    is None
+                ):
+                    configuration = AgentConfiguration(
+                        configuration_id=self._ids.new(),
+                        agent_id=definition.agent_id,
+                        capability_key=capability.key,
+                        version=1,
+                        values=agent.default_configuration_for(capability.key),
+                        created_at=now,
+                        created_by=actor_id,
+                    )
+                    try:
+                        await self._repository.save_configuration(configuration)
+                    except ConcurrentOperationError:
+                        persisted_configuration = await self._repository.latest_configuration(
+                            definition.agent_id,
+                            capability.key,
+                        )
+                        if persisted_configuration is None:
+                            raise
+                        configuration = persisted_configuration
+                    await self._audit(
+                        agent_id=definition.agent_id,
+                        capability_key=capability.key,
+                        correlation_id=configuration.configuration_id,
+                        event_type=AuditEventType.CONFIGURATION_CREATED,
+                        actor_id=actor_id,
+                        actor_role=UserRole.ADMIN,
+                        summary="Default capability configuration created",
+                        details={"version": 1},
+                    )
 
-            existing_schedule_ids = {
-                schedule.schedule_id
-                for schedule in await self._repository.list_schedules(definition.agent_id)
-            }
-            for schedule in agent.default_schedules():
-                if schedule.schedule_id not in existing_schedule_ids:
-                    await self._repository.save_schedule(schedule)
+                existing_schedule_ids = {
+                    schedule.schedule_id
+                    for schedule in await self._repository.list_schedules(
+                        definition.agent_id,
+                        capability.key,
+                    )
+                }
+                for schedule in agent.default_schedules_for(capability.key):
+                    if schedule.schedule_id not in existing_schedule_ids:
+                        await self._repository.save_schedule(schedule)
 
     async def run_now(
         self,
         *,
         agent_id: str,
+        capability_key: str | None,
         job_type: str,
         trigger: TriggerType,
         actor_id: str,
@@ -114,12 +128,25 @@ class AgentService:
         correlation_id: str | None = None,
         idempotency_key: str | None = None,
     ) -> AgentRunResult:
-        agent, configuration = await self.validate_run(agent_id)
+        canonical_agent_id = self._registry.canonical_id(agent_id)
+        effective_capability_key = capability_key or self._registry.default_capability_key(
+            canonical_agent_id
+        )
+        agent, configuration = await self.validate_run(
+            canonical_agent_id,
+            effective_capability_key,
+        )
         now = self._clock.now()
-        run_key = idempotency_key or self._run_key(agent_id, job_type, now.isoformat())
+        run_key = idempotency_key or self._run_key(
+            canonical_agent_id,
+            effective_capability_key,
+            job_type,
+            now.isoformat(),
+        )
         run = AgentRun(
             run_id=self._ids.new(),
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=effective_capability_key,
             correlation_id=correlation_id or self._ids.new(),
             trigger=trigger,
             initiated_by=actor_id,
@@ -147,7 +174,7 @@ class AgentService:
             return AgentRunResult(run_id=run.run_id, status=run.status)
 
         owner_id = self._ids.new()
-        lock_key = f"agent-run:{agent_id}"
+        lock_key = f"capability-run:{canonical_agent_id}:{effective_capability_key}"
         acquired = await self._repository.acquire_lock(
             key=lock_key,
             owner_id=owner_id,
@@ -155,12 +182,15 @@ class AgentService:
             expires_at=now + timedelta(seconds=self._job_timeout_seconds),
         )
         if not acquired:
-            raise AgentRunLockedError(f"Agent {agent_id!r} already has an active run")
+            raise AgentRunLockedError(
+                f"Capability {effective_capability_key!r} already has an active run",
+            )
         try:
             try:
                 async with asyncio.timeout(self._job_timeout_seconds):
                     return await agent.execute(
                         run=run,
+                        capability_key=effective_capability_key,
                         job_type=job_type,
                         configuration=configuration,
                     )
@@ -188,7 +218,7 @@ class AgentService:
                     )
                     await self._repository.update_run(failed)
                 raise AgentRunTimeoutError(
-                    f"Agent {agent_id!r} exceeded the configured job timeout",
+                    f"Capability {effective_capability_key!r} exceeded the configured job timeout",
                 ) from exc
         finally:
             await self._repository.release_lock(key=lock_key, owner_id=owner_id)
@@ -196,9 +226,17 @@ class AgentService:
     async def validate_run(
         self,
         agent_id: str,
+        capability_key: str | None = None,
     ) -> tuple[OperationalAgent, AgentConfiguration]:
-        agent = self._registry.get(agent_id)
-        persisted = await self._repository.get_agent(agent_id)
+        canonical_agent_id = self._registry.canonical_id(agent_id)
+        agent = self._registry.get(canonical_agent_id)
+        effective_capability_key = capability_key or agent.definition.default_capability_key
+        agent.capability_definitions()
+        if effective_capability_key not in {item.key for item in agent.capability_definitions()}:
+            raise AgentUnavailableError(
+                f"Capability {effective_capability_key!r} is not loaded for {canonical_agent_id!r}",
+            )
+        persisted = await self._repository.get_agent(canonical_agent_id)
         if persisted is None or persisted.status is not AgentStatus.ENABLED:
             raise AgentUnavailableError(f"Agent {agent_id!r} is not enabled")
         if await self._repository.get_control(
@@ -206,10 +244,21 @@ class AgentService:
             default=self._global_kill_switch_default,
         ):
             raise AgentUnavailableError("The global operation kill switch is enabled")
-        if await self._repository.get_control(f"agent_kill_switch:{agent_id}"):
-            raise AgentUnavailableError(f"The kill switch for {agent_id!r} is enabled")
+        if await self._repository.get_control(f"agent_kill_switch:{canonical_agent_id}"):
+            raise AgentUnavailableError(
+                f"The kill switch for {canonical_agent_id!r} is enabled",
+            )
+        if await self._repository.get_control(
+            f"capability_kill_switch:{canonical_agent_id}:{effective_capability_key}",
+        ):
+            raise AgentUnavailableError(
+                f"The kill switch for capability {effective_capability_key!r} is enabled",
+            )
 
-        configuration = await self._repository.latest_configuration(agent_id)
+        configuration = await self._repository.latest_configuration(
+            canonical_agent_id,
+            effective_capability_key,
+        )
         if configuration is None:
             raise AgentUnavailableError(f"Agent {agent_id!r} has no configuration")
         return agent, configuration
@@ -218,6 +267,7 @@ class AgentService:
         self,
         *,
         agent_id: str,
+        capability_key: str | None,
         correlation_id: str,
         event_type: AuditEventType,
         actor_id: str,
@@ -230,6 +280,7 @@ class AgentService:
                 event_id=self._ids.new(),
                 correlation_id=correlation_id,
                 agent_id=agent_id,
+                capability_key=capability_key,
                 event_type=event_type,
                 actor_id=actor_id,
                 actor_role=actor_role,
@@ -240,6 +291,11 @@ class AgentService:
         )
 
     @staticmethod
-    def _run_key(agent_id: str, job_type: str, marker: str) -> str:
-        source = f"{agent_id}:{job_type}:{marker}".encode()
+    def _run_key(
+        agent_id: str,
+        capability_key: str,
+        job_type: str,
+        marker: str,
+    ) -> str:
+        source = f"{agent_id}:{capability_key}:{job_type}:{marker}".encode()
         return hashlib.sha256(source).hexdigest()

@@ -3,7 +3,7 @@ from typing import cast
 
 from pydantic import JsonValue
 
-from app.mana_operation_ai.application.action_lifecycle import expected_state, state_differences
+from app.mana_operation_ai.application.action_executors import ActionExecutorRegistry
 from app.mana_operation_ai.application.ports import (
     Clock,
     IdGenerator,
@@ -11,7 +11,7 @@ from app.mana_operation_ai.application.ports import (
     ProviderPermanentError,
     ProviderTransientError,
 )
-from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
+from app.mana_operation_ai.application.registry import AgentRegistry
 from app.mana_operation_ai.domain.enums import (
     ActionStatus,
     AuditEventType,
@@ -27,14 +27,14 @@ class OperationMaintenanceService:
         self,
         *,
         repository: OperationRepository,
-        platforms: AdsPlatformRegistry,
+        executors: ActionExecutorRegistry,
         agents: AgentRegistry,
         clock: Clock,
         ids: IdGenerator,
         retention_days: int = 90,
     ) -> None:
         self._repository = repository
-        self._platforms = platforms
+        self._executors = executors
         self._agents = agents
         self._clock = clock
         self._ids = ids
@@ -50,11 +50,9 @@ class OperationMaintenanceService:
             execution = await self._repository.get_execution_for_proposal(proposal.proposal_id)
             if execution is None:
                 continue
+            executor = self._executors.get(proposal.action_family, proposal.provider)
             try:
-                observed = await self._platforms.get(proposal.provider).get_object_state(
-                    proposal.object_type,
-                    proposal.provider_object_id,
-                )
+                observed = await executor.state_for_proposal(proposal)
             except ProviderTransientError:
                 continue
             except ProviderPermanentError as exc:
@@ -86,8 +84,8 @@ class OperationMaintenanceService:
                 )
                 reconciled += 1
                 continue
-            expected = expected_state(proposal, observed)
-            differences = state_differences(expected, observed)
+            expected = executor.expected_state(proposal, observed)
+            differences = executor.differences(expected, observed)
             verified = not differences
             verification = ActionVerification(
                 verification_id=self._ids.new(),
@@ -123,6 +121,7 @@ class OperationMaintenanceService:
                     event_id=self._ids.new(),
                     correlation_id=proposal.run_id,
                     agent_id=proposal.agent_id,
+                    capability_key=proposal.capability_key,
                     run_id=proposal.run_id,
                     event_type=AuditEventType.ACTION_VERIFIED,
                     actor_id="reconciliation-job",

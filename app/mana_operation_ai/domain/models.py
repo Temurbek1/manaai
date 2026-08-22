@@ -16,7 +16,9 @@ from app.mana_operation_ai.domain.enums import (
     DataAvailability,
     ExecutionStatus,
     FindingSeverity,
+    GrowthActionType,
     IntegrationStatus,
+    OutcomeEvaluationStatus,
     PolicyDecision,
     ProviderMode,
     TriggerType,
@@ -29,11 +31,20 @@ class DomainModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
-class AgentCapability(DomainModel):
+class CapabilityDefinition(DomainModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
+    agent_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,79}$")
     description: str = Field(min_length=1, max_length=500)
     risk: CapabilityRisk
     minimum_role: UserRole
+    input_schema: dict[str, JsonValue] = Field(default_factory=dict)
+    output_schema: dict[str, JsonValue] = Field(default_factory=dict)
+    required_integrations: list[str] = Field(default_factory=list)
+    supported_triggers: set[TriggerType] = Field(default_factory=set)
+
+
+# Temporary source compatibility for modules that still import the old metadata name.
+AgentCapability = CapabilityDefinition
 
 
 class AgentDefinition(DomainModel):
@@ -42,7 +53,8 @@ class AgentDefinition(DomainModel):
     description: str = Field(min_length=1, max_length=1_000)
     version: str = Field(min_length=1, max_length=40)
     status: AgentStatus
-    capabilities: list[AgentCapability]
+    capabilities: list[CapabilityDefinition]
+    default_capability_key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
     configuration_schema: dict[str, JsonValue]
     registered_at: datetime
 
@@ -55,6 +67,7 @@ class AgentRegistry(DomainModel):
 class AgentConfiguration(DomainModel):
     configuration_id: str
     agent_id: str
+    capability_key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
     version: int = Field(ge=1)
     values: dict[str, JsonValue]
     created_at: datetime
@@ -65,6 +78,7 @@ class AgentConfiguration(DomainModel):
 class AgentSchedule(DomainModel):
     schedule_id: str
     agent_id: str
+    capability_key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
     job_type: str = Field(min_length=1, max_length=80)
     cron_expression: str = Field(min_length=5, max_length=120)
     timezone: str = Field(min_length=1, max_length=64)
@@ -76,6 +90,7 @@ class AgentSchedule(DomainModel):
 class AgentRun(DomainModel):
     run_id: str
     agent_id: str
+    capability_key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
     correlation_id: str
     trigger: TriggerType
     initiated_by: str
@@ -121,10 +136,23 @@ class IntegrationHealth(DomainModel):
     diagnostics: dict[str, JsonValue] = Field(default_factory=dict)
 
 
+class EvidenceRef(DomainModel):
+    source: str = Field(min_length=1, max_length=120)
+    subject_scope: str = Field(min_length=1, max_length=200)
+    period_start: datetime
+    period_end: datetime
+    collected_at: datetime
+    freshness_seconds: int = Field(ge=0)
+    completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
+    checksum: str = Field(min_length=1, max_length=128)
+    privacy_classification: str = Field(min_length=1, max_length=80)
+
+
 class DataSnapshot(DomainModel):
     snapshot_id: str
     run_id: str
     agent_id: str
+    capability_key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
     provider: str
     schema_version: str
     period_start: datetime
@@ -133,6 +161,7 @@ class DataSnapshot(DomainModel):
     checksum: str
     provider_request_ids: list[str]
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
+    evidence_refs: list[EvidenceRef] = Field(default_factory=list)
     payload: dict[str, JsonValue]
 
 
@@ -261,14 +290,36 @@ class TestProposalParameters(DomainModel):
     test_type: str = Field(min_length=1, max_length=120)
 
 
+class CreateExperimentActionParameters(DomainModel):
+    kind: Literal[GrowthActionType.CREATE_EXPERIMENT]
+    experiment_key: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,79}$")
+    hypothesis: str = Field(min_length=1, max_length=1_000)
+    primary_metric: str = Field(min_length=1, max_length=120)
+    audience_segment: str = Field(min_length=1, max_length=120)
+    allocation_percent: int = Field(ge=1, le=50)
+    duration_days: int = Field(ge=1, le=90)
+    proposed_status: Literal["DRAFT"] = "DRAFT"
+
+
+class StopExperimentActionParameters(DomainModel):
+    kind: Literal[GrowthActionType.STOP_EXPERIMENT]
+    experiment_key: str = Field(pattern=r"^[a-z][a-z0-9_-]{2,79}$")
+    current_status: Literal["DRAFT", "RUNNING"]
+    proposed_status: Literal["STOPPED"] = "STOPPED"
+
+
 ActionParameters = Annotated[
     BudgetActionParameters
     | StatusActionParameters
     | AudienceActionParameters
     | NoChangeActionParameters
-    | TestProposalParameters,
+    | TestProposalParameters
+    | CreateExperimentActionParameters
+    | StopExperimentActionParameters,
     Field(discriminator="kind"),
 ]
+
+OperationalActionType = ActionType | GrowthActionType
 
 
 class Recommendation(DomainModel):
@@ -277,7 +328,9 @@ class Recommendation(DomainModel):
     finding_ids: list[str]
     object_type: str
     provider_object_id: str
-    action_type: ActionType
+    capability_key: str = Field(default="growth.advertising")
+    action_family: str = Field(default="advertising", min_length=1, max_length=80)
+    action_type: OperationalActionType
     parameters: ActionParameters
     evidence: list[EvidenceMetric]
     reasoning: str
@@ -298,7 +351,9 @@ class Recommendation(DomainModel):
 class ActionPolicy(DomainModel):
     policy_id: str
     agent_id: str
-    action_type: ActionType
+    capability_key: str = Field(default="growth.advertising")
+    action_family: str = Field(default="advertising", min_length=1, max_length=80)
+    action_type: OperationalActionType
     decision: PolicyDecision
     reasons: list[str]
     checked_at: datetime
@@ -324,12 +379,14 @@ class ActionProposal(DomainModel):
     run_id: str
     recommendation_id: str
     agent_id: str
+    capability_key: str = Field(default="growth.advertising")
+    action_family: str = Field(default="advertising", min_length=1, max_length=80)
     provider: str
     provider_mode: ProviderMode = ProviderMode.FAKE_EXECUTABLE
     execution_forbidden: bool = False
     object_type: str
     provider_object_id: str
-    action_type: ActionType
+    action_type: OperationalActionType
     parameters: ActionParameters
     evidence: list[EvidenceMetric]
     reasoning: str
@@ -402,6 +459,7 @@ class ActionVerification(DomainModel):
 class AgentReport(DomainModel):
     report_id: str
     agent_id: str
+    capability_key: str = Field(default="growth.advertising")
     run_id: str
     report_type: str
     period_start: datetime
@@ -416,6 +474,10 @@ class AuditEvent(DomainModel):
     event_id: str
     correlation_id: str
     agent_id: str | None = None
+    capability_key: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_.-]{1,79}$",
+    )
     run_id: str | None = None
     event_type: AuditEventType
     actor_id: str
@@ -423,3 +485,19 @@ class AuditEvent(DomainModel):
     occurred_at: datetime
     summary: str
     details: dict[str, JsonValue]
+
+
+class OutcomeEvaluation(DomainModel):
+    evaluation_id: str
+    run_id: str
+    proposal_id: str | None = None
+    agent_id: str
+    capability_key: str = Field(pattern=r"^[a-z][a-z0-9_.-]{1,79}$")
+    metric_name: str = Field(min_length=1, max_length=120)
+    baseline_value: Decimal | None = None
+    observed_value: Decimal | None = None
+    target_value: Decimal | None = None
+    status: OutcomeEvaluationStatus
+    attribution_limitations: list[str] = Field(default_factory=list)
+    measurement_due_at: datetime | None = None
+    evaluated_at: datetime

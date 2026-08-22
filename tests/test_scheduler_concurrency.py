@@ -67,6 +67,7 @@ async def create_scheduler_fixture(
             version="1.0.0",
             status=AgentStatus.ENABLED,
             capabilities=[],
+            default_capability_key="scheduler.default",
             configuration_schema={"type": "object"},
             registered_at=now,
         ),
@@ -74,6 +75,7 @@ async def create_scheduler_fixture(
     schedule = AgentSchedule(
         schedule_id="scheduler-analysis",
         agent_id="scheduler-agent",
+        capability_key="scheduler.default",
         job_type="analysis",
         cron_expression="0 */6 * * *",
         timezone="UTC",

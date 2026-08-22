@@ -29,6 +29,7 @@ from app.mana_operation_ai.domain.models import (
     DataSnapshot,
     Finding,
     IntegrationHealth,
+    OutcomeEvaluation,
     Recommendation,
 )
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
@@ -49,6 +50,7 @@ from app.mana_operation_ai.infrastructure.persistence.models import (
     FindingRow,
     IntegrationHealthRow,
     JobLockRow,
+    OutcomeEvaluationRow,
     RecommendationRow,
     SystemControlRow,
 )
@@ -105,6 +107,8 @@ class SqlAlchemyOperationRepository:
                             await session.scalars(
                                 select(AgentConfigurationRow).where(
                                     AgentConfigurationRow.agent_id == configuration.agent_id,
+                                    AgentConfigurationRow.capability_key
+                                    == configuration.capability_key,
                                     AgentConfigurationRow.active.is_(True),
                                 ),
                             )
@@ -120,6 +124,7 @@ class SqlAlchemyOperationRepository:
                     AgentConfigurationRow(
                         configuration_id=configuration.configuration_id,
                         agent_id=configuration.agent_id,
+                        capability_key=configuration.capability_key,
                         version=configuration.version,
                         active=configuration.active,
                         created_at=configuration.created_at,
@@ -135,10 +140,17 @@ class SqlAlchemyOperationRepository:
                 "The configuration version was created by another request",
             ) from exc
 
-    async def latest_configuration(self, agent_id: str) -> AgentConfiguration | None:
+    async def latest_configuration(
+        self,
+        agent_id: str,
+        capability_key: str,
+    ) -> AgentConfiguration | None:
         statement = (
             select(AgentConfigurationRow)
-            .where(AgentConfigurationRow.agent_id == agent_id)
+            .where(
+                AgentConfigurationRow.agent_id == agent_id,
+                AgentConfigurationRow.capability_key == capability_key,
+            )
             .order_by(AgentConfigurationRow.version.desc())
             .limit(1)
         )
@@ -146,11 +158,21 @@ class SqlAlchemyOperationRepository:
             row = (await session.scalars(statement)).first()
         return AgentConfiguration.model_validate(row.payload) if row is not None else None
 
-    async def list_configurations(self, agent_id: str) -> list[AgentConfiguration]:
-        statement = (
-            select(AgentConfigurationRow)
-            .where(AgentConfigurationRow.agent_id == agent_id)
-            .order_by(AgentConfigurationRow.version.desc())
+    async def list_configurations(
+        self,
+        agent_id: str,
+        capability_key: str | None = None,
+    ) -> list[AgentConfiguration]:
+        statement = select(AgentConfigurationRow).where(
+            AgentConfigurationRow.agent_id == agent_id,
+        )
+        if capability_key is not None:
+            statement = statement.where(
+                AgentConfigurationRow.capability_key == capability_key,
+            )
+        statement = statement.order_by(
+            AgentConfigurationRow.capability_key,
+            AgentConfigurationRow.version.desc(),
         )
         async with self._database.session_factory() as session:
             rows = list((await session.scalars(statement)).all())
@@ -164,6 +186,7 @@ class SqlAlchemyOperationRepository:
                     AgentScheduleRow(
                         schedule_id=schedule.schedule_id,
                         agent_id=schedule.agent_id,
+                        capability_key=schedule.capability_key,
                         job_type=schedule.job_type,
                         enabled=schedule.enabled,
                         next_run_at=schedule.next_run_at,
@@ -171,20 +194,35 @@ class SqlAlchemyOperationRepository:
                     ),
                 )
             else:
-                if row.agent_id != schedule.agent_id or row.job_type != schedule.job_type:
+                if (
+                    row.agent_id != schedule.agent_id
+                    or row.capability_key != schedule.capability_key
+                    or row.job_type != schedule.job_type
+                ):
                     raise ConcurrentOperationError(
                         "Schedule identity fields cannot be changed",
                     )
                 row.job_type = schedule.job_type
+                row.capability_key = schedule.capability_key
                 row.enabled = schedule.enabled
                 row.next_run_at = schedule.next_run_at
                 row.payload = _payload(schedule)
 
-    async def list_schedules(self, agent_id: str | None = None) -> list[AgentSchedule]:
+    async def list_schedules(
+        self,
+        agent_id: str | None = None,
+        capability_key: str | None = None,
+    ) -> list[AgentSchedule]:
         statement = select(AgentScheduleRow)
         if agent_id is not None:
             statement = statement.where(AgentScheduleRow.agent_id == agent_id)
-        statement = statement.order_by(AgentScheduleRow.agent_id, AgentScheduleRow.job_type)
+        if capability_key is not None:
+            statement = statement.where(AgentScheduleRow.capability_key == capability_key)
+        statement = statement.order_by(
+            AgentScheduleRow.agent_id,
+            AgentScheduleRow.capability_key,
+            AgentScheduleRow.job_type,
+        )
         async with self._database.session_factory() as session:
             rows = list((await session.scalars(statement)).all())
         return [AgentSchedule.model_validate(row.payload) for row in rows]
@@ -231,6 +269,7 @@ class SqlAlchemyOperationRepository:
                         AgentRunRow(
                             run_id=run.run_id,
                             agent_id=run.agent_id,
+                            capability_key=run.capability_key,
                             correlation_id=run.correlation_id,
                             status=run.status.value,
                             trigger=run.trigger.value,
@@ -248,6 +287,7 @@ class SqlAlchemyOperationRepository:
                     await session.scalars(
                         select(AgentRunRow).where(
                             AgentRunRow.agent_id == run.agent_id,
+                            AgentRunRow.capability_key == run.capability_key,
                             AgentRunRow.idempotency_key == run.idempotency_key,
                         ),
                     )
@@ -274,6 +314,7 @@ class SqlAlchemyOperationRepository:
         self,
         *,
         agent_id: str | None = None,
+        capability_key: str | None = None,
         status: AgentRunStatus | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -281,6 +322,8 @@ class SqlAlchemyOperationRepository:
         filters = []
         if agent_id is not None:
             filters.append(AgentRunRow.agent_id == agent_id)
+        if capability_key is not None:
+            filters.append(AgentRunRow.capability_key == capability_key)
         if status is not None:
             filters.append(AgentRunRow.status == status.value)
         statement = select(AgentRunRow).where(*filters)
@@ -689,6 +732,7 @@ class SqlAlchemyOperationRepository:
         self,
         *,
         agent_id: str | None = None,
+        capability_key: str | None = None,
         since: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -700,6 +744,14 @@ class SqlAlchemyOperationRepository:
             filters.append(
                 ActionExecutionRow.run_id.in_(
                     select(AgentRunRow.run_id).where(AgentRunRow.agent_id == agent_id),
+                ),
+            )
+        if capability_key is not None:
+            filters.append(
+                ActionExecutionRow.run_id.in_(
+                    select(AgentRunRow.run_id).where(
+                        AgentRunRow.capability_key == capability_key,
+                    ),
                 ),
             )
         statement = select(ActionExecutionRow).where(*filters)
@@ -740,10 +792,19 @@ class SqlAlchemyOperationRepository:
         self,
         *,
         agent_id: str | None = None,
+        capability_key: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> tuple[list[AgentReport], int]:
         filters = [AgentReportRow.agent_id == agent_id] if agent_id is not None else []
+        if capability_key is not None:
+            filters.append(
+                AgentReportRow.run_id.in_(
+                    select(AgentRunRow.run_id).where(
+                        AgentRunRow.capability_key == capability_key,
+                    ),
+                ),
+            )
         statement = select(AgentReportRow).where(*filters)
         count_statement = select(func.count()).select_from(AgentReportRow).where(*filters)
         async with self._database.session_factory() as session:
@@ -759,6 +820,49 @@ class SqlAlchemyOperationRepository:
             )
         return [AgentReport.model_validate(row.payload) for row in rows], total
 
+    async def save_outcome_evaluation(self, evaluation: OutcomeEvaluation) -> None:
+        async with self._database.session_factory.begin() as session:
+            session.add(
+                OutcomeEvaluationRow(
+                    evaluation_id=evaluation.evaluation_id,
+                    run_id=evaluation.run_id,
+                    proposal_id=evaluation.proposal_id,
+                    agent_id=evaluation.agent_id,
+                    capability_key=evaluation.capability_key,
+                    status=evaluation.status.value,
+                    evaluated_at=evaluation.evaluated_at,
+                    payload=_payload(evaluation),
+                ),
+            )
+
+    async def list_outcome_evaluations(
+        self,
+        *,
+        run_id: str | None = None,
+        proposal_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[OutcomeEvaluation], int]:
+        filters = []
+        if run_id is not None:
+            filters.append(OutcomeEvaluationRow.run_id == run_id)
+        if proposal_id is not None:
+            filters.append(OutcomeEvaluationRow.proposal_id == proposal_id)
+        statement = select(OutcomeEvaluationRow).where(*filters)
+        count_statement = select(func.count()).select_from(OutcomeEvaluationRow).where(*filters)
+        async with self._database.session_factory() as session:
+            total = int((await session.scalar(count_statement)) or 0)
+            rows = list(
+                (
+                    await session.scalars(
+                        statement.order_by(OutcomeEvaluationRow.evaluated_at.desc())
+                        .limit(limit)
+                        .offset(offset),
+                    )
+                ).all(),
+            )
+        return [OutcomeEvaluation.model_validate(row.payload) for row in rows], total
+
     async def save_audit_event(self, event: AuditEvent) -> None:
         async with self._database.session_factory.begin() as session:
             session.add(
@@ -766,6 +870,7 @@ class SqlAlchemyOperationRepository:
                     event_id=event.event_id,
                     correlation_id=event.correlation_id,
                     agent_id=event.agent_id,
+                    capability_key=event.capability_key,
                     run_id=event.run_id,
                     event_type=event.event_type.value,
                     occurred_at=event.occurred_at,

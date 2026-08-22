@@ -26,6 +26,7 @@ from app.mana_operation_ai.api.schemas import (
     KillSwitchRequest,
     KillSwitchResponse,
     ManualRunAccepted,
+    OutcomeEvaluationPage,
     ProposalPage,
     RecommendationPage,
     ReportPage,
@@ -134,7 +135,7 @@ async def dashboard(
     actor: ActorDep,
 ) -> DashboardResponse:
     require_role(actor, UserRole.VIEWER)
-    agents = await admin.repository.list_agents()
+    agents = await admin.list_loaded_agents()
     pending_proposals, _ = await admin.repository.list_proposals(
         status=ActionStatus.AWAITING_APPROVAL,
         limit=10_000,
@@ -142,8 +143,15 @@ async def dashboard(
     schedules = await admin.repository.list_schedules()
     dashboard_agents: list[DashboardAgent] = []
     for agent in agents:
+        agent_identifiers = admin.agent_identifiers(agent.agent_id)
         health_checks = await admin.agent_health(agent.agent_id)
-        runs, total = await admin.repository.list_runs(agent_id=agent.agent_id, limit=100)
+        runs, total = await admin.list_runs(
+            agent_id=agent.agent_id,
+            capability_key=None,
+            status=None,
+            limit=100,
+            offset=0,
+        )
         completed = sum(item.status is AgentRunStatus.COMPLETED for item in runs)
         success_rate = "unavailable" if total == 0 else str(completed / min(total, 100))
         last = runs[0] if runs else None
@@ -171,7 +179,7 @@ async def dashboard(
                 last_duration_ms=duration_ms,
                 success_rate=success_rate,
                 pending_approvals=sum(
-                    item.agent_id == agent.agent_id for item in pending_proposals
+                    item.agent_id in agent_identifiers for item in pending_proposals
                 ),
                 recent_incidents=sum(item.status is AgentRunStatus.FAILED for item in runs),
             ),
@@ -202,7 +210,7 @@ async def list_agents(
     sort_order: Literal["asc", "desc"] = "asc",
 ) -> AgentPage:
     require_role(actor, UserRole.VIEWER)
-    agents = await admin.repository.list_agents()
+    agents = await admin.list_loaded_agents()
     agents.sort(
         key=lambda item: str(getattr(item, sort_by)).casefold(),
         reverse=sort_order == "desc",
@@ -255,17 +263,29 @@ async def get_agent(
     actor: ActorDep,
 ) -> AgentDetailResponse:
     require_role(actor, UserRole.VIEWER)
-    agent = await admin.repository.get_agent(agent_id)
+    canonical_agent_id = admin.canonical_agent_id(agent_id)
+    agent = await admin.repository.get_agent(canonical_agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="Agent was not found")
+    configurations = await admin.repository.list_configurations(canonical_agent_id)
     return AgentDetailResponse(
         agent=agent,
-        configuration=await admin.repository.latest_configuration(agent_id),
-        schedules=await admin.repository.list_schedules(agent_id),
-        integration_health=await admin.agent_health(agent_id),
-        kill_switch_enabled=await admin.repository.get_control(
-            f"agent_kill_switch:{agent_id}",
+        configuration=await admin.repository.latest_configuration(
+            canonical_agent_id,
+            agent.default_capability_key,
         ),
+        configurations=configurations,
+        schedules=await admin.repository.list_schedules(canonical_agent_id),
+        integration_health=await admin.agent_health(canonical_agent_id),
+        kill_switch_enabled=await admin.repository.get_control(
+            f"agent_kill_switch:{canonical_agent_id}",
+        ),
+        capability_kill_switches={
+            capability.key: await admin.repository.get_control(
+                f"capability_kill_switch:{canonical_agent_id}:{capability.key}",
+            )
+            for capability in agent.capabilities
+        },
     )
 
 
@@ -419,18 +439,24 @@ async def run_agent_now(
 ) -> ManualRunAccepted:
     require_role(actor, UserRole.OPERATOR)
     try:
-        await admin.validate_run(agent_id)
+        canonical_agent_id = admin.canonical_agent_id(agent_id)
+        capability_key = payload.capability_key or admin.default_capability_key(
+            canonical_agent_id,
+        )
+        await admin.validate_run(canonical_agent_id, capability_key)
         correlation_id = payload.correlation_id or admin.new_identifier()
         background_tasks.add_task(
             admin.run_in_background,
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=capability_key,
             job_type=payload.job_type,
             actor=actor,
             correlation_id=correlation_id,
             idempotency_key=payload.idempotency_key,
         )
         return ManualRunAccepted(
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=capability_key,
             job_type=payload.job_type,
             correlation_id=correlation_id,
         )
@@ -454,13 +480,15 @@ async def list_runs(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
     run_status: Annotated[AgentRunStatus | None, Query(alias="status")] = None,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> RunPage:
     require_role(actor, UserRole.VIEWER)
-    items, total = await admin.repository.list_runs(
+    items, total = await admin.list_runs(
         agent_id=agent_id,
+        capability_key=capability_key,
         status=run_status,
         limit=limit,
         offset=offset,
@@ -493,6 +521,7 @@ async def get_run(
     findings, _ = await admin.repository.list_findings(run_id=run_id, limit=1_000)
     recommendations, _ = await admin.repository.list_recommendations(run_id=run_id, limit=1_000)
     proposals, _ = await admin.repository.list_proposals(run_id=run_id, limit=1_000)
+    outcomes, _ = await admin.repository.list_outcome_evaluations(run_id=run_id, limit=1_000)
     return RunDetailResponse(
         run=run,
         timeline=audit,
@@ -500,6 +529,7 @@ async def get_run(
         findings=findings,
         recommendations=recommendations,
         proposals=proposals,
+        outcomes=outcomes,
     )
 
 
@@ -517,9 +547,11 @@ async def list_configurations(
     agent_id: str,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
+    capability_key: str | None = None,
 ) -> ConfigurationPage:
     require_role(actor, UserRole.VIEWER)
-    items = await admin.repository.list_configurations(agent_id)
+    canonical_agent_id = admin.canonical_agent_id(agent_id)
+    items = await admin.repository.list_configurations(canonical_agent_id, capability_key)
     return ConfigurationPage(total=len(items), limit=len(items) or 1, offset=0, items=items)
 
 
@@ -537,12 +569,21 @@ async def configuration_schema(
     agent_id: str,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
+    capability_key: str | None = None,
 ) -> dict[str, JsonValue]:
     require_role(actor, UserRole.VIEWER)
-    agent = await admin.repository.get_agent(agent_id)
+    canonical_agent_id = admin.canonical_agent_id(agent_id)
+    agent = await admin.repository.get_agent(canonical_agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="Agent was not found")
-    return agent.configuration_schema
+    effective_capability_key = capability_key or agent.default_capability_key
+    capability = next(
+        (item for item in agent.capabilities if item.key == effective_capability_key),
+        None,
+    )
+    if capability is None:
+        raise HTTPException(status_code=404, detail="Capability was not found")
+    return capability.input_schema
 
 
 @router.post(
@@ -563,11 +604,13 @@ async def create_configuration(
     payload: ConfigurationCreateRequest,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
+    capability_key: str | None = None,
 ) -> AgentConfiguration:
     require_role(actor, UserRole.ADMIN)
     try:
         return await admin.create_configuration(
             agent_id=agent_id,
+            capability_key=capability_key,
             values=payload.values,
             actor=actor,
         )
@@ -598,9 +641,11 @@ async def list_schedules(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
 ) -> SchedulePage:
     require_role(actor, UserRole.VIEWER)
-    items = await admin.repository.list_schedules(agent_id)
+    effective_agent_id = admin.canonical_agent_id(agent_id) if agent_id is not None else None
+    items = await admin.repository.list_schedules(effective_agent_id, capability_key)
     return SchedulePage(total=len(items), limit=len(items) or 1, offset=0, items=items)
 
 
@@ -861,12 +906,14 @@ async def list_executions(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> ExecutionPage:
     require_role(actor, UserRole.VIEWER)
-    items, total = await admin.repository.list_executions(
+    items, total = await admin.list_executions(
         agent_id=agent_id,
+        capability_key=capability_key,
         limit=limit,
         offset=offset,
     )
@@ -939,12 +986,14 @@ async def list_reports(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> ReportPage:
     require_role(actor, UserRole.VIEWER)
-    items, total = await admin.repository.list_reports(
+    items, total = await admin.list_reports(
         agent_id=agent_id,
+        capability_key=capability_key,
         limit=limit,
         offset=offset,
     )
@@ -971,6 +1020,34 @@ async def get_report(
     if report is None:
         raise HTTPException(status_code=404, detail="Report was not found")
     return report
+
+
+@router.get(
+    "/outcome-evaluations",
+    response_model=OutcomeEvaluationPage,
+    summary="List persisted action outcome evaluations",
+    description=(
+        "Returns pending, measured, or inconclusive outcome evaluations, optionally filtered "
+        "by run or proposal. Provider-state verification and business-outcome measurement are "
+        "reported separately. Requires at least the `viewer` role."
+    ),
+)
+async def list_outcome_evaluations(
+    admin: OperationAdminServiceDep,
+    actor: ActorDep,
+    run_id: str | None = None,
+    proposal_id: str | None = None,
+    limit: int = Query(default=100, ge=1, le=1_000),
+    offset: int = Query(default=0, ge=0),
+) -> OutcomeEvaluationPage:
+    require_role(actor, UserRole.VIEWER)
+    items, total = await admin.repository.list_outcome_evaluations(
+        run_id=run_id,
+        proposal_id=proposal_id,
+        limit=limit,
+        offset=offset,
+    )
+    return OutcomeEvaluationPage(total=total, limit=limit, offset=offset, items=items)
 
 
 @router.get(
@@ -1041,8 +1118,8 @@ async def global_kill_switch(
     actor: ActorDep,
 ) -> KillSwitchResponse:
     require_role(actor, UserRole.ADMIN)
-    await admin.set_kill_switch(agent_id=None, enabled=payload.enabled, actor=actor)
-    return KillSwitchResponse(scope="global", enabled=payload.enabled)
+    scope = await admin.set_kill_switch(agent_id=None, enabled=payload.enabled, actor=actor)
+    return KillSwitchResponse(scope=scope, enabled=payload.enabled)
 
 
 @router.put(
@@ -1063,5 +1140,35 @@ async def agent_kill_switch(
     actor: ActorDep,
 ) -> KillSwitchResponse:
     require_role(actor, UserRole.ADMIN)
-    await admin.set_kill_switch(agent_id=agent_id, enabled=payload.enabled, actor=actor)
-    return KillSwitchResponse(scope=agent_id, enabled=payload.enabled)
+    scope = await admin.set_kill_switch(agent_id=agent_id, enabled=payload.enabled, actor=actor)
+    return KillSwitchResponse(scope=scope, enabled=payload.enabled)
+
+
+@router.put(
+    "/kill-switch/agents/{agent_id}/capabilities/{capability_key}",
+    response_model=KillSwitchResponse,
+    summary="Set a capability kill switch",
+    description=(
+        "Enables or disables one capability without stopping sibling capabilities of the same "
+        "agent. The control is enforced both before runs and before approved actions execute. "
+        "Requires the `admin` role."
+    ),
+)
+async def capability_kill_switch(
+    agent_id: str,
+    capability_key: str,
+    payload: KillSwitchRequest,
+    admin: OperationAdminServiceDep,
+    actor: ActorDep,
+) -> KillSwitchResponse:
+    require_role(actor, UserRole.ADMIN)
+    try:
+        scope = await admin.set_kill_switch(
+            agent_id=agent_id,
+            capability_key=capability_key,
+            enabled=payload.enabled,
+            actor=actor,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return KillSwitchResponse(scope=scope, enabled=payload.enabled)

@@ -6,7 +6,11 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from app.mana_operation_ai.application.policy import PolicyService
+from app.mana_operation_ai.application.action_executors import (
+    ActionExecutorRegistry,
+    ActionTargetState,
+)
+from app.mana_operation_ai.application.action_policies import ActionPolicyRegistry
 from app.mana_operation_ai.application.ports import (
     Clock,
     IdGenerator,
@@ -16,7 +20,6 @@ from app.mana_operation_ai.application.ports import (
     ProviderTransientError,
     WriteOperationForbidden,
 )
-from app.mana_operation_ai.application.registry import AdsPlatformRegistry
 from app.mana_operation_ai.domain.enums import (
     ActionStatus,
     ActionType,
@@ -31,7 +34,6 @@ from app.mana_operation_ai.domain.enums import (
 from app.mana_operation_ai.domain.marketing import AdEntityType, ProviderObjectState
 from app.mana_operation_ai.domain.models import (
     ActionExecution,
-    ActionPolicyConfiguration,
     ActionProposal,
     ActionVerification,
     ApprovalDecision,
@@ -82,8 +84,8 @@ class ActionLifecycleService:
         self,
         *,
         repository: OperationRepository,
-        platforms: AdsPlatformRegistry,
-        policy: PolicyService,
+        executors: ActionExecutorRegistry,
+        policies: ActionPolicyRegistry,
         clock: Clock,
         ids: IdGenerator,
         dry_run: bool,
@@ -94,8 +96,8 @@ class ActionLifecycleService:
         verification_delay_seconds: float = 1.0,
     ) -> None:
         self._repository = repository
-        self._platforms = platforms
-        self._policy = policy
+        self._executors = executors
+        self._policies = policies
         self._clock = clock
         self._ids = ids
         self._dry_run = dry_run
@@ -113,7 +115,7 @@ class ActionLifecycleService:
         run_id: str,
         correlation_id: str,
         recommendation: Recommendation,
-        configuration: ActionPolicyConfiguration,
+        configuration: dict[str, JsonValue],
         configuration_version: int,
         requested_by: str,
     ) -> ProposalCreation | None:
@@ -123,16 +125,9 @@ class ActionLifecycleService:
             ActionType.PROPOSE_TEST,
         }:
             return None
-        platform = self._platforms.get(provider_name)
-        current = (
-            _advisory_object_state(recommendation, provider_name)
-            if platform.provider_mode is ProviderMode.LIVE_READ_ONLY
-            else await platform.get_object_state(
-                recommendation.object_type,
-                recommendation.provider_object_id,
-            )
-        )
-        policy = await self._policy.evaluate(
+        executor = self._executors.get(recommendation.action_family, provider_name)
+        current = await executor.state_for_recommendation(recommendation)
+        policy = await self._policies.get(recommendation.action_family).evaluate(
             agent_id=agent_id,
             recommendation=recommendation,
             configuration=configuration,
@@ -149,9 +144,11 @@ class ActionLifecycleService:
             run_id=run_id,
             recommendation_id=recommendation.recommendation_id,
             agent_id=agent_id,
+            capability_key=recommendation.capability_key,
+            action_family=recommendation.action_family,
             provider=provider_name,
-            provider_mode=platform.provider_mode,
-            execution_forbidden=platform.provider_mode is ProviderMode.LIVE_READ_ONLY,
+            provider_mode=executor.provider_mode,
+            execution_forbidden=executor.provider_mode is ProviderMode.LIVE_READ_ONLY,
             object_type=recommendation.object_type,
             provider_object_id=recommendation.provider_object_id,
             action_type=recommendation.action_type,
@@ -297,8 +294,8 @@ class ActionLifecycleService:
         actor_role: UserRole,
         correlation_id: str,
     ) -> ActionLifecycleResult:
-        platform = self._platforms.get(proposal.provider)
-        if proposal.execution_forbidden or platform.provider_mode is ProviderMode.LIVE_READ_ONLY:
+        executor = self._executors.get(proposal.action_family, proposal.provider)
+        if proposal.execution_forbidden or executor.provider_mode is ProviderMode.LIVE_READ_ONLY:
             await self._audit(
                 correlation_id=correlation_id,
                 proposal=proposal,
@@ -359,8 +356,8 @@ class ActionLifecycleService:
         actor_role: UserRole,
         correlation_id: str,
     ) -> ActionLifecycleResult:
-        platform = self._platforms.get(proposal.provider)
-        if proposal.execution_forbidden or platform.provider_mode is ProviderMode.LIVE_READ_ONLY:
+        executor = self._executors.get(proposal.action_family, proposal.provider)
+        if proposal.execution_forbidden or executor.provider_mode is ProviderMode.LIVE_READ_ONLY:
             raise WriteOperationForbidden(
                 "LIVE Meta is read-only; execution is forbidden and no provider request was sent",
             )
@@ -385,10 +382,7 @@ class ActionLifecycleService:
             raise ActionSafetyError("The proposal has expired")
         await self._require_safety(proposal)
         try:
-            before = await platform.get_object_state(
-                proposal.object_type,
-                proposal.provider_object_id,
-            )
+            before = await executor.state_for_proposal(proposal)
         except ProviderObjectNotFoundError as exc:
             failed = await self._failed_execution(
                 proposal=proposal,
@@ -418,7 +412,7 @@ class ActionLifecycleService:
                 message="The provider object changed after the proposal was created.",
             )
             raise StaleProposalError(failed.error_message or "Proposal is stale")
-        if (state_violation := provider_state_violation(proposal, before)) is not None:
+        if (state_violation := executor.state_violation(proposal, before)) is not None:
             failed = await self._failed_execution(
                 proposal=proposal,
                 before=before,
@@ -472,13 +466,9 @@ class ActionLifecycleService:
             proposal=executing_proposal,
             execution=executing,
         )
+        expected = executor.expected_state(proposal, before)
         try:
-            result = await platform.execute(
-                object_type=proposal.object_type,
-                provider_object_id=proposal.provider_object_id,
-                parameters=proposal.parameters,
-                idempotency_key=proposal.idempotency_key,
-            )
+            result = await executor.dispatch(proposal)
         except ProviderPermanentError as exc:
             failed_execution = executing.model_copy(
                 update={
@@ -495,6 +485,56 @@ class ActionLifecycleService:
             )
             raise ActionSafetyError("The provider rejected the action") from exc
         except Exception as exc:
+            try:
+                reconciled_state = await executor.state_for_proposal(proposal)
+                reconciliation_differences = executor.differences(
+                    expected,
+                    reconciled_state,
+                )
+            except Exception:
+                reconciled_state = None
+                reconciliation_differences = ["Provider state is unavailable for reconciliation."]
+            if reconciled_state is not None and not reconciliation_differences:
+                completed_proposal = executing_proposal.model_copy(
+                    update={"status": ActionStatus.SUCCEEDED},
+                )
+                completed_execution = executing.model_copy(
+                    update={
+                        "status": ExecutionStatus.SUCCEEDED,
+                        "completed_at": self._clock.now(),
+                        "provider_response": {
+                            "reconciled_after_uncertain_dispatch": True,
+                        },
+                    },
+                )
+                verification = ActionVerification(
+                    verification_id=self._ids.new(),
+                    execution_id=completed_execution.execution_id,
+                    status=VerificationStatus.VERIFIED,
+                    checked_at=self._clock.now(),
+                    expected_state=expected,
+                    observed_state=reconciled_state.raw_safe,
+                    differences=[],
+                )
+                await self._repository.finalize_action_state(
+                    proposal=completed_proposal,
+                    execution=completed_execution,
+                    verification=verification,
+                )
+                await self._audit(
+                    correlation_id=correlation_id,
+                    proposal=completed_proposal,
+                    event_type=AuditEventType.ACTION_VERIFIED,
+                    actor_id=actor_id,
+                    actor_role=actor_role,
+                    summary="Uncertain provider response reconciled from current state",
+                    details={"differences": []},
+                )
+                return ActionLifecycleResult(
+                    proposal=completed_proposal,
+                    execution=completed_execution,
+                    verification=verification,
+                )
             uncertain = executing.model_copy(
                 update={
                     "error_code": "write_outcome_uncertain",
@@ -520,35 +560,13 @@ class ActionLifecycleService:
                 "The action may have been applied; do not retry while reconciliation is pending",
             ) from exc
 
-        if not result.accepted:
-            failed_execution = executing.model_copy(
-                update={
-                    "status": ExecutionStatus.FAILED,
-                    "completed_at": self._clock.now(),
-                    "provider_request_id": result.provider_request_id,
-                    "provider_response": result.model_dump(mode="json"),
-                    "error_code": "provider_not_accepted",
-                    "error_message": "The provider did not accept the action.",
-                },
-            )
-            failed_proposal = executing_proposal.model_copy(update={"status": ActionStatus.FAILED})
-            await self._repository.finalize_action_state(
-                proposal=failed_proposal,
-                execution=failed_execution,
-            )
-            raise ActionSafetyError("The provider did not accept the action")
-
-        expected = expected_state(proposal, before)
-        after: ProviderObjectState | None = None
+        after: ActionTargetState | None = None
         differences: list[str] = []
         verification_error: Exception | None = None
         for attempt in range(self._verification_attempts):
             try:
-                after = await platform.get_object_state(
-                    proposal.object_type,
-                    proposal.provider_object_id,
-                )
-                differences = state_differences(expected, after)
+                after = await executor.state_for_proposal(proposal)
+                differences = executor.differences(expected, after)
                 verification_error = None
                 if not differences:
                     break
@@ -561,7 +579,7 @@ class ActionLifecycleService:
             uncertain = executing.model_copy(
                 update={
                     "provider_request_id": result.provider_request_id,
-                    "provider_response": result.model_dump(mode="json"),
+                    "provider_response": result.raw_safe,
                     "error_code": "verification_unavailable",
                     "error_message": (
                         "The provider accepted the action, but its resulting state is unavailable."
@@ -589,7 +607,7 @@ class ActionLifecycleService:
                 "status": execution_status,
                 "completed_at": self._clock.now(),
                 "provider_request_id": result.provider_request_id,
-                "provider_response": result.model_dump(mode="json"),
+                "provider_response": result.raw_safe,
             },
         )
         completed_proposal = executing_proposal.model_copy(update={"status": proposal_status})
@@ -639,16 +657,24 @@ class ActionLifecycleService:
             raise ActionSafetyError("The global kill switch is enabled")
         if await self._repository.get_control(f"agent_kill_switch:{proposal.agent_id}"):
             raise ActionSafetyError("The agent kill switch is enabled")
-        configuration_record = await self._repository.latest_configuration(proposal.agent_id)
+        if await self._repository.get_control(
+            f"capability_kill_switch:{proposal.agent_id}:{proposal.capability_key}",
+        ):
+            raise ActionSafetyError("The capability kill switch is enabled")
+        configuration_record = await self._repository.latest_configuration(
+            proposal.agent_id,
+            proposal.capability_key,
+        )
         if configuration_record is None:
             raise ActionSafetyError("No active configuration exists")
-        configuration = ActionPolicyConfiguration.model_validate(configuration_record.values)
         recommendation = Recommendation(
             recommendation_id=proposal.recommendation_id,
             run_id=proposal.run_id,
             finding_ids=[],
             object_type=proposal.object_type,
             provider_object_id=proposal.provider_object_id,
+            capability_key=proposal.capability_key,
+            action_family=proposal.action_family,
             action_type=proposal.action_type,
             parameters=proposal.parameters,
             evidence=proposal.evidence,
@@ -660,10 +686,10 @@ class ActionLifecycleService:
             expires_at=proposal.expires_at,
             created_at=proposal.created_at,
         )
-        current_policy = await self._policy.evaluate(
+        current_policy = await self._policies.get(proposal.action_family).evaluate(
             agent_id=proposal.agent_id,
             recommendation=recommendation,
-            configuration=configuration,
+            configuration=configuration_record.values,
             configuration_version=configuration_record.version,
             exclude_proposal_id=proposal.proposal_id,
         )
@@ -680,7 +706,7 @@ class ActionLifecycleService:
         self,
         *,
         proposal: ActionProposal,
-        before: ProviderObjectState | None,
+        before: ActionTargetState | None,
         message: str,
         error_code: str = "stale_proposal",
     ) -> ActionExecution:
@@ -728,6 +754,7 @@ class ActionLifecycleService:
                 event_id=self._ids.new(),
                 correlation_id=correlation_id,
                 agent_id=proposal.agent_id,
+                capability_key=proposal.capability_key,
                 run_id=proposal.run_id,
                 event_type=event_type,
                 actor_id=actor_id,
@@ -740,6 +767,13 @@ class ActionLifecycleService:
 
 
 def _manual_action_instructions(recommendation: Recommendation) -> list[str]:
+    if recommendation.action_family == "growth_experiment":
+        return [
+            "Open the experiment sandbox and verify the same metric and eligible audience.",
+            "Recheck allocation, duration, consent constraints, and the evidence period.",
+            "Create only the approved draft; do not publish it to customers from this workflow.",
+            "Record the resulting experiment state and decision in the MANA audit trail.",
+        ]
     return [
         (
             "Open the target object in Meta Ads Manager and verify the same account and "
@@ -799,7 +833,7 @@ def _advisory_object_state(
     )
 
 
-def _action_key(recommendation: Recommendation, state: ProviderObjectState) -> str:
+def _action_key(recommendation: Recommendation, state: ActionTargetState) -> str:
     source = json_safe(
         {
             "run_id": recommendation.run_id,

@@ -20,6 +20,7 @@ from app.mana_operation_ai.domain.models import (
     DataSnapshot,
     Finding,
     IntegrationHealth,
+    OutcomeEvaluation,
     Recommendation,
 )
 
@@ -38,9 +39,11 @@ class AgentDetailResponse(BaseModel):
 
     agent: AgentDefinition
     configuration: AgentConfiguration | None
+    configurations: list[AgentConfiguration]
     schedules: list[AgentSchedule]
     integration_health: list[IntegrationHealth]
     kill_switch_enabled: bool
+    capability_kill_switches: dict[str, bool]
 
 
 class AgentStatusRequest(BaseModel):
@@ -58,12 +61,17 @@ class RunDetailResponse(BaseModel):
     findings: list[Finding]
     recommendations: list[Recommendation]
     proposals: list[ActionProposal]
+    outcomes: list[OutcomeEvaluation]
 
 
 class RunNowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     job_type: str = Field(default="analysis", min_length=1, max_length=80)
+    capability_key: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_.-]{1,79}$",
+    )
     correlation_id: str | None = Field(default=None, max_length=128)
     idempotency_key: str | None = Field(default=None, max_length=128)
 
@@ -72,6 +80,7 @@ class ManualRunAccepted(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     agent_id: str
+    capability_key: str
     job_type: str
     correlation_id: str
     status: Literal["accepted"] = "accepted"
@@ -184,6 +193,7 @@ ApprovalPage = Page[ApprovalRequest]
 ExecutionPage = Page[ActionExecution]
 ReportPage = Page[AgentReport]
 AuditPage = Page[AuditEvent]
+OutcomeEvaluationPage = Page[OutcomeEvaluation]
 ConfigurationPage = Page[AgentConfiguration]
 SchedulePage = Page[AgentSchedule]
 IntegrationHealthResponse = IntegrationHealth
