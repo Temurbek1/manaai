@@ -18,6 +18,30 @@ runs without any of this — see [README.mana-ai.md](README.mana-ai.md).
 - **Meta Marketing API** integration through a provider-neutral ads port, with a complete fake
   adapter for development.
 
+## Product direction: four action-capable agents
+
+The source product document is intentionally interpreted as four durable operational domains, not
+as a separate agent for every report row, integration, or scheduled task:
+
+| Agent | Owns | Capabilities inside it |
+| --- | --- | --- |
+| **Operations Orchestrator** | Administrative goals and cross-domain outcomes | Admin analytics, forecasting, planning, delegation, correlation, outcome evaluation, executive reporting |
+| **Growth & Conversion** | Acquisition and paid conversion | Advertising, SMM, funnel analysis, conversion, upsell, offers, experiments |
+| **Retention & Loyalty** | Retention and customer lifetime value | Churn risk, lifecycle zones, win-back, subscription offers, loyalty, referral |
+| **Technical Reliability** | Application reliability and technical response | Crashes, latency, errors, release regressions, reviews, support correlation, incidents |
+
+Advertising, SMM, Upsell, Referral, Admin Analysis, and similar names are capabilities, not
+additional top-level agents. Agents must be able to act through typed executors; analysis is only
+the first half of the product. Every external/internal mutation follows evidence -> recommendation
+-> typed intent -> policy -> approval -> fresh-state check -> idempotent execution -> verification
+-> outcome measurement -> audit.
+
+**Current versus target:** only `marketing-agent` is implemented today. Its end-to-end write path
+is executable against `fake_meta`; live Meta is deliberately read-only. The working implementation
+will become `growth.advertising` during a compatibility-preserving migration, not be discarded or
+duplicated. See [the canonical agent model](docs/operation-agent-model.md) for boundaries, action
+governance, migration rules, and delivery order.
+
 ### Endpoint groups
 
 | Prefix | Purpose |
@@ -26,9 +50,120 @@ runs without any of this — see [README.mana-ai.md](README.mana-ai.md).
 | `/api/v1/mana-ai/*` | The product API layer (see its own README) |
 | `/api/v1/ai/*` | Legacy chat/summarize gateway |
 | `/api/v1/marketing/*` | Raw storage, graph, deterministic patterns, Meta sync, KPI + AI reports |
-| `/api/v1/admin/operation/*` | Dashboard, agents, runs, findings, recommendations, proposals, approvals, executions, reports, schedules, kill switches, audit |
+| `/api/v1/admin/operation/*` | Agents, runs, findings, approvals, executions, kill switches, audit |
 | `/api/v1/auth/*` | Telegram OTP login, session, logout |
 | `/api/v1/admin/users` | Admin-only management of permitted Telegram users |
+
+Every endpoint below is also documented in Swagger at `/docs` (disabled under
+`APP_ENV=production`).
+
+### Authentication and sessions
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| POST | `/auth/telegram/request-code` | Sends a six-digit code to the Telegram ID. Always returns a generic 202 so the endpoint cannot be used to discover which IDs are permitted. Rate limited per user, per IP, and globally. |
+| POST | `/auth/telegram/verify-code` | Exchanges a valid code for an HttpOnly session cookie plus a CSRF cookie. One-time use; wrong codes count against the attempt limit. |
+| GET | `/auth/session` | Current session, user, role, permissions, and provider mode. Returns `authenticated: false` rather than 401 when there is no session. |
+| POST | `/auth/logout` | Revokes the session server-side and clears the cookies. |
+
+### Admin users — admin role, session only
+
+These reject internal role keys by design; a browser session is required.
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/admin/users` | Lists permitted Telegram users with role and status. |
+| POST | `/admin/users` | Grants access to a Telegram ID with a role. |
+| PATCH | `/admin/users/{user_id}` | Changes role, display name, or status. Disabling requires a reason. |
+| GET | `/admin/users/{user_id}/audit` | Authentication audit trail for one user. |
+| POST | `/admin/users/{user_id}/sessions/revoke` | Force-signs the user out of every active session. |
+
+### Agents and runs
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/admin/operation/dashboard` | Per-agent status, health, next run, pending approvals, recent incidents, global kill-switch state. |
+| GET | `/admin/operation/session` | Resolves the acting identity and the provider mode in effect. |
+| GET | `/admin/operation/marketing/overview` | Marketing Agent view: integration health, token scopes, account context. |
+| GET | `/admin/operation/agents` | Registered agents. |
+| GET | `/admin/operation/agents/{agent_id}` | One agent with its definition and current state. |
+| POST | `/admin/operation/agents/{agent_id}/register` | Registers an agent implementation loaded by the application. |
+| POST | `/admin/operation/agents/{agent_id}/status` | Sets status explicitly. |
+| POST | `/admin/operation/agents/{agent_id}/enable` · `/disable` · `/pause` · `/resume` | Status shortcuts. Paused keeps schedules; disabled stops them. |
+| POST | `/admin/operation/agents/{agent_id}/run` | Triggers a job. Returns **202 accepted** with a `correlation_id` — not a run id. Find the run by polling `/runs`. Pass `idempotency_key` to make retries safe. |
+| GET | `/admin/operation/runs` | Paginated run history with status and stage. |
+| GET | `/admin/operation/runs/{run_id}` | One run plus its timeline, snapshots, findings, recommendations, and proposals. |
+
+### Configuration and schedules
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/admin/operation/agents/{agent_id}/configuration-schema` | JSON Schema for that agent's configuration — use it to build a form. |
+| GET | `/admin/operation/agents/{agent_id}/configurations` | Configuration version history. |
+| POST | `/admin/operation/agents/{agent_id}/configurations` | Creates a new immutable version. Runs record the version they used. |
+| GET | `/admin/operation/schedules` | Schedules with cron expression, timezone, and lease state. |
+| PUT | `/admin/operation/schedules/{schedule_id}` | Replaces cron, timezone, and enabled flag. |
+
+### Analysis output
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/admin/operation/findings` | Deterministic findings produced by runs. |
+| GET | `/admin/operation/recommendations` | Recommendations derived from findings. |
+| GET | `/admin/operation/reports` | Stored agent reports. |
+| GET | `/admin/operation/reports/{report_id}` | One report. |
+| GET | `/admin/operation/audit-events` | Append-only audit trail of who did what. |
+| GET | `/admin/operation/integrations/{provider}/health` | Live provider check: reachability, token validity and scopes, latency. |
+
+### The action pipeline
+
+Where the safety controls live. Read [Safety model](#safety-model) before using these.
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/admin/operation/action-proposals` | Proposed changes with parameters, evidence, reasoning, risks, and policy decision. |
+| GET | `/admin/operation/approvals` | Proposals awaiting a decision. |
+| POST | `/admin/operation/approvals/{proposal_id}/decision` | Approve or reject one proposal. **403** if the actor produced it — self-approval is disabled. Requires a reason and a correlation id. |
+| POST | `/admin/operation/approvals/bulk-decision` | Same decision across up to 50 proposals. **409** unless they all share one action type — and bulk *approval* is further limited to `decrease_budget`, since lowering spend is the only change safe to wave through in bulk. Bulk rejection works for any type. |
+| POST | `/admin/operation/action-proposals/{proposal_id}/execute` | Re-checks every safeguard, then executes and verifies. Safe to repeat: the stored execution for the idempotency key is returned instead of writing twice. **423** when a safeguard blocks it — including a proposal that settled as `dry_run` rather than `approved`, which is what happens whenever `OPERATION_DRY_RUN=true`. |
+| GET | `/admin/operation/executions` | Execution attempts with before-state, requested change, and provider response. |
+
+### Kill switches
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| PUT | `/admin/operation/kill-switch/global` | Stops all agent activity platform-wide. |
+| PUT | `/admin/operation/kill-switch/agents/{agent_id}` | Stops one agent. |
+
+### Marketing
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/marketing/config` | Non-secret view of Meta and OpenAI configuration status. |
+| POST | `/marketing/raw` | Appends raw marketing records. Append-only: originals are never overwritten. |
+| GET | `/marketing/raw` | Reads stored raw records. |
+| POST | `/marketing/raw/search` | Filters raw records by account, entity type, provider id, date, or payload fields. |
+| POST | `/marketing/meta/discover` | Collects app, business, and ad-account metadata from the live Meta Graph API. Read-only. |
+| POST | `/marketing/meta/sync` | Pulls structure and insights for an explicit `date_start`/`date_stop` range and appends them to raw storage. Read-only against live Meta. |
+| POST | `/marketing/graph` | Builds the entity graph across app, business, pixel, audience, campaign, ad set, ad, creative, and insight. |
+| POST | `/marketing/patterns` | Deterministic pattern search over stored insights — spend concentration, outliers, frequency fatigue, unmapped conversion signals. No model call. |
+| POST | `/marketing/analyze` | KPIs computed in code, then a structured AI report. Needs `OPENAI_MAX_OUTPUT_TOKENS` around 16000; at 2048 the report truncates into a 502. |
+| GET | `/marketing/reports` · `/marketing/reports/{report_id}` | Stored AI reports. |
+| GET | `/marketing/reports/{report_id}/evidence` | A report bundled with the raw records it was derived from. |
+| POST | `/marketing/meta/insights/jobs` | Async insights job. **403 against live Meta** — creation is a POST and live mode is read-only. Works with fixtures. |
+| GET | `/marketing/meta/insights/jobs/{report_run_id}` | Async job status. |
+| POST | `/marketing/meta/insights/jobs/{report_run_id}/ingest` | Loads finished job results into raw storage. |
+
+### Legacy AI gateway
+
+| Method | Path | What it does |
+| --- | --- | --- |
+| POST | `/ai/chat` | One-shot chat against the configured model. |
+| POST | `/ai/summarize` | Summarizes supplied text. |
+
+Both are thin passthroughs with no deterministic fallback: if OpenAI is unavailable they return
+**502** rather than degrading. That is intentional — there is no meaningful partial answer to
+"summarize this".
 
 ## Local setup
 
@@ -145,6 +280,9 @@ This platform can change a live ad account, so the controls matter.
 - **Live Meta is read-only.** `META_LIVE_MODE=read_only` and `META_REAL_WRITES_ENABLED=false`;
   startup rejects `true`. `POST /api/v1/marketing/meta/insights/jobs` therefore returns `403`
   against live Meta, because Meta's async report creation is a POST.
+- **Agent collection requires a completed reporting period.** When an agent run collects through
+  the live Meta adapter, a `date_stop` of today or later is rejected — partial days would produce
+  misleading KPIs. The rule applies to agent runs, not to the `/marketing/meta/sync` route.
 - **Kill switches** exist globally and per agent.
 - **Execution limits** are capped per day, globally and per agent.
 
@@ -178,6 +316,6 @@ CI configuration in the repository, so these run locally.
 
 ## Further reading
 
-`docs/architecture.md`, `docs/operation-ai-platform.md`, `docs/marketing-agent.md`,
-`docs/action-safety.md`, `docs/runbook.md`, `docs/deployment-topology.md`,
-`docs/telegram-otp-auth.md`, `docs/admin-panel.md`.
+`docs/operation-agent-model.md`, `docs/architecture.md`, `docs/operation-ai-platform.md`,
+`docs/marketing-agent.md`, `docs/action-safety.md`, `docs/runbook.md`,
+`docs/deployment-topology.md`, `docs/telegram-otp-auth.md`, `docs/admin-panel.md`.

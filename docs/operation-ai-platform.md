@@ -13,6 +13,12 @@ definition, typed configuration schema/default, schedules, health checks, execut
 finalization. Configuration versions and schedules are persisted. Changing the Marketing Agent
 schedule fields recalculates the persisted next occurrence in the configured timezone.
 
+The target registry contains four domain agents: Operations Orchestrator, Growth & Conversion,
+Retention & Loyalty, and Technical Reliability. Their executable units are independently typed and
+configured capability tasks. See `docs/operation-agent-model.md`. The current registry contains
+only `marketing-agent`; target names and capabilities must not be represented as implemented until
+their handlers, integrations, policies, and tests exist.
+
 ## Lifecycle
 
 The Marketing Agent demonstrates the full reusable lifecycle:
@@ -43,11 +49,21 @@ duplicate-safe, including lease recovery after a dead worker. PostgreSQL is requ
 SQLite remains a local/single-process option. A durable queue can replace polling later without
 changing agent contracts.
 
-## Adding the next agent
+## Adding the next capability
 
-1. Add domain-specific configuration and evidence models without changing generic contracts.
-2. Implement `OperationalAgent` against repository/integration protocols.
-3. Register the implementation in `app/main.py` (later via a plugin composition module).
-4. Add migrations only for genuinely queryable new data, not for every domain field.
-5. Add schedules, policy actions, tests, and an admin-specific view only where generic views are
-   insufficient. It will already appear in registry, dashboard, runs, reports, and controls.
+1. Place the capability under one of the four domain agents; do not create a top-level agent merely
+   because it has a different integration, action, report, or schedule.
+2. Add domain-specific typed task, configuration, evidence, output, and action contracts without
+   weakening generic runtime contracts.
+3. Implement a capability handler against typed repository/source/action ports and register it
+   inside the owning agent.
+4. Version configuration and schedules at capability granularity so unrelated capabilities do not
+   change together.
+5. Add migrations only for genuinely queryable state, not for every provider or domain field.
+6. If the capability acts, implement policy, approval, idempotent dispatch, fresh-state checks,
+   verification, uncertainty reconciliation, outcome measurement, audit, and a fake executor.
+7. Add an admin-specific view only where the generic domain-agent view is insufficient. It already
+   participates in runs, findings, reports, approvals, audit, and controls.
+
+Adding a fifth top-level agent requires an explicit architecture decision demonstrating a new
+outcome owner, data/privacy authority, credential/policy boundary, and failure-isolation need.

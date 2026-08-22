@@ -27,25 +27,53 @@ Meta integrations, or the operation platform, and may not import FastAPI.
 14 total. `GET /api/v1/mana-ai/capabilities` returns the exact method and path of every capability
 — use it as the machine-readable index rather than hardcoding paths.
 
-| Method | Path |
-| --- | --- |
-| GET | `/api/v1/health/live` |
-| GET | `/api/v1/health/ready` |
-| GET | `/api/v1/mana-ai/capabilities` |
-| POST | `/api/v1/mana-ai/safety-monitor` |
-| POST | `/api/v1/mana-ai/family-digest` |
-| POST | `/api/v1/mana-ai/adaptive-screen-time` |
-| POST | `/api/v1/mana-ai/location-intelligence` |
-| POST | `/api/v1/mana-ai/smart-content-filter` |
-| POST | `/api/v1/mana-ai/scam-privacy-shield` |
-| POST | `/api/v1/mana-ai/ai-gaming-safety` |
-| POST | `/api/v1/mana-ai/parent-copilot` |
-| POST | `/api/v1/mana-ai/child-safety-assistant` |
-| POST | `/api/v1/mana-ai/family-agreement` |
-| POST | `/api/v1/mana-ai/behaviour-anomaly` |
+#### Infrastructure
 
-The per-endpoint payload contract — request envelope, evidence rules, and every capability's
-fields — lives in [docs/mana-ai-api.md](docs/mana-ai-api.md). This README covers everything else.
+| Method | Path | What it does |
+| --- | --- | --- |
+| GET | `/api/v1/health/live` | Process is up. No auth, no dependency checks — use as the container liveness probe. |
+| GET | `/api/v1/health/ready` | Reports whether configured dependencies (OpenAI credentials) are usable. No auth. |
+| GET | `/api/v1/mana-ai/capabilities` | Machine-readable index: method and path of all 11 capabilities. Requires auth. Read this instead of hardcoding paths. |
+
+#### The 11 capabilities
+
+Each is an independent endpoint with its own typed request and response. Pick by the question you
+are asking, not by the data you happen to hold.
+
+| Endpoint | Use it when | Required input | Key `details` returned |
+| --- | --- | --- | --- |
+| `safety-monitor` | You want one verdict across everything — bullying, threats, pressure, personal-data requests, scams, phishing, unsafe links, odd usage or location, disabled protection | at least one safety signal; no particular signal type is mandatory | `parent_context`, `significant_event_count`, `all_clear_categories` |
+| `family-digest` | Building a daily or weekly parent summary that leads with meaningful change | `period_start`, `period_end` | `period_summary`, `highlights`, `positive_changes`, `minor_anomalies` |
+| `adaptive-screen-time` | Deciding whether current limits still fit real usage | `app_usage` | `app_classifications`, `limit_assessment` |
+| `location-intelligence` | Explaining a route deviation, late arrival, long stop, odd speed, or spoofing indicator | `points` | `route_status`, `estimated_arrival_at`, `eta_confidence`, `explanation` |
+| `smart-content-filter` | Judging one URL, domain, QR payload, or APK | `resource` | `decision` (`allow`/`observe`/`warn`/`block`), `category`, `reputation`, `explanation` |
+| `scam-privacy-shield` | You already suspect fraud or social engineering and want a sharper look than `safety-monitor` | at least one `notification` or `resource` | `detected_patterns`, `requested_data_types`, `explanation` |
+| `ai-gaming-safety` | Reviewing time spent in AI services and games | `app_usage` | `ai_service_summary`, `gaming_summary`, `affected_packages` |
+| `parent-copilot` | A parent asks a free-text question and may want next steps | `message` | `answer`, `suggested_sequence` |
+| `child-safety-assistant` | A child asks why something was blocked, or needs calm guidance | `message` | `answer`, `explanation`, `should_contact_parent` |
+| `family-agreement` | Drafting or reviewing family rules, or turning a child's request into a proposal | `mode`, `preferences`; `child_request` in that mode | `draft_rules`, `request_context` |
+| `behaviour-anomaly` | Explaining what changed against your own baselines | at least one behavioral signal; baselines add comparison context | `changed_metrics`, `explanation`, `diagnosis_made` |
+
+Notes worth knowing before you integrate:
+
+- **Optional signal types are genuinely optional, but silence costs you.** A check whose signal
+  type was not supplied returns `insufficient_data` rather than assuming anything. Supply
+  `usage_baselines` when asking either `behaviour-anomaly` or `family-digest` about changes in app
+  usage.
+- **`smart-content-filter` is the one that stays safe when the model is down.** A `malicious`
+  reputation produces `block` plus a critical finding deterministically, so it never fails open.
+- **`ai-gaming-safety` sees metadata only** — no chat content, no gameplay — and will not pretend
+  otherwise.
+- **`behaviour-anomaly` never diagnoses.** It returns `diagnosis_made: false` and describes change
+  without inferring mental-health or medical state.
+- **`parent-copilot` respects `allowed_action_kinds`** as an allowlist: nothing outside it can be
+  proposed.
+- **`child-safety-assistant` tunes tone from `subject.age_band`**, so set it accurately.
+- **Nothing here executes anything.** `proposed_actions` are suggestions your application decides
+  on.
+
+Full descriptions are also in Swagger at `/docs`, and the per-endpoint payload contract — request
+envelope, evidence rules, and every field — lives in [docs/mana-ai-api.md](docs/mana-ai-api.md).
 
 ## Local setup
 

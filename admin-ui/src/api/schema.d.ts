@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Action Proposals */
+        /**
+         * List action proposals
+         * @description Returns action proposals newest first, optionally filtered by `run_id` and by lifecycle `status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. Proposals in status `awaiting_approval` are the ones still waiting for an approver.
+         */
         get: operations["list_action_proposals_api_v1_admin_operation_action_proposals_get"];
         put?: never;
         post?: never;
@@ -30,7 +33,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Execute an already approved proposal after rechecking all safeguards */
+        /**
+         * Execute an already approved proposal after rechecking all safeguards
+         * @description Re-runs every safeguard for an already approved proposal (kill switches, current policy, expiry, provider state hash and the per-object lock) and then executes and verifies it. Requires at least the `approver` role. Repeating the call is safe: the stored execution for the proposal idempotency key is returned instead of writing twice. Returns 403 with a `write_operation_forbidden` body when the provider is LIVE Meta and therefore read-only, 409 for a stale proposal, 423 when a safeguard blocks the action, and 202 when a dispatched write requires reconciliation.
+         */
         post: operations["execute_approved_proposal_api_v1_admin_operation_action_proposals__proposal_id__execute_post"];
         delete?: never;
         options?: never;
@@ -45,7 +51,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List registered agents */
+        /**
+         * List registered agents
+         * @description Returns the registered agent definitions ordered by `sort_by` and `sort_order`, then paginated with `limit` and `offset`. Requires at least the `viewer` role. Sorting and pagination happen in memory, so `total` always reports the size of the whole catalog.
+         */
         get: operations["list_agents_api_v1_admin_operation_agents_get"];
         put?: never;
         post?: never;
@@ -62,7 +71,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get an agent */
+        /**
+         * Get an agent
+         * @description Returns the agent definition together with its latest configuration, its schedules, a freshly probed integration health report and the state of its dedicated kill switch. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.
+         */
         get: operations["get_agent_api_v1_admin_operation_agents__agent_id__get"];
         put?: never;
         post?: never;
@@ -79,7 +91,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Configuration Schema */
+        /**
+         * Get the agent configuration schema
+         * @description Returns the JSON Schema that a configuration payload for this agent must satisfy; use it to build and pre-validate the body sent to the configuration creation endpoint. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.
+         */
         get: operations["configuration_schema_api_v1_admin_operation_agents__agent_id__configuration_schema_get"];
         put?: never;
         post?: never;
@@ -96,10 +111,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Configurations */
+        /**
+         * List agent configuration versions
+         * @description Returns every stored configuration version of the agent, highest version first. Requires at least the `viewer` role. This endpoint is not paginated: the full history is returned in one response and `limit` merely mirrors the number of items.
+         */
         get: operations["list_configurations_api_v1_admin_operation_agents__agent_id__configurations_get"];
         put?: never;
-        /** Create Configuration */
+        /**
+         * Create an agent configuration version
+         * @description Validates the submitted values against the agent configuration schema, stores them as the next version, rebuilds the schedules derived from that configuration and returns the new version with 201. Requires the `admin` role. Returns 404 for an unknown agent, 422 when the values fail validation, and 409 when a concurrent write already created that version.
+         */
         post: operations["create_configuration_api_v1_admin_operation_agents__agent_id__configurations_post"];
         delete?: never;
         options?: never;
@@ -116,7 +137,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Disable Agent */
+        /**
+         * Disable an agent
+         * @description Shortcut that sets the agent status to `disabled`, after which scheduled and manual runs are refused until the agent is enabled again. Requires the `admin` role. Returns 404 when the agent is not in the catalog.
+         */
         post: operations["disable_agent_api_v1_admin_operation_agents__agent_id__disable_post"];
         delete?: never;
         options?: never;
@@ -133,7 +157,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Enable Agent */
+        /**
+         * Enable an agent
+         * @description Shortcut that sets the agent status to `enabled`, the only status in which scheduled and manual runs are accepted, and records an audit event. Requires the `admin` role. Returns 404 when the agent is not in the catalog.
+         */
         post: operations["enable_agent_api_v1_admin_operation_agents__agent_id__enable_post"];
         delete?: never;
         options?: never;
@@ -150,7 +177,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Pause Agent */
+        /**
+         * Pause an agent
+         * @description Shortcut that sets the agent status to `paused`; while it is paused a manual run request is rejected with 409. Requires the `admin` role. Returns 404 when the agent is not in the catalog.
+         */
         post: operations["pause_agent_api_v1_admin_operation_agents__agent_id__pause_post"];
         delete?: never;
         options?: never;
@@ -167,7 +197,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register an agent implementation loaded by the application */
+        /**
+         * Register an agent implementation loaded by the application
+         * @description Copies an agent implementation loaded by this process into the operational catalog, records an `agent_registered` audit event and returns the stored definition with 201. Requires the `admin` role. Returns 404 when no implementation is loaded under that identifier.
+         */
         post: operations["register_agent_api_v1_admin_operation_agents__agent_id__register_post"];
         delete?: never;
         options?: never;
@@ -184,7 +217,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resume Agent */
+        /**
+         * Resume a paused agent
+         * @description Shortcut that sets the agent status back to `enabled` after a pause or a disable. Requires the `admin` role. Returns 404 when the agent is not in the catalog.
+         */
         post: operations["resume_agent_api_v1_admin_operation_agents__agent_id__resume_post"];
         delete?: never;
         options?: never;
@@ -201,7 +237,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Run an agent job now */
+        /**
+         * Run an agent job now
+         * @description Checks that the agent is enabled, has a configuration and is not blocked by a kill switch, then queues the job as a background task and answers 202 with the correlation identifier the run will use; the run itself is not awaited. Requires at least the `operator` role. Send `idempotency_key` so a retried request joins the existing run instead of starting a second one. Returns 409 when the agent is unavailable (disabled, unconfigured or killed). A 202 response confirms acceptance, not successful completion; inspect the run history for background lock, timeout, provider, or analysis failures.
+         */
         post: operations["run_agent_now_api_v1_admin_operation_agents__agent_id__run_post"];
         delete?: never;
         options?: never;
@@ -218,7 +257,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Change agent status */
+        /**
+         * Change agent status
+         * @description Sets the agent lifecycle status to the value in the body and records an `agent_status_changed` audit event. Requires the `admin` role. Returns 404 when the agent is not in the catalog.
+         */
         post: operations["set_agent_status_api_v1_admin_operation_agents__agent_id__status_post"];
         delete?: never;
         options?: never;
@@ -233,7 +275,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Approvals */
+        /**
+         * List approval requests
+         * @description Returns approval requests newest first, optionally filtered by `status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. A request stays `pending` until it is decided or until the expiration job marks it `expired`.
+         */
         get: operations["list_approvals_api_v1_admin_operation_approvals_get"];
         put?: never;
         post?: never;
@@ -252,7 +297,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Bulk Decide Approval */
+        /**
+         * Decide several action proposals at once
+         * @description Applies the same decision to up to 50 proposals one after another and returns one lifecycle result per proposal. Requires at least the `approver` role. Returns 409 when the proposals do not all share a single action type, or when a bulk **approval** targets anything other than budget-decrease actions. Returns 403 for a forbidden or self-approval decision, 404 when any proposal is unknown, and 202 when a dispatched write requires reconciliation.
+         */
         post: operations["bulk_decide_approval_api_v1_admin_operation_approvals_bulk_decision_post"];
         delete?: never;
         options?: never;
@@ -269,7 +317,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Decide Approval */
+        /**
+         * Approve or reject an action proposal
+         * @description Records the decision on the pending approval and, when the proposal is approved and its provider is executable, immediately executes and verifies the action; the response carries the proposal, the decision, the execution, the verification and the refreshed run. Requires at least the `approver` role, and the requester's own decision is refused with 403 while self-approval is disabled. Returns 409 for a stale proposal or a concurrent write, 423 when a safeguard such as a kill switch, an expiry or a competing execution blocks the action, and 202 when a dispatched write must be reconciled before any retry. In dry-run mode the provider is never called and the lifecycle ends with status `dry_run`.
+         */
         post: operations["decide_approval_api_v1_admin_operation_approvals__proposal_id__decision_post"];
         delete?: never;
         options?: never;
@@ -284,7 +335,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Audit Events */
+        /**
+         * List audit events
+         * @description Returns the append-only audit trail newest first, optionally filtered by `correlation_id` or `run_id`, paginated with `limit` (up to 2000) and `offset`. Requires at least the `viewer` role. Filtering by `correlation_id` is the way to reconstruct everything a single manual run or approval decision produced.
+         */
         get: operations["list_audit_events_api_v1_admin_operation_audit_events_get"];
         put?: never;
         post?: never;
@@ -301,7 +355,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get the operational-agent dashboard */
+        /**
+         * Get the operational-agent dashboard
+         * @description Returns one summary row per registered agent (health, last and next run, last run duration, success rate over the 100 most recent runs, pending approvals and recent failures) plus the current global kill-switch state. Requires at least the `viewer` role. `success_rate` is the literal string `unavailable` while an agent has no runs.
+         */
         get: operations["dashboard_api_v1_admin_operation_dashboard_get"];
         put?: never;
         post?: never;
@@ -318,7 +375,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Executions */
+        /**
+         * List action executions
+         * @description Returns provider execution attempts newest first, optionally restricted to one agent through `agent_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role. Each item keeps the provider state before the write, the requested change, the provider response and the idempotency key used.
+         */
         get: operations["list_executions_api_v1_admin_operation_executions_get"];
         put?: never;
         post?: never;
@@ -335,7 +395,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Findings */
+        /**
+         * List findings
+         * @description Returns the findings produced by agent analysis, newest first, optionally restricted to one run through `run_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role.
+         */
         get: operations["list_findings_api_v1_admin_operation_findings_get"];
         put?: never;
         post?: never;
@@ -352,7 +415,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Integration Health */
+        /**
+         * Check an ads provider integration
+         * @description Probes the named ads platform, stores the resulting health record and returns it with its status, latency and any error detail. Requires at least the `viewer` role. Returns 404 when no platform is registered under that provider name.
+         */
         get: operations["integration_health_api_v1_admin_operation_integrations__provider__health_get"];
         put?: never;
         post?: never;
@@ -370,7 +436,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Agent Kill Switch */
+        /**
+         * Set an agent kill switch
+         * @description Enables or disables the kill switch of a single agent and records a `kill_switch_changed` audit event; the response echoes the agent scope and state. Requires the `admin` role. While it is enabled that agent cannot start a run and none of its approved actions can be executed.
+         */
         put: operations["agent_kill_switch_api_v1_admin_operation_kill_switch_agents__agent_id__put"];
         post?: never;
         delete?: never;
@@ -387,7 +456,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Global Kill Switch */
+        /**
+         * Set the global kill switch
+         * @description Enables or disables the global kill switch and records a `kill_switch_changed` audit event; the response echoes the resulting scope and state. Requires the `admin` role. While it is enabled every agent run is refused with 409 and every action execution is blocked with 423, whatever the per-agent settings are.
+         */
         put: operations["global_kill_switch_api_v1_admin_operation_kill_switch_global_put"];
         post?: never;
         delete?: never;
@@ -403,7 +475,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get the current Marketing Agent operating view */
+        /**
+         * Get the current Marketing Agent operating view
+         * @description Returns the latest Marketing Agent picture: freshly probed integration health for the default ads provider, the most recent stored ads snapshot with its per-breakdown performance, the active configuration and the agent schedules. Requires at least the `viewer` role. The snapshot fields stay `null` until a run has stored ads data.
+         */
         get: operations["marketing_overview_api_v1_admin_operation_marketing_overview_get"];
         put?: never;
         post?: never;
@@ -420,7 +495,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Recommendations */
+        /**
+         * List recommendations
+         * @description Returns the recommendations derived from findings, newest first, optionally restricted to one run through `run_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role. A recommendation is only advisory until it becomes an action proposal.
+         */
         get: operations["list_recommendations_api_v1_admin_operation_recommendations_get"];
         put?: never;
         post?: never;
@@ -437,7 +515,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Reports */
+        /**
+         * List agent reports
+         * @description Returns generated agent reports newest first, optionally restricted to one agent through `agent_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role.
+         */
         get: operations["list_reports_api_v1_admin_operation_reports_get"];
         put?: never;
         post?: never;
@@ -454,7 +535,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Report */
+        /**
+         * Get a report
+         * @description Returns one stored report in full, with its reporting period, structured payload, human-readable body and data-quality notes. Requires at least the `viewer` role. Returns 404 when the report identifier is unknown.
+         */
         get: operations["get_report_api_v1_admin_operation_reports__report_id__get"];
         put?: never;
         post?: never;
@@ -471,7 +555,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List agent runs */
+        /**
+         * List agent runs
+         * @description Returns agent runs newest first, optionally filtered by `agent_id` and by `status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. `total` counts every run matching the filters, not just the returned page.
+         */
         get: operations["list_runs_api_v1_admin_operation_runs_get"];
         put?: never;
         post?: never;
@@ -488,7 +575,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a run and its timeline */
+        /**
+         * Get a run and its timeline
+         * @description Returns the run with its audit timeline, stored data snapshots, findings, recommendations and action proposals in a single payload. Requires at least the `viewer` role. Each related collection is capped at its 1000 most recent entries. Returns 404 when the run identifier is unknown.
+         */
         get: operations["get_run_api_v1_admin_operation_runs__run_id__get"];
         put?: never;
         post?: never;
@@ -505,7 +595,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Schedules */
+        /**
+         * List schedules
+         * @description Returns the cron schedules of every agent, or of a single agent when `agent_id` is given, ordered by agent identifier and job type. Requires at least the `viewer` role. This endpoint is not paginated: all matching schedules come back in one response.
+         */
         get: operations["list_schedules_api_v1_admin_operation_schedules_get"];
         put?: never;
         post?: never;
@@ -523,7 +616,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Update Schedule */
+        /**
+         * Update a schedule
+         * @description Replaces the cron expression, timezone and enabled flag of a schedule, recomputes its next occurrence and records a `schedule_changed` audit event. Requires the `admin` role. Returns 404 for an unknown schedule, 422 for an invalid cron expression, and 409 when a concurrent write already changed the schedule.
+         */
         put: operations["update_schedule_api_v1_admin_operation_schedules__schedule_id__put"];
         post?: never;
         delete?: never;
@@ -539,7 +635,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Resolve the authenticated operation actor */
+        /**
+         * Resolve the authenticated operation actor
+         * @description Returns the actor identifier and role resolved from the request credentials, together with the configured ads provider and its mode. Requires at least the `viewer` role. When `live_meta_read_only` is `true` the provider is LIVE Meta and every write execution is refused with 403.
+         */
         get: operations["operation_session_api_v1_admin_operation_session_get"];
         put?: never;
         post?: never;
@@ -777,7 +876,17 @@ export interface paths {
         put?: never;
         /**
          * Assess adaptive screen-time limits
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Limits that adapt instead of punish.** Classifies how apps are actually used and judges whether current limits still fit, recommending gradual change.
+         *
+         *     **Send** the required `app_usage`, plus `usage_baselines`, `schedules`, `limits`, `extra_time_requests`, `family_rules`.
+         *
+         *     **Returns** `details.app_classifications` (per-app category judgement) and `limit_assessment`. It proposes limit changes; it never enforces them — applying a proposal is always the application's decision.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["analyze_adaptive_screen_time"];
         delete?: never;
@@ -797,7 +906,19 @@ export interface paths {
         put?: never;
         /**
          * Analyze AI-service and gaming usage metadata
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Usage metadata only.** Analyzes time spent in AI services and games: duration, night activity, changes against baseline, limits, and extra-time requests.
+         *
+         *     **Send** the required `app_usage`, plus `usage_baselines`, `limits`, `schedules`, `extra_time_requests`.
+         *
+         *     **Returns** `details.ai_service_summary`, `gaming_summary`, `affected_packages`.
+         *
+         *     This capability has **no access to chat content or gameplay** and will never imply it does — it reasons strictly about metadata you supply.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["analyze_ai_gaming_safety"];
         delete?: never;
@@ -817,7 +938,19 @@ export interface paths {
         put?: never;
         /**
          * Analyze changes against supplied baselines
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Change detection against your baselines.** Explains night usage, usage and notification shifts, disabled protection, route changes, extra-time changes, and battery or connectivity anomalies.
+         *
+         *     **Send** at least one of `metrics`, `protection_state`, `app_usage`, `locations`, or `battery`; `usage_baselines` adds comparison context for app usage but is not a signal on its own. `metrics` already carries current and baseline values.
+         *
+         *     **Returns** `details.changed_metrics`, `explanation`, and `diagnosis_made` — which is always `false`.
+         *
+         *     **No diagnosis, ever.** It describes behavioural change and explicitly does not infer mental-health, medical, or psychological state.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["analyze_behaviour_anomaly"];
         delete?: never;
@@ -857,7 +990,19 @@ export interface paths {
         put?: never;
         /**
          * Give child-safe contextual guidance
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Conversational, for the child.** Calm, age-appropriate guidance: explains why something was blocked or limited, helps check whether a resource is safe, discourages sharing personal data, and helps ask a parent for support or extra time.
+         *
+         *     **Send** the required `message`, plus `current_resource`, `active_rules`, `current_usage`.
+         *
+         *     **Returns** `details.answer`, `explanation`, and `should_contact_parent` — a boolean the application can act on to offer a parent hand-off.
+         *
+         *     Tone follows the `age_band` in `subject`, so set it accurately.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["respond_with_child_safety_assistant"];
         delete?: never;
@@ -877,7 +1022,19 @@ export interface paths {
         put?: never;
         /**
          * Draft transparent family rules
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Rules, drafted or reviewed.** Produces transparent family rules that balance privacy against safety and relax gradually with age, or turns a child's request into a clear proposal for a parent.
+         *
+         *     **Send** the required `mode` (`draft`, `review`, or `child_request`) and `preferences`, plus `current_rules`. `child_request` is required when that mode is selected.
+         *
+         *     **Returns** `details.draft_rules` and `request_context`.
+         *
+         *     Output is a proposal for humans to accept — the API never activates a rule.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["generate_family_agreement"];
         delete?: never;
@@ -897,7 +1054,17 @@ export interface paths {
         put?: never;
         /**
          * Generate a daily family digest
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Periodic summary, not an alarm.** Condenses a day or week into what a parent actually needs to read, prioritizing meaningful change over raw activity.
+         *
+         *     **Send** the required `period_start` and `period_end`, plus any of `app_usage`, `usage_baselines`, `notification_activity`, `websites`, `metrics`, `locations`, `battery`, `protection_state`, `safety_events`. Baselines are what make a change meaningful, so include them when you have them.
+         *
+         *     **Returns** `details.period_summary`, `highlights`, `positive_changes`, and `minor_anomalies` — positives are deliberately first-class, so the digest is not purely negative.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["generate_family_digest"];
         delete?: never;
@@ -917,7 +1084,19 @@ export interface paths {
         put?: never;
         /**
          * Analyze a route deviation
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Explains movement without guessing motive.** Interprets route deviations, arrival estimates, long stops, early departures, unusual speed, spoofing indicators, battery drain, and loss of connectivity.
+         *
+         *     **Send** the required `points`, plus `geofences`, `route`, `battery`. GPS accuracy is taken into account, so pass it on each point.
+         *
+         *     **Returns** `details.route_status` (`usual`/`deviated`/`delayed`/`unknown`), `estimated_arrival_at`, `eta_confidence`, and `explanation`.
+         *
+         *     It reports *what* changed, never *why* — it will not infer a reason for a child's movement.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["analyze_location_intelligence"];
         delete?: never;
@@ -937,7 +1116,19 @@ export interface paths {
         put?: never;
         /**
          * Answer a parent using supplied family context
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Conversational, for the parent.** Answers a parent's free-text question from the family context you supply and proposes a bounded next-step sequence.
+         *
+         *     **Send** the required `message`, plus `safety_events`, `family_rules`, `app_usage`, `locations`, and `allowed_action_kinds` — that last field is your allowlist, and nothing outside it can be proposed.
+         *
+         *     **Returns** `details.answer` and `suggested_sequence`.
+         *
+         *     Proposed actions still require your policy and, where indicated, parent confirmation. Answer quality tracks the context you pass: with no signals it will say so rather than speculate.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["respond_with_parent_copilot"];
         delete?: never;
@@ -957,7 +1148,17 @@ export interface paths {
         put?: never;
         /**
          * Analyze available family-safety signals
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **The broad sweep.** Can screen every supplied signal type for bullying, threats, pressure or manipulation, requests for personal or banking data, scams, phishing, unsafe resources, abnormal usage or location, and disabled protection.
+         *
+         *     **Send** at least one of `notifications`, `resources`, `websites`, `app_usage`, `locations`, `battery`, `protection_state`. No individual signal type is mandatory, but an empty input is invalid; a check whose signal type is absent reports `insufficient_data` instead of guessing.
+         *
+         *     **Returns** `details.parent_context` (one line a parent can read), `significant_event_count`, and `all_clear_categories`. Use this when you want one verdict over everything; use a narrower capability when you already know what you are asking.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["analyze_safety_monitor"];
         delete?: never;
@@ -977,7 +1178,19 @@ export interface paths {
         put?: never;
         /**
          * Check for scam and privacy risks
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **Social engineering, specifically.** Detects fake prizes, fake stores and jobs, spoofed banking pages, password and document requests, suspicious bots, QR payloads, APK downloads, and phishing patterns.
+         *
+         *     **Send** at least one `notification` or `resource`; neither signal type is individually mandatory, but a request with both lists empty is invalid.
+         *
+         *     **Returns** `details.detected_patterns`, `requested_data_types` (which categories of personal data are being solicited), and `explanation`.
+         *
+         *     Narrower and sharper than `safety-monitor` when you already suspect fraud.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["check_scam_privacy_shield"];
         delete?: never;
@@ -997,7 +1210,19 @@ export interface paths {
         put?: never;
         /**
          * Check a URL, domain, QR payload, or APK
-         * @description Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.
+         * @description **One resource, one verdict.** Classifies a single URL, domain, QR payload, or APK against reputation, category, context, and family policy.
+         *
+         *     **Send** the required `resource`, plus `notification_context`, `blocked_categories`, `family_rules`.
+         *
+         *     **Returns** `details.decision` (`allow`/`observe`/`warn`/`block`), `category`, `reputation`, `explanation`.
+         *
+         *     The blocking decision is deterministic: a `malicious` reputation yields `block` with a critical finding **even when the model is unavailable**, so this endpoint stays safe in degraded mode rather than failing open.
+         *
+         *     ---
+         *
+         *     Accepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.
+         *
+         *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["check_smart_content_filter"];
         delete?: never;
@@ -7181,7 +7406,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdaptiveScreenTimeResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7202,7 +7427,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7233,7 +7458,7 @@ export interface operations {
                     "application/json": components["schemas"]["AIGamingSafetyResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7254,7 +7479,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7285,7 +7510,7 @@ export interface operations {
                     "application/json": components["schemas"]["BehaviourAnomalyResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7306,7 +7531,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7357,7 +7582,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChildSafetyAssistantResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7378,7 +7603,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7409,7 +7634,7 @@ export interface operations {
                     "application/json": components["schemas"]["FamilyAgreementResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7430,7 +7655,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7461,7 +7686,7 @@ export interface operations {
                     "application/json": components["schemas"]["FamilyDigestResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7482,7 +7707,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7513,7 +7738,7 @@ export interface operations {
                     "application/json": components["schemas"]["LocationIntelligenceResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7534,7 +7759,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7565,7 +7790,7 @@ export interface operations {
                     "application/json": components["schemas"]["ParentCopilotResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7586,7 +7811,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7617,7 +7842,7 @@ export interface operations {
                     "application/json": components["schemas"]["SafetyMonitorResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7638,7 +7863,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7669,7 +7894,7 @@ export interface operations {
                     "application/json": components["schemas"]["ScamPrivacyShieldResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7690,7 +7915,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7721,7 +7946,7 @@ export interface operations {
                     "application/json": components["schemas"]["SmartContentFilterResponse"];
                 };
             };
-            /** @description Missing or invalid API key. */
+            /** @description Missing or invalid bearer token. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7742,7 +7967,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Too many failed authentication attempts; honor Retry-After. */
+            /** @description Authentication failure limit or request rate limit exceeded; honor Retry-After. */
             429: {
                 headers: {
                     [name: string]: unknown;

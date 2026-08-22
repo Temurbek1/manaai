@@ -3,7 +3,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, status
 
 from app.api.mana_ai_dependencies import ManaAIAnalysisServiceDep
-from app.api.mana_ai_examples import CAPABILITY_TITLES, request_examples
+from app.api.mana_ai_examples import (
+    CAPABILITY_DESCRIPTIONS,
+    CAPABILITY_TITLES,
+    request_examples,
+)
 from app.mana_ai.domain.enums import ManaAICapability
 from app.mana_ai.domain.requests import (
     AdaptiveScreenTimeRequest,
@@ -38,17 +42,33 @@ from app.mana_ai.domain.responses import (
 
 router = APIRouter()
 
-COMMON_DESCRIPTION = (
+SHARED_CONTRACT = (
+    "---\n\n"
     "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. "
-    "The endpoint does not read or mutate application databases and does not execute proposed "
-    "actions. Reuse request_id when retrying the same logical analysis."
+    "This endpoint does not read or mutate application databases and never executes a proposed "
+    "action. Reuse `request_id` when retrying the same logical analysis.\n\n"
+    "**Always check `status` before trusting the content.** `completed` means the full analysis "
+    "ran; `degraded` means a signal was missing or a model claim failed validation — the response "
+    "is still usable but reduced, and `data_quality_notes` explains why. Findings that cite "
+    "evidence you did not send are dropped, and a summary that contradicts the validated verdict "
+    "is replaced."
 )
+
+
+def describe(capability: ManaAICapability) -> str:
+    return f"{CAPABILITY_DESCRIPTIONS[capability]}\n\n{SHARED_CONTRACT}"
+
+
 COMMON_RESPONSES: dict[int | str, dict[str, Any]] = {
     200: {"description": "Completed or explicitly degraded read-only analysis."},
-    401: {"description": "Missing or invalid API key."},
+    401: {"description": "Missing or invalid bearer token."},
     413: {"description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."},
     422: {"description": "The capability-specific request is invalid."},
-    429: {"description": "Too many failed authentication attempts; honor Retry-After."},
+    429: {
+        "description": (
+            "Authentication failure limit or request rate limit exceeded; honor Retry-After."
+        )
+    },
 }
 
 
@@ -99,7 +119,7 @@ SafetyMonitorBody = Annotated[
     status_code=status.HTTP_200_OK,
     operation_id="analyze_safety_monitor",
     summary=CAPABILITY_TITLES[ManaAICapability.SAFETY_MONITOR],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.SAFETY_MONITOR),
     responses=COMMON_RESPONSES,
 )
 async def analyze_safety_monitor(
@@ -120,7 +140,7 @@ FamilyDigestBody = Annotated[
     response_model=FamilyDigestResponse,
     operation_id="generate_family_digest",
     summary=CAPABILITY_TITLES[ManaAICapability.FAMILY_DIGEST],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.FAMILY_DIGEST),
     responses=COMMON_RESPONSES,
 )
 async def generate_family_digest(
@@ -141,7 +161,7 @@ AdaptiveScreenTimeBody = Annotated[
     response_model=AdaptiveScreenTimeResponse,
     operation_id="analyze_adaptive_screen_time",
     summary=CAPABILITY_TITLES[ManaAICapability.ADAPTIVE_SCREEN_TIME],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.ADAPTIVE_SCREEN_TIME),
     responses=COMMON_RESPONSES,
 )
 async def analyze_adaptive_screen_time(
@@ -162,7 +182,7 @@ LocationIntelligenceBody = Annotated[
     response_model=LocationIntelligenceResponse,
     operation_id="analyze_location_intelligence",
     summary=CAPABILITY_TITLES[ManaAICapability.LOCATION_INTELLIGENCE],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.LOCATION_INTELLIGENCE),
     responses=COMMON_RESPONSES,
 )
 async def analyze_location_intelligence(
@@ -183,7 +203,7 @@ SmartContentFilterBody = Annotated[
     response_model=SmartContentFilterResponse,
     operation_id="check_smart_content_filter",
     summary=CAPABILITY_TITLES[ManaAICapability.SMART_CONTENT_FILTER],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.SMART_CONTENT_FILTER),
     responses=COMMON_RESPONSES,
 )
 async def check_smart_content_filter(
@@ -204,7 +224,7 @@ ScamPrivacyShieldBody = Annotated[
     response_model=ScamPrivacyShieldResponse,
     operation_id="check_scam_privacy_shield",
     summary=CAPABILITY_TITLES[ManaAICapability.SCAM_PRIVACY_SHIELD],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.SCAM_PRIVACY_SHIELD),
     responses=COMMON_RESPONSES,
 )
 async def check_scam_privacy_shield(
@@ -225,7 +245,7 @@ AIGamingSafetyBody = Annotated[
     response_model=AIGamingSafetyResponse,
     operation_id="analyze_ai_gaming_safety",
     summary=CAPABILITY_TITLES[ManaAICapability.AI_GAMING_SAFETY],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.AI_GAMING_SAFETY),
     responses=COMMON_RESPONSES,
 )
 async def analyze_ai_gaming_safety(
@@ -246,7 +266,7 @@ ParentCopilotBody = Annotated[
     response_model=ParentCopilotResponse,
     operation_id="respond_with_parent_copilot",
     summary=CAPABILITY_TITLES[ManaAICapability.PARENT_COPILOT],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.PARENT_COPILOT),
     responses=COMMON_RESPONSES,
 )
 async def respond_with_parent_copilot(
@@ -267,7 +287,7 @@ ChildSafetyAssistantBody = Annotated[
     response_model=ChildSafetyAssistantResponse,
     operation_id="respond_with_child_safety_assistant",
     summary=CAPABILITY_TITLES[ManaAICapability.CHILD_SAFETY_ASSISTANT],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.CHILD_SAFETY_ASSISTANT),
     responses=COMMON_RESPONSES,
 )
 async def respond_with_child_safety_assistant(
@@ -288,7 +308,7 @@ FamilyAgreementBody = Annotated[
     response_model=FamilyAgreementResponse,
     operation_id="generate_family_agreement",
     summary=CAPABILITY_TITLES[ManaAICapability.FAMILY_AGREEMENT],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.FAMILY_AGREEMENT),
     responses=COMMON_RESPONSES,
 )
 async def generate_family_agreement(
@@ -309,7 +329,7 @@ BehaviourAnomalyBody = Annotated[
     response_model=BehaviourAnomalyResponse,
     operation_id="analyze_behaviour_anomaly",
     summary=CAPABILITY_TITLES[ManaAICapability.BEHAVIOUR_ANOMALY],
-    description=COMMON_DESCRIPTION,
+    description=describe(ManaAICapability.BEHAVIOUR_ANOMALY),
     responses=COMMON_RESPONSES,
 )
 async def analyze_behaviour_anomaly(

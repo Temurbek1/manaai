@@ -9,6 +9,21 @@
 
 ## Architecture rules
 
+- Treat `docs/operation-agent-model.md` as the canonical MANA OPERATION AI product direction.
+  The target has exactly four top-level operational agents: Operations Orchestrator, Growth &
+  Conversion, Retention & Loyalty, and Technical Reliability.
+- Model advertising, SMM, conversion, upsell, experiments, referral, win-back, admin analytics,
+  review analysis, and incident creation as capabilities inside those four agents. Do not create a
+  new top-level agent for a report row, integration, scheduled job, or action kind.
+- Operational agents are action-capable, not analysis-only. New action families require typed
+  domain contracts, policy, approval, idempotent execution, fresh-state validation, verification,
+  uncertainty recovery, outcome measurement, audit, and a fake/sandbox executor.
+- Operations Orchestrator may create and manage goals/tasks but must delegate infrastructure,
+  financial, customer-contact, and deployment mutations to the owning domain agent. Do not give
+  the orchestrator arbitrary provider payloads or unrestricted integration credentials.
+- Clearly distinguish current implementation from target architecture: only `marketing-agent` is
+  implemented today; its write lifecycle runs against `fake_meta`, while live Meta remains
+  read-only.
 - Keep FastAPI route handlers thin. Existing compatibility logic remains in
   `app/services/`; new operational business logic belongs in
   `app/mana_operation_ai/application/`.

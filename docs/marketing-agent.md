@@ -1,5 +1,11 @@
 # Marketing Agent
 
+> **Current implementation and migration context:** `marketing-agent` is the only implemented
+> operational agent today. In the target four-agent model it becomes the
+> `growth.advertising` capability of Growth & Conversion Agent. Preserve its behavior, stored
+> history, and safety guarantees during that migration; do not build a second competing
+> advertising scheduler. See `docs/operation-agent-model.md`.
+
 ## Provider data
 
 `AdsPlatform` is provider-neutral. The completed providers are:

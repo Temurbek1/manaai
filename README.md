@@ -36,6 +36,11 @@ models, Meta integrations, action executors, or `app.mana_operation_ai`, and may
 FastAPI. HTTP transport for MANA AI lives in `app/api/routes/`. See
 `tests/test_architecture_boundaries.py`.
 
+The canonical future direction for MANA OPERATION AI is documented in
+[`docs/operation-agent-model.md`](docs/operation-agent-model.md): four top-level action-capable
+agents, capability-level execution inside them, one governed data/control plane, and a
+compatibility-preserving migration of the current Marketing Agent into Growth & Conversion.
+
 ## Technical characteristics
 
 - **Python 3.12+**, FastAPI, Pydantic v2 typed contracts everywhere; no untyped route handlers.
