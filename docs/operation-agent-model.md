@@ -10,10 +10,12 @@ model unless an explicit architecture decision replaces it.
 This document separates the target design from the current implementation:
 
 - **Current:** `growth-agent` is implemented with `growth.advertising` and
-  `growth.funnel.analyze`. `marketing-agent` remains a compatibility alias and historical ID.
-  Advertising writes execute only against `fake_meta`; funnel data ports and experiment execution
-  are deterministic fake/sandbox implementations. The live Meta adapter is intentionally
-  read-only.
+  `growth.funnel.analyze`; `retention-agent` is implemented with the read-only
+  `retention.engagement.analyze` classification/reporting capability. `marketing-agent` remains a
+  compatibility alias and historical ID. Advertising writes execute only against `fake_meta`;
+  funnel data ports and experiment execution are deterministic fake/sandbox implementations.
+  Retention defaults to deterministic fake sources and can use explicit live read-only Manakids
+  Admin API plus Firebase adapters. Live Meta is intentionally read-only.
 - **Target:** four action-capable agents operate through typed ports, policies, approvals,
   idempotent executors, verification, and outcome measurement.
 
@@ -240,10 +242,14 @@ Implemented foundation:
    freshness, completeness, and evidence lineage; authoritative ratios are deterministic.
 5. The experiment sandbox covers mandatory approval, fresh state, idempotent dispatch,
    verification, uncertain-outcome reconciliation, audit, and persisted outcome evaluation.
+6. Retention engagement combines privacy-minimized backend and mobile product-activity aggregates,
+   persists evidence/completeness and deterministic findings/reports, and exposes no customer or
+   financial action surface yet.
 
-Still required in later milestones: real authorized funnel sources, offer/conversion executors,
-persisted orchestrator goals/plans/tasks/dependencies, and the remaining three agents. No current
-fake or sandbox integration is production customer/financial write capability.
+Still required in later milestones: real authorized Growth funnel sources, Retention risk/billing/
+support inputs and governed offer/referral actions, persisted orchestrator goals/plans/tasks/
+dependencies, Operations Orchestrator, and Technical Reliability. No current fake or sandbox
+integration is production customer/financial write capability.
 
 ## Marketing Agent migration status
 
@@ -251,7 +257,8 @@ The controlled cutover is implemented:
 
 1. Collection, analytics, recommendations, reporting, and action mapping run through the
    `growth.advertising` handler without duplicating the proven behavior.
-2. `growth-agent` is the sole registered implementation; `marketing-agent` resolves as an alias.
+2. `growth-agent` is the sole registered Growth implementation; `marketing-agent` resolves as an
+   alias rather than another scheduler.
 3. Only Growth schedule IDs are bootstrapped, so compatibility cannot start a second schedule set.
 4. Historical rows retain `marketing-agent`; list queries for either identifier merge legacy and
    canonical history, while every new run is stored under `growth-agent`.
@@ -268,8 +275,8 @@ policy. Target action capability must not be documented as current production wr
 
 1. **Growth & Conversion:** complete real read integrations and extend the current advertising,
    funnel, conversion, offer, and experiment foundations without enabling unapproved live writes.
-2. **Retention & Loyalty:** add classification/reporting first, then governed offer/referral
-   actions.
+2. **Retention & Loyalty:** extend the implemented engagement classification/reporting foundation
+   with subscription/support risk inputs, then governed offer/referral actions.
 3. **Operations Orchestrator:** add read-only cross-domain analysis, then persisted goals,
    planning/delegation, and governed cross-agent outcome loops.
 4. **Technical Reliability:** add analysis/reporting, then governed issue/incident actions; this is

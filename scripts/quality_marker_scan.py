@@ -19,6 +19,10 @@ ALLOWED = {
         Path("tests/test_meta_live_optin.py"),
         "pytest.mark.skipif(",
     ): "Live Meta GET checks require explicit META_LIVE_READONLY_VERIFY opt-in",
+    (
+        Path("tests/test_product_activity_live_optin.py"),
+        "pytest.mark.skipif(",
+    ): "Live first-party reads require explicit PRODUCT_ACTIVITY_LIVE_VERIFY opt-in",
 }
 
 

@@ -97,6 +97,21 @@ class GrowthActionType(StrEnum):
     STOP_EXPERIMENT = "stop_experiment"
 
 
+class ActivityEventType(StrEnum):
+    APP_OPEN = "app_open"
+    APP_CLOSE = "app_close"
+    SCREEN_VIEW = "screen_view"
+    BUTTON_CLICK = "button_click"
+    SEARCH = "search"
+    NAVIGATION = "navigation"
+    REGISTRATION_STARTED = "registration_started"
+    REGISTRATION_COMPLETED = "registration_completed"
+    FORM_COMPLETED = "form_completed"
+    FILE_UPLOADED = "file_uploaded"
+    FEATURE_USED = "feature_used"
+    SCREEN_TIME = "screen_time"
+
+
 class OutcomeEvaluationStatus(StrEnum):
     PENDING = "pending"
     MEASURED = "measured"

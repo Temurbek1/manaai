@@ -20,6 +20,7 @@ operation = [
     "asyncpg==0.31.0",
     "alembic==1.16.2",
     "croniter==6.0.0",
+    "google-auth[requests]==2.57.1",
 ]
 dev = [
     "mypy==1.20.2",
@@ -54,4 +55,5 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "live_meta: bounded opt-in tests against the configured Meta account; never run by default",
+    "live_product_activity: bounded opt-in read-only tests against Manakids and Firebase",
 ]

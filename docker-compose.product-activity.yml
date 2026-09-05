@@ -1,0 +1,22 @@
+services:
+  migrate:
+    environment:
+      FIREBASE_SERVICE_ACCOUNT_FILE: /run/secrets/firebase-service-account.json
+    secrets:
+      - firebase-service-account
+
+  api:
+    environment:
+      FIREBASE_SERVICE_ACCOUNT_FILE: /run/secrets/firebase-service-account.json
+    secrets:
+      - firebase-service-account
+
+  worker:
+    environment:
+      FIREBASE_SERVICE_ACCOUNT_FILE: /run/secrets/firebase-service-account.json
+    secrets:
+      - firebase-service-account
+
+secrets:
+  firebase-service-account:
+    file: ${FIREBASE_SERVICE_ACCOUNT_HOST_FILE:?Set FIREBASE_SERVICE_ACCOUNT_HOST_FILE}

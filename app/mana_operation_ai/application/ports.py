@@ -46,6 +46,7 @@ from app.mana_operation_ai.domain.models import (
     OutcomeEvaluation,
     Recommendation,
 )
+from app.mana_operation_ai.domain.retention import BackendActivityFacts, MobileActivityFacts
 
 
 class ConcurrentOperationError(RuntimeError):
@@ -417,5 +418,27 @@ class ExperimentPlatform(Protocol):
         parameters: ActionParameters,
         idempotency_key: str,
     ) -> ExperimentDispatchResult: ...
+
+    async def health(self) -> IntegrationHealth: ...
+
+
+class BackendActivityPort(Protocol):
+    @property
+    def integration_id(self) -> str: ...
+
+    async def collect_activity(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> BackendActivityFacts: ...
+
+    async def health(self) -> IntegrationHealth: ...
+
+
+class MobileActivityPort(Protocol):
+    @property
+    def integration_id(self) -> str: ...
+
+    async def collect_activity(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> MobileActivityFacts: ...
 
     async def health(self) -> IntegrationHealth: ...

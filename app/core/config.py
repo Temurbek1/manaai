@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -82,10 +83,35 @@ class Settings(BaseSettings):
     operation_default_actor_id: str = "local-admin"
     operation_default_role: Literal["viewer", "operator", "approver", "admin"] = "viewer"
     operation_ads_provider: Literal["fake_meta", "meta"] = "fake_meta"
+    operation_product_activity_provider: Literal["fake", "manakids_firebase"] = "fake"
     operation_viewer_api_key: SecretStr | None = None
     operation_operator_api_key: SecretStr | None = None
     operation_approver_api_key: SecretStr | None = None
     operation_admin_api_key: SecretStr | None = None
+    manakids_api_base_url: str = "https://api.manakids.uz"
+    manakids_api_username: str | None = None
+    manakids_api_password: SecretStr | None = None
+    manakids_request_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    manakids_max_retries: int = Field(default=3, ge=0, le=8)
+    manakids_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
+    manakids_max_pages: int = Field(default=100, ge=1, le=500)
+    firebase_project_id: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9-]{3,62}$",
+    )
+    firebase_database_id: str = Field(
+        default="(default)",
+        pattern=r"^(\(default\)|[a-z][a-z0-9-]{3,62})$",
+    )
+    firebase_service_account_file: Path | None = None
+    firebase_activity_collection: str = Field(
+        default="app_activity_events",
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,1499}$",
+    )
+    firebase_request_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    firebase_max_activity_documents: int = Field(default=50_000, ge=100, le=250_000)
+    firebase_max_retries: int = Field(default=3, ge=0, le=8)
+    firebase_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
     marketing_conversion_action_types: list[str] = Field(
         default_factory=lambda: [
             "purchase",
@@ -284,6 +310,23 @@ class Settings(BaseSettings):
             raise ValueError("META_REAL_WRITES_ENABLED must remain false in read-only Meta mode")
         if self.operation_ads_provider == "meta" and not self.operation_dry_run:
             raise ValueError("OPERATION_DRY_RUN must remain true for the live Meta provider")
+        if self.operation_product_activity_provider == "manakids_firebase":
+            if not self.manakids_api_username or self.manakids_api_password is None:
+                raise ValueError(
+                    "MANAKIDS_API_USERNAME and MANAKIDS_API_PASSWORD are required for live "
+                    "product activity",
+                )
+            if not self.manakids_api_password.get_secret_value():
+                raise ValueError("MANAKIDS_API_PASSWORD cannot be blank")
+            if not self.manakids_api_base_url.startswith("https://"):
+                raise ValueError("MANAKIDS_API_BASE_URL must use HTTPS")
+            if self.firebase_project_id is None or self.firebase_service_account_file is None:
+                raise ValueError(
+                    "FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_FILE are required for live "
+                    "product activity",
+                )
+            if not self.firebase_service_account_file.is_file():
+                raise ValueError("FIREBASE_SERVICE_ACCOUNT_FILE must reference a readable file")
         if self.meta_max_retries > self.meta_live_max_total_retries:
             raise ValueError("META_MAX_RETRIES exceeds the live read-only retry budget")
         if self.meta_max_pages > self.meta_live_max_pages:
@@ -308,7 +351,15 @@ class Settings(BaseSettings):
                 raise ValueError("MANA_TRUSTED_ORIGINS is required for browser sessions")
         return self
 
-    @field_validator("mana_telegram_bot_token", "mana_telegram_bot_username", mode="before")
+    @field_validator(
+        "mana_telegram_bot_token",
+        "mana_telegram_bot_username",
+        "manakids_api_username",
+        "manakids_api_password",
+        "firebase_project_id",
+        "firebase_service_account_file",
+        mode="before",
+    )
     @classmethod
     def treat_blank_as_unset(cls, value: object) -> object:
         """An env file spells "unset" as an empty value, which must not reach the username
@@ -324,6 +375,25 @@ class Settings(BaseSettings):
         if isinstance(value, str) and value.strip().isdigit():
             return int(value)
         return value
+
+    @field_validator("manakids_api_base_url")
+    @classmethod
+    def validate_manakids_base_url(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "MANAKIDS_API_BASE_URL must be an HTTPS origin without credentials, query, or "
+                "fragment",
+            )
+        return value.rstrip("/")
 
     @field_validator("mana_bootstrap_admin_telegram_ids")
     @classmethod

@@ -32,6 +32,9 @@ absence scans, fake-provider browser/mobile E2E, and Docker build.
   expiry/ownership against SQLAlchemy SQLite.
 - Meta tests cover pagination, 429 retry/backoff diagnostics, query-plan normalization, explicit
   unavailable metrics, token non-disclosure, and live-write-disabled behavior.
+- First-party activity tests cover Admin API authentication/endpoint translation, Firestore query
+  shape/event validation, aggregate-only persistence, PII/raw-query discard, source health,
+  live-setting fail-fast validation, and the complete Retention run/report/audit lifecycle.
 - API tests cover RBAC, configuration validation, dashboard/marketing views, global kill switch,
   self-approval, dry-run state preservation, stale proposals, provider-object concurrency locks,
   explicit retry, and nightly reports with approvals.
@@ -44,9 +47,9 @@ absence scans, fake-provider browser/mobile E2E, and Docker build.
   through finding, separate-actor approval, execution, verification, audit, report, direct nested
   refresh, keyboard navigation, and mobile layout.
 
-No hermetic test calls OpenAI or a live Meta endpoint. `httpx.MockTransport`, dependency overrides,
-and the mutable fake Meta adapter are used. Live Meta verification is an opt-in read-only runbook
-step and includes a GET-only provider workflow plus a non-mutating admin-page browser smoke.
+No hermetic test calls OpenAI, Meta, Manakids, or Firebase. `httpx.MockTransport`, dependency
+overrides, deterministic first-party fixtures, and the mutable fake Meta adapter are used. Live
+Meta and first-party verification are separate opt-in read-only runbook steps.
 
 The separately opted-in `MANA_AI_LIVE_EVAL=1 make mana-ai-live-eval` command uses synthetic MANA AI
 requests only. It records sanitized provider inputs, parsed outputs, guardrailed endpoint outputs,

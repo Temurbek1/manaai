@@ -19,6 +19,7 @@ APP_ENV=local
 OPENAI_API_KEY=sk-your-real-key
 MARKETING_DATABASE_PATH=data/manaai.db
 OPERATION_ADS_PROVIDER=fake_meta
+OPERATION_PRODUCT_ACTIVITY_PROVIDER=fake
 OPERATION_DRY_RUN=true
 ENV
 
@@ -105,6 +106,15 @@ configuration, recommendation, and report records are retained.
 
 The 2026-07-22 validation passed for account alias `2b6c4ddcc5`. Live writes are unsupported even if
 the token has a write-capable scope.
+
+## Live first-party product activity
+
+Retention engagement uses application-owned data only: backend aggregates from the Manakids Admin
+API and mobile product events from Firestore. It does not mix Meta or other marketing-provider data
+into this source boundary. Install both least-privilege credentials through the deployment secret
+manager, keep scheduling off, and follow
+[the live product activity runbook](live-product-activity-runbook.md). The repository never embeds
+the credentials supplied in handoff documents.
 
 ## Key rotation
 

@@ -1,6 +1,6 @@
 # Growth & Conversion Agent
 
-`growth-agent` is the currently loaded MANA OPERATION AI domain agent. It is the governance and
+`growth-agent` is the loaded MANA OPERATION AI Growth domain agent. It is the governance and
 product-level owner; capabilities are independently configured and scheduled executable units.
 
 ## Loaded capabilities
@@ -68,5 +68,5 @@ When adding a Growth capability:
 7. Add API/UI coverage, migration changes where needed, lifecycle tests, and update the capability
    matrix without describing fake behavior as production readiness.
 
-Delivery after Growth is **Retention & Loyalty → Operations Orchestrator → Technical Reliability**.
-Do not start those agents while extending Growth unless the milestone explicitly changes.
+The first Retention & Loyalty engagement/reporting foundation is now loaded. Delivery continues
+with Retention risk/actions, then **Operations Orchestrator → Technical Reliability**.

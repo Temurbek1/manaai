@@ -29,6 +29,28 @@ const agent = {
   registered_at: "2026-07-22T08:00:00Z",
 };
 
+const retentionAgent = {
+  ...agent,
+  agent_id: "retention-agent",
+  display_name: "Retention & Loyalty Agent",
+  description: "Measures first-party product engagement.",
+  default_capability_key: "retention.engagement.analyze",
+  capabilities: [
+    {
+      ...agent.capabilities[0],
+      key: "retention.engagement.analyze",
+      agent_id: "retention-agent",
+      description: "First-party engagement analysis",
+      risk: "read",
+      minimum_role: "operator",
+      required_integrations: [
+        "fake_manakids_admin_api",
+        "fake_firestore_activity",
+      ],
+    },
+  ],
+};
+
 const schedule = {
   schedule_id: "schedule-analysis",
   agent_id: "growth-agent",
@@ -79,6 +101,52 @@ const detail = {
   capability_kill_switches: { "growth.advertising": false },
 };
 
+const retentionDetail = {
+  ...detail,
+  agent: retentionAgent,
+  configuration: {
+    ...detail.configuration,
+    configuration_id: "retention-config-1",
+    agent_id: "retention-agent",
+    capability_key: "retention.engagement.analyze",
+    values: { lookback_days: 7 },
+  },
+  configurations: [
+    {
+      ...detail.configuration,
+      configuration_id: "retention-config-1",
+      agent_id: "retention-agent",
+      capability_key: "retention.engagement.analyze",
+      values: { lookback_days: 7 },
+    },
+  ],
+  schedules: [
+    {
+      ...schedule,
+      schedule_id: "retention-engagement-analysis",
+      agent_id: "retention-agent",
+      capability_key: "retention.engagement.analyze",
+    },
+  ],
+  integration_health: [
+    {
+      integration_id: "fake_manakids_admin_api",
+      status: "healthy",
+      checked_at: "2026-07-22T08:00:00Z",
+      message: "Backend fixture ready",
+      diagnostics: {},
+    },
+    {
+      integration_id: "fake_firestore_activity",
+      status: "healthy",
+      checked_at: "2026-07-22T08:00:00Z",
+      message: "Mobile fixture ready",
+      diagnostics: {},
+    },
+  ],
+  capability_kill_switches: { "retention.engagement.analyze": false },
+};
+
 function response(body: unknown, status = 200): Promise<Response> {
   return Promise.resolve(
     new Response(JSON.stringify(body), {
@@ -99,8 +167,15 @@ function mockAgentApi(
       return response({ properties: { currency: { type: "string" } } });
     if (url.includes("/agents/growth-agent") && !url.includes("/run"))
       return response(detail);
+    if (url.includes("/agents/retention-agent") && !url.includes("/run"))
+      return response(retentionDetail);
     if (url.endsWith("/agents"))
-      return response({ items: [agent], total: 1, limit: 100, offset: 0 });
+      return response({
+        items: [agent, retentionAgent],
+        total: 2,
+        limit: 100,
+        offset: 0,
+      });
     if (url.includes("/runs") || url.includes("/reports"))
       return response({ items: [], total: 0, limit: 5, offset: 0 });
     return response({});
@@ -110,6 +185,20 @@ function mockAgentApi(
 describe("AgentsPage", () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it("exposes Retention engagement through the generic agent controls", async () => {
+    jest.spyOn(globalThis, "fetch").mockImplementation(mockAgentApi());
+    renderWithSession(<AgentsPage />, "operator");
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Retention & Loyalty Agent/ }),
+    );
+
+    expect(
+      await screen.findByText("retention.engagement.analyze"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("fake_manakids_admin_api")).toBeInTheDocument();
+    expect(screen.getByText("fake_firestore_activity")).toBeInTheDocument();
   });
 
   it("disables configuration, schedule, status, and kill-switch controls for viewers", async () => {

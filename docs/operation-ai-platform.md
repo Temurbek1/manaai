@@ -16,9 +16,11 @@ Configuration versions, schedules, run locks, and kill switches are capability-s
 The target registry contains four domain agents: Operations Orchestrator, Growth & Conversion,
 Retention & Loyalty, and Technical Reliability. Their executable units are independently typed and
 configured capability tasks. See `docs/operation-agent-model.md`. The current registry contains
-only `growth-agent`, with loaded `growth.advertising` and `growth.funnel.analyze` handlers.
-`marketing-agent` is a compatibility alias rather than a second implementation. The other three
-agents and unloaded Growth capability names must not be represented as implemented.
+`growth-agent`, with loaded `growth.advertising` and `growth.funnel.analyze` handlers, and
+`retention-agent`, with loaded read-only `retention.engagement.analyze`. `marketing-agent` is a
+compatibility alias rather than a second implementation. Operations Orchestrator, Technical
+Reliability, unloaded Growth capabilities, and Retention actions must not be represented as
+implemented.
 
 ## Lifecycle
 
@@ -37,7 +39,8 @@ state. Cooldowns and current-state hashes protect repeated scaling.
 and by the standalone production worker:
 
 - persisted cron expressions and next-run timestamps;
-- six-hour Growth advertising analysis, nightly advertising report, and twice-daily funnel analysis;
+- six-hour Growth advertising and Retention engagement analysis, nightly advertising report, and
+  twice-daily Growth funnel analysis;
 - collection is part of each analysis/report job, so every analysis uses a saved current snapshot;
 - hourly interrupted-action reconciliation;
 - daily snapshot/lock retention cleanup;

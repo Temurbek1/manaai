@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -35,7 +36,12 @@ from app.mana_operation_ai.application.marketing.agent import AdvertisingCapabil
 from app.mana_operation_ai.application.marketing.analytics import MarketingAnalyticsEngine
 from app.mana_operation_ai.application.marketing.reporting import MarketingReportBuilder
 from app.mana_operation_ai.application.policy import PolicyService
+from app.mana_operation_ai.application.ports import BackendActivityPort, MobileActivityPort
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
+from app.mana_operation_ai.application.retention.agent import RetentionAgent
+from app.mana_operation_ai.application.retention.engagement import (
+    RetentionEngagementCapabilityHandler,
+)
 from app.mana_operation_ai.application.runtime import SystemClock, UuidGenerator
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
@@ -56,6 +62,17 @@ from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.repository import (
     SqlAlchemyOperationRepository,
+)
+from app.mana_operation_ai.infrastructure.retention.fake import (
+    FakeBackendActivityAdapter,
+    FakeMobileActivityAdapter,
+)
+from app.mana_operation_ai.infrastructure.retention.firestore import (
+    FirestoreMobileActivityAdapter,
+    GoogleServiceAccountTokenProvider,
+)
+from app.mana_operation_ai.infrastructure.retention.manakids import (
+    ManakidsAdminActivityAdapter,
 )
 from app.mana_operation_ai.infrastructure.telegram.sender import (
     FileTelegramOtpSender,
@@ -92,6 +109,47 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     auth_repository = SqlAlchemyAdminAuthRepository(operation_database)
     clock = SystemClock()
     ids = UuidGenerator()
+    first_party_http_clients: list[httpx.AsyncClient] = []
+    backend_activity: BackendActivityPort
+    mobile_activity: MobileActivityPort
+    if settings.operation_product_activity_provider == "manakids_firebase":
+        if (
+            settings.manakids_api_username is None
+            or settings.manakids_api_password is None
+            or settings.firebase_project_id is None
+            or settings.firebase_service_account_file is None
+        ):
+            raise RuntimeError("Live product activity settings are incomplete")
+        firebase_token_provider = GoogleServiceAccountTokenProvider(
+            str(settings.firebase_service_account_file),
+        )
+        manakids_http = httpx.AsyncClient(timeout=settings.manakids_request_timeout_seconds)
+        firestore_http = httpx.AsyncClient(timeout=settings.firebase_request_timeout_seconds)
+        first_party_http_clients.extend([manakids_http, firestore_http])
+        backend_activity = ManakidsAdminActivityAdapter(
+            client=manakids_http,
+            base_url=settings.manakids_api_base_url,
+            username=settings.manakids_api_username,
+            password=settings.manakids_api_password.get_secret_value(),
+            clock=clock,
+            max_retries=settings.manakids_max_retries,
+            retry_backoff_seconds=settings.manakids_retry_backoff_seconds,
+            max_pages=settings.manakids_max_pages,
+        )
+        mobile_activity = FirestoreMobileActivityAdapter(
+            client=firestore_http,
+            project_id=settings.firebase_project_id,
+            database_id=settings.firebase_database_id,
+            collection_id=settings.firebase_activity_collection,
+            token_provider=firebase_token_provider,
+            clock=clock,
+            max_documents=settings.firebase_max_activity_documents,
+            max_retries=settings.firebase_max_retries,
+            retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+        )
+    else:
+        backend_activity = FakeBackendActivityAdapter(clock=clock)
+        mobile_activity = FakeMobileActivityAdapter(clock=clock)
     otp_sender: TelegramOtpSender
     if settings.mana_auth_test_mode:
         if settings.mana_auth_test_otp_sink_path is None:
@@ -169,8 +227,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         verification_attempts=settings.operation_verification_attempts,
         verification_delay_seconds=settings.operation_verification_delay_seconds,
     )
-    capability_registry = CapabilityRegistry()
-    capability_registry.register(
+    growth_capability_registry = CapabilityRegistry()
+    growth_capability_registry.register(
         AdvertisingCapabilityHandler(
             provider=ads_platforms.get(settings.operation_ads_provider),
             repository=operation_repository,
@@ -182,7 +240,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ids=ids,
         ),
     )
-    capability_registry.register(
+    growth_capability_registry.register(
         GrowthFunnelCapabilityHandler(
             product_analytics=FakeProductAnalyticsAdapter(clock=clock),
             billing=FakeBillingReadAdapter(clock=clock),
@@ -194,10 +252,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ids=ids,
         ),
     )
+    retention_capability_registry = CapabilityRegistry()
+    retention_capability_registry.register(
+        RetentionEngagementCapabilityHandler(
+            backend_activity=backend_activity,
+            mobile_activity=mobile_activity,
+            repository=operation_repository,
+            clock=clock,
+            ids=ids,
+        ),
+    )
     agent_registry = AgentRegistry()
     agent_registry.register(
         GrowthAgent(
-            capabilities=capability_registry,
+            capabilities=growth_capability_registry,
+            repository=operation_repository,
+            clock=clock,
+        ),
+    )
+    agent_registry.register(
+        RetentionAgent(
+            capabilities=retention_capability_registry,
             repository=operation_repository,
             clock=clock,
         ),
@@ -275,6 +350,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.operation_agent_registry = agent_registry
     app.state.operation_ads_platforms = ads_platforms
     app.state.operation_experiment_platform = experiment_platform
+    app.state.operation_backend_activity = backend_activity
+    app.state.operation_mobile_activity = mobile_activity
     app.state.operation_agent_service = agent_service
     app.state.operation_action_lifecycle = action_lifecycle
     app.state.operation_admin_service = operation_admin_service
@@ -284,6 +361,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await operation_scheduler.stop()
+        for client in first_party_http_clients:
+            await client.aclose()
         await operation_database.dispose()
 
 
@@ -294,6 +373,11 @@ def create_app() -> FastAPI:
         secrets=[
             settings.openai_api_key.get_secret_value(),
             settings.meta_access_token.get_secret_value() if settings.meta_access_token else "",
+            (
+                settings.manakids_api_password.get_secret_value()
+                if settings.manakids_api_password
+                else ""
+            ),
             settings.app_api_key.get_secret_value() if settings.app_api_key else "",
             (
                 settings.mana_telegram_bot_token.get_secret_value()

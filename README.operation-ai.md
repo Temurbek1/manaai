@@ -36,13 +36,17 @@ the first half of the product. Every external/internal mutation follows evidence
 -> typed intent -> policy -> approval -> fresh-state check -> idempotent execution -> verification
 -> outcome measurement -> audit.
 
-**Current versus target:** `growth-agent` is the implemented operational agent. It owns
-`growth.advertising` and `growth.funnel.analyze`; `marketing-agent` is a temporary alias that starts
-new advertising runs under `growth-agent` while historical rows retain their original agent ID.
-Advertising writes are executable only against `fake_meta`, funnel sources are deterministic fake
-ports, and experiment writes target only the in-memory sandbox. Live Meta is deliberately
-read-only. Retention, Operations Orchestrator, and Technical Reliability remain target agents. See
-[the Growth handoff](docs/growth-agent.md) for the concrete runtime map and extension rules.
+**Current versus target:** `growth-agent` owns `growth.advertising` and
+`growth.funnel.analyze`; `retention-agent` owns the read-only
+`retention.engagement.analyze` classification/reporting capability. `marketing-agent` is a
+temporary alias that starts new advertising runs under `growth-agent` while historical rows retain
+their original agent ID. Advertising writes are executable only against `fake_meta`, Growth funnel
+sources are deterministic fake ports, and experiment writes target only the in-memory sandbox.
+Retention defaults to fake first-party sources and has explicit live read-only Manakids Admin API
+and Firebase adapters. Its messaging, offer, subscription, loyalty, and referral actions remain
+target work. Operations Orchestrator and Technical Reliability are not implemented. See
+[the Growth handoff](docs/growth-agent.md) and
+[first-party product activity](docs/first-party-product-activity.md).
 
 ### Endpoint groups
 

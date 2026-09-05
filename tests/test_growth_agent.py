@@ -260,7 +260,10 @@ async def test_capability_kill_switch_is_scoped_and_marketing_alias_is_canonical
         AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client,
     ):
         agents = await client.get("/api/v1/admin/operation/agents", headers=viewer)
-        assert [item["agent_id"] for item in agents.json()["items"]] == ["growth-agent"]
+        assert [item["agent_id"] for item in agents.json()["items"]] == [
+            "growth-agent",
+            "retention-agent",
+        ]
 
         stopped = await client.put(
             "/api/v1/admin/operation/kill-switch/agents/marketing-agent/capabilities/"
@@ -365,6 +368,9 @@ async def test_growth_history_combines_legacy_marketing_and_canonical_runs(
             assert "legacy-marketing-run" in {item["run_id"] for item in history.json()["items"]}
 
         agents = await client.get("/api/v1/admin/operation/agents", headers=viewer)
-        assert [item["agent_id"] for item in agents.json()["items"]] == ["growth-agent"]
+        assert [item["agent_id"] for item in agents.json()["items"]] == [
+            "growth-agent",
+            "retention-agent",
+        ]
 
     get_settings.cache_clear()
