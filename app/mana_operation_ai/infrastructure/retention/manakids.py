@@ -1,8 +1,8 @@
 import asyncio
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -47,13 +47,49 @@ class _PageEnvelope(BaseModel):
         default_factory=list,
         validation_alias=AliasChoices("results", "data", "items"),
     )
+    current_page: int | None = Field(default=None, ge=1)
+    page_count: int | None = Field(default=None, ge=0)
+    per_page: int | None = Field(default=None, ge=1)
+
+
+class _EmbeddedActivityPage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    count: int | None = Field(
+        default=None,
+        ge=0,
+        validation_alias=AliasChoices("count", "total", "total_count"),
+    )
+    results: list[Any] = Field(default_factory=list)
+
+
+class _AppUsageRow(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    app_usage_statistics: _EmbeddedActivityPage
+
+
+class _RealtimeUsageRow(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    camera_audio_usage_logs: list[Any]
 
 
 @dataclass(frozen=True)
 class _CountResult:
     count: int
+    rows_scanned: int
+    total_rows: int | None
     request_ids: list[str]
     complete: bool
+
+    @property
+    def completeness(self) -> Decimal:
+        if self.complete:
+            return Decimal("1")
+        if self.total_rows is None or self.total_rows == 0:
+            return Decimal("0")
+        return min(Decimal(self.rows_scanned) / Decimal(self.total_rows), Decimal("1"))
 
 
 class ManakidsAdminActivityAdapter:
@@ -93,8 +129,8 @@ class ManakidsAdminActivityAdapter:
         if period_end <= period_start:
             raise ValueError("Activity period end must be after its start")
         joined_params: dict[str, str | int] = {
-            "date_joined_gte": period_start.isoformat(),
-            "date_joined_lt": period_end.isoformat(),
+            "date_joined_gte": period_start.date().isoformat(),
+            "date_joined_lt": (period_end.date() + timedelta(days=1)).isoformat(),
             "limit": 1,
             "offset": 0,
         }
@@ -128,21 +164,30 @@ class ManakidsAdminActivityAdapter:
                 params={"limit": 1, "offset": 0},
                 require_count=True,
             ),
-            self._count_page_results(_APP_USAGE_PATH, params=activity_params),
-            self._count_page_results(
+            self._count_activity_rows(
+                _APP_USAGE_PATH,
+                params=activity_params,
+                row_has_activity=_row_has_app_usage,
+            ),
+            self._count_activity_rows(
                 _REALTIME_USAGE_PATH,
                 params=activity_params,
+                row_has_activity=_row_has_realtime_usage,
             ),
         )
         limitations = [
             "The documented backend endpoints expose child-level rows; this adapter persists "
             "only aggregate result counts.",
+            "Account registration filters are date-granular and include the complete boundary "
+            "calendar days.",
             "App usage and camera/audio/screen activity are not deduplicated across endpoints.",
         ]
-        if not app_usage.complete or not realtime_usage.complete:
-            limitations.append(
-                "The Admin API page limit was reached; one or more activity counts are partial.",
-            )
+        limitations.extend(
+            _partial_scan_limitations(
+                app_usage=app_usage,
+                realtime_usage=realtime_usage,
+            ),
+        )
         return BackendActivityFacts(
             source=self.integration_id,
             period_start=period_start,
@@ -153,9 +198,7 @@ class ManakidsAdminActivityAdapter:
             total_children=_page_count(inventory),
             children_with_app_usage=app_usage.count,
             children_with_realtime_feature_usage=realtime_usage.count,
-            completeness=(
-                Decimal("1") if app_usage.complete and realtime_usage.complete else Decimal("0.75")
-            ),
+            completeness=min(app_usage.completeness, realtime_usage.completeness),
             source_request_ids=_unique_nonempty(
                 [
                     parent_request_id,
@@ -210,36 +253,58 @@ class ManakidsAdminActivityAdapter:
                 envelope = _PageEnvelope(results=payload)
             else:
                 envelope = _PageEnvelope.model_validate(payload)
-        except ValidationError as exc:
-            raise ProviderPermanentError("Admin API pagination contract is invalid") from exc
+        except ValidationError:
+            raise ProviderPermanentError("Admin API pagination contract is invalid") from None
         if require_count and envelope.count is None:
             raise ProviderPermanentError("Admin API pagination count is missing")
         return envelope, request_id
 
-    async def _count_page_results(
+    async def _count_activity_rows(
         self,
         path: str,
         *,
         params: Mapping[str, str | int],
+        row_has_activity: Callable[[dict[str, Any]], bool],
     ) -> _CountResult:
-        first, request_id = await self._get_page(path, params=params, require_count=False)
-        request_ids = _unique_nonempty([request_id])
-        if first.count is not None:
-            return _CountResult(first.count, request_ids, True)
-        total = len(first.results)
-        if total < 10:
-            return _CountResult(total, request_ids, True)
-        for page_number in range(2, self._max_pages + 1):
-            page, next_request_id = await self._get_page(
+        request_ids: list[str] = []
+        matching_rows = 0
+        rows_scanned = 0
+        total_rows: int | None = None
+        complete = False
+        for page_number in range(1, self._max_pages + 1):
+            page, request_id = await self._get_page(
                 path,
                 params={**params, "page": page_number},
                 require_count=False,
             )
-            request_ids = _unique_nonempty([*request_ids, next_request_id])
-            total += len(page.results)
-            if not page.results or len(page.results) < 10:
-                return _CountResult(total, request_ids, True)
-        return _CountResult(total, request_ids, False)
+            request_ids = _unique_nonempty([*request_ids, request_id])
+            if page.count is not None:
+                total_rows = max(total_rows or 0, page.count)
+            matching_rows += sum(row_has_activity(row) for row in page.results)
+            rows_scanned += len(page.results)
+
+            if total_rows is not None and rows_scanned >= total_rows:
+                complete = True
+                break
+            if page.page_count is not None and page_number >= page.page_count:
+                complete = True
+                break
+            if not page.results:
+                complete = total_rows in {None, rows_scanned}
+                break
+            if total_rows is None and page.page_count is None:
+                page_size = page.per_page or 10
+                if len(page.results) < page_size:
+                    complete = True
+                    break
+
+        return _CountResult(
+            count=matching_rows,
+            rows_scanned=rows_scanned,
+            total_rows=total_rows,
+            request_ids=request_ids,
+            complete=complete,
+        )
 
     async def _authorized_json(
         self,
@@ -284,10 +349,10 @@ class ManakidsAdminActivityAdapter:
                 parsed = _LoginResponse.model_validate(
                     _json_payload(response, operation="Admin API authentication"),
                 )
-            except ValidationError as exc:
+            except ValidationError:
                 raise ProviderPermanentError(
                     "Admin API authentication response is invalid",
-                ) from exc
+                ) from None
             self._access_token = parsed.access_token
             return parsed.access_token
 
@@ -309,6 +374,43 @@ class ManakidsAdminActivityAdapter:
 
 def _page_count(page: _PageEnvelope) -> int:
     return page.count if page.count is not None else len(page.results)
+
+
+def _row_has_app_usage(row: dict[str, Any]) -> bool:
+    try:
+        parsed = _AppUsageRow.model_validate(row)
+    except ValidationError:
+        raise ProviderPermanentError("Admin API app-usage row contract is invalid") from None
+    return bool(parsed.app_usage_statistics.results) or bool(parsed.app_usage_statistics.count)
+
+
+def _row_has_realtime_usage(row: dict[str, Any]) -> bool:
+    try:
+        parsed = _RealtimeUsageRow.model_validate(row)
+    except ValidationError:
+        raise ProviderPermanentError("Admin API realtime-usage row contract is invalid") from None
+    return bool(parsed.camera_audio_usage_logs)
+
+
+def _partial_scan_limitations(
+    *,
+    app_usage: _CountResult,
+    realtime_usage: _CountResult,
+) -> list[str]:
+    limitations: list[str] = []
+    for label, result in (
+        ("App usage", app_usage),
+        ("Camera/audio/screen", realtime_usage),
+    ):
+        if result.complete:
+            continue
+        population = str(result.total_rows) if result.total_rows is not None else "unknown"
+        limitations.append(
+            f"{label} activity is an observed count from a bounded scan of "
+            f"{result.rows_scanned} of {population} child rows; it is not an extrapolated "
+            "global count.",
+        )
+    return limitations
 
 
 def _raise_for_status(response: httpx.Response, *, operation: str) -> None:

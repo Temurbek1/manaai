@@ -25,13 +25,21 @@ The Manakids adapter uses the application Admin API documented by the product te
 | --- | --- |
 | `GET /api/v1/admin-panel-common/account/` with `role=PARENT` or `role=CHILD` and join-date bounds | Parent and child registrations in the window |
 | `GET /api/v1/admin-panel-child/child-list/` | Current child inventory count |
-| `GET /api/v1/admin-panel-child/app-usage-statistics/` | Children represented in app-usage statistics |
-| `GET /api/v1/admin-panel-child/camera-audio-usage-logs/` | Children represented in camera/audio/screen-share usage logs |
+| `GET /api/v1/admin-panel-child/app-usage-statistics/` | Children with non-empty nested app-usage statistics in the bounded scan |
+| `GET /api/v1/admin-panel-child/camera-audio-usage-logs/` | Children with non-empty camera/audio/screen-share logs in the bounded scan |
 
 Authentication uses `POST /api/v1/admin-panel-auth/login/`. The access token is kept in process
 memory, refreshed once after a `401`, never persisted, and never included in errors or health
-diagnostics. Read requests have bounded timeouts, retries, and exponential backoff. Upstream
-response rows are discarded after their pagination count is translated.
+diagnostics. Read requests have bounded timeouts, retries, exponential backoff, and a configurable
+page ceiling. Upstream response rows are discarded after the adapter checks only whether the
+documented nested activity collection is empty.
+
+The bulk activity endpoints return every child with a fixed page size of 10. Their outer
+`total_count` is the child population, not an active-child count. The adapter therefore scans at
+most `MANAKIDS_MAX_PAGES`, counts only rows with non-empty nested activity, records scanned/population
+coverage as completeness, and never extrapolates a partial sample into a global total. A low
+coverage result produces a data-incomplete finding instead of a low-engagement conclusion. An
+exact global active-child count will require a server-side aggregate endpoint or export.
 
 This source currently supports registration-completed and coarse feature/app-usage measurements.
 It does not prove app opens/closes, screens, clicks, searches, navigation, form completion, upload
@@ -111,8 +119,8 @@ for this mobile product-event contract.
 The capability runs every six hours by default and persists:
 
 - backend registration and inventory aggregates;
-- backend-active child count, conservatively calculated as the larger of the two backend activity
-  populations and capped by inventory;
+- observed backend-active child count, conservatively calculated as the larger of the two scanned
+  backend activity populations and capped by inventory, together with scan coverage limitations;
 - mobile active-subject/session counts, event counts, safe taxonomy dimensions, aggregate event
   transitions, and total/per-screen time;
 - evidence checksums, source request IDs, completeness, limitations, deterministic metrics,

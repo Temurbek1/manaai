@@ -29,6 +29,11 @@ Startup rejects live mode when either source is incomplete, the Admin API URL is
 service-account file is missing. Timeouts, retry budgets, backoff, and maximum Firestore documents
 are independently configurable in `.env.example`.
 
+`MANAKIDS_MAX_PAGES` bounds each Admin API activity scan. The verified bulk endpoints keep a fixed
+10-child page size even when a larger `limit` is requested. Until the application exposes a
+server-side active-child aggregate, production reports must treat a capped scan as partial and use
+its recorded completeness rather than extrapolating it.
+
 For Docker Compose, set `FIREBASE_SERVICE_ACCOUNT_HOST_FILE` to the host path and include the
 read-only secret-mount overlay:
 
@@ -61,10 +66,15 @@ enable `retention-engagement-analysis` scheduling.
 
 ## Current external preflight status
 
-On 2026-09-05, the credentials in the external handoff document were tested against the documented
-login route. The server returned HTTP 400 for invalid login data, so no protected application data
-was read. A valid least-privilege service account and a mounted Firebase service-account file are
-still required before live activation. This does not affect fake-mode or hermetic test readiness.
+On 2026-09-05, the corrected external service account authenticated successfully against the
+documented login route. Bounded read-only checks verified the account, child-list, app-usage, and
+camera/audio/screen endpoint envelopes. No credentials, access tokens, names, phone numbers, or raw
+response rows were persisted. The account join filters require `YYYY-MM-DD` values, and the bulk
+activity endpoints expose a fixed 10-child page size with nested activity data.
+
+A mounted Firebase service-account file and a populated mobile `app_activity_events` collection
+are still required before the combined live capability can be activated. This does not affect
+fake-mode or hermetic test readiness.
 
 ## Incident response
 

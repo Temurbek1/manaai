@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     manakids_request_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
     manakids_max_retries: int = Field(default=3, ge=0, le=8)
     manakids_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
-    manakids_max_pages: int = Field(default=100, ge=1, le=500)
+    manakids_max_pages: int = Field(default=20, ge=1, le=500)
     firebase_project_id: str | None = Field(
         default=None,
         pattern=r"^[a-z][a-z0-9-]{3,62}$",

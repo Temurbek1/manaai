@@ -34,26 +34,56 @@ async def test_manakids_adapter_translates_documented_endpoints_to_aggregates() 
         assert request.headers["Authorization"] == "Bearer admin-token"
         if request.url.path.endswith("/admin-panel-common/account/"):
             count = 13 if query.get("role") == "PARENT" else 17
+            return httpx.Response(
+                200,
+                headers={"x-request-id": f"request-{len(observed)}"},
+                json={"count": count, "results": []},
+            )
         elif request.url.path.endswith("/admin-panel-child/child-list/"):
-            count = 120
+            return httpx.Response(
+                200,
+                headers={"x-request-id": f"request-{len(observed)}"},
+                json={"count": 120, "results": []},
+            )
         elif request.url.path.endswith("/admin-panel-child/app-usage-statistics/"):
-            count = 81
+            results: list[dict[str, object]] = [
+                {
+                    "id": "private-child-1",
+                    "fullname": "Must Not Persist",
+                    "app_usage_statistics": {
+                        "total_count": 4,
+                        "results": [{"application": "private-app-usage"}],
+                    },
+                },
+                {
+                    "id": "private-child-2",
+                    "app_usage_statistics": {"total_count": 2, "results": []},
+                },
+                {
+                    "id": "private-child-3",
+                    "app_usage_statistics": {"total_count": 0, "results": []},
+                },
+            ]
         elif request.url.path.endswith("/admin-panel-child/camera-audio-usage-logs/"):
-            count = 32
+            results = [
+                {
+                    "id": "private-child-1",
+                    "camera_audio_usage_logs": [{"kind": "private-camera-log"}],
+                },
+                {"id": "private-child-2", "camera_audio_usage_logs": []},
+            ]
         else:
             raise AssertionError(f"Unexpected request path {request.url.path}")
         return httpx.Response(
             200,
             headers={"x-request-id": f"request-{len(observed)}"},
             json={
-                "count": count,
-                "results": [
-                    {
-                        "id": "raw-child-id",
-                        "fullname": "Must Not Persist",
-                        "parent_phone": "+998000000000",
-                    },
-                ],
+                "success": True,
+                "total_count": len(results),
+                "current_page": 1,
+                "page_count": 1,
+                "per_page": 10,
+                "results": results,
             },
         )
 
@@ -77,15 +107,19 @@ async def test_manakids_adapter_translates_documented_endpoints_to_aggregates() 
     assert facts.parent_accounts_joined == 13
     assert facts.child_accounts_joined == 17
     assert facts.total_children == 120
-    assert facts.children_with_app_usage == 81
-    assert facts.children_with_realtime_feature_usage == 32
+    assert facts.children_with_app_usage == 2
+    assert facts.children_with_realtime_feature_usage == 1
+    assert facts.completeness == Decimal("1")
     serialized = facts.model_dump_json()
     assert "Must Not Persist" not in serialized
-    assert "+998000000000" not in serialized
-    assert "raw-child-id" not in serialized
+    assert "private-child" not in serialized
+    assert "private-app-usage" not in serialized
+    assert "private-camera-log" not in serialized
     assert sum(path.endswith("/admin-panel-auth/login/") for _, path, _ in observed) == 1
     account_queries = [query for _, path, query in observed if path.endswith("/account/")]
     assert {query["role"] for query in account_queries} == {"PARENT", "CHILD"}
+    assert {query["date_joined_gte"] for query in account_queries} == {"2026-08-29"}
+    assert {query["date_joined_lt"] for query in account_queries} == {"2026-09-06"}
 
 
 async def test_manakids_health_sanitizes_failed_authentication() -> None:
@@ -112,7 +146,7 @@ async def test_manakids_health_sanitizes_failed_authentication() -> None:
     assert "test-password-fixture" not in health.message
 
 
-async def test_manakids_adapter_bounds_unpaginated_activity_responses() -> None:
+async def test_manakids_adapter_reports_bounded_activity_scan_coverage() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/admin-panel-auth/login/"):
             return httpx.Response(200, json={"access": "admin-token"})
@@ -121,8 +155,38 @@ async def test_manakids_adapter_bounds_unpaginated_activity_responses() -> None:
         if request.url.path.endswith("/admin-panel-child/child-list/"):
             return httpx.Response(200, json={"count": 50, "results": []})
         page = int(request.url.params["page"])
-        row_count = 3 if request.url.path.endswith("/app-usage-statistics/") and page == 2 else 10
-        return httpx.Response(200, json={"results": [{"id": index} for index in range(row_count)]})
+        is_app_usage = request.url.path.endswith("/app-usage-statistics/")
+        row_count = 3 if is_app_usage and page == 2 else 10
+        if is_app_usage:
+            results = [
+                {
+                    "id": index,
+                    "app_usage_statistics": {
+                        "total_count": 1,
+                        "results": [{"event": "fixture"}],
+                    },
+                }
+                for index in range(row_count)
+            ]
+            total_count = 13
+            page_count = 2
+        else:
+            results = [
+                {"id": index, "camera_audio_usage_logs": [{"event": "fixture"}]}
+                for index in range(row_count)
+            ]
+            total_count = 25
+            page_count = 3
+        return httpx.Response(
+            200,
+            json={
+                "total_count": total_count,
+                "current_page": page,
+                "page_count": page_count,
+                "per_page": 10,
+                "results": results,
+            },
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         adapter = ManakidsAdminActivityAdapter(
@@ -143,8 +207,9 @@ async def test_manakids_adapter_bounds_unpaginated_activity_responses() -> None:
 
     assert facts.children_with_app_usage == 13
     assert facts.children_with_realtime_feature_usage == 20
-    assert facts.completeness == Decimal("0.75")
-    assert any("page limit" in limitation for limitation in facts.limitations)
+    assert facts.completeness == Decimal("0.8")
+    assert any("20 of 25" in limitation for limitation in facts.limitations)
+    assert any("not an extrapolated global count" in item for item in facts.limitations)
 
 
 async def test_firestore_adapter_aggregates_and_discards_mobile_identifiers() -> None:
