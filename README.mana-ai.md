@@ -1,7 +1,7 @@
 # MANA AI — product API layer
 
-Read-only request/response AI API consumed by the MANA application. This document is the complete
-handoff for a developer who receives only this layer.
+Product-safety AI API consumed by the MANA and 360REC application backends. This document is the
+complete handoff for a developer who receives only this layer.
 
 **This is not the admin panel.** The admin platform is a separate deliverable with its own
 database, agents, and UI — see [README.operation-ai.md](README.operation-ai.md). Nothing in this
@@ -12,20 +12,24 @@ document requires it.
 The application sends minimized evidence, this API returns a typed analysis. That is the whole
 contract.
 
-- **Stateless.** No database, no migrations, no scheduler, no worker, no browser UI.
-- **Read-only by construction.** It never reads or mutates application data and never executes an
-  action. It only *proposes* actions; the application decides.
+- **No application database.** The 11 request/response capabilities remain stateless. Optional
+  audio moderation uses bounded in-process workers while 360REC owns durable state and retry.
+- **Application actions remain outside this service.** The ordinary capabilities only propose
+  actions. Audio moderation performs one narrowly scoped, authenticated verdict callback that the
+  360REC backend applies to its own visibility state.
 - **11 independent capabilities**, each its own endpoint with its own typed request and response.
   There is deliberately no generic `/analyze` endpoint with a capability discriminator.
-- **One external dependency:** OpenAI.
+- **Provider dependencies:** OpenAI for inference; when audio moderation is enabled, private object
+  download and the scoped 360REC callback are also required.
 
 The import boundary is enforced by tests: `app/mana_ai` may not import repositories, ORM models,
 Meta integrations, or the operation platform, and may not import FastAPI.
 
 ### Endpoints
 
-14 total. `GET /api/v1/mana-ai/capabilities` returns the exact method and path of every capability
-— use it as the machine-readable index rather than hardcoding paths.
+15 total when audio moderation is enabled. `GET /api/v1/mana-ai/capabilities` returns the exact
+method and path of the 11 synchronous request/response capabilities. The asynchronous 360REC
+integration has a separate fixed contract described below.
 
 #### Infrastructure
 
@@ -34,6 +38,7 @@ Meta integrations, or the operation platform, and may not import FastAPI.
 | GET | `/api/v1/health/live` | Process is up. No auth, no dependency checks — use as the container liveness probe. |
 | GET | `/api/v1/health/ready` | Reports whether configured dependencies (OpenAI credentials) are usable. No auth. |
 | GET | `/api/v1/mana-ai/capabilities` | Machine-readable index: method and path of all 11 capabilities. Requires auth. Read this instead of hardcoding paths. |
+| POST | `/api/v1/audio-moderation/jobs` | Accepts a private 360REC recording, analyzes child-safety risk asynchronously, and calls the supplied one-time callback. Uses its own bearer token. |
 
 #### The 11 capabilities
 
@@ -70,7 +75,17 @@ Notes worth knowing before you integrate:
   proposed.
 - **`child-safety-assistant` tunes tone from `subject.age_band`**, so set it accurately.
 - **Nothing here executes anything.** `proposed_actions` are suggestions your application decides
-  on.
+  on. The separate audio endpoint is the sole exception and can only send its typed verdict to the
+  audio-scoped callback supplied by 360REC.
+
+### 360REC audio moderation
+
+Set `AI_AUDIO_MODERATION_URL` on the 360REC backend to the public deployment URL ending in
+`/api/v1/audio-moderation/jobs`. The endpoint uses `AI_AUDIO_MODERATION_AUTH_TOKEN`, not
+`APP_API_KEY`. Its `APPROVED` callback means a risky, suspicious, or uncertain recording should be
+shown to the parent; `REJECTED` means confidently safe or no speech. See the complete payload,
+security, rollout, and callback contract in
+[docs/audio-moderation.md](docs/audio-moderation.md).
 
 Full descriptions are also in Swagger at `/docs`, and the per-endpoint payload contract — request
 envelope, evidence rules, and every field — lives in [docs/mana-ai-api.md](docs/mana-ai-api.md).
@@ -124,6 +139,13 @@ platform and is ignored here.
 | `API_RATE_LIMIT_WINDOW_SECONDS` | no | `60` | Length of that window |
 | `AUTH_FAILURE_LIMIT` | no | `10` | Failed auth attempts before a client IP is throttled |
 | `AUTH_FAILURE_WINDOW_SECONDS` | no | `60` | Window for the failure counter |
+| `AUDIO_MODERATION_ENABLED` | no | `false` | Enables the 360REC intake and in-process consumers |
+| `AI_AUDIO_MODERATION_AUTH_TOKEN` | when enabled | — | Shared backend/service bearer secret, at least 32 characters |
+| `AUDIO_MODERATION_TRANSCRIPTION_MODEL` | no | `gpt-transcribe` | Completed-file transcription model |
+| `AUDIO_MODERATION_OPENAI_TIMEOUT_SECONDS` | no | `300` | Per-recording upload and transcription timeout |
+| `AUDIO_MODERATION_MODEL` | no | `OPENAI_MODEL` | Structured child-safety classifier |
+| `AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS` | no | `["*.digitaloceanspaces.com"]` | Replace with the exact production bucket host |
+| `AUDIO_MODERATION_ALLOWED_CALLBACK_HOSTS` | no | `["api.360rec.uz"]` | HTTPS callback destination allowlist |
 
 In production the factory refuses to start if `APP_API_KEY` is missing or shorter than 32
 characters, or if `OPENAI_API_KEY` is unset. That is intentional — fail at boot, not at request

@@ -2632,6 +2632,83 @@
         "title": "AudienceActionParameters",
         "type": "object"
       },
+      "AudioModerationAcceptedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Audio Id",
+            "type": "integer"
+          },
+          "disposition": {
+            "enum": [
+              "queued",
+              "duplicate"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio_id",
+          "disposition"
+        ],
+        "title": "AudioModerationAcceptedResponse",
+        "type": "object"
+      },
+      "AudioModerationJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Audio Id",
+            "type": "integer"
+          },
+          "audio_url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Audio Url",
+            "type": "string"
+          },
+          "callback_token": {
+            "format": "password",
+            "maxLength": 8192,
+            "minLength": 16,
+            "title": "Callback Token",
+            "type": "string",
+            "writeOnly": true
+          },
+          "callback_url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Callback Url",
+            "type": "string"
+          },
+          "duration": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Duration",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio_id",
+          "audio_url",
+          "duration",
+          "callback_url",
+          "callback_token"
+        ],
+        "title": "AudioModerationJobRequest",
+        "type": "object"
+      },
       "AuditEvent": {
         "additionalProperties": false,
         "properties": {
@@ -12512,6 +12589,11 @@
       }
     },
     "securitySchemes": {
+      "AudioModerationBearerToken": {
+        "description": "Send AI_AUDIO_MODERATION_AUTH_TOKEN as a bearer token.",
+        "scheme": "bearer",
+        "type": "http"
+      },
       "BearerToken": {
         "description": "Send APP_API_KEY as `Authorization: Bearer <token>`.",
         "scheme": "bearer",
@@ -17194,6 +17276,54 @@
         ]
       }
     },
+    "/api/v1/audio-moderation/jobs": {
+      "post": {
+        "operationId": "submit_audio_moderation_job_api_v1_audio_moderation_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioModerationAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "The URLs violate the configured safety policy."
+          },
+          "401": {
+            "description": "The shared service token is missing or invalid."
+          },
+          "422": {
+            "description": "The job payload is invalid."
+          },
+          "503": {
+            "description": "The service is paused, unavailable, or at capacity."
+          }
+        },
+        "security": [
+          {
+            "AudioModerationBearerToken": []
+          }
+        ],
+        "summary": "Submit Audio Moderation Job",
+        "tags": [
+          "audio-moderation"
+        ]
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "operationId": "logout_api_v1_auth_logout_post",
@@ -19045,6 +19175,10 @@
     {
       "description": "Read-only request/response product inference for family safety, digital wellbeing, location, content protection, assistants, agreements, and behavior anomalies. Action proposals are never executed by this API.",
       "name": "mana-ai"
+    },
+    {
+      "description": "Server-to-server intake for private 360REC audio safety moderation jobs and asynchronous one-time callbacks.",
+      "name": "audio-moderation"
     },
     {
       "description": "RBAC-protected internal operational-agent management and audit API.",

@@ -14,6 +14,7 @@ creation live inside these agents. The authoritative boundaries and action model
 
 ```text
 Mobile payload -> app/mana_ai -> validation -> AI processing -> typed response
+360REC backend -> audio moderation intake -> ephemeral transcription/classification -> callback
 
 Browser -> Next.js same-origin rewrite -> FastAPI Telegram OTP/session API
                                       -> auth application ports
@@ -49,6 +50,11 @@ read-only and persist aggregate first-party facts only.
 `app/mana_ai` cannot import `app.mana_operation_ai`. The AST test in
 `tests/test_architecture_boundaries.py` also rejects operational repositories, database models,
 Meta integrations, and action executors imported into the product context.
+
+The 360REC child-audio moderation endpoint is a product-safety integration in the MANA AI bounded
+context, not a fifth operational agent. Its presigned asset URL, callback token, audio, and
+transcript remain ephemeral. The 360REC backend owns durable moderation state, retries, and the
+parent-facing visibility gate.
 
 ## MANA OPERATION AI layers
 

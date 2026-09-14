@@ -46,6 +46,10 @@ The following names from source material are capabilities, not top-level agents:
   MANA AI bounded context; operation code may consume only explicitly authorized, minimized, and
   aggregated operational signals.
 
+The 360REC child-audio safety moderation intake and callback service is likewise a MANA AI
+product-safety capability, not a top-level operational agent. Raw recordings and transcripts must
+not enter the operational data plane.
+
 Do not create separate top-level agents for these capability names merely because they appear as
 rows in a report or require different schedules.
 

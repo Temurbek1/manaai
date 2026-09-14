@@ -18,3 +18,5 @@ def isolate_local_secrets(monkeypatch: MonkeyPatch, request: FixtureRequest) -> 
     monkeypatch.setenv("MANA_TELEGRAM_AUTH_ENABLED", "0")
     monkeypatch.setenv("OPERATION_ALLOW_INSECURE_DEV_HEADERS", "1")
     monkeypatch.setenv("META_LIVE_READONLY_VERIFY", "0")
+    monkeypatch.setenv("AUDIO_MODERATION_ENABLED", "0")
+    monkeypatch.setenv("AI_AUDIO_MODERATION_AUTH_TOKEN", "")

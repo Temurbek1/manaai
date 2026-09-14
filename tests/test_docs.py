@@ -31,6 +31,7 @@ async def test_swagger_docs_enabled_outside_production(
     assert schema["info"]["title"] == "manaai-api"
     assert {tag["name"] for tag in schema["tags"]} == {
         "ai",
+        "audio-moderation",
         "health",
         "mana-ai",
         "marketing",

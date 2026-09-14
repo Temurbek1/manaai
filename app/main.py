@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
@@ -12,6 +13,8 @@ from app.core.logging import configure_application_logging
 from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
 from app.core.rate_limiter import RequestRateLimiter
+from app.core.request_body_limit import RequestBodyLimitMiddleware
+from app.core.validation_errors import sanitized_request_validation_handler
 from app.mana_ai.application.service import ManaAIAnalysisService
 from app.mana_operation_ai.application.action_executors import (
     ActionExecutorRegistry,
@@ -79,6 +82,7 @@ from app.mana_operation_ai.infrastructure.telegram.sender import (
     TelegramBotOtpSender,
     UnavailableTelegramOtpSender,
 )
+from app.services.audio_moderation_service import build_audio_moderation_runtime
 from app.services.mana_ai_openai_gateway import ManaAIOpenAIModelGateway, SystemManaAIClock
 from app.services.marketing_analysis_service import MarketingAnalysisService
 from app.services.marketing_graph_service import MarketingGraphService
@@ -313,15 +317,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         poll_seconds=settings.operation_scheduler_poll_seconds,
         job_timeout_seconds=settings.operation_job_timeout_seconds,
     )
-    if settings.operation_scheduler_enabled:
-        operation_scheduler.start()
     metrics_builder = MarketingMetricsBuilder(
         conversion_action_types=settings.marketing_conversion_action_types,
         value_action_types=settings.marketing_value_action_types,
     )
+    audio_moderation_runtime = build_audio_moderation_runtime(
+        settings=settings,
+        openai_service=openai_service,
+    )
 
     app.state.settings = settings
     app.state.openai_service = openai_service
+    app.state.audio_moderation_service = audio_moderation_runtime.service
     app.state.mana_ai_analysis_service = mana_ai_analysis_service
     app.state.marketing_repository = marketing_repository
     app.state.meta_marketing_client = meta_client
@@ -357,13 +364,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.operation_admin_service = operation_admin_service
     app.state.operation_maintenance_service = maintenance_service
     app.state.operation_scheduler = operation_scheduler
+    if settings.operation_scheduler_enabled:
+        operation_scheduler.start()
+    audio_moderation_runtime.start()
     try:
         yield
     finally:
+        await audio_moderation_runtime.stop()
         await operation_scheduler.stop()
         for client in first_party_http_clients:
             await client.aclose()
         await operation_database.dispose()
+        await openai_service.close()
 
 
 def create_app() -> FastAPI:
@@ -372,6 +384,11 @@ def create_app() -> FastAPI:
         level=settings.log_level,
         secrets=[
             settings.openai_api_key.get_secret_value(),
+            (
+                settings.ai_audio_moderation_auth_token.get_secret_value()
+                if settings.ai_audio_moderation_auth_token
+                else ""
+            ),
             settings.meta_access_token.get_secret_value() if settings.meta_access_token else "",
             (
                 settings.manakids_api_password.get_secret_value()
@@ -427,8 +444,17 @@ def create_app() -> FastAPI:
         request_limit=settings.api_rate_limit_requests,
         window_seconds=settings.api_rate_limit_window_seconds,
     )
+    app.add_exception_handler(
+        RequestValidationError,
+        sanitized_request_validation_handler,
+    )
 
     app.middleware("http")(request_trace_middleware)
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_body_bytes=settings.audio_moderation_max_job_body_bytes,
+        paths={"/api/v1/audio-moderation/jobs"},
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

@@ -360,6 +360,14 @@ details schema и ограниченный action union.
 
 ## OpenAI и production
 
+Отдельная асинхронная интеграция 360REC принимает private audio job на
+`POST /api/v1/audio-moderation/jobs`, транскрибирует запись и возвращает вердикт через одноразовый
+callback самого backend. Она использует отдельный `AI_AUDIO_MODERATION_AUTH_TOKEN`; аудио,
+presigned URL, callback JWT и транскрипт не сохраняются. В этом контракте `APPROVED` означает
+опасную/подозрительную/неуверенно классифицированную запись, которую нужно показать родителю, а
+`REJECTED` — уверенно безопасную запись или отсутствие речи. Полный контракт и production gate:
+[audio-moderation.md](audio-moderation.md).
+
 `gpt-5.4-nano` выбран как самая дешёвая модель семейства GPT-5.4; она официально поддерживает
 Responses API и Structured Outputs. Параметр модели остаётся конфигурируемым через `OPENAI_MODEL`.
 Ссылки: [GPT-5.4 nano](https://developers.openai.com/api/docs/models/gpt-5.4-nano),

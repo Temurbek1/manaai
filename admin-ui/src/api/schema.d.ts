@@ -797,6 +797,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audio-moderation/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Audio Moderation Job */
+        post: operations["submit_audio_moderation_job_api_v1_audio_moderation_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -2501,6 +2518,44 @@ export interface components {
             kind: "disable_audience" | "scale_audience";
             /** Proposed Status */
             proposed_status: string;
+        };
+        /** AudioModerationAcceptedResponse */
+        AudioModerationAcceptedResponse: {
+            /** Audio Id */
+            audio_id: number;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "queued" | "duplicate";
+            /**
+             * Status
+             * @default accepted
+             * @constant
+             */
+            status: "accepted";
+        };
+        /** AudioModerationJobRequest */
+        AudioModerationJobRequest: {
+            /** Audio Id */
+            audio_id: number;
+            /**
+             * Audio Url
+             * Format: uri
+             */
+            audio_url: string;
+            /**
+             * Callback Token
+             * Format: password
+             */
+            callback_token: string;
+            /**
+             * Callback Url
+             * Format: uri
+             */
+            callback_url: string;
+            /** Duration */
+            duration: string;
         };
         /** AuditEvent */
         AuditEvent: {
@@ -7563,6 +7618,58 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    submit_audio_moderation_job_api_v1_audio_moderation_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AudioModerationJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioModerationAcceptedResponse"];
+                };
+            };
+            /** @description The URLs violate the configured safety policy. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The shared service token is missing or invalid. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The job payload is invalid. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The service is paused, unavailable, or at capacity. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
