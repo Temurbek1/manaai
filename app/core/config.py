@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     )
     mana_otp_hmac_secret: SecretStr | None = None
     mana_bootstrap_admin_telegram_ids: str = "976835256,51456737"
-    mana_otp_ttl_seconds: Literal[60] = 60
+    mana_otp_ttl_seconds: int = Field(default=60, ge=60, le=60)
     mana_otp_resend_cooldown_seconds: int = Field(default=30, ge=5, le=300)
     mana_otp_max_verify_attempts: int = Field(default=5, ge=3, le=10)
     mana_otp_request_limit_per_user: int = Field(default=5, ge=1, le=100)

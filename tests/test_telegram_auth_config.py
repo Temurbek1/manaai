@@ -55,3 +55,7 @@ def test_bootstrap_ids_and_fixed_security_ttls_are_typed() -> None:
         production_settings(mana_otp_ttl_seconds=61)
     with pytest.raises(ValidationError, match="cannot contain duplicates"):
         production_settings(mana_bootstrap_admin_telegram_ids="976835256,976835256")
+
+
+def test_otp_ttl_accepts_string_value_from_env_file() -> None:
+    assert production_settings(mana_otp_ttl_seconds="60").mana_otp_ttl_seconds == 60

@@ -539,6 +539,23 @@ server {
 
 После настройки домена подключите TLS через Certbot или другой ACME client.
 
+Боевая схема (`docker-compose.yml`, full-stack) использует два отдельных поддомена:
+
+- `ai.360rec.uz` — публичный API (`deploy/nginx/ai.360rec.uz.conf`), проксирует на
+  `api`-контейнер (порт 8000): `/api/v1/*`, `/docs`, `/redoc`, `/openapi.json`.
+- `ai-frontend.360rec.uz` — admin UI / Next.js (`deploy/nginx/ai-frontend.360rec.uz.conf`),
+  проксирует на `admin`-контейнер (порт 3000). Браузер обращается только к этому домену;
+  сам admin-сервер проксирует `/api/*` на `api:8000` внутри Docker-сети server-side
+  (`ADMIN_FASTAPI_BASE_URL`, по умолчанию `http://api:8000`) через `next.config.ts`
+  rewrites, поэтому браузер никогда не ходит напрямую на `ai.360rec.uz`.
+
+Скопируйте оба файла в `/etc/nginx/sites-available/`, включите симлинками в
+`sites-enabled/`, затем выпустите сертификаты отдельно для каждого домена:
+`certbot --nginx -d ai.360rec.uz` и `certbot --nginx -d ai-frontend.360rec.uz`. Не забудьте
+завести DNS A/AAAA-записи для обоих поддоменов. Для standalone-варианта
+(`docker-compose.mana-ai.yml`, без admin UI) используйте пример выше с `proxy_pass`
+на `http://127.0.0.1:8000`.
+
 ## Проверки качества
 
 ```bash
