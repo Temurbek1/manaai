@@ -48,6 +48,7 @@ async def test_repository_versions_configurations_idempotent_runs_and_locks(
         version="1.0.0",
         status=AgentStatus.ENABLED,
         capabilities=[],
+        default_capability_key="test.default",
         configuration_schema={"type": "object"},
         registered_at=now,
     )
@@ -56,6 +57,7 @@ async def test_repository_versions_configurations_idempotent_runs_and_locks(
         AgentConfiguration(
             configuration_id="config-1",
             agent_id="test-agent",
+            capability_key="test.default",
             version=1,
             values={"threshold": 1},
             created_at=now,
@@ -66,6 +68,7 @@ async def test_repository_versions_configurations_idempotent_runs_and_locks(
         AgentConfiguration(
             configuration_id="config-2",
             agent_id="test-agent",
+            capability_key="test.default",
             version=2,
             values={"threshold": 2},
             created_at=now + timedelta(seconds=1),
@@ -81,6 +84,7 @@ async def test_repository_versions_configurations_idempotent_runs_and_locks(
     run = AgentRun(
         run_id="run-1",
         agent_id="test-agent",
+        capability_key="test.default",
         correlation_id="correlation-1",
         trigger=TriggerType.API,
         initiated_by="tester",
@@ -132,6 +136,7 @@ async def test_repository_lock_and_schedule_claim_are_atomic_across_contenders(
             version="1.0.0",
             status=AgentStatus.ENABLED,
             capabilities=[],
+            default_capability_key="claim.default",
             configuration_schema={"type": "object"},
             registered_at=now,
         ),
@@ -153,6 +158,7 @@ async def test_repository_lock_and_schedule_claim_are_atomic_across_contenders(
     schedule = AgentSchedule(
         schedule_id="claim-schedule",
         agent_id="claim-agent",
+        capability_key="claim.default",
         job_type="analysis",
         cron_expression="0 */6 * * *",
         timezone="UTC",
@@ -175,6 +181,7 @@ async def test_repository_lock_and_schedule_claim_are_atomic_across_contenders(
     run_template = AgentRun(
         run_id="contended-run-0",
         agent_id="claim-agent",
+        capability_key="claim.default",
         correlation_id="contended-run",
         trigger=TriggerType.SCHEDULE,
         initiated_by="scheduler",
@@ -286,6 +293,7 @@ async def test_sqlite_foreign_keys_are_enforced(tmp_path: Path) -> None:
             AgentConfiguration(
                 configuration_id="orphan-configuration",
                 agent_id="missing-agent",
+                capability_key="missing.default",
                 version=1,
                 values={},
                 created_at=datetime(2026, 7, 22, 12, tzinfo=UTC),

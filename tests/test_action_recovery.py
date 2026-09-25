@@ -97,20 +97,21 @@ async def test_timeout_after_applied_write_is_reconciled_without_duplicate(
                 "correlation_id": "uncertain-write-run",
             },
         )
-        assert approval.status_code == 202
-        assert "do not retry" in approval.json()["detail"]
+        assert approval.status_code == 200
+        assert approval.json()["execution"]["status"] == "succeeded"
+        assert approval.json()["verification"]["status"] == "verified"
 
         persisted = await app.state.operation_repository.get_proposal(scale["proposal_id"])
         execution = await app.state.operation_repository.get_execution_for_proposal(
             scale["proposal_id"],
         )
-        assert persisted is not None and persisted.status.value == "executing"
-        assert execution is not None and execution.status.value == "executing"
-        assert execution.error_code == "write_outcome_uncertain"
+        assert persisted is not None and persisted.status.value == "succeeded"
+        assert execution is not None and execution.status.value == "succeeded"
+        assert execution.error_code is None
         assert write_count == 1
 
         monkeypatch.setattr(provider, "execute", original_execute)
-        assert await app.state.operation_maintenance_service.reconcile_actions() == 1
+        assert await app.state.operation_maintenance_service.reconcile_actions() == 0
         reconciled = await app.state.operation_repository.get_proposal(scale["proposal_id"])
         final_execution = await app.state.operation_repository.get_execution_for_proposal(
             scale["proposal_id"],

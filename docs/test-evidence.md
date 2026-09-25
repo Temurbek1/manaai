@@ -40,6 +40,22 @@ The historical baseline collected 32 Python cases (31 passed and one environment
 so the audited slice has a net 58 additional Python cases. The Next.js admin UI contributes 16
 frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates.
 
+## Verified 2026-09-26 first-party data checkpoint
+
+- `make audit-verify`: passed end to end, including SQLite/PostgreSQL migration audits, all 15
+  safety mutations, dependency/secret/quality scans, browser E2E, standalone production smoke,
+  bundle scan, and admin Docker build.
+- `make verify`: passed with 236 backend tests (plus one documented skip and two opt-in live tests
+  deselected), 23 Jest tests, strict mypy/TypeScript, Ruff/ESLint/Prettier, Next.js production build,
+  and zero high-severity npm audit findings.
+- `scripts/secret_scan.py`: passed for all tracked and unignored files.
+- The combined base, Firebase secret-mount, and GA4 secret-mount Compose configuration passed
+  `docker compose ... config --quiet` with placeholder host paths.
+- Hermetic adapter tests cover GA4 aggregate translation, unknown-event exclusion, bounded retry,
+  Firestore field masks, in-memory aggregation, and absence of raw IDs/GPS in returned facts.
+- The opt-in live test was not run because local deployment secrets and service-account file paths
+  are not configured. This checkpoint proves code readiness, not live-provider activation.
+
 ## Adversarial matrix
 
 | Area | Scenarios proved |

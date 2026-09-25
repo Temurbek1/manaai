@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import cast
 
 from app.mana_operation_ai.application.ports import Clock, IdGenerator, OperationRepository
 from app.mana_operation_ai.domain.enums import ActionStatus, ActionType, PolicyDecision
@@ -88,7 +89,10 @@ class PolicyService:
 
         if denied:
             decision = PolicyDecision.DENY
-        elif configuration.approval_required.get(recommendation.action_type, True):
+        elif configuration.approval_required.get(
+            cast(ActionType, recommendation.action_type),
+            True,
+        ):
             decision = PolicyDecision.REQUIRE_APPROVAL
             reasons.append("The action type requires an approver decision.")
         else:
@@ -97,6 +101,8 @@ class PolicyService:
         return ActionPolicy(
             policy_id=self._ids.new(),
             agent_id=agent_id,
+            capability_key=recommendation.capability_key,
+            action_family=recommendation.action_family,
             action_type=recommendation.action_type,
             decision=decision,
             reasons=reasons,

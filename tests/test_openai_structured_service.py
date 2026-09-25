@@ -1,13 +1,14 @@
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
 from openai import AsyncOpenAI
 from openai.lib._parsing._completions import type_to_response_format_param
 
 from app.core.config import Settings
 from app.mana_ai.domain.enums import AnalysisVerdict, ManaAICapability
 from app.mana_ai.domain.responses import ModelAnalysis
-from app.services.openai_service import OpenAIService
+from app.services.openai_service import AIProviderError, OpenAIService
 from tests.mana_ai_fixtures import details_for
 
 
@@ -98,6 +99,29 @@ async def test_structured_openai_call_exposes_non_secret_usage_metadata() -> Non
     assert result.metadata.output_tokens == 80
     assert result.metadata.reasoning_output_tokens == 10
     assert result.metadata.total_tokens == 200
+
+
+async def test_truncated_structured_output_becomes_a_controlled_provider_error() -> None:
+    """A response cut off by max_output_tokens reaches the SDK parser as malformed JSON.
+
+    It must surface as AIProviderError so callers degrade or return 502, never a raw 500.
+    """
+
+    class TruncatingResponses:
+        async def parse(self, **kwargs: Any) -> SimpleNamespace:
+            ModelAnalysis.model_validate_json('{"verdict":"no_risk_detected","summary":"К')
+            raise AssertionError("the truncated payload must not validate")
+
+    settings = Settings(_env_file=None, openai_api_key="test-openai-key")
+    service = OpenAIService(settings)
+    service._client = cast(AsyncOpenAI, FakeClient(cast(FakeResponses, TruncatingResponses())))
+
+    with pytest.raises(AIProviderError):
+        await service.create_structured_response(
+            text_format=ModelAnalysis,
+            system_prompt="Analyze the payload.",
+            user_input="{}",
+        )
 
 
 async def test_configured_model_access_exposes_non_secret_metadata() -> None:

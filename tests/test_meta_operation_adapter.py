@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -45,6 +45,14 @@ def meta_fixture(name: str) -> dict[str, JsonValue]:
     if not isinstance(payload, dict):
         raise AssertionError(f"Meta fixture {name!r} must contain a JSON object")
     return cast(dict[str, JsonValue], payload)
+
+
+class FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now(self) -> datetime:
+        return self._now
 
 
 def settings(monkeypatch: MonkeyPatch, **overrides: str) -> Settings:
@@ -270,7 +278,9 @@ async def test_async_insights_polling_and_results_remain_get_only(
 async def test_meta_collection_preserves_partial_breakdown_as_unavailable(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    completed_day = date.today() - timedelta(days=1)
+    # The adapter rejects reporting periods that are not complete in its own UTC clock,
+    # so the fixture day must be derived from UTC rather than the local calendar date.
+    completed_day = datetime.now(UTC).date() - timedelta(days=1)
     insight = meta_fixture("insight_region.json")
     insight["date_start"] = completed_day.isoformat()
     insight["date_stop"] = completed_day.isoformat()
@@ -327,6 +337,58 @@ async def test_meta_collection_preserves_partial_breakdown_as_unavailable(
     assert region.row_count == 0
     assert len(snapshot.insights) == 1
     assert any("region" in note for note in snapshot.data_quality_notes)
+
+
+async def test_meta_data_freshness_is_measured_against_the_utc_clock(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Freshness must follow the adapter clock, not the host's local calendar date."""
+    reported_day = date(2026, 7, 22)
+    insight = meta_fixture("insight_region.json")
+    insight["date_start"] = reported_day.isoformat()
+    insight["date_stop"] = reported_day.isoformat()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/me/adaccounts"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "act_1",
+                            "name": "Account",
+                            "currency": "USD",
+                            "timezone_name": "UTC",
+                            "account_status": 1,
+                        },
+                    ],
+                },
+                request=request,
+            )
+        if request.url.path.endswith("/insights"):
+            rows = [insight] if request.url.params.get("level") == "ad" else []
+            return httpx.Response(200, json={"data": rows}, request=request)
+        return httpx.Response(200, json={"data": []}, request=request)
+
+    configured = settings(monkeypatch)
+    # 2026-07-25 in UTC is still 2026-07-24 in UTC-11 and already 2026-07-25 in UTC+14,
+    # so a local-calendar implementation would report 2 or 4 days instead of 3.
+    adapter = MetaAdsAdapter(
+        client=MetaMarketingClient(configured, transport=httpx.MockTransport(handler)),
+        settings=configured,
+        clock=FixedClock(datetime(2026, 7, 25, 3, 0, tzinfo=UTC)),
+    )
+    snapshot = await adapter.collect(
+        AdsCollectionRequest(
+            date_start=reported_day,
+            date_stop=reported_day,
+            attribution_window="7d_click",
+            requested_breakdowns=[],
+        ),
+    )
+
+    assert snapshot.observability is not None
+    assert snapshot.observability.data_freshness_days == 3
 
 
 def test_meta_normalization_tracks_query_scope_and_explicit_unavailable_metrics() -> None:

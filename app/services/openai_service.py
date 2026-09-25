@@ -9,7 +9,7 @@ from openai import (
     ContentFilterFinishReasonError,
     LengthFinishReasonError,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import Settings
 from app.schemas.ai import ChatRequest, ChatResponse, SummarizeRequest, SummarizeResponse
@@ -49,6 +49,10 @@ class AIProviderError(RuntimeError):
 
 class AIConfigurationError(AIProviderError):
     """Raised when the upstream AI provider credentials are not configured."""
+
+
+class AIInputError(AIProviderError):
+    """Raised when the upstream AI provider permanently rejects supplied media."""
 
 
 class OpenAIService:
@@ -107,12 +111,14 @@ class OpenAIService:
         system_prompt: str,
         user_input: str,
         safety_identifier: str | None = None,
+        model: str | None = None,
     ) -> StructuredResponseT:
         result = await self.create_structured_response_with_metadata(
             text_format=text_format,
             system_prompt=system_prompt,
             user_input=user_input,
             safety_identifier=safety_identifier,
+            model=model,
         )
         return result.output
 
@@ -123,11 +129,13 @@ class OpenAIService:
         system_prompt: str,
         user_input: str,
         safety_identifier: str | None = None,
+        model: str | None = None,
     ) -> StructuredResponseResult[StructuredResponseT]:
         self._ensure_configured()
+        configured_model = model or self._settings.openai_model
         try:
             response = await self._client.responses.parse(
-                model=self._settings.openai_model,
+                model=configured_model,
                 instructions=system_prompt,
                 input=user_input,
                 max_output_tokens=self._settings.openai_max_output_tokens,
@@ -145,6 +153,10 @@ class OpenAIService:
             LengthFinishReasonError,
         ) as exc:
             raise AIProviderError("OpenAI API request failed") from exc
+        except ValidationError as exc:
+            # A response truncated by max_output_tokens reaches the SDK parser as malformed
+            # JSON rather than LengthFinishReasonError, so it must not escape as a 500.
+            raise AIProviderError("OpenAI API returned an unparsable structured response") from exc
 
         if response.output_parsed is None:
             raise AIProviderError("OpenAI API returned an empty structured response")
@@ -167,6 +179,36 @@ class OpenAIService:
                 total_tokens=usage.total_tokens if usage is not None else None,
             ),
         )
+
+    async def transcribe_audio(
+        self,
+        *,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        model: str,
+        timeout_seconds: float | None = None,
+    ) -> str:
+        self._ensure_configured()
+        try:
+            transcription = await self._client.audio.transcriptions.create(
+                file=(filename, content, media_type),
+                model=model,
+                timeout=timeout_seconds,
+            )
+        except APIStatusError as exc:
+            if 400 <= exc.status_code < 500 and exc.status_code != 429:
+                raise AIInputError("OpenAI API rejected the audio input") from None
+            raise AIProviderError("OpenAI API request failed") from None
+        except (APIConnectionError, APITimeoutError) as exc:
+            raise AIProviderError("OpenAI API request failed") from exc
+        transcript = transcription.text.strip()
+        if not transcript:
+            return ""
+        return transcript
+
+    async def close(self) -> None:
+        await self._client.close()
 
     async def _create_text_response(self, system_prompt: str, user_input: str) -> str:
         self._ensure_configured()

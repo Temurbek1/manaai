@@ -32,6 +32,7 @@ async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None
             version="1.0.0",
             status=AgentStatus.ENABLED,
             capabilities=[],
+            default_capability_key="postgres.default",
             configuration_schema={"type": "object"},
             registered_at=now,
         ),
@@ -52,6 +53,7 @@ async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None
     schedule = AgentSchedule(
         schedule_id="postgres-schedule",
         agent_id="postgres-agent",
+        capability_key="postgres.default",
         job_type="analysis",
         cron_expression="0 */6 * * *",
         timezone="UTC",
@@ -70,6 +72,7 @@ async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None
     template = AgentRun(
         run_id="postgres-run-0",
         agent_id="postgres-agent",
+        capability_key="postgres.default",
         correlation_id="postgres-correlation",
         trigger=TriggerType.SCHEDULE,
         initiated_by="scheduler",

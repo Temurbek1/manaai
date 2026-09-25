@@ -31,16 +31,18 @@ async def test_swagger_docs_enabled_outside_production(
     assert schema["info"]["title"] == "manaai-api"
     assert {tag["name"] for tag in schema["tags"]} == {
         "ai",
+        "audio-moderation",
         "health",
         "mana-ai",
         "marketing",
         "operation-admin",
     }
-    assert schema["components"]["securitySchemes"]["APIKeyHeader"] == {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-API-Key",
-    }
+    schemes = schema["components"]["securitySchemes"]
+    assert schemes["BearerToken"]["type"] == "http"
+    assert schemes["BearerToken"]["scheme"] == "bearer"
+    # The product API layer must not advertise the retired X-API-Key scheme; the operation
+    # admin endpoints keep their own separate role-key header.
+    assert "APIKeyHeader" not in schemes
     get_settings.cache_clear()
 
 

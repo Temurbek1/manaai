@@ -324,7 +324,8 @@ async def test_approved_action_without_active_policy_never_reaches_provider(
         async with app.state.operation_database.session_factory.begin() as session:
             await session.execute(
                 delete(AgentConfigurationRow).where(
-                    AgentConfigurationRow.agent_id == "marketing-agent",
+                    AgentConfigurationRow.agent_id == "growth-agent",
+                    AgentConfigurationRow.capability_key == "growth.advertising",
                 ),
             )
         provider = app.state.operation_ads_platforms.get("fake_meta")

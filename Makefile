@@ -6,7 +6,7 @@ ALEMBIC := .venv/bin/alembic
 REPORT_DELIVERER ?= scripts/deliver_portable_artifact.py
 ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 
-.PHONY: install run up down mana-ai-run mana-ai-docker mana-ai-live-eval admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
+.PHONY: install run up down mana-ai-run mana-ai-docker mana-ai-live-eval admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify product-activity-live-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
 
 install:
 	$(PYTHON) -m pip install -e ".[operation,dev]"
@@ -62,7 +62,7 @@ typecheck:
 	cd admin-ui && npm run typecheck
 
 test:
-	$(PYTEST) -q -m "not live_meta"
+	$(PYTEST) -q -m "not live_meta and not live_product_activity"
 	cd admin-ui && npm run test -- --runInBand
 
 demo:
@@ -150,6 +150,10 @@ meta-live-readonly-verify: audit-verify
 	else \
 		echo "Live Meta section skipped: set META_LIVE_READONLY_VERIFY=1 to enable bounded GET-only validation."; \
 	fi
+
+product-activity-live-verify: verify
+	@test "$${PRODUCT_ACTIVITY_LIVE_VERIFY:-0}" = "1" || (echo "Set PRODUCT_ACTIVITY_LIVE_VERIFY=1 to enable bounded first-party reads" && exit 2)
+	$(PYTEST) -q -m live_product_activity tests/test_product_activity_live_optin.py
 
 audit-migrations:
 	scripts/sqlite_migration_audit.sh

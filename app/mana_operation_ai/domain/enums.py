@@ -92,6 +92,44 @@ class ActionType(StrEnum):
     PROPOSE_TEST = "propose_test"
 
 
+class GrowthActionType(StrEnum):
+    CREATE_EXPERIMENT = "create_experiment"
+    STOP_EXPERIMENT = "stop_experiment"
+
+
+class ActivityEventType(StrEnum):
+    APP_OPEN = "app_open"
+    APP_CLOSE = "app_close"
+    SESSION_START = "session_start"
+    FIRST_OPEN = "first_open"
+    USER_ENGAGEMENT = "user_engagement"
+    SCREEN_VIEW = "screen_view"
+    BUTTON_CLICK = "button_click"
+    SEARCH = "search"
+    NAVIGATION = "navigation"
+    REGISTRATION_STARTED = "registration_started"
+    REGISTRATION_COMPLETED = "registration_completed"
+    FORM_COMPLETED = "form_completed"
+    FILE_UPLOADED = "file_uploaded"
+    FEATURE_USED = "feature_used"
+    SCREEN_TIME = "screen_time"
+    APP_EXCEPTION = "app_exception"
+    APP_REMOVE = "app_remove"
+    APP_UPDATE = "app_update"
+    OS_UPDATE = "os_update"
+    APP_CLEAR_DATA = "app_clear_data"
+    NOTIFICATION_RECEIVE = "notification_receive"
+    NOTIFICATION_DISMISS = "notification_dismiss"
+    NOTIFICATION_OPEN = "notification_open"
+    NOTIFICATION_FOREGROUND = "notification_foreground"
+
+
+class OutcomeEvaluationStatus(StrEnum):
+    PENDING = "pending"
+    MEASURED = "measured"
+    INCONCLUSIVE = "inconclusive"
+
+
 class ActionStatus(StrEnum):
     PROPOSED = "proposed"
     POLICY_REJECTED = "policy_rejected"

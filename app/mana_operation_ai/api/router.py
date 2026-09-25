@@ -26,6 +26,7 @@ from app.mana_operation_ai.api.schemas import (
     KillSwitchRequest,
     KillSwitchResponse,
     ManualRunAccepted,
+    OutcomeEvaluationPage,
     ProposalPage,
     RecommendationPage,
     ReportPage,
@@ -77,6 +78,12 @@ router = APIRouter()
     "/session",
     response_model=ActorResponse,
     summary="Resolve the authenticated operation actor",
+    description=(
+        "Returns the actor identifier and role resolved from the request credentials, together "
+        "with the configured ads provider and its mode. Requires at least the `viewer` role. "
+        "When `live_meta_read_only` is `true` the provider is LIVE Meta and every write "
+        "execution is refused with 403."
+    ),
 )
 async def operation_session(actor: ActorDep, request: Request) -> ActorResponse:
     require_role(actor, UserRole.VIEWER)
@@ -97,6 +104,12 @@ async def operation_session(actor: ActorDep, request: Request) -> ActorResponse:
     "/marketing/overview",
     response_model=MarketingOverview,
     summary="Get the current Marketing Agent operating view",
+    description=(
+        "Returns the latest Marketing Agent picture: freshly probed integration health for the "
+        "default ads provider, the most recent stored ads snapshot with its per-breakdown "
+        "performance, the active configuration and the agent schedules. Requires at least the "
+        "`viewer` role. The snapshot fields stay `null` until a run has stored ads data."
+    ),
 )
 async def marketing_overview(
     admin: OperationAdminServiceDep,
@@ -110,13 +123,19 @@ async def marketing_overview(
     "/dashboard",
     response_model=DashboardResponse,
     summary="Get the operational-agent dashboard",
+    description=(
+        "Returns one summary row per registered agent (health, last and next run, last run "
+        "duration, success rate over the 100 most recent runs, pending approvals and recent "
+        "failures) plus the current global kill-switch state. Requires at least the `viewer` "
+        "role. `success_rate` is the literal string `unavailable` while an agent has no runs."
+    ),
 )
 async def dashboard(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
 ) -> DashboardResponse:
     require_role(actor, UserRole.VIEWER)
-    agents = await admin.repository.list_agents()
+    agents = await admin.list_loaded_agents()
     pending_proposals, _ = await admin.repository.list_proposals(
         status=ActionStatus.AWAITING_APPROVAL,
         limit=10_000,
@@ -124,8 +143,15 @@ async def dashboard(
     schedules = await admin.repository.list_schedules()
     dashboard_agents: list[DashboardAgent] = []
     for agent in agents:
+        agent_identifiers = admin.agent_identifiers(agent.agent_id)
         health_checks = await admin.agent_health(agent.agent_id)
-        runs, total = await admin.repository.list_runs(agent_id=agent.agent_id, limit=100)
+        runs, total = await admin.list_runs(
+            agent_id=agent.agent_id,
+            capability_key=None,
+            status=None,
+            limit=100,
+            offset=0,
+        )
         completed = sum(item.status is AgentRunStatus.COMPLETED for item in runs)
         success_rate = "unavailable" if total == 0 else str(completed / min(total, 100))
         last = runs[0] if runs else None
@@ -153,7 +179,7 @@ async def dashboard(
                 last_duration_ms=duration_ms,
                 success_rate=success_rate,
                 pending_approvals=sum(
-                    item.agent_id == agent.agent_id for item in pending_proposals
+                    item.agent_id in agent_identifiers for item in pending_proposals
                 ),
                 recent_incidents=sum(item.status is AgentRunStatus.FAILED for item in runs),
             ),
@@ -165,7 +191,16 @@ async def dashboard(
     )
 
 
-@router.get("/agents", response_model=AgentPage, summary="List registered agents")
+@router.get(
+    "/agents",
+    response_model=AgentPage,
+    summary="List registered agents",
+    description=(
+        "Returns the registered agent definitions ordered by `sort_by` and `sort_order`, then "
+        "paginated with `limit` and `offset`. Requires at least the `viewer` role. Sorting and "
+        "pagination happen in memory, so `total` always reports the size of the whole catalog."
+    ),
+)
 async def list_agents(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
@@ -175,7 +210,7 @@ async def list_agents(
     sort_order: Literal["asc", "desc"] = "asc",
 ) -> AgentPage:
     require_role(actor, UserRole.VIEWER)
-    agents = await admin.repository.list_agents()
+    agents = await admin.list_loaded_agents()
     agents.sort(
         key=lambda item: str(getattr(item, sort_by)).casefold(),
         reverse=sort_order == "desc",
@@ -193,6 +228,12 @@ async def list_agents(
     response_model=AgentDefinition,
     status_code=status.HTTP_201_CREATED,
     summary="Register an agent implementation loaded by the application",
+    description=(
+        "Copies an agent implementation loaded by this process into the operational catalog, "
+        "records an `agent_registered` audit event and returns the stored definition with 201. "
+        "Requires the `admin` role. Returns 404 when no implementation is loaded under that "
+        "identifier."
+    ),
 )
 async def register_agent(
     agent_id: str,
@@ -206,24 +247,45 @@ async def register_agent(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get("/agents/{agent_id}", response_model=AgentDetailResponse, summary="Get an agent")
+@router.get(
+    "/agents/{agent_id}",
+    response_model=AgentDetailResponse,
+    summary="Get an agent",
+    description=(
+        "Returns the agent definition together with its latest configuration, its schedules, a "
+        "freshly probed integration health report and the state of its dedicated kill switch. "
+        "Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog."
+    ),
+)
 async def get_agent(
     agent_id: str,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
 ) -> AgentDetailResponse:
     require_role(actor, UserRole.VIEWER)
-    agent = await admin.repository.get_agent(agent_id)
+    canonical_agent_id = admin.canonical_agent_id(agent_id)
+    agent = await admin.repository.get_agent(canonical_agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="Agent was not found")
+    configurations = await admin.repository.list_configurations(canonical_agent_id)
     return AgentDetailResponse(
         agent=agent,
-        configuration=await admin.repository.latest_configuration(agent_id),
-        schedules=await admin.repository.list_schedules(agent_id),
-        integration_health=await admin.agent_health(agent_id),
-        kill_switch_enabled=await admin.repository.get_control(
-            f"agent_kill_switch:{agent_id}",
+        configuration=await admin.repository.latest_configuration(
+            canonical_agent_id,
+            agent.default_capability_key,
         ),
+        configurations=configurations,
+        schedules=await admin.repository.list_schedules(canonical_agent_id),
+        integration_health=await admin.agent_health(canonical_agent_id),
+        kill_switch_enabled=await admin.repository.get_control(
+            f"agent_kill_switch:{canonical_agent_id}",
+        ),
+        capability_kill_switches={
+            capability.key: await admin.repository.get_control(
+                f"capability_kill_switch:{canonical_agent_id}:{capability.key}",
+            )
+            for capability in agent.capabilities
+        },
     )
 
 
@@ -231,6 +293,11 @@ async def get_agent(
     "/agents/{agent_id}/status",
     response_model=AgentDefinition,
     summary="Change agent status",
+    description=(
+        "Sets the agent lifecycle status to the value in the body and records an "
+        "`agent_status_changed` audit event. Requires the `admin` role. Returns 404 when the "
+        "agent is not in the catalog."
+    ),
 )
 async def set_agent_status(
     agent_id: str,
@@ -245,7 +312,16 @@ async def set_agent_status(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post("/agents/{agent_id}/enable", response_model=AgentDefinition)
+@router.post(
+    "/agents/{agent_id}/enable",
+    response_model=AgentDefinition,
+    summary="Enable an agent",
+    description=(
+        "Shortcut that sets the agent status to `enabled`, the only status in which scheduled "
+        "and manual runs are accepted, and records an audit event. Requires the `admin` role. "
+        "Returns 404 when the agent is not in the catalog."
+    ),
+)
 async def enable_agent(
     agent_id: str,
     admin: OperationAdminServiceDep,
@@ -262,7 +338,16 @@ async def enable_agent(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post("/agents/{agent_id}/disable", response_model=AgentDefinition)
+@router.post(
+    "/agents/{agent_id}/disable",
+    response_model=AgentDefinition,
+    summary="Disable an agent",
+    description=(
+        "Shortcut that sets the agent status to `disabled`, after which scheduled and manual "
+        "runs are refused until the agent is enabled again. Requires the `admin` role. Returns "
+        "404 when the agent is not in the catalog."
+    ),
+)
 async def disable_agent(
     agent_id: str,
     admin: OperationAdminServiceDep,
@@ -279,7 +364,16 @@ async def disable_agent(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post("/agents/{agent_id}/pause", response_model=AgentDefinition)
+@router.post(
+    "/agents/{agent_id}/pause",
+    response_model=AgentDefinition,
+    summary="Pause an agent",
+    description=(
+        "Shortcut that sets the agent status to `paused`; while it is paused a manual run "
+        "request is rejected with 409. Requires the `admin` role. Returns 404 when the agent is "
+        "not in the catalog."
+    ),
+)
 async def pause_agent(
     agent_id: str,
     admin: OperationAdminServiceDep,
@@ -296,7 +390,15 @@ async def pause_agent(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post("/agents/{agent_id}/resume", response_model=AgentDefinition)
+@router.post(
+    "/agents/{agent_id}/resume",
+    response_model=AgentDefinition,
+    summary="Resume a paused agent",
+    description=(
+        "Shortcut that sets the agent status back to `enabled` after a pause or a disable. "
+        "Requires the `admin` role. Returns 404 when the agent is not in the catalog."
+    ),
+)
 async def resume_agent(
     agent_id: str,
     admin: OperationAdminServiceDep,
@@ -318,6 +420,15 @@ async def resume_agent(
     response_model=ManualRunAccepted,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Run an agent job now",
+    description=(
+        "Checks that the agent is enabled, has a configuration and is not blocked by a kill "
+        "switch, then queues the job as a background task and answers 202 with the correlation "
+        "identifier the run will use; the run itself is not awaited. Requires at least the "
+        "`operator` role. Send `idempotency_key` so a retried request joins the existing run "
+        "instead of starting a second one. Returns 409 when the agent is unavailable (disabled, "
+        "unconfigured or killed). A 202 response confirms acceptance, not successful completion; "
+        "inspect the run history for background lock, timeout, provider, or analysis failures."
+    ),
 )
 async def run_agent_now(
     agent_id: str,
@@ -328,18 +439,24 @@ async def run_agent_now(
 ) -> ManualRunAccepted:
     require_role(actor, UserRole.OPERATOR)
     try:
-        await admin.validate_run(agent_id)
+        canonical_agent_id = admin.canonical_agent_id(agent_id)
+        capability_key = payload.capability_key or admin.default_capability_key(
+            canonical_agent_id,
+        )
+        await admin.validate_run(canonical_agent_id, capability_key)
         correlation_id = payload.correlation_id or admin.new_identifier()
         background_tasks.add_task(
             admin.run_in_background,
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=capability_key,
             job_type=payload.job_type,
             actor=actor,
             correlation_id=correlation_id,
             idempotency_key=payload.idempotency_key,
         )
         return ManualRunAccepted(
-            agent_id=agent_id,
+            agent_id=canonical_agent_id,
+            capability_key=capability_key,
             job_type=payload.job_type,
             correlation_id=correlation_id,
         )
@@ -349,18 +466,29 @@ async def run_agent_now(
         raise HTTPException(status_code=423, detail=str(exc)) from exc
 
 
-@router.get("/runs", response_model=RunPage, summary="List agent runs")
+@router.get(
+    "/runs",
+    response_model=RunPage,
+    summary="List agent runs",
+    description=(
+        "Returns agent runs newest first, optionally filtered by `agent_id` and by `status`, "
+        "paginated with `limit` and `offset`. Requires at least the `viewer` role. `total` "
+        "counts every run matching the filters, not just the returned page."
+    ),
+)
 async def list_runs(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
     run_status: Annotated[AgentRunStatus | None, Query(alias="status")] = None,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> RunPage:
     require_role(actor, UserRole.VIEWER)
-    items, total = await admin.repository.list_runs(
+    items, total = await admin.list_runs(
         agent_id=agent_id,
+        capability_key=capability_key,
         status=run_status,
         limit=limit,
         offset=offset,
@@ -372,6 +500,12 @@ async def list_runs(
     "/runs/{run_id}",
     response_model=RunDetailResponse,
     summary="Get a run and its timeline",
+    description=(
+        "Returns the run with its audit timeline, stored data snapshots, findings, "
+        "recommendations and action proposals in a single payload. Requires at least the "
+        "`viewer` role. Each related collection is capped at its 1000 most recent entries. "
+        "Returns 404 when the run identifier is unknown."
+    ),
 )
 async def get_run(
     run_id: str,
@@ -387,6 +521,7 @@ async def get_run(
     findings, _ = await admin.repository.list_findings(run_id=run_id, limit=1_000)
     recommendations, _ = await admin.repository.list_recommendations(run_id=run_id, limit=1_000)
     proposals, _ = await admin.repository.list_proposals(run_id=run_id, limit=1_000)
+    outcomes, _ = await admin.repository.list_outcome_evaluations(run_id=run_id, limit=1_000)
     return RunDetailResponse(
         run=run,
         timeline=audit,
@@ -394,48 +529,88 @@ async def get_run(
         findings=findings,
         recommendations=recommendations,
         proposals=proposals,
+        outcomes=outcomes,
     )
 
 
-@router.get("/agents/{agent_id}/configurations", response_model=ConfigurationPage)
+@router.get(
+    "/agents/{agent_id}/configurations",
+    response_model=ConfigurationPage,
+    summary="List agent configuration versions",
+    description=(
+        "Returns every stored configuration version of the agent, highest version first. "
+        "Requires at least the `viewer` role. This endpoint is not paginated: the full history "
+        "is returned in one response and `limit` merely mirrors the number of items."
+    ),
+)
 async def list_configurations(
     agent_id: str,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
+    capability_key: str | None = None,
 ) -> ConfigurationPage:
     require_role(actor, UserRole.VIEWER)
-    items = await admin.repository.list_configurations(agent_id)
+    canonical_agent_id = admin.canonical_agent_id(agent_id)
+    items = await admin.repository.list_configurations(canonical_agent_id, capability_key)
     return ConfigurationPage(total=len(items), limit=len(items) or 1, offset=0, items=items)
 
 
-@router.get("/agents/{agent_id}/configuration-schema", response_model=dict[str, JsonValue])
+@router.get(
+    "/agents/{agent_id}/configuration-schema",
+    response_model=dict[str, JsonValue],
+    summary="Get the agent configuration schema",
+    description=(
+        "Returns the JSON Schema that a configuration payload for this agent must satisfy; use "
+        "it to build and pre-validate the body sent to the configuration creation endpoint. "
+        "Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog."
+    ),
+)
 async def configuration_schema(
     agent_id: str,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
+    capability_key: str | None = None,
 ) -> dict[str, JsonValue]:
     require_role(actor, UserRole.VIEWER)
-    agent = await admin.repository.get_agent(agent_id)
+    canonical_agent_id = admin.canonical_agent_id(agent_id)
+    agent = await admin.repository.get_agent(canonical_agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="Agent was not found")
-    return agent.configuration_schema
+    effective_capability_key = capability_key or agent.default_capability_key
+    capability = next(
+        (item for item in agent.capabilities if item.key == effective_capability_key),
+        None,
+    )
+    if capability is None:
+        raise HTTPException(status_code=404, detail="Capability was not found")
+    return capability.input_schema
 
 
 @router.post(
     "/agents/{agent_id}/configurations",
     response_model=AgentConfiguration,
     status_code=status.HTTP_201_CREATED,
+    summary="Create an agent configuration version",
+    description=(
+        "Validates the submitted values against the agent configuration schema, stores them as "
+        "the next version, rebuilds the schedules derived from that configuration and returns "
+        "the new version with 201. Requires the `admin` role. Returns 404 for an unknown agent, "
+        "422 when the values fail validation, and 409 when a concurrent write already created "
+        "that version."
+    ),
 )
 async def create_configuration(
     agent_id: str,
     payload: ConfigurationCreateRequest,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
+    capability_key: str | None = None,
 ) -> AgentConfiguration:
     require_role(actor, UserRole.ADMIN)
     try:
         return await admin.create_configuration(
             agent_id=agent_id,
+            capability_key=capability_key,
             values=payload.values,
             actor=actor,
         )
@@ -452,18 +627,39 @@ async def create_configuration(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/schedules", response_model=SchedulePage)
+@router.get(
+    "/schedules",
+    response_model=SchedulePage,
+    summary="List schedules",
+    description=(
+        "Returns the cron schedules of every agent, or of a single agent when `agent_id` is "
+        "given, ordered by agent identifier and job type. Requires at least the `viewer` role. "
+        "This endpoint is not paginated: all matching schedules come back in one response."
+    ),
+)
 async def list_schedules(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
 ) -> SchedulePage:
     require_role(actor, UserRole.VIEWER)
-    items = await admin.repository.list_schedules(agent_id)
+    effective_agent_id = admin.canonical_agent_id(agent_id) if agent_id is not None else None
+    items = await admin.repository.list_schedules(effective_agent_id, capability_key)
     return SchedulePage(total=len(items), limit=len(items) or 1, offset=0, items=items)
 
 
-@router.put("/schedules/{schedule_id}", response_model=AgentSchedule)
+@router.put(
+    "/schedules/{schedule_id}",
+    response_model=AgentSchedule,
+    summary="Update a schedule",
+    description=(
+        "Replaces the cron expression, timezone and enabled flag of a schedule, recomputes its "
+        "next occurrence and records a `schedule_changed` audit event. Requires the `admin` "
+        "role. Returns 404 for an unknown schedule, 422 for an invalid cron expression, and 409 "
+        "when a concurrent write already changed the schedule."
+    ),
+)
 async def update_schedule(
     schedule_id: str,
     payload: ScheduleUpdateRequest,
@@ -487,7 +683,16 @@ async def update_schedule(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/findings", response_model=FindingPage)
+@router.get(
+    "/findings",
+    response_model=FindingPage,
+    summary="List findings",
+    description=(
+        "Returns the findings produced by agent analysis, newest first, optionally restricted to "
+        "one run through `run_id` and paginated with `limit` and `offset`. Requires at least the "
+        "`viewer` role."
+    ),
+)
 async def list_findings(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
@@ -500,7 +705,17 @@ async def list_findings(
     return FindingPage(total=total, limit=limit, offset=offset, items=items)
 
 
-@router.get("/recommendations", response_model=RecommendationPage)
+@router.get(
+    "/recommendations",
+    response_model=RecommendationPage,
+    summary="List recommendations",
+    description=(
+        "Returns the recommendations derived from findings, newest first, optionally restricted "
+        "to one run through `run_id` and paginated with `limit` and `offset`. Requires at least "
+        "the `viewer` role. A recommendation is only advisory until it becomes an action "
+        "proposal."
+    ),
+)
 async def list_recommendations(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
@@ -517,7 +732,16 @@ async def list_recommendations(
     return RecommendationPage(total=total, limit=limit, offset=offset, items=items)
 
 
-@router.get("/action-proposals", response_model=ProposalPage)
+@router.get(
+    "/action-proposals",
+    response_model=ProposalPage,
+    summary="List action proposals",
+    description=(
+        "Returns action proposals newest first, optionally filtered by `run_id` and by lifecycle "
+        "`status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. "
+        "Proposals in status `awaiting_approval` are the ones still waiting for an approver."
+    ),
+)
 async def list_action_proposals(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
@@ -536,7 +760,16 @@ async def list_action_proposals(
     return ProposalPage(total=total, limit=limit, offset=offset, items=items)
 
 
-@router.get("/approvals", response_model=ApprovalPage)
+@router.get(
+    "/approvals",
+    response_model=ApprovalPage,
+    summary="List approval requests",
+    description=(
+        "Returns approval requests newest first, optionally filtered by `status`, paginated with "
+        "`limit` and `offset`. Requires at least the `viewer` role. A request stays `pending` "
+        "until it is decided or until the expiration job marks it `expired`."
+    ),
+)
 async def list_approvals(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
@@ -553,7 +786,22 @@ async def list_approvals(
     return ApprovalPage(total=total, limit=limit, offset=offset, items=items)
 
 
-@router.post("/approvals/{proposal_id}/decision", response_model=ApprovalLifecycleResponse)
+@router.post(
+    "/approvals/{proposal_id}/decision",
+    response_model=ApprovalLifecycleResponse,
+    summary="Approve or reject an action proposal",
+    description=(
+        "Records the decision on the pending approval and, when the proposal is approved and its "
+        "provider is executable, immediately executes and verifies the action; the response "
+        "carries the proposal, the decision, the execution, the verification and the refreshed "
+        "run. Requires at least the `approver` role, and the requester's own decision is refused "
+        "with 403 while self-approval is disabled. Returns 409 for a stale proposal or a "
+        "concurrent write, 423 when a safeguard such as a kill switch, an expiry or a competing "
+        "execution blocks the action, and 202 when a dispatched write must be reconciled before "
+        "any retry. In dry-run mode the provider is never called and the lifecycle ends with "
+        "status `dry_run`."
+    ),
+)
 async def decide_approval(
     proposal_id: str,
     payload: ApprovalDecisionRequest,
@@ -592,7 +840,19 @@ async def decide_approval(
     )
 
 
-@router.post("/approvals/bulk-decision", response_model=list[ApprovalLifecycleResponse])
+@router.post(
+    "/approvals/bulk-decision",
+    response_model=list[ApprovalLifecycleResponse],
+    summary="Decide several action proposals at once",
+    description=(
+        "Applies the same decision to up to 50 proposals one after another and returns one "
+        "lifecycle result per proposal. Requires at least the `approver` role. Returns 409 when "
+        "the proposals do not all share a single action type, or when a bulk **approval** "
+        "targets anything other than budget-decrease actions. Returns 403 for a forbidden or "
+        "self-approval decision, 404 when any proposal is unknown, and 202 when a dispatched "
+        "write requires reconciliation."
+    ),
+)
 async def bulk_decide_approval(
     payload: BulkApprovalDecisionRequest,
     admin: OperationAdminServiceDep,
@@ -631,17 +891,29 @@ async def bulk_decide_approval(
     ]
 
 
-@router.get("/executions", response_model=ExecutionPage)
+@router.get(
+    "/executions",
+    response_model=ExecutionPage,
+    summary="List action executions",
+    description=(
+        "Returns provider execution attempts newest first, optionally restricted to one agent "
+        "through `agent_id` and paginated with `limit` and `offset`. Requires at least the "
+        "`viewer` role. Each item keeps the provider state before the write, the requested "
+        "change, the provider response and the idempotency key used."
+    ),
+)
 async def list_executions(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> ExecutionPage:
     require_role(actor, UserRole.VIEWER)
-    items, total = await admin.repository.list_executions(
+    items, total = await admin.list_executions(
         agent_id=agent_id,
+        capability_key=capability_key,
         limit=limit,
         offset=offset,
     )
@@ -653,6 +925,15 @@ async def list_executions(
     response_model=ApprovalLifecycleResponse,
     responses={403: {"model": WriteForbiddenResponse}},
     summary="Execute an already approved proposal after rechecking all safeguards",
+    description=(
+        "Re-runs every safeguard for an already approved proposal (kill switches, current "
+        "policy, expiry, provider state hash and the per-object lock) and then executes and "
+        "verifies it. Requires at least the `approver` role. Repeating the call is safe: the "
+        "stored execution for the proposal idempotency key is returned instead of writing "
+        "twice. Returns 403 with a `write_operation_forbidden` body when the provider is LIVE "
+        "Meta and therefore read-only, 409 for a stale proposal, 423 when a safeguard blocks "
+        "the action, and 202 when a dispatched write requires reconciliation."
+    ),
 )
 async def execute_approved_proposal(
     proposal_id: str,
@@ -691,24 +972,44 @@ def _write_forbidden_http_exception(exc: WriteOperationForbidden) -> HTTPExcepti
     return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail.model_dump())
 
 
-@router.get("/reports", response_model=ReportPage)
+@router.get(
+    "/reports",
+    response_model=ReportPage,
+    summary="List agent reports",
+    description=(
+        "Returns generated agent reports newest first, optionally restricted to one agent "
+        "through `agent_id` and paginated with `limit` and `offset`. Requires at least the "
+        "`viewer` role."
+    ),
+)
 async def list_reports(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
     agent_id: str | None = None,
+    capability_key: str | None = None,
     limit: int = Query(default=100, ge=1, le=1_000),
     offset: int = Query(default=0, ge=0),
 ) -> ReportPage:
     require_role(actor, UserRole.VIEWER)
-    items, total = await admin.repository.list_reports(
+    items, total = await admin.list_reports(
         agent_id=agent_id,
+        capability_key=capability_key,
         limit=limit,
         offset=offset,
     )
     return ReportPage(total=total, limit=limit, offset=offset, items=items)
 
 
-@router.get("/reports/{report_id}", response_model=AgentReport)
+@router.get(
+    "/reports/{report_id}",
+    response_model=AgentReport,
+    summary="Get a report",
+    description=(
+        "Returns one stored report in full, with its reporting period, structured payload, "
+        "human-readable body and data-quality notes. Requires at least the `viewer` role. "
+        "Returns 404 when the report identifier is unknown."
+    ),
+)
 async def get_report(
     report_id: str,
     admin: OperationAdminServiceDep,
@@ -722,8 +1023,42 @@ async def get_report(
 
 
 @router.get(
+    "/outcome-evaluations",
+    response_model=OutcomeEvaluationPage,
+    summary="List persisted action outcome evaluations",
+    description=(
+        "Returns pending, measured, or inconclusive outcome evaluations, optionally filtered "
+        "by run or proposal. Provider-state verification and business-outcome measurement are "
+        "reported separately. Requires at least the `viewer` role."
+    ),
+)
+async def list_outcome_evaluations(
+    admin: OperationAdminServiceDep,
+    actor: ActorDep,
+    run_id: str | None = None,
+    proposal_id: str | None = None,
+    limit: int = Query(default=100, ge=1, le=1_000),
+    offset: int = Query(default=0, ge=0),
+) -> OutcomeEvaluationPage:
+    require_role(actor, UserRole.VIEWER)
+    items, total = await admin.repository.list_outcome_evaluations(
+        run_id=run_id,
+        proposal_id=proposal_id,
+        limit=limit,
+        offset=offset,
+    )
+    return OutcomeEvaluationPage(total=total, limit=limit, offset=offset, items=items)
+
+
+@router.get(
     "/integrations/{provider}/health",
     response_model=IntegrationHealthResponse,
+    summary="Check an ads provider integration",
+    description=(
+        "Probes the named ads platform, stores the resulting health record and returns it with "
+        "its status, latency and any error detail. Requires at least the `viewer` role. Returns "
+        "404 when no platform is registered under that provider name."
+    ),
 )
 async def integration_health(
     provider: str,
@@ -737,7 +1072,17 @@ async def integration_health(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get("/audit-events", response_model=AuditPage)
+@router.get(
+    "/audit-events",
+    response_model=AuditPage,
+    summary="List audit events",
+    description=(
+        "Returns the append-only audit trail newest first, optionally filtered by "
+        "`correlation_id` or `run_id`, paginated with `limit` (up to 2000) and `offset`. "
+        "Requires at least the `viewer` role. Filtering by `correlation_id` is the way to "
+        "reconstruct everything a single manual run or approval decision produced."
+    ),
+)
 async def list_audit_events(
     admin: OperationAdminServiceDep,
     actor: ActorDep,
@@ -756,18 +1101,38 @@ async def list_audit_events(
     return AuditPage(total=total, limit=limit, offset=offset, items=items)
 
 
-@router.put("/kill-switch/global", response_model=KillSwitchResponse)
+@router.put(
+    "/kill-switch/global",
+    response_model=KillSwitchResponse,
+    summary="Set the global kill switch",
+    description=(
+        "Enables or disables the global kill switch and records a `kill_switch_changed` audit "
+        "event; the response echoes the resulting scope and state. Requires the `admin` role. "
+        "While it is enabled every agent run is refused with 409 and every action execution is "
+        "blocked with 423, whatever the per-agent settings are."
+    ),
+)
 async def global_kill_switch(
     payload: KillSwitchRequest,
     admin: OperationAdminServiceDep,
     actor: ActorDep,
 ) -> KillSwitchResponse:
     require_role(actor, UserRole.ADMIN)
-    await admin.set_kill_switch(agent_id=None, enabled=payload.enabled, actor=actor)
-    return KillSwitchResponse(scope="global", enabled=payload.enabled)
+    scope = await admin.set_kill_switch(agent_id=None, enabled=payload.enabled, actor=actor)
+    return KillSwitchResponse(scope=scope, enabled=payload.enabled)
 
 
-@router.put("/kill-switch/agents/{agent_id}", response_model=KillSwitchResponse)
+@router.put(
+    "/kill-switch/agents/{agent_id}",
+    response_model=KillSwitchResponse,
+    summary="Set an agent kill switch",
+    description=(
+        "Enables or disables the kill switch of a single agent and records a "
+        "`kill_switch_changed` audit event; the response echoes the agent scope and state. "
+        "Requires the `admin` role. While it is enabled that agent cannot start a run and none "
+        "of its approved actions can be executed."
+    ),
+)
 async def agent_kill_switch(
     agent_id: str,
     payload: KillSwitchRequest,
@@ -775,5 +1140,35 @@ async def agent_kill_switch(
     actor: ActorDep,
 ) -> KillSwitchResponse:
     require_role(actor, UserRole.ADMIN)
-    await admin.set_kill_switch(agent_id=agent_id, enabled=payload.enabled, actor=actor)
-    return KillSwitchResponse(scope=agent_id, enabled=payload.enabled)
+    scope = await admin.set_kill_switch(agent_id=agent_id, enabled=payload.enabled, actor=actor)
+    return KillSwitchResponse(scope=scope, enabled=payload.enabled)
+
+
+@router.put(
+    "/kill-switch/agents/{agent_id}/capabilities/{capability_key}",
+    response_model=KillSwitchResponse,
+    summary="Set a capability kill switch",
+    description=(
+        "Enables or disables one capability without stopping sibling capabilities of the same "
+        "agent. The control is enforced both before runs and before approved actions execute. "
+        "Requires the `admin` role."
+    ),
+)
+async def capability_kill_switch(
+    agent_id: str,
+    capability_key: str,
+    payload: KillSwitchRequest,
+    admin: OperationAdminServiceDep,
+    actor: ActorDep,
+) -> KillSwitchResponse:
+    require_role(actor, UserRole.ADMIN)
+    try:
+        scope = await admin.set_kill_switch(
+            agent_id=agent_id,
+            capability_key=capability_key,
+            enabled=payload.enabled,
+            actor=actor,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return KillSwitchResponse(scope=scope, enabled=payload.enabled)

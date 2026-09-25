@@ -1,0 +1,22 @@
+services:
+  migrate:
+    environment:
+      GA4_SERVICE_ACCOUNT_FILE: /run/secrets/ga4-service-account.json
+    secrets:
+      - ga4-service-account
+
+  api:
+    environment:
+      GA4_SERVICE_ACCOUNT_FILE: /run/secrets/ga4-service-account.json
+    secrets:
+      - ga4-service-account
+
+  worker:
+    environment:
+      GA4_SERVICE_ACCOUNT_FILE: /run/secrets/ga4-service-account.json
+    secrets:
+      - ga4-service-account
+
+secrets:
+  ga4-service-account:
+    file: ${GA4_SERVICE_ACCOUNT_HOST_FILE:?Set GA4_SERVICE_ACCOUNT_HOST_FILE}

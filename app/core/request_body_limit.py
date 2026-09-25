@@ -5,12 +5,21 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class RequestBodyLimitMiddleware:
-    def __init__(self, app: ASGIApp, *, max_body_bytes: int) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_body_bytes: int,
+        paths: set[str] | frozenset[str] | None = None,
+    ) -> None:
         self._app = app
         self._max_body_bytes = max_body_bytes
+        self._paths = frozenset(paths) if paths is not None else None
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or (
+            self._paths is not None and scope.get("path") not in self._paths
+        ):
             await self._app(scope, receive, send)
             return
 

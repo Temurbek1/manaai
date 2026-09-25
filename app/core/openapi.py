@@ -41,6 +41,13 @@ OPENAPI_TAGS: list[dict[str, Any]] = [
         ),
     },
     {
+        "name": "audio-moderation",
+        "description": (
+            "Server-to-server intake for private 360REC audio safety moderation jobs and "
+            "asynchronous one-time callbacks."
+        ),
+    },
+    {
         "name": "operation-admin",
         "description": "RBAC-protected internal operational-agent management and audit API.",
     },

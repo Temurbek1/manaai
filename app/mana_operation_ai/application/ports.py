@@ -11,6 +11,13 @@ from app.mana_operation_ai.domain.enums import (
     ApprovalStatus,
     ProviderMode,
 )
+from app.mana_operation_ai.domain.growth import (
+    AttributionFacts,
+    BillingFunnelFacts,
+    ExperimentDispatchResult,
+    ExperimentTargetState,
+    ProductAnalyticsFacts,
+)
 from app.mana_operation_ai.domain.marketing import (
     AdsCollectionRequest,
     AdsSnapshot,
@@ -32,10 +39,17 @@ from app.mana_operation_ai.domain.models import (
     ApprovalDecision,
     ApprovalRequest,
     AuditEvent,
+    CapabilityDefinition,
     DataSnapshot,
     Finding,
     IntegrationHealth,
+    OutcomeEvaluation,
     Recommendation,
+)
+from app.mana_operation_ai.domain.retention import (
+    BackendActivityFacts,
+    MobileActivityFacts,
+    OperationalTelemetryFacts,
 )
 
 
@@ -86,13 +100,25 @@ class OperationRepository(Protocol):
 
     async def save_configuration(self, configuration: AgentConfiguration) -> None: ...
 
-    async def latest_configuration(self, agent_id: str) -> AgentConfiguration | None: ...
+    async def latest_configuration(
+        self,
+        agent_id: str,
+        capability_key: str,
+    ) -> AgentConfiguration | None: ...
 
-    async def list_configurations(self, agent_id: str) -> list[AgentConfiguration]: ...
+    async def list_configurations(
+        self,
+        agent_id: str,
+        capability_key: str | None = None,
+    ) -> list[AgentConfiguration]: ...
 
     async def save_schedule(self, schedule: AgentSchedule) -> None: ...
 
-    async def list_schedules(self, agent_id: str | None = None) -> list[AgentSchedule]: ...
+    async def list_schedules(
+        self,
+        agent_id: str | None = None,
+        capability_key: str | None = None,
+    ) -> list[AgentSchedule]: ...
 
     async def due_schedules(self, now: datetime) -> list[AgentSchedule]: ...
 
@@ -113,6 +139,7 @@ class OperationRepository(Protocol):
         self,
         *,
         agent_id: str | None = None,
+        capability_key: str | None = None,
         status: AgentRunStatus | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -203,6 +230,7 @@ class OperationRepository(Protocol):
         self,
         *,
         agent_id: str | None = None,
+        capability_key: str | None = None,
         since: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -216,9 +244,21 @@ class OperationRepository(Protocol):
         self,
         *,
         agent_id: str | None = None,
+        capability_key: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> tuple[list[AgentReport], int]: ...
+
+    async def save_outcome_evaluation(self, evaluation: OutcomeEvaluation) -> None: ...
+
+    async def list_outcome_evaluations(
+        self,
+        *,
+        run_id: str | None = None,
+        proposal_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[OutcomeEvaluation], int]: ...
 
     async def save_audit_event(self, event: AuditEvent) -> None: ...
 
@@ -307,6 +347,12 @@ class OperationalAgent(Protocol):
 
     def default_schedules(self) -> list[AgentSchedule]: ...
 
+    def capability_definitions(self) -> list[CapabilityDefinition]: ...
+
+    def default_configuration_for(self, capability_key: str) -> dict[str, JsonValue]: ...
+
+    def default_schedules_for(self, capability_key: str) -> list[AgentSchedule]: ...
+
     def schedules_for_configuration(
         self,
         values: dict[str, JsonValue],
@@ -315,14 +361,97 @@ class OperationalAgent(Protocol):
 
     def validate_configuration(self, values: dict[str, JsonValue]) -> dict[str, JsonValue]: ...
 
+    def validate_capability_configuration(
+        self,
+        capability_key: str,
+        values: dict[str, JsonValue],
+    ) -> dict[str, JsonValue]: ...
+
+    def schedules_for_capability_configuration(
+        self,
+        capability_key: str,
+        values: dict[str, JsonValue],
+        existing: Sequence[AgentSchedule],
+    ) -> list[AgentSchedule]: ...
+
     async def health(self) -> list[IntegrationHealth]: ...
 
     async def execute(
         self,
         *,
         run: AgentRun,
+        capability_key: str,
         job_type: str,
         configuration: AgentConfiguration,
     ) -> AgentRunResult: ...
 
     async def finalize_after_actions(self, run_id: str) -> AgentRunResult: ...
+
+
+class ProductAnalyticsPort(Protocol):
+    async def collect_funnel(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> ProductAnalyticsFacts: ...
+
+
+class BillingReadPort(Protocol):
+    async def collect_funnel(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> BillingFunnelFacts: ...
+
+
+class AttributionPort(Protocol):
+    async def collect_funnel(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> AttributionFacts: ...
+
+
+class ExperimentPlatform(Protocol):
+    @property
+    def provider_name(self) -> str: ...
+
+    @property
+    def provider_mode(self) -> ProviderMode: ...
+
+    async def get_state(self, experiment_key: str) -> ExperimentTargetState: ...
+
+    async def execute(
+        self,
+        *,
+        experiment_key: str,
+        parameters: ActionParameters,
+        idempotency_key: str,
+    ) -> ExperimentDispatchResult: ...
+
+    async def health(self) -> IntegrationHealth: ...
+
+
+class BackendActivityPort(Protocol):
+    @property
+    def integration_id(self) -> str: ...
+
+    async def collect_activity(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> BackendActivityFacts: ...
+
+    async def health(self) -> IntegrationHealth: ...
+
+
+class MobileActivityPort(Protocol):
+    @property
+    def integration_id(self) -> str: ...
+
+    async def collect_activity(
+        self, *, period_start: datetime, period_end: datetime
+    ) -> MobileActivityFacts: ...
+
+    async def health(self) -> IntegrationHealth: ...
+
+
+class OperationalTelemetryPort(Protocol):
+    @property
+    def integration_id(self) -> str: ...
+
+    async def collect_telemetry(self) -> OperationalTelemetryFacts: ...
+
+    async def health(self) -> IntegrationHealth: ...

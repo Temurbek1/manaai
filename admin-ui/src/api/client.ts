@@ -28,6 +28,9 @@ export type ConfigurationPage =
   components["schemas"]["Page_AgentConfiguration_"];
 export type IntegrationHealth = components["schemas"]["IntegrationHealth"];
 export type RunDetail = components["schemas"]["RunDetailResponse"];
+export type OutcomeEvaluation = components["schemas"]["OutcomeEvaluation"];
+export type OutcomeEvaluationPage =
+  components["schemas"]["Page_OutcomeEvaluation_"];
 export type MarketingOverview = components["schemas"]["MarketingOverview"];
 export type AdEntity = components["schemas"]["AdEntity"];
 export type InsightRow = components["schemas"]["InsightRow"];

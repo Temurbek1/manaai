@@ -1,6 +1,8 @@
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +24,8 @@ class Settings(BaseSettings):
     app_api_key: SecretStr | None = None
     auth_failure_limit: int = Field(default=10, ge=2, le=1_000)
     auth_failure_window_seconds: int = Field(default=60, ge=10, le=86_400)
+    api_rate_limit_requests: int = Field(default=60, ge=1, le=100_000)
+    api_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3_600)
     mana_ai_max_request_body_bytes: int = Field(
         default=1_048_576,
         ge=16_384,
@@ -63,6 +67,34 @@ class Settings(BaseSettings):
     openai_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] = "none"
     openai_verbosity: Literal["low", "medium", "high"] = "low"
 
+    audio_moderation_enabled: bool = False
+    ai_audio_moderation_auth_token: SecretStr | None = None
+    audio_moderation_transcription_model: str = "gpt-transcribe"
+    audio_moderation_model: str | None = None
+    audio_moderation_openai_timeout_seconds: float = Field(default=300.0, gt=0, le=1_800)
+    audio_moderation_allowed_audio_hosts: list[str] = Field(
+        default_factory=lambda: ["*.digitaloceanspaces.com"],
+    )
+    audio_moderation_allowed_callback_hosts: list[str] = Field(
+        default_factory=lambda: ["api.360rec.uz"],
+    )
+    audio_moderation_max_job_body_bytes: int = Field(default=32_768, ge=1_024, le=1_048_576)
+    audio_moderation_max_audio_bytes: int = Field(
+        default=25_000_000,
+        ge=1_048_576,
+        le=25_000_000,
+    )
+    audio_moderation_worker_count: int = Field(default=4, ge=1, le=32)
+    audio_moderation_queue_capacity: int = Field(default=32, ge=1, le=1_000)
+    audio_moderation_max_queue_delay_seconds: float = Field(default=120.0, gt=0, le=1_800)
+    audio_moderation_download_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
+    audio_moderation_callback_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    audio_moderation_callback_attempts: int = Field(default=3, ge=1, le=8)
+    audio_moderation_callback_backoff_seconds: float = Field(default=0.5, ge=0, le=10)
+    audio_moderation_safe_confidence_threshold: float = Field(default=0.90, ge=0.5, le=1.0)
+    audio_moderation_transcript_chunk_chars: int = Field(default=12_000, ge=1_000, le=50_000)
+    audio_moderation_max_transcript_chunks: int = Field(default=20, ge=1, le=100)
+
     marketing_database_path: Path = Path("data/manaai.db")
     operation_database_url: str | None = None
     operation_auto_create_schema: bool = True
@@ -80,10 +112,53 @@ class Settings(BaseSettings):
     operation_default_actor_id: str = "local-admin"
     operation_default_role: Literal["viewer", "operator", "approver", "admin"] = "viewer"
     operation_ads_provider: Literal["fake_meta", "meta"] = "fake_meta"
+    operation_product_activity_provider: Literal[
+        "fake",
+        "manakids_firebase",
+        "manakids_ga4",
+    ] = "fake"
     operation_viewer_api_key: SecretStr | None = None
     operation_operator_api_key: SecretStr | None = None
     operation_approver_api_key: SecretStr | None = None
     operation_admin_api_key: SecretStr | None = None
+    manakids_api_base_url: str = "https://api.manakids.uz"
+    manakids_api_username: str | None = None
+    manakids_api_password: SecretStr | None = None
+    manakids_request_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    manakids_max_retries: int = Field(default=3, ge=0, le=8)
+    manakids_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
+    manakids_max_pages: int = Field(default=20, ge=1, le=500)
+    firebase_project_id: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9-]{3,62}$",
+    )
+    firebase_database_id: str = Field(
+        default="(default)",
+        pattern=r"^(\(default\)|[a-z][a-z0-9-]{3,62})$",
+    )
+    firebase_service_account_file: Path | None = None
+    firebase_activity_collection: str = Field(
+        default="app_activity_events",
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,1499}$",
+    )
+    firebase_request_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    firebase_max_activity_documents: int = Field(default=50_000, ge=100, le=250_000)
+    firebase_max_retries: int = Field(default=3, ge=0, le=8)
+    firebase_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
+    firebase_operational_telemetry_enabled: bool = False
+    firebase_operational_max_documents_per_collection: int = Field(
+        default=50_000,
+        ge=100,
+        le=250_000,
+    )
+    ga4_property_id: str | None = Field(default=None, pattern=r"^[0-9]{5,20}$")
+    ga4_service_account_file: Path | None = None
+    ga4_api_base_url: str = "https://analyticsdata.googleapis.com/v1beta"
+    ga4_request_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    ga4_dimension_limit: int = Field(default=50, ge=10, le=1_000)
+    ga4_max_concurrency: int = Field(default=5, ge=1, le=10)
+    ga4_max_retries: int = Field(default=3, ge=0, le=8)
+    ga4_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
     marketing_conversion_action_types: list[str] = Field(
         default_factory=lambda: [
             "purchase",
@@ -282,6 +357,68 @@ class Settings(BaseSettings):
             raise ValueError("META_REAL_WRITES_ENABLED must remain false in read-only Meta mode")
         if self.operation_ads_provider == "meta" and not self.operation_dry_run:
             raise ValueError("OPERATION_DRY_RUN must remain true for the live Meta provider")
+        if self.operation_product_activity_provider in {"manakids_firebase", "manakids_ga4"}:
+            if not self.manakids_api_username or self.manakids_api_password is None:
+                raise ValueError(
+                    "MANAKIDS_API_USERNAME and MANAKIDS_API_PASSWORD are required for live "
+                    "product activity",
+                )
+            if not self.manakids_api_password.get_secret_value():
+                raise ValueError("MANAKIDS_API_PASSWORD cannot be blank")
+            if not self.manakids_api_base_url.startswith("https://"):
+                raise ValueError("MANAKIDS_API_BASE_URL must use HTTPS")
+        if self.operation_product_activity_provider == "manakids_firebase":
+            if self.firebase_project_id is None or self.firebase_service_account_file is None:
+                raise ValueError(
+                    "FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_FILE are required for live "
+                    "product activity",
+                )
+            if not self.firebase_service_account_file.is_file():
+                raise ValueError("FIREBASE_SERVICE_ACCOUNT_FILE must reference a readable file")
+        if self.operation_product_activity_provider == "manakids_ga4":
+            if self.ga4_property_id is None or self.ga4_service_account_file is None:
+                raise ValueError(
+                    "GA4_PROPERTY_ID and GA4_SERVICE_ACCOUNT_FILE are required for live "
+                    "GA4 product activity",
+                )
+            if not self.ga4_service_account_file.is_file():
+                raise ValueError("GA4_SERVICE_ACCOUNT_FILE must reference a readable file")
+        if self.firebase_operational_telemetry_enabled:
+            if self.operation_product_activity_provider == "fake":
+                raise ValueError(
+                    "FIREBASE_OPERATIONAL_TELEMETRY_ENABLED requires a live product activity "
+                    "provider",
+                )
+            if self.firebase_project_id is None or self.firebase_service_account_file is None:
+                raise ValueError(
+                    "FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_FILE are required when "
+                    "operational telemetry is enabled",
+                )
+            if not self.firebase_service_account_file.is_file():
+                raise ValueError("FIREBASE_SERVICE_ACCOUNT_FILE must reference a readable file")
+        if self.audio_moderation_enabled:
+            if self.ai_audio_moderation_auth_token is None:
+                raise ValueError(
+                    "AI_AUDIO_MODERATION_AUTH_TOKEN is required when audio moderation is enabled",
+                )
+            token = self.ai_audio_moderation_auth_token.get_secret_value()
+            if len(token) < 32:
+                raise ValueError(
+                    "AI_AUDIO_MODERATION_AUTH_TOKEN must contain at least 32 characters"
+                )
+            if not self.is_openai_configured:
+                raise ValueError("OPENAI_API_KEY is required when audio moderation is enabled")
+            if not self.audio_moderation_allowed_audio_hosts:
+                raise ValueError("AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS cannot be empty")
+            if not self.audio_moderation_allowed_callback_hosts:
+                raise ValueError("AUDIO_MODERATION_ALLOWED_CALLBACK_HOSTS cannot be empty")
+            if self.app_env in {"staging", "production"} and any(
+                host.startswith("*.") for host in self.audio_moderation_allowed_audio_hosts
+            ):
+                raise ValueError(
+                    "AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS must use exact hosts in staging and "
+                    "production"
+                )
         if self.meta_max_retries > self.meta_live_max_total_retries:
             raise ValueError("META_MAX_RETRIES exceeds the live read-only retry budget")
         if self.meta_max_pages > self.meta_live_max_pages:
@@ -305,6 +442,99 @@ class Settings(BaseSettings):
             if not self.mana_trusted_origins:
                 raise ValueError("MANA_TRUSTED_ORIGINS is required for browser sessions")
         return self
+
+    @field_validator(
+        "mana_telegram_bot_token",
+        "mana_telegram_bot_username",
+        "ai_audio_moderation_auth_token",
+        "audio_moderation_model",
+        "manakids_api_username",
+        "manakids_api_password",
+        "firebase_project_id",
+        "firebase_service_account_file",
+        "ga4_property_id",
+        "ga4_service_account_file",
+        mode="before",
+    )
+    @classmethod
+    def treat_blank_as_unset(cls, value: object) -> object:
+        """An env file spells "unset" as an empty value, which must not reach the username
+        pattern as an empty string."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator(
+        "audio_moderation_allowed_audio_hosts",
+        "audio_moderation_allowed_callback_hosts",
+    )
+    @classmethod
+    def validate_audio_moderation_hosts(cls, value: list[str]) -> list[str]:
+        normalized: list[str] = []
+        for raw_host in value:
+            host = raw_host.strip().rstrip(".").lower()
+            candidate = host[2:] if host.startswith("*.") else host
+            if (
+                not candidate
+                or ":" in candidate
+                or "/" in candidate
+                or not re.fullmatch(
+                    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\."
+                    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+",
+                    candidate,
+                )
+            ):
+                raise ValueError("Audio moderation host allowlists must contain DNS hostnames")
+            normalized.append(("*." if raw_host.strip().startswith("*.") else "") + candidate)
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("Audio moderation host allowlists cannot contain duplicates")
+        return normalized
+
+    @field_validator("mana_otp_ttl_seconds", mode="before")
+    @classmethod
+    def coerce_otp_ttl(cls, value: object) -> object:
+        """Env values arrive as strings, and pydantic will not coerce "60" to Literal[60]."""
+        if isinstance(value, str) and value.strip().isdigit():
+            return int(value)
+        return value
+
+    @field_validator("manakids_api_base_url")
+    @classmethod
+    def validate_manakids_base_url(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "MANAKIDS_API_BASE_URL must be an HTTPS origin without credentials, query, or "
+                "fragment",
+            )
+        return value.rstrip("/")
+
+    @field_validator("ga4_api_base_url")
+    @classmethod
+    def validate_ga4_base_url(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or ".." in parsed.path.split("/")
+        ):
+            raise ValueError(
+                "GA4_API_BASE_URL must be an HTTPS URL without credentials, query, fragment, or "
+                "parent traversal",
+            )
+        return value.rstrip("/")
 
     @field_validator("mana_bootstrap_admin_telegram_ids")
     @classmethod
@@ -334,6 +564,10 @@ class Settings(BaseSettings):
     @property
     def is_openai_configured(self) -> bool:
         return bool(self.openai_api_key.get_secret_value())
+
+    @property
+    def effective_audio_moderation_model(self) -> str:
+        return self.audio_moderation_model or self.openai_model
 
     @property
     def is_meta_configured(self) -> bool:

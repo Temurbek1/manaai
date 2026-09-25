@@ -2,18 +2,22 @@ import secrets
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Security, status
-from fastapi.security import APIKeyHeader
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.auth_rate_limiter import AuthenticationRateLimiter
 from app.core.config import Settings, get_settings
+from app.core.rate_limiter import RequestRateLimiter
 
-API_KEY_HEADER_NAME = "X-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_HEADER_NAME, auto_error=False)
+bearer_scheme = HTTPBearer(
+    scheme_name="BearerToken",
+    description="Send APP_API_KEY as `Authorization: Bearer <token>`.",
+    auto_error=False,
+)
 
 
-async def require_api_key(
+async def require_bearer_token(
     request: Request,
-    supplied_api_key: Annotated[str | None, Security(api_key_header)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Security(bearer_scheme)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
     if not settings.is_api_auth_required:
@@ -25,12 +29,14 @@ async def require_api_key(
             detail="APP_API_KEY must be configured when API authentication is required",
         )
 
-    expected_api_key = settings.app_api_key.get_secret_value()
+    expected_token = settings.app_api_key.get_secret_value()
     client_key = request.client.host if request.client is not None else "unknown"
     limiter = request.app.state.auth_rate_limiter
     if not isinstance(limiter, AuthenticationRateLimiter):
         raise HTTPException(status_code=500, detail="Authentication limiter is unavailable")
-    if supplied_api_key is None or not secrets.compare_digest(supplied_api_key, expected_api_key):
+
+    supplied_token = credentials.credentials if credentials is not None else None
+    if supplied_token is None or not secrets.compare_digest(supplied_token, expected_token):
         retry_after = await limiter.record_failure(client_key)
         if retry_after is not None:
             raise HTTPException(
@@ -40,6 +46,21 @@ async def require_api_key(
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
+            detail="Invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     await limiter.clear(client_key)
+    await _enforce_request_budget(request, client_key)
+
+
+async def _enforce_request_budget(request: Request, client_key: str) -> None:
+    rate_limiter = getattr(request.app.state, "request_rate_limiter", None)
+    if not isinstance(rate_limiter, RequestRateLimiter):
+        raise HTTPException(status_code=500, detail="Request rate limiter is unavailable")
+    retry_after = await rate_limiter.consume(client_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Request rate limit exceeded",
+            headers={"Retry-After": str(retry_after)},
+        )

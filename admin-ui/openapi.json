@@ -390,11 +390,31 @@
       "ActionPolicy": {
         "additionalProperties": false,
         "properties": {
+          "action_family": {
+            "default": "advertising",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Action Family",
+            "type": "string"
+          },
           "action_type": {
-            "$ref": "#/components/schemas/ActionType"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionType"
+              },
+              {
+                "$ref": "#/components/schemas/GrowthActionType"
+              }
+            ],
+            "title": "Action Type"
           },
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
             "type": "string"
           },
           "checked_at": {
@@ -436,11 +456,31 @@
       "ActionProposal": {
         "additionalProperties": false,
         "properties": {
+          "action_family": {
+            "default": "advertising",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Action Family",
+            "type": "string"
+          },
           "action_type": {
-            "$ref": "#/components/schemas/ActionType"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionType"
+              },
+              {
+                "$ref": "#/components/schemas/GrowthActionType"
+              }
+            ],
+            "title": "Action Type"
           },
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
             "type": "string"
           },
           "confidence": {
@@ -503,6 +543,7 @@
           "parameters": {
             "discriminator": {
               "mapping": {
+                "create_experiment": "#/components/schemas/CreateExperimentActionParameters",
                 "decrease_budget": "#/components/schemas/BudgetActionParameters",
                 "disable_audience": "#/components/schemas/AudienceActionParameters",
                 "increase_budget": "#/components/schemas/BudgetActionParameters",
@@ -511,7 +552,8 @@
                 "pause": "#/components/schemas/StatusActionParameters",
                 "propose_test": "#/components/schemas/TestProposalParameters",
                 "resume": "#/components/schemas/StatusActionParameters",
-                "scale_audience": "#/components/schemas/AudienceActionParameters"
+                "scale_audience": "#/components/schemas/AudienceActionParameters",
+                "stop_experiment": "#/components/schemas/StopExperimentActionParameters"
               },
               "propertyName": "kind"
             },
@@ -530,6 +572,12 @@
               },
               {
                 "$ref": "#/components/schemas/TestProposalParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CreateExperimentActionParameters"
+              },
+              {
+                "$ref": "#/components/schemas/StopExperimentActionParameters"
               }
             ],
             "title": "Parameters"
@@ -1467,36 +1515,6 @@
         "title": "AgeBand",
         "type": "string"
       },
-      "AgentCapability": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "key": {
-            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
-            "title": "Key",
-            "type": "string"
-          },
-          "minimum_role": {
-            "$ref": "#/components/schemas/UserRole"
-          },
-          "risk": {
-            "$ref": "#/components/schemas/CapabilityRisk"
-          }
-        },
-        "required": [
-          "key",
-          "description",
-          "risk",
-          "minimum_role"
-        ],
-        "title": "AgentCapability",
-        "type": "object"
-      },
       "AgentConfiguration": {
         "additionalProperties": false,
         "properties": {
@@ -1507,6 +1525,11 @@
           },
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
             "type": "string"
           },
           "configuration_id": {
@@ -1538,6 +1561,7 @@
         "required": [
           "configuration_id",
           "agent_id",
+          "capability_key",
           "version",
           "values",
           "created_at",
@@ -1556,7 +1580,7 @@
           },
           "capabilities": {
             "items": {
-              "$ref": "#/components/schemas/AgentCapability"
+              "$ref": "#/components/schemas/CapabilityDefinition"
             },
             "title": "Capabilities",
             "type": "array"
@@ -1567,6 +1591,11 @@
             },
             "title": "Configuration Schema",
             "type": "object"
+          },
+          "default_capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Default Capability Key",
+            "type": "string"
           },
           "description": {
             "maxLength": 1000,
@@ -1602,6 +1631,7 @@
           "version",
           "status",
           "capabilities",
+          "default_capability_key",
           "configuration_schema",
           "registered_at"
         ],
@@ -1614,6 +1644,13 @@
           "agent": {
             "$ref": "#/components/schemas/AgentDefinition"
           },
+          "capability_kill_switches": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Capability Kill Switches",
+            "type": "object"
+          },
           "configuration": {
             "anyOf": [
               {
@@ -1623,6 +1660,13 @@
                 "type": "null"
               }
             ]
+          },
+          "configurations": {
+            "items": {
+              "$ref": "#/components/schemas/AgentConfiguration"
+            },
+            "title": "Configurations",
+            "type": "array"
           },
           "integration_health": {
             "items": {
@@ -1646,9 +1690,11 @@
         "required": [
           "agent",
           "configuration",
+          "configurations",
           "schedules",
           "integration_health",
-          "kill_switch_enabled"
+          "kill_switch_enabled",
+          "capability_kill_switches"
         ],
         "title": "AgentDetailResponse",
         "type": "object"
@@ -1658,6 +1704,11 @@
         "properties": {
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
             "type": "string"
           },
           "created_at": {
@@ -1726,6 +1777,11 @@
         "properties": {
           "agent_id": {
             "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
             "type": "string"
           },
           "completed_at": {
@@ -1818,6 +1874,7 @@
         "required": [
           "run_id",
           "agent_id",
+          "capability_key",
           "correlation_id",
           "trigger",
           "initiated_by",
@@ -1940,6 +1997,11 @@
             "title": "Agent Id",
             "type": "string"
           },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
+            "type": "string"
+          },
           "cron_expression": {
             "maxLength": 120,
             "minLength": 5,
@@ -1994,6 +2056,7 @@
         "required": [
           "schedule_id",
           "agent_id",
+          "capability_key",
           "job_type",
           "cron_expression",
           "timezone",
@@ -2569,6 +2632,83 @@
         "title": "AudienceActionParameters",
         "type": "object"
       },
+      "AudioModerationAcceptedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Audio Id",
+            "type": "integer"
+          },
+          "disposition": {
+            "enum": [
+              "queued",
+              "duplicate"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "status": {
+            "const": "accepted",
+            "default": "accepted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio_id",
+          "disposition"
+        ],
+        "title": "AudioModerationAcceptedResponse",
+        "type": "object"
+      },
+      "AudioModerationJobRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Audio Id",
+            "type": "integer"
+          },
+          "audio_url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Audio Url",
+            "type": "string"
+          },
+          "callback_token": {
+            "format": "password",
+            "maxLength": 8192,
+            "minLength": 16,
+            "title": "Callback Token",
+            "type": "string",
+            "writeOnly": true
+          },
+          "callback_url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Callback Url",
+            "type": "string"
+          },
+          "duration": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Duration",
+            "type": "string"
+          }
+        },
+        "required": [
+          "audio_id",
+          "audio_url",
+          "duration",
+          "callback_url",
+          "callback_token"
+        ],
+        "title": "AudioModerationJobRequest",
+        "type": "object"
+      },
       "AuditEvent": {
         "additionalProperties": false,
         "properties": {
@@ -2589,6 +2729,18 @@
               }
             ],
             "title": "Agent Id"
+          },
+          "capability_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capability Key"
           },
           "correlation_id": {
             "title": "Correlation Id",
@@ -3278,6 +3430,71 @@
         "title": "BulkApprovalDecisionRequest",
         "type": "object"
       },
+      "CapabilityDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "pattern": "^[a-z][a-z0-9_-]{1,79}$",
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "input_schema": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "minimum_role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "output_schema": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Output Schema",
+            "type": "object"
+          },
+          "required_integrations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Integrations",
+            "type": "array"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/CapabilityRisk"
+          },
+          "supported_triggers": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerType"
+            },
+            "title": "Supported Triggers",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "key",
+          "agent_id",
+          "description",
+          "risk",
+          "minimum_role"
+        ],
+        "title": "CapabilityDefinition",
+        "type": "object"
+      },
       "CapabilityRisk": {
         "enum": [
           "read",
@@ -3739,6 +3956,68 @@
         "title": "CreateAdminUserRequest",
         "type": "object"
       },
+      "CreateExperimentActionParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "allocation_percent": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Allocation Percent",
+            "type": "integer"
+          },
+          "audience_segment": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Audience Segment",
+            "type": "string"
+          },
+          "duration_days": {
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "experiment_key": {
+            "pattern": "^[a-z][a-z0-9_-]{2,79}$",
+            "title": "Experiment Key",
+            "type": "string"
+          },
+          "hypothesis": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Hypothesis",
+            "type": "string"
+          },
+          "kind": {
+            "const": "create_experiment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "primary_metric": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Primary Metric",
+            "type": "string"
+          },
+          "proposed_status": {
+            "const": "DRAFT",
+            "default": "DRAFT",
+            "title": "Proposed Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "experiment_key",
+          "hypothesis",
+          "primary_metric",
+          "audience_segment",
+          "allocation_percent",
+          "duration_days"
+        ],
+        "title": "CreateExperimentActionParameters",
+        "type": "object"
+      },
       "Creative": {
         "additionalProperties": false,
         "properties": {
@@ -3951,6 +4230,11 @@
             "title": "Agent Id",
             "type": "string"
           },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
+            "type": "string"
+          },
           "checksum": {
             "title": "Checksum",
             "type": "string"
@@ -3964,6 +4248,13 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Completeness",
             "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
           },
           "payload": {
             "additionalProperties": {
@@ -4010,6 +4301,7 @@
           "snapshot_id",
           "run_id",
           "agent_id",
+          "capability_key",
           "provider",
           "schema_version",
           "period_start",
@@ -4049,6 +4341,73 @@
           "current"
         ],
         "title": "EvidenceMetric",
+        "type": "object"
+      },
+      "EvidenceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Checksum",
+            "type": "string"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "completeness": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completeness",
+            "type": "string"
+          },
+          "freshness_seconds": {
+            "minimum": 0.0,
+            "title": "Freshness Seconds",
+            "type": "integer"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "privacy_classification": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Privacy Classification",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "subject_scope": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Subject Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "subject_scope",
+          "period_start",
+          "period_end",
+          "collected_at",
+          "freshness_seconds",
+          "completeness",
+          "checksum",
+          "privacy_classification"
+        ],
+        "title": "EvidenceRef",
         "type": "object"
       },
       "ExecuteApprovedRequest": {
@@ -5180,6 +5539,14 @@
         "title": "GeofenceAction",
         "type": "object"
       },
+      "GrowthActionType": {
+        "enum": [
+          "create_experiment",
+          "stop_experiment"
+        ],
+        "title": "GrowthActionType",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -6037,6 +6404,10 @@
             "title": "Agent Id",
             "type": "string"
           },
+          "capability_key": {
+            "title": "Capability Key",
+            "type": "string"
+          },
           "correlation_id": {
             "title": "Correlation Id",
             "type": "string"
@@ -6054,6 +6425,7 @@
         },
         "required": [
           "agent_id",
+          "capability_key",
           "job_type",
           "correlation_id"
         ],
@@ -8161,6 +8533,128 @@
         "title": "NotifyParentAction",
         "type": "object"
       },
+      "OutcomeEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "attribution_limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attribution Limitations",
+            "type": "array"
+          },
+          "baseline_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Value"
+          },
+          "capability_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+            "title": "Capability Key",
+            "type": "string"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "measurement_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurement Due At"
+          },
+          "metric_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Metric Name",
+            "type": "string"
+          },
+          "observed_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Value"
+          },
+          "proposal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OutcomeEvaluationStatus"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Value"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "run_id",
+          "agent_id",
+          "capability_key",
+          "metric_name",
+          "status",
+          "evaluated_at"
+        ],
+        "title": "OutcomeEvaluation",
+        "type": "object"
+      },
+      "OutcomeEvaluationStatus": {
+        "enum": [
+          "pending",
+          "measured",
+          "inconclusive"
+        ],
+        "title": "OutcomeEvaluationStatus",
+        "type": "string"
+      },
       "Page_ActionExecution_": {
         "additionalProperties": false,
         "properties": {
@@ -8479,6 +8973,38 @@
           "items"
         ],
         "title": "Page[Finding]",
+        "type": "object"
+      },
+      "Page_OutcomeEvaluation_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeEvaluation"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ],
+        "title": "Page[OutcomeEvaluation]",
         "type": "object"
       },
       "Page_Recommendation_": {
@@ -9780,8 +10306,28 @@
       "Recommendation": {
         "additionalProperties": false,
         "properties": {
+          "action_family": {
+            "default": "advertising",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Action Family",
+            "type": "string"
+          },
           "action_type": {
-            "$ref": "#/components/schemas/ActionType"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActionType"
+              },
+              {
+                "$ref": "#/components/schemas/GrowthActionType"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "capability_key": {
+            "default": "growth.advertising",
+            "title": "Capability Key",
+            "type": "string"
           },
           "confidence": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -9830,6 +10376,7 @@
           "parameters": {
             "discriminator": {
               "mapping": {
+                "create_experiment": "#/components/schemas/CreateExperimentActionParameters",
                 "decrease_budget": "#/components/schemas/BudgetActionParameters",
                 "disable_audience": "#/components/schemas/AudienceActionParameters",
                 "increase_budget": "#/components/schemas/BudgetActionParameters",
@@ -9838,7 +10385,8 @@
                 "pause": "#/components/schemas/StatusActionParameters",
                 "propose_test": "#/components/schemas/TestProposalParameters",
                 "resume": "#/components/schemas/StatusActionParameters",
-                "scale_audience": "#/components/schemas/AudienceActionParameters"
+                "scale_audience": "#/components/schemas/AudienceActionParameters",
+                "stop_experiment": "#/components/schemas/StopExperimentActionParameters"
               },
               "propertyName": "kind"
             },
@@ -9857,6 +10405,12 @@
               },
               {
                 "$ref": "#/components/schemas/TestProposalParameters"
+              },
+              {
+                "$ref": "#/components/schemas/CreateExperimentActionParameters"
+              },
+              {
+                "$ref": "#/components/schemas/StopExperimentActionParameters"
               }
             ],
             "title": "Parameters"
@@ -10208,6 +10762,13 @@
             "title": "Findings",
             "type": "array"
           },
+          "outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/OutcomeEvaluation"
+            },
+            "title": "Outcomes",
+            "type": "array"
+          },
           "proposals": {
             "items": {
               "$ref": "#/components/schemas/ActionProposal"
@@ -10246,7 +10807,8 @@
           "snapshots",
           "findings",
           "recommendations",
-          "proposals"
+          "proposals",
+          "outcomes"
         ],
         "title": "RunDetailResponse",
         "type": "object"
@@ -10254,6 +10816,18 @@
       "RunNowRequest": {
         "additionalProperties": false,
         "properties": {
+          "capability_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.-]{1,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capability Key"
+          },
           "correlation_id": {
             "anyOf": [
               {
@@ -11356,6 +11930,42 @@
         "title": "StatusActionParameters",
         "type": "object"
       },
+      "StopExperimentActionParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "current_status": {
+            "enum": [
+              "DRAFT",
+              "RUNNING"
+            ],
+            "title": "Current Status",
+            "type": "string"
+          },
+          "experiment_key": {
+            "pattern": "^[a-z][a-z0-9_-]{2,79}$",
+            "title": "Experiment Key",
+            "type": "string"
+          },
+          "kind": {
+            "const": "stop_experiment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "proposed_status": {
+            "const": "STOPPED",
+            "default": "STOPPED",
+            "title": "Proposed Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "experiment_key",
+          "current_status"
+        ],
+        "title": "StopExperimentActionParameters",
+        "type": "object"
+      },
       "StudyModeAction": {
         "additionalProperties": false,
         "properties": {
@@ -11979,10 +12589,15 @@
       }
     },
     "securitySchemes": {
-      "APIKeyHeader": {
-        "in": "header",
-        "name": "X-API-Key",
-        "type": "apiKey"
+      "AudioModerationBearerToken": {
+        "description": "Send AI_AUDIO_MODERATION_AUTH_TOKEN as a bearer token.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "BearerToken": {
+        "description": "Send APP_API_KEY as `Authorization: Bearer <token>`.",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -12002,6 +12617,7 @@
   "paths": {
     "/api/v1/admin/operation/action-proposals": {
       "get": {
+        "description": "Returns action proposals newest first, optionally filtered by `run_id` and by lifecycle `status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. Proposals in status `awaiting_approval` are the ones still waiting for an approver.",
         "operationId": "list_action_proposals_api_v1_admin_operation_action_proposals_get",
         "parameters": [
           {
@@ -12146,7 +12762,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Action Proposals",
+        "summary": "List action proposals",
         "tags": [
           "operation-admin"
         ]
@@ -12154,6 +12770,7 @@
     },
     "/api/v1/admin/operation/action-proposals/{proposal_id}/execute": {
       "post": {
+        "description": "Re-runs every safeguard for an already approved proposal (kill switches, current policy, expiry, provider state hash and the per-object lock) and then executes and verifies it. Requires at least the `approver` role. Repeating the call is safe: the stored execution for the proposal idempotency key is returned instead of writing twice. Returns 403 with a `write_operation_forbidden` body when the provider is LIVE Meta and therefore read-only, 409 for a stale proposal, 423 when a safeguard blocks the action, and 202 when a dispatched write requires reconciliation.",
         "operationId": "execute_approved_proposal_api_v1_admin_operation_action_proposals__proposal_id__execute_post",
         "parameters": [
           {
@@ -12280,6 +12897,7 @@
     },
     "/api/v1/admin/operation/agents": {
       "get": {
+        "description": "Returns the registered agent definitions ordered by `sort_by` and `sort_order`, then paginated with `limit` and `offset`. Requires at least the `viewer` role. Sorting and pagination happen in memory, so `total` always reports the size of the whole catalog.",
         "operationId": "list_agents_api_v1_admin_operation_agents_get",
         "parameters": [
           {
@@ -12429,6 +13047,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}": {
       "get": {
+        "description": "Returns the agent definition together with its latest configuration, its schedules, a freshly probed integration health report and the state of its dedicated kill switch. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "get_agent_api_v1_admin_operation_agents__agent_id__get",
         "parameters": [
           {
@@ -12535,6 +13154,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/configuration-schema": {
       "get": {
+        "description": "Returns the JSON Schema that a configuration payload for this agent must satisfy; use it to build and pre-validate the body sent to the configuration creation endpoint. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "configuration_schema_api_v1_admin_operation_agents__agent_id__configuration_schema_get",
         "parameters": [
           {
@@ -12544,6 +13164,22 @@
             "schema": {
               "title": "Agent Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -12637,7 +13273,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Configuration Schema",
+        "summary": "Get the agent configuration schema",
         "tags": [
           "operation-admin"
         ]
@@ -12645,6 +13281,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/configurations": {
       "get": {
+        "description": "Returns every stored configuration version of the agent, highest version first. Requires at least the `viewer` role. This endpoint is not paginated: the full history is returned in one response and `limit` merely mirrors the number of items.",
         "operationId": "list_configurations_api_v1_admin_operation_agents__agent_id__configurations_get",
         "parameters": [
           {
@@ -12654,6 +13291,22 @@
             "schema": {
               "title": "Agent Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -12743,12 +13396,13 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Configurations",
+        "summary": "List agent configuration versions",
         "tags": [
           "operation-admin"
         ]
       },
       "post": {
+        "description": "Validates the submitted values against the agent configuration schema, stores them as the next version, rebuilds the schedules derived from that configuration and returns the new version with 201. Requires the `admin` role. Returns 404 for an unknown agent, 422 when the values fail validation, and 409 when a concurrent write already created that version.",
         "operationId": "create_configuration_api_v1_admin_operation_agents__agent_id__configurations_post",
         "parameters": [
           {
@@ -12758,6 +13412,22 @@
             "schema": {
               "title": "Agent Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -12857,7 +13527,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Configuration",
+        "summary": "Create an agent configuration version",
         "tags": [
           "operation-admin"
         ]
@@ -12865,6 +13535,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/disable": {
       "post": {
+        "description": "Shortcut that sets the agent status to `disabled`, after which scheduled and manual runs are refused until the agent is enabled again. Requires the `admin` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "disable_agent_api_v1_admin_operation_agents__agent_id__disable_post",
         "parameters": [
           {
@@ -12963,7 +13634,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Disable Agent",
+        "summary": "Disable an agent",
         "tags": [
           "operation-admin"
         ]
@@ -12971,6 +13642,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/enable": {
       "post": {
+        "description": "Shortcut that sets the agent status to `enabled`, the only status in which scheduled and manual runs are accepted, and records an audit event. Requires the `admin` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "enable_agent_api_v1_admin_operation_agents__agent_id__enable_post",
         "parameters": [
           {
@@ -13069,7 +13741,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Enable Agent",
+        "summary": "Enable an agent",
         "tags": [
           "operation-admin"
         ]
@@ -13077,6 +13749,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/pause": {
       "post": {
+        "description": "Shortcut that sets the agent status to `paused`; while it is paused a manual run request is rejected with 409. Requires the `admin` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "pause_agent_api_v1_admin_operation_agents__agent_id__pause_post",
         "parameters": [
           {
@@ -13175,7 +13848,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Pause Agent",
+        "summary": "Pause an agent",
         "tags": [
           "operation-admin"
         ]
@@ -13183,6 +13856,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/register": {
       "post": {
+        "description": "Copies an agent implementation loaded by this process into the operational catalog, records an `agent_registered` audit event and returns the stored definition with 201. Requires the `admin` role. Returns 404 when no implementation is loaded under that identifier.",
         "operationId": "register_agent_api_v1_admin_operation_agents__agent_id__register_post",
         "parameters": [
           {
@@ -13289,6 +13963,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/resume": {
       "post": {
+        "description": "Shortcut that sets the agent status back to `enabled` after a pause or a disable. Requires the `admin` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "resume_agent_api_v1_admin_operation_agents__agent_id__resume_post",
         "parameters": [
           {
@@ -13387,7 +14062,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Resume Agent",
+        "summary": "Resume a paused agent",
         "tags": [
           "operation-admin"
         ]
@@ -13395,6 +14070,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/run": {
       "post": {
+        "description": "Checks that the agent is enabled, has a configuration and is not blocked by a kill switch, then queues the job as a background task and answers 202 with the correlation identifier the run will use; the run itself is not awaited. Requires at least the `operator` role. Send `idempotency_key` so a retried request joins the existing run instead of starting a second one. Returns 409 when the agent is unavailable (disabled, unconfigured or killed). A 202 response confirms acceptance, not successful completion; inspect the run history for background lock, timeout, provider, or analysis failures.",
         "operationId": "run_agent_now_api_v1_admin_operation_agents__agent_id__run_post",
         "parameters": [
           {
@@ -13511,6 +14187,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}/status": {
       "post": {
+        "description": "Sets the agent lifecycle status to the value in the body and records an `agent_status_changed` audit event. Requires the `admin` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "set_agent_status_api_v1_admin_operation_agents__agent_id__status_post",
         "parameters": [
           {
@@ -13627,6 +14304,7 @@
     },
     "/api/v1/admin/operation/approvals": {
       "get": {
+        "description": "Returns approval requests newest first, optionally filtered by `status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. A request stays `pending` until it is decided or until the expiration job marks it `expired`.",
         "operationId": "list_approvals_api_v1_admin_operation_approvals_get",
         "parameters": [
           {
@@ -13755,7 +14433,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Approvals",
+        "summary": "List approval requests",
         "tags": [
           "operation-admin"
         ]
@@ -13763,6 +14441,7 @@
     },
     "/api/v1/admin/operation/approvals/bulk-decision": {
       "post": {
+        "description": "Applies the same decision to up to 50 proposals one after another and returns one lifecycle result per proposal. Requires at least the `approver` role. Returns 409 when the proposals do not all share a single action type, or when a bulk **approval** targets anything other than budget-decrease actions. Returns 403 for a forbidden or self-approval decision, 404 when any proposal is unknown, and 202 when a dispatched write requires reconciliation.",
         "operationId": "bulk_decide_approval_api_v1_admin_operation_approvals_bulk_decision_post",
         "parameters": [
           {
@@ -13866,7 +14545,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Bulk Decide Approval",
+        "summary": "Decide several action proposals at once",
         "tags": [
           "operation-admin"
         ]
@@ -13874,6 +14553,7 @@
     },
     "/api/v1/admin/operation/approvals/{proposal_id}/decision": {
       "post": {
+        "description": "Records the decision on the pending approval and, when the proposal is approved and its provider is executable, immediately executes and verifies the action; the response carries the proposal, the decision, the execution, the verification and the refreshed run. Requires at least the `approver` role, and the requester's own decision is refused with 403 while self-approval is disabled. Returns 409 for a stale proposal or a concurrent write, 423 when a safeguard such as a kill switch, an expiry or a competing execution blocks the action, and 202 when a dispatched write must be reconciled before any retry. In dry-run mode the provider is never called and the lifecycle ends with status `dry_run`.",
         "operationId": "decide_approval_api_v1_admin_operation_approvals__proposal_id__decision_post",
         "parameters": [
           {
@@ -13982,7 +14662,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Decide Approval",
+        "summary": "Approve or reject an action proposal",
         "tags": [
           "operation-admin"
         ]
@@ -13990,6 +14670,7 @@
     },
     "/api/v1/admin/operation/audit-events": {
       "get": {
+        "description": "Returns the append-only audit trail newest first, optionally filtered by `correlation_id` or `run_id`, paginated with `limit` (up to 2000) and `offset`. Requires at least the `viewer` role. Filtering by `correlation_id` is the way to reconstruct everything a single manual run or approval decision produced.",
         "operationId": "list_audit_events_api_v1_admin_operation_audit_events_get",
         "parameters": [
           {
@@ -14134,7 +14815,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Audit Events",
+        "summary": "List audit events",
         "tags": [
           "operation-admin"
         ]
@@ -14142,6 +14823,7 @@
     },
     "/api/v1/admin/operation/dashboard": {
       "get": {
+        "description": "Returns one summary row per registered agent (health, last and next run, last run duration, success rate over the 100 most recent runs, pending approvals and recent failures) plus the current global kill-switch state. Requires at least the `viewer` role. `success_rate` is the literal string `unavailable` while an agent has no runs.",
         "operationId": "dashboard_api_v1_admin_operation_dashboard_get",
         "parameters": [
           {
@@ -14239,6 +14921,7 @@
     },
     "/api/v1/admin/operation/executions": {
       "get": {
+        "description": "Returns provider execution attempts newest first, optionally restricted to one agent through `agent_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role. Each item keeps the provider state before the write, the requested change, the provider response and the idempotency key used.",
         "operationId": "list_executions_api_v1_admin_operation_executions_get",
         "parameters": [
           {
@@ -14255,6 +14938,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -14367,7 +15066,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Executions",
+        "summary": "List action executions",
         "tags": [
           "operation-admin"
         ]
@@ -14375,6 +15074,7 @@
     },
     "/api/v1/admin/operation/findings": {
       "get": {
+        "description": "Returns the findings produced by agent analysis, newest first, optionally restricted to one run through `run_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role.",
         "operationId": "list_findings_api_v1_admin_operation_findings_get",
         "parameters": [
           {
@@ -14503,7 +15203,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Findings",
+        "summary": "List findings",
         "tags": [
           "operation-admin"
         ]
@@ -14511,6 +15211,7 @@
     },
     "/api/v1/admin/operation/integrations/{provider}/health": {
       "get": {
+        "description": "Probes the named ads platform, stores the resulting health record and returns it with its status, latency and any error detail. Requires at least the `viewer` role. Returns 404 when no platform is registered under that provider name.",
         "operationId": "integration_health_api_v1_admin_operation_integrations__provider__health_get",
         "parameters": [
           {
@@ -14609,7 +15310,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Integration Health",
+        "summary": "Check an ads provider integration",
         "tags": [
           "operation-admin"
         ]
@@ -14617,6 +15318,7 @@
     },
     "/api/v1/admin/operation/kill-switch/agents/{agent_id}": {
       "put": {
+        "description": "Enables or disables the kill switch of a single agent and records a `kill_switch_changed` audit event; the response echoes the agent scope and state. Requires the `admin` role. While it is enabled that agent cannot start a run and none of its approved actions can be executed.",
         "operationId": "agent_kill_switch_api_v1_admin_operation_kill_switch_agents__agent_id__put",
         "parameters": [
           {
@@ -14725,7 +15427,133 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Agent Kill Switch",
+        "summary": "Set an agent kill switch",
+        "tags": [
+          "operation-admin"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/kill-switch/agents/{agent_id}/capabilities/{capability_key}": {
+      "put": {
+        "description": "Enables or disables one capability without stopping sibling capabilities of the same agent. The control is enforced both before runs and before approved actions execute. Requires the `admin` role.",
+        "operationId": "capability_kill_switch_api_v1_admin_operation_kill_switch_agents__agent_id__capabilities__capability_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "capability_key",
+            "required": true,
+            "schema": {
+              "title": "Capability Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set a capability kill switch",
         "tags": [
           "operation-admin"
         ]
@@ -14733,6 +15561,7 @@
     },
     "/api/v1/admin/operation/kill-switch/global": {
       "put": {
+        "description": "Enables or disables the global kill switch and records a `kill_switch_changed` audit event; the response echoes the resulting scope and state. Requires the `admin` role. While it is enabled every agent run is refused with 409 and every action execution is blocked with 423, whatever the per-agent settings are.",
         "operationId": "global_kill_switch_api_v1_admin_operation_kill_switch_global_put",
         "parameters": [
           {
@@ -14832,7 +15661,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Global Kill Switch",
+        "summary": "Set the global kill switch",
         "tags": [
           "operation-admin"
         ]
@@ -14840,6 +15669,7 @@
     },
     "/api/v1/admin/operation/marketing/overview": {
       "get": {
+        "description": "Returns the latest Marketing Agent picture: freshly probed integration health for the default ads provider, the most recent stored ads snapshot with its per-breakdown performance, the active configuration and the agent schedules. Requires at least the `viewer` role. The snapshot fields stay `null` until a run has stored ads data.",
         "operationId": "marketing_overview_api_v1_admin_operation_marketing_overview_get",
         "parameters": [
           {
@@ -14935,8 +15765,162 @@
         ]
       }
     },
+    "/api/v1/admin/operation/outcome-evaluations": {
+      "get": {
+        "description": "Returns pending, measured, or inconclusive outcome evaluations, optionally filtered by run or proposal. Provider-state verification and business-outcome measurement are reported separately. Requires at least the `viewer` role.",
+        "operationId": "list_outcome_evaluations_api_v1_admin_operation_outcome_evaluations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "proposal_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_OutcomeEvaluation_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List persisted action outcome evaluations",
+        "tags": [
+          "operation-admin"
+        ]
+      }
+    },
     "/api/v1/admin/operation/recommendations": {
       "get": {
+        "description": "Returns the recommendations derived from findings, newest first, optionally restricted to one run through `run_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role. A recommendation is only advisory until it becomes an action proposal.",
         "operationId": "list_recommendations_api_v1_admin_operation_recommendations_get",
         "parameters": [
           {
@@ -15065,7 +16049,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Recommendations",
+        "summary": "List recommendations",
         "tags": [
           "operation-admin"
         ]
@@ -15073,6 +16057,7 @@
     },
     "/api/v1/admin/operation/reports": {
       "get": {
+        "description": "Returns generated agent reports newest first, optionally restricted to one agent through `agent_id` and paginated with `limit` and `offset`. Requires at least the `viewer` role.",
         "operationId": "list_reports_api_v1_admin_operation_reports_get",
         "parameters": [
           {
@@ -15089,6 +16074,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -15201,7 +16202,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Reports",
+        "summary": "List agent reports",
         "tags": [
           "operation-admin"
         ]
@@ -15209,6 +16210,7 @@
     },
     "/api/v1/admin/operation/reports/{report_id}": {
       "get": {
+        "description": "Returns one stored report in full, with its reporting period, structured payload, human-readable body and data-quality notes. Requires at least the `viewer` role. Returns 404 when the report identifier is unknown.",
         "operationId": "get_report_api_v1_admin_operation_reports__report_id__get",
         "parameters": [
           {
@@ -15307,7 +16309,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Report",
+        "summary": "Get a report",
         "tags": [
           "operation-admin"
         ]
@@ -15315,6 +16317,7 @@
     },
     "/api/v1/admin/operation/runs": {
       "get": {
+        "description": "Returns agent runs newest first, optionally filtered by `agent_id` and by `status`, paginated with `limit` and `offset`. Requires at least the `viewer` role. `total` counts every run matching the filters, not just the returned page.",
         "operationId": "list_runs_api_v1_admin_operation_runs_get",
         "parameters": [
           {
@@ -15331,6 +16334,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -15467,6 +16486,7 @@
     },
     "/api/v1/admin/operation/runs/{run_id}": {
       "get": {
+        "description": "Returns the run with its audit timeline, stored data snapshots, findings, recommendations and action proposals in a single payload. Requires at least the `viewer` role. Each related collection is capped at its 1000 most recent entries. Returns 404 when the run identifier is unknown.",
         "operationId": "get_run_api_v1_admin_operation_runs__run_id__get",
         "parameters": [
           {
@@ -15573,6 +16593,7 @@
     },
     "/api/v1/admin/operation/schedules": {
       "get": {
+        "description": "Returns the cron schedules of every agent, or of a single agent when `agent_id` is given, ordered by agent identifier and job type. Requires at least the `viewer` role. This endpoint is not paginated: all matching schedules come back in one response.",
         "operationId": "list_schedules_api_v1_admin_operation_schedules_get",
         "parameters": [
           {
@@ -15589,6 +16610,22 @@
                 }
               ],
               "title": "Agent Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capability Key"
             }
           },
           {
@@ -15678,7 +16715,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Schedules",
+        "summary": "List schedules",
         "tags": [
           "operation-admin"
         ]
@@ -15686,6 +16723,7 @@
     },
     "/api/v1/admin/operation/schedules/{schedule_id}": {
       "put": {
+        "description": "Replaces the cron expression, timezone and enabled flag of a schedule, recomputes its next occurrence and records a `schedule_changed` audit event. Requires the `admin` role. Returns 404 for an unknown schedule, 422 for an invalid cron expression, and 409 when a concurrent write already changed the schedule.",
         "operationId": "update_schedule_api_v1_admin_operation_schedules__schedule_id__put",
         "parameters": [
           {
@@ -15794,7 +16832,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Update Schedule",
+        "summary": "Update a schedule",
         "tags": [
           "operation-admin"
         ]
@@ -15802,6 +16840,7 @@
     },
     "/api/v1/admin/operation/session": {
       "get": {
+        "description": "Returns the actor identifier and role resolved from the request credentials, together with the configured ads provider and its mode. Requires at least the `viewer` role. When `live_meta_read_only` is `true` the provider is LIVE Meta and every write execution is refused with 403.",
         "operationId": "operation_session_api_v1_admin_operation_session_get",
         "parameters": [
           {
@@ -16181,7 +17220,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Create a test chat completion",
@@ -16228,12 +17267,60 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Summarize text",
         "tags": [
           "ai"
+        ]
+      }
+    },
+    "/api/v1/audio-moderation/jobs": {
+      "post": {
+        "operationId": "submit_audio_moderation_job_api_v1_audio_moderation_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioModerationJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioModerationAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "The URLs violate the configured safety policy."
+          },
+          "401": {
+            "description": "The shared service token is missing or invalid."
+          },
+          "422": {
+            "description": "The job payload is invalid."
+          },
+          "503": {
+            "description": "The service is paused, unavailable, or at capacity."
+          }
+        },
+        "security": [
+          {
+            "AudioModerationBearerToken": []
+          }
+        ],
+        "summary": "Submit Audio Moderation Job",
+        "tags": [
+          "audio-moderation"
         ]
       }
     },
@@ -16428,7 +17515,7 @@
     },
     "/api/v1/mana-ai/adaptive-screen-time": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Limits that adapt instead of punish.** Classifies how apps are actually used and judges whether current limits still fit, recommending gradual change.\n\n**Send** the required `app_usage`, plus `usage_baselines`, `schedules`, `limits`, `extra_time_requests`, `family_rules`.\n\n**Returns** `details.app_classifications` (per-app category judgement) and `limit_assessment`. It proposes limit changes; it never enforces them — applying a proposal is always the application's decision.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "analyze_adaptive_screen_time",
         "requestBody": {
           "content": {
@@ -16482,7 +17569,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16491,12 +17578,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Assess adaptive screen-time limits",
@@ -16507,7 +17594,7 @@
     },
     "/api/v1/mana-ai/ai-gaming-safety": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Usage metadata only.** Analyzes time spent in AI services and games: duration, night activity, changes against baseline, limits, and extra-time requests.\n\n**Send** the required `app_usage`, plus `usage_baselines`, `limits`, `schedules`, `extra_time_requests`.\n\n**Returns** `details.ai_service_summary`, `gaming_summary`, `affected_packages`.\n\nThis capability has **no access to chat content or gameplay** and will never imply it does — it reasons strictly about metadata you supply.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "analyze_ai_gaming_safety",
         "requestBody": {
           "content": {
@@ -16561,7 +17648,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16570,12 +17657,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze AI-service and gaming usage metadata",
@@ -16586,7 +17673,7 @@
     },
     "/api/v1/mana-ai/behaviour-anomaly": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Change detection against your baselines.** Explains night usage, usage and notification shifts, disabled protection, route changes, extra-time changes, and battery or connectivity anomalies.\n\n**Send** at least one of `metrics`, `protection_state`, `app_usage`, `locations`, or `battery`; `usage_baselines` adds comparison context for app usage but is not a signal on its own. `metrics` already carries current and baseline values.\n\n**Returns** `details.changed_metrics`, `explanation`, and `diagnosis_made` — which is always `false`.\n\n**No diagnosis, ever.** It describes behavioural change and explicitly does not infer mental-health, medical, or psychological state.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "analyze_behaviour_anomaly",
         "requestBody": {
           "content": {
@@ -16638,7 +17725,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16647,12 +17734,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze changes against supplied baselines",
@@ -16679,7 +17766,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "List implemented MANA AI endpoints",
@@ -16690,7 +17777,7 @@
     },
     "/api/v1/mana-ai/child-safety-assistant": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Conversational, for the child.** Calm, age-appropriate guidance: explains why something was blocked or limited, helps check whether a resource is safe, discourages sharing personal data, and helps ask a parent for support or extra time.\n\n**Send** the required `message`, plus `current_resource`, `active_rules`, `current_usage`.\n\n**Returns** `details.answer`, `explanation`, and `should_contact_parent` — a boolean the application can act on to offer a parent hand-off.\n\nTone follows the `age_band` in `subject`, so set it accurately.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "respond_with_child_safety_assistant",
         "requestBody": {
           "content": {
@@ -16734,7 +17821,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16743,12 +17830,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Give child-safe contextual guidance",
@@ -16759,7 +17846,7 @@
     },
     "/api/v1/mana-ai/family-agreement": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Rules, drafted or reviewed.** Produces transparent family rules that balance privacy against safety and relax gradually with age, or turns a child's request into a clear proposal for a parent.\n\n**Send** the required `mode` (`draft`, `review`, or `child_request`) and `preferences`, plus `current_rules`. `child_request` is required when that mode is selected.\n\n**Returns** `details.draft_rules` and `request_context`.\n\nOutput is a proposal for humans to accept — the API never activates a rule.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "generate_family_agreement",
         "requestBody": {
           "content": {
@@ -16808,7 +17895,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16817,12 +17904,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Draft transparent family rules",
@@ -16833,7 +17920,7 @@
     },
     "/api/v1/mana-ai/family-digest": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Periodic summary, not an alarm.** Condenses a day or week into what a parent actually needs to read, prioritizing meaningful change over raw activity.\n\n**Send** the required `period_start` and `period_end`, plus any of `app_usage`, `usage_baselines`, `notification_activity`, `websites`, `metrics`, `locations`, `battery`, `protection_state`, `safety_events`. Baselines are what make a change meaningful, so include them when you have them.\n\n**Returns** `details.period_summary`, `highlights`, `positive_changes`, and `minor_anomalies` — positives are deliberately first-class, so the digest is not purely negative.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "generate_family_digest",
         "requestBody": {
           "content": {
@@ -16889,7 +17976,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16898,12 +17985,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Generate a daily family digest",
@@ -16914,7 +18001,7 @@
     },
     "/api/v1/mana-ai/location-intelligence": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Explains movement without guessing motive.** Interprets route deviations, arrival estimates, long stops, early departures, unusual speed, spoofing indicators, battery drain, and loss of connectivity.\n\n**Send** the required `points`, plus `geofences`, `route`, `battery`. GPS accuracy is taken into account, so pass it on each point.\n\n**Returns** `details.route_status` (`usual`/`deviated`/`delayed`/`unknown`), `estimated_arrival_at`, `eta_confidence`, and `explanation`.\n\nIt reports *what* changed, never *why* — it will not infer a reason for a child's movement.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "analyze_location_intelligence",
         "requestBody": {
           "content": {
@@ -16976,7 +18063,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -16985,12 +18072,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze a route deviation",
@@ -17001,7 +18088,7 @@
     },
     "/api/v1/mana-ai/parent-copilot": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Conversational, for the parent.** Answers a parent's free-text question from the family context you supply and proposes a bounded next-step sequence.\n\n**Send** the required `message`, plus `safety_events`, `family_rules`, `app_usage`, `locations`, and `allowed_action_kinds` — that last field is your allowlist, and nothing outside it can be proposed.\n\n**Returns** `details.answer` and `suggested_sequence`.\n\nProposed actions still require your policy and, where indicated, parent confirmation. Answer quality tracks the context you pass: with no signals it will say so rather than speculate.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "respond_with_parent_copilot",
         "requestBody": {
           "content": {
@@ -17045,7 +18132,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -17054,12 +18141,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Answer a parent using supplied family context",
@@ -17070,7 +18157,7 @@
     },
     "/api/v1/mana-ai/safety-monitor": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**The broad sweep.** Can screen every supplied signal type for bullying, threats, pressure or manipulation, requests for personal or banking data, scams, phishing, unsafe resources, abnormal usage or location, and disabled protection.\n\n**Send** at least one of `notifications`, `resources`, `websites`, `app_usage`, `locations`, `battery`, `protection_state`. No individual signal type is mandatory, but an empty input is invalid; a check whose signal type is absent reports `insufficient_data` instead of guessing.\n\n**Returns** `details.parent_context` (one line a parent can read), `significant_event_count`, and `all_clear_categories`. Use this when you want one verdict over everything; use a narrower capability when you already know what you are asking.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "analyze_safety_monitor",
         "requestBody": {
           "content": {
@@ -17132,7 +18219,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -17141,12 +18228,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Analyze available family-safety signals",
@@ -17157,7 +18244,7 @@
     },
     "/api/v1/mana-ai/scam-privacy-shield": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**Social engineering, specifically.** Detects fake prizes, fake stores and jobs, spoofed banking pages, password and document requests, suspicious bots, QR payloads, APK downloads, and phishing patterns.\n\n**Send** at least one `notification` or `resource`; neither signal type is individually mandatory, but a request with both lists empty is invalid.\n\n**Returns** `details.detected_patterns`, `requested_data_types` (which categories of personal data are being solicited), and `explanation`.\n\nNarrower and sharper than `safety-monitor` when you already suspect fraud.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "check_scam_privacy_shield",
         "requestBody": {
           "content": {
@@ -17209,7 +18296,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -17218,12 +18305,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Check for scam and privacy risks",
@@ -17234,7 +18321,7 @@
     },
     "/api/v1/mana-ai/smart-content-filter": {
       "post": {
-        "description": "Accepts application-supplied, minimized evidence and returns a typed read-only analysis. The endpoint does not read or mutate application databases and does not execute proposed actions. Reuse request_id when retrying the same logical analysis.",
+        "description": "**One resource, one verdict.** Classifies a single URL, domain, QR payload, or APK against reputation, category, context, and family policy.\n\n**Send** the required `resource`, plus `notification_context`, `blocked_categories`, `family_rules`.\n\n**Returns** `details.decision` (`allow`/`observe`/`warn`/`block`), `category`, `reputation`, `explanation`.\n\nThe blocking decision is deterministic: a `malicious` reputation yields `block` with a critical finding **even when the model is unavailable**, so this endpoint stays safe in degraded mode rather than failing open.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
         "operationId": "check_smart_content_filter",
         "requestBody": {
           "content": {
@@ -17285,7 +18372,7 @@
             "description": "Completed or explicitly degraded read-only analysis."
           },
           "401": {
-            "description": "Missing or invalid API key."
+            "description": "Missing or invalid bearer token."
           },
           "413": {
             "description": "Request body exceeds MANA_AI_MAX_REQUEST_BODY_BYTES."
@@ -17294,12 +18381,12 @@
             "description": "The capability-specific request is invalid."
           },
           "429": {
-            "description": "Too many failed authentication attempts; honor Retry-After."
+            "description": "Authentication failure limit or request rate limit exceeded; honor Retry-After."
           }
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Check a URL, domain, QR payload, or APK",
@@ -17346,7 +18433,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Generate marketing analytics report",
@@ -17373,7 +18460,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Show marketing integration configuration",
@@ -17420,7 +18507,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Build marketing entity graph",
@@ -17447,7 +18534,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Discover Meta app and ad accounts",
@@ -17494,7 +18581,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Create Meta async insights job",
@@ -17542,7 +18629,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Get Meta async insights job status",
@@ -17600,7 +18687,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Ingest Meta async insights job results",
@@ -17647,7 +18734,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Sync Meta Marketing API data",
@@ -17694,7 +18781,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Detect deterministic marketing patterns",
@@ -17804,7 +18891,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "List raw marketing records",
@@ -17849,7 +18936,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Ingest raw marketing records",
@@ -17896,7 +18983,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Search raw marketing records",
@@ -17958,7 +19045,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "List saved marketing analysis reports",
@@ -18006,7 +19093,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Get saved marketing analysis report",
@@ -18054,7 +19141,7 @@
         },
         "security": [
           {
-            "APIKeyHeader": []
+            "BearerToken": []
           }
         ],
         "summary": "Get saved marketing report evidence bundle",
@@ -18088,6 +19175,10 @@
     {
       "description": "Read-only request/response product inference for family safety, digital wellbeing, location, content protection, assistants, agreements, and behavior anomalies. Action proposals are never executed by this API.",
       "name": "mana-ai"
+    },
+    {
+      "description": "Server-to-server intake for private 360REC audio safety moderation jobs and asynchronous one-time callbacks.",
+      "name": "audio-moderation"
     },
     {
       "description": "RBAC-protected internal operational-agent management and audit API.",

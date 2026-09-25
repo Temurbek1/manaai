@@ -6,8 +6,15 @@ MANA is one deployable FastAPI service with two physically separated bounded con
 share only safe technical facilities such as settings, request tracing, structured logging,
 provider-neutral model access, and error conventions.
 
+Within MANA OPERATION AI, the target product topology is exactly four top-level agents:
+Operations Orchestrator, Growth & Conversion, Retention & Loyalty, and Technical Reliability.
+Capabilities such as advertising, conversion, upsell, referral, admin analytics, and incident
+creation live inside these agents. The authoritative boundaries and action model are defined in
+`docs/operation-agent-model.md`.
+
 ```text
 Mobile payload -> app/mana_ai -> validation -> AI processing -> typed response
+360REC backend -> audio moderation intake -> ephemeral transcription/classification -> callback
 
 Browser -> Next.js same-origin rewrite -> FastAPI Telegram OTP/session API
                                       -> auth application ports
@@ -15,13 +22,39 @@ Browser -> Next.js same-origin rewrite -> FastAPI Telegram OTP/session API
 
 Admin/API/scheduler -> app/mana_operation_ai/application
                     -> domain contracts and state machines
-                    -> repository / AdsPlatform / Notification ports
-                    -> SQLAlchemy, Meta Graph, fake Meta, logging adapters
+                    -> capability registry and typed source/action ports
+                    -> SQLAlchemy, Meta Graph, fake Meta/funnel/experiment, logging adapters
 ```
+
+Target operational control flow:
+
+```text
+Administrator -> Operations Orchestrator -> persisted goals/plans/tasks
+                                      |-> Growth & Conversion capabilities
+                                      |-> Retention & Loyalty capabilities
+                                      `-> Technical Reliability capabilities
+
+Operational sources -> immutable ingestion -> normalized facts/evidence -> agent analysis
+Agent recommendation -> typed action -> policy/approval -> executor -> verification -> outcome
+```
+
+The orchestrator coordinates but does not bypass domain ownership. Provider, billing, messaging,
+issue-tracker, and deployment actions are performed only by the owning agent's scoped, typed
+executor. All four agents are expected to act as well as analyze, with risk-appropriate policy and
+approval. Current live Meta remains read-only. The loaded operational agents are `growth-agent`,
+which composes `growth.advertising` plus `growth.funnel.analyze`, and `retention-agent`, which
+composes the read-only `retention.engagement.analyze`. Fake Meta and the in-memory experiment
+sandbox are the only executable write adapters. Retention's live Manakids, GA4, and Firestore
+adapters are read-only and persist aggregate first-party facts only.
 
 `app/mana_ai` cannot import `app.mana_operation_ai`. The AST test in
 `tests/test_architecture_boundaries.py` also rejects operational repositories, database models,
 Meta integrations, and action executors imported into the product context.
+
+The 360REC child-audio moderation endpoint is a product-safety integration in the MANA AI bounded
+context, not a fifth operational agent. Its presigned asset URL, callback token, audio, and
+transcript remain ephemeral. The 360REC backend owns durable moderation state, retries, and the
+parent-facing visibility gate.
 
 ## MANA OPERATION AI layers
 
@@ -30,7 +63,7 @@ Meta integrations, and action executors imported into the product context.
 - `application/`: registries, agent runner, analytics, policy, approvals, execution, reports,
   maintenance, Telegram OTP/session/user use cases, and typed ports. Use cases depend on protocols.
 - `infrastructure/`: SQLAlchemy operation/auth repositories, Telegram Bot API delivery, Meta and
-  fake-Meta adapters, and notification adapter.
+  fake-Meta adapters, first-party Manakids/GA4/Firestore readers, and notification adapter.
 - `background/`: a persisted scheduler used by a standalone production worker; local in-process
   scheduling is optional and disabled by default.
 - `api/`: versioned internal endpoints, Pydantic response models, RBAC, and HTTP error mapping.
@@ -57,8 +90,8 @@ fresh read first, while FastAPI remains the final concurrency, authorization, an
 
 ## Dependency decisions
 
-1. The generic registry contains implementations, not names. Adding an agent means implementing
-   `OperationalAgent` and registering it; central `if agent_name == ...` dispatch does not exist.
+1. The generic agent registry contains implementations, not names. Each domain agent composes a
+   typed `CapabilityRegistry`; central agent-name or job-type dispatch does not exist.
 2. `AdsPlatform` isolates Meta payloads. Marketing analytics sees only normalized domain models.
 3. SQLAlchemy rows are persistence envelopes. JSON domain payloads preserve versioned contracts;
    indexed columns support operational queries. ORM rows never leave the repository.
@@ -72,7 +105,8 @@ fresh read first, while FastAPI remains the final concurrency, authorization, an
 
 ## Persistence
 
-Alembic owns the operational tables covering agents, configuration versions, schedules, runs,
+Alembic owns the operational tables covering agents, capability configuration versions and
+schedules, runs,
 snapshots, analyses, findings, recommendations, proposals, approvals, decisions, executions,
 verifications, reports, audit events, integration health, controls, and locks. UTC timestamps are
 serialized with offsets in domain payloads. Money and financial thresholds serialize from Decimal.
@@ -82,18 +116,26 @@ HMAC-only sessions, authentication audit, rolling rate events, and a database gu
 serialize cross-worker security mutations. The domain/application layers stay free of SQLAlchemy,
 FastAPI, httpx, and Telegram payloads.
 
+Revision `c41d9e7a2f30` adds capability scope to configurations, schedules, runs, and audit, preserves
+legacy `marketing-agent` payloads, changes uniqueness to be capability-aware, and adds persisted
+outcome evaluations.
+
 ## Request and execution flow
 
 Manual run endpoints return `202 accepted` and use a background task. Scheduled runs and manual
-runs call the same runner. The runner checks status and kill switches, creates an idempotent queued
-run, acquires an agent lock, and executes the registered implementation. Approval execution reads
+runs call the same runner. The runner checks agent/capability status and kill switches, creates an
+idempotent capability-scoped run, acquires a capability lock, and dispatches its typed handler.
+Approval execution reads
 provider state again, re-evaluates the active policy, checks the state hash and idempotency key,
 writes only a typed action, reads again, and persists verification plus audit events.
 
 ## Extension points
 
-- New operational agent: implement `OperationalAgent`, domain configuration, and adapters; register
-  it in the composition root.
+- New capability in one of the four agents: add its typed task/configuration/evidence contracts,
+  handler, source ports, action policy/executor when applicable, and register it with that agent.
+- A new top-level operational agent requires an explicit architecture decision showing a genuinely
+  new outcome owner, data authority, credential/policy boundary, and failure-isolation need. Do not
+  add one for a new integration, schedule, report, or action kind.
 - New ads provider: implement `AdsPlatform` and register it in `AdsPlatformRegistry`.
 - New notification channel: implement `NotificationPort`; the current `log` channel is safe and
   does not log report contents.

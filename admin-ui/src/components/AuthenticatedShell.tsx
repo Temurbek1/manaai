@@ -13,7 +13,12 @@ interface AuthenticatedShellProps {
 
 const NAVIGATION = [
   { href: "/", label: "Overview", icon: "⌂", adminOnly: false },
-  { href: "/marketing", label: "Marketing Agent", icon: "↗", adminOnly: false },
+  {
+    href: "/growth",
+    label: "Growth & Conversion",
+    icon: "↗",
+    adminOnly: false,
+  },
   { href: "/approvals", label: "Approvals", icon: "✓", adminOnly: false },
   { href: "/runs", label: "Runs & audit", icon: "≋", adminOnly: false },
   { href: "/agents", label: "Agent registry", icon: "◇", adminOnly: false },

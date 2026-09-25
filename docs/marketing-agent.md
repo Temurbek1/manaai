@@ -1,4 +1,9 @@
-# Marketing Agent
+# Growth advertising capability
+
+> **Current implementation:** the former Marketing Agent runs as `growth.advertising` inside
+> `growth-agent`. `marketing-agent` is a temporary API/runtime alias: it creates new runs under
+> `growth-agent`, exposes preserved legacy history, and owns no duplicate schedules. Live Meta
+> remains read-only; executable advertising lifecycle tests use `fake_meta`.
 
 ## Provider data
 
@@ -46,7 +51,7 @@ LLM payloads cannot be passed to Meta.
 For executable fake-provider actions, the lifecycle service:
 
 1. requires an approved proposal;
-2. checks global and agent kill switches;
+2. checks global, Growth-agent, and `growth.advertising` kill switches;
 3. loads and validates the active configuration;
 4. re-evaluates confidence, action, budget, cooldown, and daily execution limits;
 5. reads provider state and compares its hash with proposal state;
