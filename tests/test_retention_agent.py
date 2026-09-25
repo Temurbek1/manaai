@@ -110,3 +110,45 @@ async def test_retention_agent_runs_first_party_engagement_analysis_without_pii(
         assert reports.json()["items"][0]["report_type"] == ("retention_engagement_analysis")
 
     get_settings.cache_clear()
+
+
+async def test_unexpected_retention_run_error_is_persisted_as_failed(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_retention_test_env(monkeypatch, tmp_path / "retention-failed-run.db")
+    app = create_app()
+    operator = {"X-MANA-Actor-ID": "operator-1", "X-MANA-Role": "operator"}
+
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client,
+    ):
+        started = await client.post(
+            "/api/v1/admin/operation/agents/retention-agent/run",
+            headers=operator,
+            json={
+                "capability_key": "retention.engagement.analyze",
+                "job_type": "unsupported",
+                "correlation_id": "retention-invalid-job-type",
+                "idempotency_key": "retention-invalid-job-type",
+            },
+        )
+        assert started.status_code == 202
+
+        runs = await client.get(
+            "/api/v1/admin/operation/runs?agent_id=retention-agent"
+            "&capability_key=retention.engagement.analyze",
+            headers=operator,
+        )
+        run = next(
+            item
+            for item in runs.json()["items"]
+            if item["correlation_id"] == "retention-invalid-job-type"
+        )
+        assert run["status"] == "failed"
+        assert run["error_code"] == "unexpected_run_error"
+        assert run["error_message"] == ("The agent job failed before reaching a terminal state.")
+        assert run["completed_at"] is not None
+
+    get_settings.cache_clear()

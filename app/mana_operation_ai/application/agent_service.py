@@ -195,31 +195,21 @@ class AgentService:
                         configuration=configuration,
                     )
             except TimeoutError as exc:
-                persisted = await self._repository.get_run(run.run_id)
-                if persisted is not None and persisted.status not in {
-                    AgentRunStatus.COMPLETED,
-                    AgentRunStatus.FAILED,
-                    AgentRunStatus.CANCELLED,
-                    AgentRunStatus.WAITING_APPROVAL,
-                }:
-                    require_transition(
-                        persisted.status,
-                        AgentRunStatus.FAILED,
-                        RUN_TRANSITIONS,
-                    )
-                    failed = persisted.model_copy(
-                        update={
-                            "status": AgentRunStatus.FAILED,
-                            "updated_at": self._clock.now(),
-                            "completed_at": self._clock.now(),
-                            "error_code": "job_timeout",
-                            "error_message": "The agent job exceeded its configured timeout.",
-                        },
-                    )
-                    await self._repository.update_run(failed)
+                await self._fail_unfinished_run(
+                    run.run_id,
+                    error_code="job_timeout",
+                    error_message="The agent job exceeded its configured timeout.",
+                )
                 raise AgentRunTimeoutError(
                     f"Capability {effective_capability_key!r} exceeded the configured job timeout",
                 ) from exc
+            except Exception:
+                await self._fail_unfinished_run(
+                    run.run_id,
+                    error_code="unexpected_run_error",
+                    error_message="The agent job failed before reaching a terminal state.",
+                )
+                raise
         finally:
             await self._repository.release_lock(key=lock_key, owner_id=owner_id)
 
@@ -262,6 +252,39 @@ class AgentService:
         if configuration is None:
             raise AgentUnavailableError(f"Agent {agent_id!r} has no configuration")
         return agent, configuration
+
+    async def _fail_unfinished_run(
+        self,
+        run_id: str,
+        *,
+        error_code: str,
+        error_message: str,
+    ) -> None:
+        persisted = await self._repository.get_run(run_id)
+        if persisted is None or persisted.status in {
+            AgentRunStatus.COMPLETED,
+            AgentRunStatus.FAILED,
+            AgentRunStatus.CANCELLED,
+            AgentRunStatus.WAITING_APPROVAL,
+        }:
+            return
+        require_transition(
+            persisted.status,
+            AgentRunStatus.FAILED,
+            RUN_TRANSITIONS,
+        )
+        now = self._clock.now()
+        await self._repository.update_run(
+            persisted.model_copy(
+                update={
+                    "status": AgentRunStatus.FAILED,
+                    "updated_at": now,
+                    "completed_at": now,
+                    "error_code": error_code,
+                    "error_message": error_message,
+                },
+            ),
+        )
 
     async def _audit(
         self,
