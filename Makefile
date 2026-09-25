@@ -144,7 +144,7 @@ meta-live-readonly-verify: audit-verify
 
 product-activity-live-verify: verify
 	@test "$${PRODUCT_ACTIVITY_LIVE_VERIFY:-0}" = "1" || (echo "Set PRODUCT_ACTIVITY_LIVE_VERIFY=1 to enable bounded first-party reads" && exit 2)
-	OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_firebase $(PYTEST) -q -m live_product_activity tests/test_product_activity_live_optin.py
+	$(PYTEST) -q -m live_product_activity tests/test_product_activity_live_optin.py
 
 audit-migrations:
 	scripts/sqlite_migration_audit.sh

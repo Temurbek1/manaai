@@ -48,6 +48,8 @@ and do not belong in the admin image.
 
 The included Compose file forces dry-run and disables real Meta writes for both API and worker.
 Changing only one gate must not enable writes. The migration service also has writes disabled.
+Optional product-activity overlays mount separate read-only Firebase and GA4 service-account files;
+they never copy those credentials into an image.
 
 ## Scaling rules
 

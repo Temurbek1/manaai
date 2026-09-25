@@ -44,8 +44,8 @@ executor. All four agents are expected to act as well as analyze, with risk-appr
 approval. Current live Meta remains read-only. The loaded operational agents are `growth-agent`,
 which composes `growth.advertising` plus `growth.funnel.analyze`, and `retention-agent`, which
 composes the read-only `retention.engagement.analyze`. Fake Meta and the in-memory experiment
-sandbox are the only executable write adapters. Retention's live Manakids/Firebase adapters are
-read-only and persist aggregate first-party facts only.
+sandbox are the only executable write adapters. Retention's live Manakids, GA4, and Firestore
+adapters are read-only and persist aggregate first-party facts only.
 
 `app/mana_ai` cannot import `app.mana_operation_ai`. The AST test in
 `tests/test_architecture_boundaries.py` also rejects operational repositories, database models,
@@ -63,7 +63,7 @@ parent-facing visibility gate.
 - `application/`: registries, agent runner, analytics, policy, approvals, execution, reports,
   maintenance, Telegram OTP/session/user use cases, and typed ports. Use cases depend on protocols.
 - `infrastructure/`: SQLAlchemy operation/auth repositories, Telegram Bot API delivery, Meta and
-  fake-Meta adapters, first-party Manakids/Firestore readers, and notification adapter.
+  fake-Meta adapters, first-party Manakids/GA4/Firestore readers, and notification adapter.
 - `background/`: a persisted scheduler used by a standalone production worker; local in-process
   scheduling is optional and disabled by default.
 - `api/`: versioned internal endpoints, Pydantic response models, RBAC, and HTTP error mapping.

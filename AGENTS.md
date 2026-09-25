@@ -26,7 +26,8 @@
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias
   and historical ID, not a second scheduler. Advertising writes use `fake_meta`; Growth funnel
   sources and experiment writes are fake/sandbox. Retention defaults to fake sources and has
-  explicit live read-only Manakids Admin API and Firestore adapters. Live Meta remains read-only.
+  explicit live read-only Manakids Admin API, GA4 aggregate, canonical Firestore event, and
+  operational Firestore aggregate adapters. Live Meta remains read-only.
 - Keep capability configuration, schedules, run locks, audit, and kill switches independently
   scoped by `agent_id` plus `capability_key`. New actions use domain-specific action enums and the
   typed executor/policy registries; do not expand advertising `ActionType` across domains.

@@ -121,14 +121,14 @@ assert_browser 'document.body.innerText.includes("Operation overview")' 'dashboa
 assert_browser 'document.querySelector(".session-box small")?.textContent?.trim() === "admin"' 'server session role is not admin'
 assert_browser '!document.cookie.includes("mana_admin_session")' 'HttpOnly session cookie is browser-readable'
 
-browser eval '(() => { const link = document.querySelector("a[href=\"/marketing\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("marketing route link missing"); link.click(); return "clicked"; })()' >/dev/null
+browser eval '(() => { const link = document.querySelector("a[href=\"/growth\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("growth route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("Meta Ads intelligence")' 'Marketing Agent route did not render'
+assert_browser 'document.body.innerText.includes("Advertising intelligence")' 'Growth advertising capability did not render'
 browser eval '(() => { const link = document.querySelector("a[href=\"/\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("overview route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
 browser find role button click --name "Run now" >/dev/null
 browser wait --load networkidle >/dev/null
-browser eval '(() => { const link = document.querySelector("a[href=\"/marketing\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("marketing route link missing"); link.click(); return "clicked"; })()' >/dev/null
+browser eval '(() => { const link = document.querySelector("a[href=\"/growth\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("growth route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("Best-performing creative")' 'finding was not rendered'
 assert_browser 'document.body.innerText.includes("scale_audience")' 'scale proposal was not rendered'
@@ -147,7 +147,7 @@ browser eval '(() => { const card = document.querySelector(".approval-card"); if
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("Queue is clear")' 'approval queue did not clear'
 
-browser eval '(() => { const link = document.querySelector("a[href=\"/marketing\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("marketing route link missing"); link.click(); return "clicked"; })()' >/dev/null
+browser eval '(() => { const link = document.querySelector("a[href=\"/growth\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("growth route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("SUCCEEDED")' 'execution status was not rendered'
 assert_browser 'document.querySelector(".report-copy")?.textContent?.includes("Marketing report")' 'report was not rendered'

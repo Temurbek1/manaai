@@ -49,6 +49,7 @@ async def test_retention_agent_runs_first_party_engagement_analysis_without_pii(
         assert {item["integration_id"] for item in detail.json()["integration_health"]} == {
             "fake_manakids_admin_api",
             "fake_firestore_activity",
+            "fake_firebase_operational_telemetry",
         }
 
         started = await client.post(
@@ -83,7 +84,7 @@ async def test_retention_agent_runs_first_party_engagement_analysis_without_pii(
         assert body["recommendations"] == []
         assert body["proposals"] == []
         snapshot = body["snapshots"][0]
-        assert snapshot["schema_version"] == "retention-engagement-v1"
+        assert snapshot["schema_version"] == "retention-engagement-v2"
         assert snapshot["payload"]["total_children"] == 2_400
         assert snapshot["payload"]["mobile_event_counts"]["app_open"] == 8_900
         assert snapshot["payload"]["mobile_dimension_counts"]["screen_views"] == {
@@ -91,6 +92,12 @@ async def test_retention_agent_runs_first_party_engagement_analysis_without_pii(
             "child_profile": 8_300,
         }
         assert snapshot["payload"]["mobile_sequence_counts"]["app_open>screen_view"] == 8_500
+        assert snapshot["payload"]["mobile_active_users_by_window"] == {
+            "1d": 520,
+            "7d": 1_820,
+            "30d": 2_180,
+        }
+        assert snapshot["payload"]["operational_telemetry"]["battery_devices"] == 2_100
         serialized = str(body)
         assert "phone" not in serialized.lower()
         assert "fullname" not in serialized.lower()

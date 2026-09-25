@@ -2,44 +2,64 @@
 
 ## Invariants
 
-- The integration is read-only. The adapters implement no application or Firestore writes.
-- Credentials come from deployment secrets; never commit the supplied handoff file or copy its
-  credentials into documentation, logs, test fixtures, images, or `.env.example`.
-- Use a dedicated Manakids service account restricted to the documented Admin API endpoints.
-- Use a dedicated Google service account with only the Firestore read permissions needed for the
-  configured project/database/collection.
-- Mount the Google service-account JSON read-only outside the image and set its container path in
-  `FIREBASE_SERVICE_ACCOUNT_FILE`.
-- Keep the scheduler disabled for the first verification.
+- Every connector is read-only; these adapters implement no Manakids, GA4, or Firestore writes.
+- Credentials are deployment secrets. Never commit service-account JSON or copy credentials into
+  docs, logs, tests, images, or `.env.example`.
+- Use dedicated service accounts and mount JSON files read-only outside the image.
+- Start with the scheduler disabled and `OPERATION_DRY_RUN=true`.
+- A Chrome/Firebase console session is suitable for manual inspection, not backend production
+  authentication.
 
-## Configuration
+## Recommended production configuration
 
 ```dotenv
-OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_firebase
+OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_ga4
 MANAKIDS_API_BASE_URL=https://api.manakids.uz
 MANAKIDS_API_USERNAME=<secret-managed-service-account>
 MANAKIDS_API_PASSWORD=<secret-managed-password>
+
+GA4_PROPERTY_ID=<numeric-property-id>
+GA4_SERVICE_ACCOUNT_FILE=/run/secrets/ga4-service-account.json
+
+FIREBASE_OPERATIONAL_TELEMETRY_ENABLED=true
 FIREBASE_PROJECT_ID=bosstracker-dev
 FIREBASE_DATABASE_ID=(default)
 FIREBASE_SERVICE_ACCOUNT_FILE=/run/secrets/firebase-service-account.json
-FIREBASE_ACTIVITY_COLLECTION=app_activity_events
 ```
 
-Startup rejects live mode when either source is incomplete, the Admin API URL is not HTTPS, or the
-service-account file is missing. Timeouts, retry budgets, backoff, and maximum Firestore documents
-are independently configurable in `.env.example`.
+Grant the GA4 service-account email viewer access to the required Analytics property and use only
+the `analytics.readonly` scope. Grant the Firebase service account only read access to the required
+Firestore database/collections (for example, the narrowest organization-approved equivalent of
+Datastore Viewer). The application validates that required files exist and that live base URLs use
+HTTPS before startup.
 
-`MANAKIDS_MAX_PAGES` bounds each Admin API activity scan. The verified bulk endpoints keep a fixed
-10-child page size even when a larger `limit` is requested. Until the application exposes a
-server-side active-child aggregate, production reports must treat a capped scan as partial and use
-its recorded completeness rather than extrapolating it.
+The alternative `manakids_firebase` provider reads the canonical collection configured by
+`FIREBASE_ACTIVITY_COLLECTION`. Do not enable it until `app_activity_events` exists and the mobile
+event contract in `first-party-product-activity.md` is being emitted reliably.
 
-For Docker Compose, set `FIREBASE_SERVICE_ACCOUNT_HOST_FILE` to the host path and include the
-read-only secret-mount overlay:
+Timeouts, retry budgets, backoff, page/document ceilings, and GA4 dimension limits are independently
+configurable in `.env.example`. `MANAKIDS_MAX_PAGES` bounds each fixed-size Admin API scan; a capped
+scan is partial and its measured completeness is retained.
+
+## Docker secret mounts
+
+Set both host-only paths before applying the product-activity overlay:
+
+```dotenv
+FIREBASE_SERVICE_ACCOUNT_HOST_FILE=/secure/host/firebase-reader.json
+GA4_SERVICE_ACCOUNT_HOST_FILE=/secure/host/ga4-reader.json
+```
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.product-activity.yml up --build
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.product-activity.yml \
+  -f docker-compose.product-activity-ga4.yml \
+  up --build
 ```
+
+The two overlays mount the files under `/run/secrets`; neither file is copied into an image. The
+GA4 overlay is unnecessary when the canonical `manakids_firebase` mode is used instead.
 
 ## Controlled verification
 
@@ -49,42 +69,41 @@ Run hermetic gates first:
 make verify
 ```
 
-Then, in an environment where the secrets are installed:
+Then run the opt-in bounded live smoke test in an environment with the deployment secrets and
+provider mode configured:
 
 ```bash
 PRODUCT_ACTIVITY_LIVE_VERIFY=1 make product-activity-live-verify
 ```
 
-The opt-in test performs only authentication and bounded reads, checks both integration health
-responses, collects at most one day of aggregates, and asserts that no raw user/session identifiers
-are present in the returned domain facts. It does not write to the Admin API, Firebase, or the
-Operation AI action system.
+The test authenticates to the Admin API, checks the selected mobile source, optionally checks the
+operational Firestore source, reads at most one day of aggregate activity, and asserts that PII,
+raw user/session IDs, and coordinates are absent from returned facts. It performs no writes.
 
-After it passes, inspect Retention & Loyalty in `/agents`, trigger one manual
-`retention.engagement.analyze` run, verify completeness/limitations and the run audit, and only then
-enable `retention-engagement-analysis` scheduling.
+After it passes:
+
+1. Start the API with the scheduler still disabled and inspect integration health in `/agents`.
+2. Trigger one manual `retention.engagement.analyze` run.
+3. Verify source request IDs, completeness, limitations, report payload, and audit stages.
+4. Enable `retention-engagement-analysis` scheduling only after that evidence is accepted.
 
 ## Current external preflight status
 
-On 2026-09-05, the corrected external service account authenticated successfully against the
-documented login route. Bounded read-only checks verified the account, child-list, app-usage, and
-camera/audio/screen endpoint envelopes. No credentials, access tokens, names, phone numbers, or raw
-response rows were persisted. The account join filters require `YYYY-MM-DD` values, and the bulk
-activity endpoints expose a fixed 10-child page size with nested activity data.
+As of 2026-09-25, the authorized console audit confirmed live GA4 events and the listed Firestore
+operational collections. The Manakids Admin API had also previously passed bounded read-only
+envelope checks. The local project `.env` does not currently contain the Manakids credentials,
+numeric GA4 property ID, or mounted GA4/Firestore service-account paths, so the live smoke test and
+production activation remain externally blocked until deployment secrets are provisioned.
 
-A mounted Firebase service-account file and a populated mobile `app_activity_events` collection
-are still required before the combined live capability can be activated. This does not affect
-fake-mode or hermetic test readiness.
+Detailed Crashlytics analysis is also blocked on an approved BigQuery/export path and is reserved
+for Technical Reliability. Do not label GA4 `app_exception` counts as crash root-cause analysis.
 
 ## Incident response
 
 - Disable the Retention schedule or its capability kill switch first.
-- Preserve only run/correlation IDs, request IDs, checksums, aggregate counts, and sanitized error
-  categories.
+- Preserve only run/correlation IDs, provider request IDs, checksums, aggregate counts, and
+  sanitized error categories.
 - Rotate a credential immediately if it appears in logs or an artifact.
-- For `401`/`403`, validate service-account status and least-privilege permissions; do not broaden
-  access until the exact missing read permission is identified.
-- For Firestore invalid-document findings, fix mobile schema/version emission and retain the old
-  reader until the new version has verified coverage.
-- For collection-limit findings, reduce the lookback window or add a governed aggregation/export
-  pipeline; do not silently treat a partial window as complete.
+- For `401`/`403`, identify the exact missing read permission; do not broaden access blindly.
+- For a document/report ceiling, reduce the window or add a governed aggregation/export pipeline;
+  never silently treat a partial result as complete.

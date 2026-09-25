@@ -112,7 +112,11 @@ class Settings(BaseSettings):
     operation_default_actor_id: str = "local-admin"
     operation_default_role: Literal["viewer", "operator", "approver", "admin"] = "viewer"
     operation_ads_provider: Literal["fake_meta", "meta"] = "fake_meta"
-    operation_product_activity_provider: Literal["fake", "manakids_firebase"] = "fake"
+    operation_product_activity_provider: Literal[
+        "fake",
+        "manakids_firebase",
+        "manakids_ga4",
+    ] = "fake"
     operation_viewer_api_key: SecretStr | None = None
     operation_operator_api_key: SecretStr | None = None
     operation_approver_api_key: SecretStr | None = None
@@ -141,6 +145,20 @@ class Settings(BaseSettings):
     firebase_max_activity_documents: int = Field(default=50_000, ge=100, le=250_000)
     firebase_max_retries: int = Field(default=3, ge=0, le=8)
     firebase_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
+    firebase_operational_telemetry_enabled: bool = False
+    firebase_operational_max_documents_per_collection: int = Field(
+        default=50_000,
+        ge=100,
+        le=250_000,
+    )
+    ga4_property_id: str | None = Field(default=None, pattern=r"^[0-9]{5,20}$")
+    ga4_service_account_file: Path | None = None
+    ga4_api_base_url: str = "https://analyticsdata.googleapis.com/v1beta"
+    ga4_request_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    ga4_dimension_limit: int = Field(default=50, ge=10, le=1_000)
+    ga4_max_concurrency: int = Field(default=5, ge=1, le=10)
+    ga4_max_retries: int = Field(default=3, ge=0, le=8)
+    ga4_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
     marketing_conversion_action_types: list[str] = Field(
         default_factory=lambda: [
             "purchase",
@@ -339,7 +357,7 @@ class Settings(BaseSettings):
             raise ValueError("META_REAL_WRITES_ENABLED must remain false in read-only Meta mode")
         if self.operation_ads_provider == "meta" and not self.operation_dry_run:
             raise ValueError("OPERATION_DRY_RUN must remain true for the live Meta provider")
-        if self.operation_product_activity_provider == "manakids_firebase":
+        if self.operation_product_activity_provider in {"manakids_firebase", "manakids_ga4"}:
             if not self.manakids_api_username or self.manakids_api_password is None:
                 raise ValueError(
                     "MANAKIDS_API_USERNAME and MANAKIDS_API_PASSWORD are required for live "
@@ -349,10 +367,32 @@ class Settings(BaseSettings):
                 raise ValueError("MANAKIDS_API_PASSWORD cannot be blank")
             if not self.manakids_api_base_url.startswith("https://"):
                 raise ValueError("MANAKIDS_API_BASE_URL must use HTTPS")
+        if self.operation_product_activity_provider == "manakids_firebase":
             if self.firebase_project_id is None or self.firebase_service_account_file is None:
                 raise ValueError(
                     "FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_FILE are required for live "
                     "product activity",
+                )
+            if not self.firebase_service_account_file.is_file():
+                raise ValueError("FIREBASE_SERVICE_ACCOUNT_FILE must reference a readable file")
+        if self.operation_product_activity_provider == "manakids_ga4":
+            if self.ga4_property_id is None or self.ga4_service_account_file is None:
+                raise ValueError(
+                    "GA4_PROPERTY_ID and GA4_SERVICE_ACCOUNT_FILE are required for live "
+                    "GA4 product activity",
+                )
+            if not self.ga4_service_account_file.is_file():
+                raise ValueError("GA4_SERVICE_ACCOUNT_FILE must reference a readable file")
+        if self.firebase_operational_telemetry_enabled:
+            if self.operation_product_activity_provider == "fake":
+                raise ValueError(
+                    "FIREBASE_OPERATIONAL_TELEMETRY_ENABLED requires a live product activity "
+                    "provider",
+                )
+            if self.firebase_project_id is None or self.firebase_service_account_file is None:
+                raise ValueError(
+                    "FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_FILE are required when "
+                    "operational telemetry is enabled",
                 )
             if not self.firebase_service_account_file.is_file():
                 raise ValueError("FIREBASE_SERVICE_ACCOUNT_FILE must reference a readable file")
@@ -412,6 +452,8 @@ class Settings(BaseSettings):
         "manakids_api_password",
         "firebase_project_id",
         "firebase_service_account_file",
+        "ga4_property_id",
+        "ga4_service_account_file",
         mode="before",
     )
     @classmethod
@@ -472,6 +514,25 @@ class Settings(BaseSettings):
             raise ValueError(
                 "MANAKIDS_API_BASE_URL must be an HTTPS origin without credentials, query, or "
                 "fragment",
+            )
+        return value.rstrip("/")
+
+    @field_validator("ga4_api_base_url")
+    @classmethod
+    def validate_ga4_base_url(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or ".." in parsed.path.split("/")
+        ):
+            raise ValueError(
+                "GA4_API_BASE_URL must be an HTTPS URL without credentials, query, fragment, or "
+                "parent traversal",
             )
         return value.rstrip("/")
 

@@ -13,6 +13,7 @@ from app.mana_operation_ai.application.ports import (
     Clock,
     IdGenerator,
     MobileActivityPort,
+    OperationalTelemetryPort,
     OperationRepository,
 )
 from app.mana_operation_ai.application.retention.constants import (
@@ -50,6 +51,7 @@ from app.mana_operation_ai.domain.models import (
 from app.mana_operation_ai.domain.retention import (
     BackendActivityFacts,
     MobileActivityFacts,
+    OperationalTelemetryFacts,
     RetentionEngagementConfiguration,
     RetentionEngagementSnapshot,
 )
@@ -62,12 +64,14 @@ class RetentionEngagementCapabilityHandler:
         *,
         backend_activity: BackendActivityPort,
         mobile_activity: MobileActivityPort,
+        operational_telemetry: OperationalTelemetryPort | None,
         repository: OperationRepository,
         clock: Clock,
         ids: IdGenerator,
     ) -> None:
         self._backend_activity = backend_activity
         self._mobile_activity = mobile_activity
+        self._operational_telemetry = operational_telemetry
         self._repository = repository
         self._clock = clock
         self._ids = ids
@@ -75,8 +79,9 @@ class RetentionEngagementCapabilityHandler:
             key=ENGAGEMENT_CAPABILITY_KEY,
             agent_id=RETENTION_AGENT_ID,
             description=(
-                "Combines privacy-minimized Manakids backend aggregates with mobile Firebase "
-                "activity events to measure first-party engagement and data coverage."
+                "Combines privacy-minimized Manakids backend aggregates with mobile analytics "
+                "and optional operational telemetry to measure first-party engagement and "
+                "data coverage."
             ),
             risk=CapabilityRisk.READ,
             minimum_role=UserRole.OPERATOR,
@@ -88,6 +93,11 @@ class RetentionEngagementCapabilityHandler:
             required_integrations=[
                 backend_activity.integration_id,
                 mobile_activity.integration_id,
+                *(
+                    [operational_telemetry.integration_id]
+                    if operational_telemetry is not None
+                    else []
+                ),
             ],
             supported_triggers={TriggerType.USER, TriggerType.SCHEDULE},
         )
@@ -128,11 +138,10 @@ class RetentionEngagementCapabilityHandler:
         )
 
     async def health(self) -> list[IntegrationHealth]:
-        backend, mobile = await asyncio.gather(
-            self._backend_activity.health(),
-            self._mobile_activity.health(),
-        )
-        return [backend, mobile]
+        checks = [self._backend_activity.health(), self._mobile_activity.health()]
+        if self._operational_telemetry is not None:
+            checks.append(self._operational_telemetry.health())
+        return list(await asyncio.gather(*checks))
 
     async def execute(
         self,
@@ -150,27 +159,38 @@ class RetentionEngagementCapabilityHandler:
             run = await self._transition(run, AgentRunStatus.COLLECTING, AgentRunStage.COLLECT)
             period_end = self._clock.now()
             period_start = period_end - timedelta(days=typed_configuration.lookback_days)
-            backend, mobile = await asyncio.gather(
-                self._backend_activity.collect_activity(
-                    period_start=period_start,
-                    period_end=period_end,
-                ),
-                self._mobile_activity.collect_activity(
-                    period_start=period_start,
-                    period_end=period_end,
-                ),
+            backend_task = self._backend_activity.collect_activity(
+                period_start=period_start,
+                period_end=period_end,
             )
+            mobile_task = self._mobile_activity.collect_activity(
+                period_start=period_start,
+                period_end=period_end,
+            )
+            operational: OperationalTelemetryFacts | None = None
+            if self._operational_telemetry is None:
+                backend, mobile = await asyncio.gather(backend_task, mobile_task)
+            else:
+                backend, mobile, operational = await asyncio.gather(
+                    backend_task,
+                    mobile_task,
+                    self._operational_telemetry.collect_telemetry(),
+                )
 
             run = await self._transition(
                 run,
                 AgentRunStatus.NORMALIZING,
                 AgentRunStage.NORMALIZE,
             )
-            normalized = _normalize(backend, mobile, self._clock.now())
+            normalized = _normalize(backend, mobile, operational, self._clock.now())
             snapshot = self._snapshot(
                 run,
                 normalized,
-                [*backend.source_request_ids, *mobile.source_request_ids],
+                [
+                    *backend.source_request_ids,
+                    *mobile.source_request_ids,
+                    *(operational.source_request_ids if operational is not None else []),
+                ],
             )
             await self._repository.save_snapshot(snapshot)
 
@@ -236,6 +256,8 @@ class RetentionEngagementCapabilityHandler:
             "backend_active_children": _count_metric(normalized.backend_active_children),
             "mobile_active_subjects": _count_metric(normalized.mobile_active_subjects),
             "mobile_sessions": _count_metric(normalized.mobile_sessions),
+            "mobile_engaged_sessions": _count_metric(normalized.mobile_engaged_sessions),
+            "mobile_new_users": _count_metric(normalized.mobile_new_users),
             "mobile_screen_time_seconds": _count_metric(
                 normalized.mobile_screen_time_seconds,
                 unit="seconds",
@@ -247,6 +269,26 @@ class RetentionEngagementCapabilityHandler:
             {
                 f"mobile_{event_type.value}": _count_metric(count)
                 for event_type, count in normalized.mobile_event_counts.items()
+            },
+        )
+        if normalized.operational_telemetry is not None:
+            operational = normalized.operational_telemetry
+            metrics.update(
+                {
+                    "operational_battery_devices": _count_metric(operational.battery_devices),
+                    "operational_located_devices": _count_metric(operational.located_devices),
+                    "operational_internet_records": _count_metric(
+                        operational.internet_records,
+                    ),
+                    "operational_monitoring_enabled": _count_metric(
+                        operational.monitoring_enabled,
+                    ),
+                },
+            )
+        metrics.update(
+            {
+                f"mobile_active_users_{window}": _count_metric(count)
+                for window, count in normalized.mobile_active_users_by_window.items()
             },
         )
         analysis = Analysis(
@@ -317,8 +359,8 @@ class RetentionEngagementCapabilityHandler:
                     finding_type="mobile_activity_missing",
                     title="No mobile product activity was observed",
                     description=(
-                        "The Firebase activity collection returned no supported events for the "
-                        "analysis window."
+                        "The configured mobile activity source returned no supported events for "
+                        "the analysis window."
                     ),
                     metric_name="mobile_event_count",
                     metric=_count_metric(0),
@@ -381,13 +423,21 @@ class RetentionEngagementCapabilityHandler:
                 "total_children": snapshot.total_children,
                 "backend_active_children": snapshot.backend_active_children,
                 "mobile_active_subjects": snapshot.mobile_active_subjects,
+                "mobile_active_users_by_window": snapshot.mobile_active_users_by_window,
                 "mobile_sessions": snapshot.mobile_sessions,
+                "mobile_engaged_sessions": snapshot.mobile_engaged_sessions,
+                "mobile_new_users": snapshot.mobile_new_users,
                 "mobile_event_counts": {
                     key.value: value for key, value in snapshot.mobile_event_counts.items()
                 },
                 "mobile_dimension_counts": snapshot.mobile_dimension_counts,
                 "mobile_sequence_counts": snapshot.mobile_sequence_counts,
                 "mobile_screen_time_seconds": snapshot.mobile_screen_time_seconds,
+                "operational_telemetry": (
+                    snapshot.operational_telemetry.model_dump(mode="json")
+                    if snapshot.operational_telemetry is not None
+                    else None
+                ),
                 "parent_accounts_joined": snapshot.parent_accounts_joined,
                 "child_accounts_joined": snapshot.child_accounts_joined,
                 "completeness": str(snapshot.completeness),
@@ -499,9 +549,17 @@ class RetentionEngagementCapabilityHandler:
 def _normalize(
     backend: BackendActivityFacts,
     mobile: MobileActivityFacts,
+    operational: OperationalTelemetryFacts | None,
     collected_at: datetime,
 ) -> RetentionEngagementSnapshot:
-    limitations = [*backend.limitations, *mobile.limitations]
+    limitations = [
+        *backend.limitations,
+        *mobile.limitations,
+        *(operational.limitations if operational is not None else []),
+    ]
+    completeness_values = [backend.completeness, mobile.completeness]
+    if operational is not None:
+        completeness_values.append(operational.completeness)
     raw_backend_active = max(
         backend.children_with_app_usage,
         backend.children_with_realtime_feature_usage,
@@ -522,8 +580,8 @@ def _normalize(
     )
     if backend_active and mobile.active_subjects:
         limitations.append(
-            "Backend and Firebase subject populations cannot yet be safely deduplicated; they are "
-            "reported separately.",
+            "Backend and mobile-analytics subject populations cannot yet be safely deduplicated; "
+            "they are reported separately.",
         )
     return RetentionEngagementSnapshot(
         period_start=max(backend.period_start, mobile.period_start),
@@ -534,17 +592,33 @@ def _normalize(
         total_children=backend.total_children,
         backend_active_children=backend_active,
         mobile_active_subjects=mobile.active_subjects,
+        mobile_active_users_by_window=mobile.active_users_by_window,
         mobile_sessions=mobile.sessions,
+        mobile_engaged_sessions=mobile.engaged_sessions,
+        mobile_new_users=mobile.new_users,
         mobile_screen_time_seconds=mobile.screen_time_seconds,
         mobile_event_counts={
             event_type: mobile.event_counts.get(event_type, 0) for event_type in ActivityEventType
         },
         mobile_dimension_counts=mobile.dimension_counts,
         mobile_sequence_counts=mobile.sequence_counts,
-        completeness=min(backend.completeness, mobile.completeness),
+        operational_telemetry=operational,
+        completeness=min(completeness_values),
         evidence_refs=[
             _evidence_ref(backend, collected_at),
             _evidence_ref(mobile, collected_at),
+            *(
+                [
+                    _operational_evidence_ref(
+                        operational,
+                        period_start=max(backend.period_start, mobile.period_start),
+                        period_end=min(backend.period_end, mobile.period_end),
+                        collected_at=collected_at,
+                    ),
+                ]
+                if operational is not None
+                else []
+            ),
         ],
         limitations=limitations,
     )
@@ -568,6 +642,30 @@ def _evidence_ref(
         completeness=facts.completeness,
         checksum=checksum,
         privacy_classification="user_behavioral_high_minimized",
+    )
+
+
+def _operational_evidence_ref(
+    facts: OperationalTelemetryFacts,
+    *,
+    period_start: datetime,
+    period_end: datetime,
+    collected_at: datetime,
+) -> EvidenceRef:
+    payload = facts.model_dump(mode="json")
+    checksum = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(),
+    ).hexdigest()
+    return EvidenceRef(
+        source=facts.source,
+        subject_scope="aggregate_operational_mobile_state",
+        period_start=period_start,
+        period_end=period_end,
+        collected_at=facts.collected_at,
+        freshness_seconds=max(int((collected_at - facts.collected_at).total_seconds()), 0),
+        completeness=facts.completeness,
+        checksum=checksum,
+        privacy_classification="device_operational_high_minimized",
     )
 
 

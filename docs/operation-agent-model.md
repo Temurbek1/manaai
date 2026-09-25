@@ -15,7 +15,7 @@ This document separates the target design from the current implementation:
   compatibility alias and historical ID. Advertising writes execute only against `fake_meta`;
   funnel data ports and experiment execution are deterministic fake/sandbox implementations.
   Retention defaults to deterministic fake sources and can use explicit live read-only Manakids
-  Admin API plus Firebase adapters. Live Meta is intentionally read-only.
+  Admin API plus GA4/Firestore adapters. Live Meta is intentionally read-only.
 - **Target:** four action-capable agents operate through typed ports, policies, approvals,
   idempotent executors, verification, and outcome measurement.
 

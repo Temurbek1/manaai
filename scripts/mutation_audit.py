@@ -162,12 +162,12 @@ MUTATIONS = (
     ),
     Mutation(
         "mana_ai_repository_import",
-        "app/mana_ai/api/router.py",
-        "from fastapi import APIRouter",
+        "app/mana_ai/application/service.py",
+        "from app.mana_ai.application.details import (",
         (
-            "from fastapi import APIRouter\n"
             "from app.mana_operation_ai.infrastructure.persistence.repository import "
-            "SqlAlchemyOperationRepository"
+            "SqlAlchemyOperationRepository\n"
+            "from app.mana_ai.application.details import ("
         ),
         ("tests/test_architecture_boundaries.py",),
     ),

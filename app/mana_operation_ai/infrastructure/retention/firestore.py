@@ -1,5 +1,4 @@
 import asyncio
-import importlib
 import re
 import time
 from collections import Counter
@@ -7,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Protocol, cast
+from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
@@ -20,14 +19,10 @@ from app.mana_operation_ai.application.ports import (
 from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import MobileActivityFacts
+from app.mana_operation_ai.infrastructure.google_auth import GoogleAccessTokenProvider
 
-_DATASTORE_SCOPE = "https://www.googleapis.com/auth/datastore"
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 _TAXONOMY_PATTERN = r"^[a-z][a-z0-9_.-]{0,63}$"
-
-
-class AccessTokenProvider(Protocol):
-    async def access_token(self) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -49,32 +44,6 @@ class _MobileActivityEvent:
     sort_used: bool
 
 
-class GoogleServiceAccountTokenProvider:
-    """Refreshes a scoped OAuth token without exposing service-account material."""
-
-    def __init__(self, service_account_file: str) -> None:
-        service_account = importlib.import_module("google.oauth2.service_account")
-        transport_requests = importlib.import_module("google.auth.transport.requests")
-        self._credentials: Any = service_account.Credentials.from_service_account_file(
-            service_account_file,
-            scopes=[_DATASTORE_SCOPE],
-        )
-        self._request: Any = transport_requests.Request()
-        self._lock = asyncio.Lock()
-
-    async def access_token(self) -> str:
-        async with self._lock:
-            if not self._credentials.valid or not self._credentials.token:
-                try:
-                    await asyncio.to_thread(self._credentials.refresh, self._request)
-                except Exception as exc:
-                    raise ProviderTransientError("Google access token refresh failed") from exc
-            token = self._credentials.token
-            if not isinstance(token, str) or not token:
-                raise ProviderPermanentError("Google credentials did not produce an access token")
-            return token
-
-
 class FirestoreMobileActivityAdapter:
     """Reads the canonical mobile activity collection and persists aggregate facts only."""
 
@@ -87,7 +56,7 @@ class FirestoreMobileActivityAdapter:
         project_id: str,
         database_id: str,
         collection_id: str,
-        token_provider: AccessTokenProvider,
+        token_provider: GoogleAccessTokenProvider,
         clock: Clock,
         max_documents: int,
         max_retries: int,

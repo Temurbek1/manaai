@@ -39,7 +39,11 @@ from app.mana_operation_ai.application.marketing.agent import AdvertisingCapabil
 from app.mana_operation_ai.application.marketing.analytics import MarketingAnalyticsEngine
 from app.mana_operation_ai.application.marketing.reporting import MarketingReportBuilder
 from app.mana_operation_ai.application.policy import PolicyService
-from app.mana_operation_ai.application.ports import BackendActivityPort, MobileActivityPort
+from app.mana_operation_ai.application.ports import (
+    BackendActivityPort,
+    MobileActivityPort,
+    OperationalTelemetryPort,
+)
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
 from app.mana_operation_ai.application.retention.agent import RetentionAgent
 from app.mana_operation_ai.application.retention.engagement import (
@@ -50,6 +54,9 @@ from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
 from app.mana_operation_ai.infrastructure.ads.fake_meta import FakeMetaAdsAdapter
 from app.mana_operation_ai.infrastructure.ads.meta import MetaAdsAdapter
+from app.mana_operation_ai.infrastructure.google_auth import (
+    GoogleServiceAccountTokenProvider,
+)
 from app.mana_operation_ai.infrastructure.growth.fake import (
     FakeAttributionAdapter,
     FakeBillingReadAdapter,
@@ -69,11 +76,15 @@ from app.mana_operation_ai.infrastructure.persistence.repository import (
 from app.mana_operation_ai.infrastructure.retention.fake import (
     FakeBackendActivityAdapter,
     FakeMobileActivityAdapter,
+    FakeOperationalTelemetryAdapter,
 )
 from app.mana_operation_ai.infrastructure.retention.firestore import (
     FirestoreMobileActivityAdapter,
-    GoogleServiceAccountTokenProvider,
 )
+from app.mana_operation_ai.infrastructure.retention.firestore_operational import (
+    FirestoreOperationalTelemetryAdapter,
+)
+from app.mana_operation_ai.infrastructure.retention.ga4 import Ga4MobileActivityAdapter
 from app.mana_operation_ai.infrastructure.retention.manakids import (
     ManakidsAdminActivityAdapter,
 )
@@ -116,20 +127,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     first_party_http_clients: list[httpx.AsyncClient] = []
     backend_activity: BackendActivityPort
     mobile_activity: MobileActivityPort
-    if settings.operation_product_activity_provider == "manakids_firebase":
-        if (
-            settings.manakids_api_username is None
-            or settings.manakids_api_password is None
-            or settings.firebase_project_id is None
-            or settings.firebase_service_account_file is None
-        ):
+    operational_telemetry: OperationalTelemetryPort | None = None
+    if settings.operation_product_activity_provider != "fake":
+        if settings.manakids_api_username is None or settings.manakids_api_password is None:
             raise RuntimeError("Live product activity settings are incomplete")
-        firebase_token_provider = GoogleServiceAccountTokenProvider(
-            str(settings.firebase_service_account_file),
-        )
         manakids_http = httpx.AsyncClient(timeout=settings.manakids_request_timeout_seconds)
-        firestore_http = httpx.AsyncClient(timeout=settings.firebase_request_timeout_seconds)
-        first_party_http_clients.extend([manakids_http, firestore_http])
+        first_party_http_clients.append(manakids_http)
         backend_activity = ManakidsAdminActivityAdapter(
             client=manakids_http,
             base_url=settings.manakids_api_base_url,
@@ -140,20 +143,79 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             retry_backoff_seconds=settings.manakids_retry_backoff_seconds,
             max_pages=settings.manakids_max_pages,
         )
-        mobile_activity = FirestoreMobileActivityAdapter(
-            client=firestore_http,
-            project_id=settings.firebase_project_id,
-            database_id=settings.firebase_database_id,
-            collection_id=settings.firebase_activity_collection,
-            token_provider=firebase_token_provider,
-            clock=clock,
-            max_documents=settings.firebase_max_activity_documents,
-            max_retries=settings.firebase_max_retries,
-            retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
-        )
+        if settings.operation_product_activity_provider == "manakids_firebase":
+            if (
+                settings.firebase_project_id is None
+                or settings.firebase_service_account_file is None
+            ):
+                raise RuntimeError("Live Firestore activity settings are incomplete")
+            firestore_token_provider = GoogleServiceAccountTokenProvider(
+                str(settings.firebase_service_account_file),
+                scopes=["https://www.googleapis.com/auth/datastore"],
+            )
+            firestore_http = httpx.AsyncClient(timeout=settings.firebase_request_timeout_seconds)
+            first_party_http_clients.append(firestore_http)
+            mobile_activity = FirestoreMobileActivityAdapter(
+                client=firestore_http,
+                project_id=settings.firebase_project_id,
+                database_id=settings.firebase_database_id,
+                collection_id=settings.firebase_activity_collection,
+                token_provider=firestore_token_provider,
+                clock=clock,
+                max_documents=settings.firebase_max_activity_documents,
+                max_retries=settings.firebase_max_retries,
+                retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+            )
+        else:
+            if settings.ga4_property_id is None or settings.ga4_service_account_file is None:
+                raise RuntimeError("Live GA4 activity settings are incomplete")
+            ga4_token_provider = GoogleServiceAccountTokenProvider(
+                str(settings.ga4_service_account_file),
+                scopes=["https://www.googleapis.com/auth/analytics.readonly"],
+            )
+            ga4_http = httpx.AsyncClient(timeout=settings.ga4_request_timeout_seconds)
+            first_party_http_clients.append(ga4_http)
+            mobile_activity = Ga4MobileActivityAdapter(
+                client=ga4_http,
+                property_id=settings.ga4_property_id,
+                token_provider=ga4_token_provider,
+                clock=clock,
+                api_base_url=settings.ga4_api_base_url,
+                dimension_limit=settings.ga4_dimension_limit,
+                max_concurrency=settings.ga4_max_concurrency,
+                max_retries=settings.ga4_max_retries,
+                retry_backoff_seconds=settings.ga4_retry_backoff_seconds,
+            )
+        if settings.firebase_operational_telemetry_enabled:
+            if (
+                settings.firebase_project_id is None
+                or settings.firebase_service_account_file is None
+            ):
+                raise RuntimeError("Live Firestore operational settings are incomplete")
+            operational_token_provider = GoogleServiceAccountTokenProvider(
+                str(settings.firebase_service_account_file),
+                scopes=["https://www.googleapis.com/auth/datastore"],
+            )
+            operational_http = httpx.AsyncClient(
+                timeout=settings.firebase_request_timeout_seconds,
+            )
+            first_party_http_clients.append(operational_http)
+            operational_telemetry = FirestoreOperationalTelemetryAdapter(
+                client=operational_http,
+                project_id=settings.firebase_project_id,
+                database_id=settings.firebase_database_id,
+                token_provider=operational_token_provider,
+                clock=clock,
+                max_documents_per_collection=(
+                    settings.firebase_operational_max_documents_per_collection
+                ),
+                max_retries=settings.firebase_max_retries,
+                retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+            )
     else:
         backend_activity = FakeBackendActivityAdapter(clock=clock)
         mobile_activity = FakeMobileActivityAdapter(clock=clock)
+        operational_telemetry = FakeOperationalTelemetryAdapter(clock=clock)
     otp_sender: TelegramOtpSender
     if settings.mana_auth_test_mode:
         if settings.mana_auth_test_otp_sink_path is None:
@@ -261,6 +323,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         RetentionEngagementCapabilityHandler(
             backend_activity=backend_activity,
             mobile_activity=mobile_activity,
+            operational_telemetry=operational_telemetry,
             repository=operation_repository,
             clock=clock,
             ids=ids,

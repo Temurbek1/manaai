@@ -18,6 +18,14 @@ _DIMENSION_CATEGORIES = {
     "uploads_by_type",
     "search_usage",
     "screen_time_seconds_by_screen",
+    "app_versions",
+    "operating_system_versions",
+    "device_brands",
+    "device_models",
+    "languages",
+    "countries",
+    "regions",
+    "cities",
 }
 _SEARCH_DIMENSIONS = {"with_query", "with_filters", "with_sort"}
 
@@ -72,7 +80,12 @@ class MobileActivityFacts(DomainModel):
     dimension_counts: dict[str, dict[str, int]] = Field(default_factory=dict)
     sequence_counts: dict[str, int] = Field(default_factory=dict)
     active_subjects: int = Field(ge=0)
+    active_users_by_window: dict[Literal["1d", "7d", "30d"], int] = Field(
+        default_factory=dict,
+    )
     sessions: int = Field(ge=0)
+    engaged_sessions: int = Field(default=0, ge=0)
+    new_users: int = Field(default=0, ge=0)
     screen_time_seconds: int = Field(ge=0)
     documents_scanned: int = Field(ge=0)
     invalid_documents: int = Field(ge=0)
@@ -90,6 +103,8 @@ class MobileActivityFacts(DomainModel):
             raise ValueError("Mobile dimension counts cannot be negative")
         if any(value < 0 for value in self.sequence_counts.values()):
             raise ValueError("Mobile sequence counts cannot be negative")
+        if any(value < 0 for value in self.active_users_by_window.values()):
+            raise ValueError("Active-user window counts cannot be negative")
         if set(self.dimension_counts).difference(_DIMENSION_CATEGORIES):
             raise ValueError("Unsupported mobile dimension category")
         for category, values in self.dimension_counts.items():
@@ -112,8 +127,36 @@ class MobileActivityFacts(DomainModel):
         return self
 
 
+class OperationalTelemetryFacts(DomainModel):
+    """Privacy-minimized aggregates from operational mobile Firestore collections."""
+
+    source: str
+    collected_at: datetime
+    battery_devices: int = Field(ge=0)
+    battery_percent_available: int = Field(ge=0)
+    silent_devices: int = Field(ge=0)
+    located_devices: int = Field(ge=0)
+    moving_devices: int = Field(ge=0)
+    internet_records: int = Field(ge=0)
+    monitoring_enabled: int = Field(ge=0)
+    monitoring_disabled: int = Field(ge=0)
+    screen_command_counts: dict[str, int] = Field(default_factory=dict)
+    documents_scanned: int = Field(ge=0)
+    completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
+    source_request_ids: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_aggregates(self) -> "OperationalTelemetryFacts":
+        if any(value < 0 for value in self.screen_command_counts.values()):
+            raise ValueError("Screen-command counts cannot be negative")
+        if any(re.fullmatch(_TAXONOMY, key) is None for key in self.screen_command_counts):
+            raise ValueError("Screen-command names must use bounded taxonomy")
+        return self
+
+
 class RetentionEngagementSnapshot(DomainModel):
-    schema_version: Literal["retention-engagement-v1"] = "retention-engagement-v1"
+    schema_version: Literal["retention-engagement-v2"] = "retention-engagement-v2"
     period_start: datetime
     period_end: datetime
     collected_at: datetime
@@ -122,11 +165,17 @@ class RetentionEngagementSnapshot(DomainModel):
     total_children: int = Field(ge=0)
     backend_active_children: int = Field(ge=0)
     mobile_active_subjects: int = Field(ge=0)
+    mobile_active_users_by_window: dict[Literal["1d", "7d", "30d"], int] = Field(
+        default_factory=dict,
+    )
     mobile_sessions: int = Field(ge=0)
+    mobile_engaged_sessions: int = Field(default=0, ge=0)
+    mobile_new_users: int = Field(default=0, ge=0)
     mobile_screen_time_seconds: int = Field(ge=0)
     mobile_event_counts: dict[ActivityEventType, int]
     mobile_dimension_counts: dict[str, dict[str, int]] = Field(default_factory=dict)
     mobile_sequence_counts: dict[str, int] = Field(default_factory=dict)
+    operational_telemetry: OperationalTelemetryFacts | None = None
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
     evidence_refs: list[EvidenceRef]
     limitations: list[str] = Field(default_factory=list)

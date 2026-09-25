@@ -42,9 +42,10 @@ the first half of the product. Every external/internal mutation follows evidence
 temporary alias that starts new advertising runs under `growth-agent` while historical rows retain
 their original agent ID. Advertising writes are executable only against `fake_meta`, Growth funnel
 sources are deterministic fake ports, and experiment writes target only the in-memory sandbox.
-Retention defaults to fake first-party sources and has explicit live read-only Manakids Admin API
-and Firebase adapters. Its messaging, offer, subscription, loyalty, and referral actions remain
-target work. Operations Orchestrator and Technical Reliability are not implemented. See
+Retention defaults to fake first-party sources and has explicit live read-only Manakids Admin API,
+GA4 aggregate, canonical Firestore event, and operational Firestore aggregate adapters. Its
+messaging, offer, subscription, loyalty, and referral actions remain target work. Operations
+Orchestrator and Technical Reliability are not implemented. See
 [the Growth handoff](docs/growth-agent.md) and
 [first-party product activity](docs/first-party-product-activity.md).
 
@@ -244,6 +245,12 @@ The application refuses to boot without them, by design.
 | `MANA_TRUSTED_ORIGINS` | JSON array; must contain the exact public admin origin |
 | `CORS_ORIGINS` | JSON array; `*` is rejected in production |
 | `POSTGRES_PASSWORD` **and** `OPERATION_DATABASE_URL` | the same password lives in both — change both, or the containers will not connect |
+
+When live first-party analytics is enabled, also provide the Manakids service credentials, numeric
+`GA4_PROPERTY_ID`, GA4 read-only service-account mount, and (when operational telemetry is enabled)
+the Firebase project and read-only service-account mount. The exact variables, least-privilege
+requirements, smoke test, and Compose overlays are in
+[`docs/live-product-activity-runbook.md`](docs/live-product-activity-runbook.md).
 
 Two cross-field ceilings are enforced at startup and are easy to trip: `META_MAX_RETRIES` must not
 exceed `META_LIVE_MAX_TOTAL_RETRIES`, and `META_MAX_PAGES` must not exceed `META_LIVE_MAX_PAGES`.

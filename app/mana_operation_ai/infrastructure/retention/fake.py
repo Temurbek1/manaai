@@ -4,7 +4,11 @@ from decimal import Decimal
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
-from app.mana_operation_ai.domain.retention import BackendActivityFacts, MobileActivityFacts
+from app.mana_operation_ai.domain.retention import (
+    BackendActivityFacts,
+    MobileActivityFacts,
+    OperationalTelemetryFacts,
+)
 
 
 class FakeBackendActivityAdapter:
@@ -97,7 +101,10 @@ class FakeMobileActivityAdapter:
                 "navigation>feature_used": 4_300,
             },
             active_subjects=1_820,
+            active_users_by_window={"1d": 520, "7d": 1_820, "30d": 2_180},
             sessions=8_900,
+            engaged_sessions=7_400,
+            new_users=165,
             screen_time_seconds=1_480_000,
             documents_scanned=134_055,
             invalid_documents=0,
@@ -115,5 +122,45 @@ class FakeMobileActivityAdapter:
             last_success_at=now,
             latency_ms=0,
             message="Deterministic Firestore activity fixture is ready",
+            diagnostics={"mode": "fake_read_only"},
+        )
+
+
+class FakeOperationalTelemetryAdapter:
+    integration_id = "fake_firebase_operational_telemetry"
+
+    def __init__(self, *, clock: Clock) -> None:
+        self._clock = clock
+
+    async def collect_telemetry(self) -> OperationalTelemetryFacts:
+        return OperationalTelemetryFacts(
+            source=self.integration_id,
+            collected_at=self._clock.now(),
+            battery_devices=2_100,
+            battery_percent_available=2_060,
+            silent_devices=140,
+            located_devices=1_940,
+            moving_devices=320,
+            internet_records=2_080,
+            monitoring_enabled=1_820,
+            monitoring_disabled=220,
+            screen_command_counts={"start": 310, "stop": 295},
+            documents_scanned=10_965,
+            completeness=Decimal("1"),
+            source_request_ids=["fake-firestore-operational-v1"],
+            limitations=[
+                "Deterministic operational telemetry fixture contains aggregates only.",
+            ],
+        )
+
+    async def health(self) -> IntegrationHealth:
+        now = self._clock.now()
+        return IntegrationHealth(
+            integration_id=self.integration_id,
+            status=IntegrationStatus.HEALTHY,
+            checked_at=now,
+            last_success_at=now,
+            latency_ms=0,
+            message="Deterministic Firestore operational telemetry fixture is ready",
             diagnostics={"mode": "fake_read_only"},
         )
