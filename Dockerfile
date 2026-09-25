@@ -9,13 +9,13 @@ WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
 RUN mkdir -p /data && chown app:app /data
 
-COPY pyproject.toml README.md ./
-COPY app ./app
+COPY --chown=app:app pyproject.toml README.md ./
+COPY --chown=app:app app ./app
 RUN pip install --upgrade pip && pip install ".[operation]"
 
-COPY alembic.ini ./
-COPY migrations ./migrations
-COPY scripts/start_api.sh ./scripts/start_api.sh
+COPY --chown=app:app alembic.ini ./
+COPY --chown=app:app migrations ./migrations
+COPY --chown=app:app scripts/start_api.sh ./scripts/start_api.sh
 
 USER app
 
