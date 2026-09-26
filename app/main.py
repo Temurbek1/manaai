@@ -88,6 +88,9 @@ from app.mana_operation_ai.infrastructure.retention.ga4 import Ga4MobileActivity
 from app.mana_operation_ai.infrastructure.retention.manakids import (
     ManakidsAdminActivityAdapter,
 )
+from app.mana_operation_ai.infrastructure.retention.unavailable import (
+    UnavailableMobileActivityAdapter,
+)
 from app.mana_operation_ai.infrastructure.telegram.sender import (
     FileTelegramOtpSender,
     TelegramBotOtpSender,
@@ -143,7 +146,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             retry_backoff_seconds=settings.manakids_retry_backoff_seconds,
             max_pages=settings.manakids_max_pages,
         )
-        if settings.operation_product_activity_provider == "manakids_firebase":
+        if settings.operation_product_activity_provider == "manakids":
+            mobile_activity = UnavailableMobileActivityAdapter(clock=clock)
+        elif settings.operation_product_activity_provider == "manakids_firebase":
             if (
                 settings.firebase_project_id is None
                 or settings.firebase_service_account_file is None
@@ -187,14 +192,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 retry_backoff_seconds=settings.ga4_retry_backoff_seconds,
             )
         if settings.firebase_operational_telemetry_enabled:
-            if (
-                settings.firebase_project_id is None
-                or settings.firebase_service_account_file is None
-            ):
+            if settings.firebase_project_id is None:
                 raise RuntimeError("Live Firestore operational settings are incomplete")
-            operational_token_provider = GoogleServiceAccountTokenProvider(
-                str(settings.firebase_service_account_file),
-                scopes=["https://www.googleapis.com/auth/datastore"],
+            operational_token_provider = (
+                GoogleServiceAccountTokenProvider(
+                    str(settings.firebase_service_account_file),
+                    scopes=["https://www.googleapis.com/auth/datastore"],
+                )
+                if settings.firebase_service_account_file is not None
+                else None
             )
             operational_http = httpx.AsyncClient(
                 timeout=settings.firebase_request_timeout_seconds,

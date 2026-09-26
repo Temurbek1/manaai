@@ -47,7 +47,7 @@ class FirestoreOperationalTelemetryAdapter:
         client: httpx.AsyncClient,
         project_id: str,
         database_id: str,
-        token_provider: GoogleAccessTokenProvider,
+        token_provider: GoogleAccessTokenProvider | None,
         clock: Clock,
         max_documents_per_collection: int,
         max_retries: int,
@@ -123,6 +123,11 @@ class FirestoreOperationalTelemetryAdapter:
             "Firestore operational collections are current-state signals, not product-event "
             "sessions or ordered user timelines.",
         ]
+        if self._token_provider is None:
+            limitations.append(
+                "Firestore was read through explicitly enabled public project rules; no server "
+                "credential was used.",
+            )
         if truncated:
             limitations.append(
                 "The configured document limit was reached for: " + ", ".join(sorted(truncated)),
@@ -159,7 +164,10 @@ class FirestoreOperationalTelemetryAdapter:
                 checked_at=checked_at,
                 latency_ms=_latency_ms(started),
                 message=f"Firestore operational read check failed ({type(exc).__name__})",
-                diagnostics={"mode": "live_read_only"},
+                diagnostics={
+                    "mode": "live_read_only",
+                    "authentication": self._authentication_mode,
+                },
             )
         return IntegrationHealth(
             integration_id=self.integration_id,
@@ -169,7 +177,11 @@ class FirestoreOperationalTelemetryAdapter:
             latency_ms=_latency_ms(started),
             message="Firestore operational aggregate read access is healthy",
             provider_request_id=next(iter(result.request_ids), None),
-            diagnostics={"mode": "live_read_only", "collections": list(_COLLECTIONS)},
+            diagnostics={
+                "mode": "live_read_only",
+                "authentication": self._authentication_mode,
+                "collections": list(_COLLECTIONS),
+            },
         )
 
     async def _list_collection(
@@ -225,11 +237,14 @@ class FirestoreOperationalTelemetryAdapter:
         params: list[tuple[str, str | int | float | bool | None]],
     ) -> httpx.Response:
         for attempt in range(self._max_retries + 1):
-            token = await self._token_provider.access_token()
+            headers: dict[str, str] = {}
+            if self._token_provider is not None:
+                token = await self._token_provider.access_token()
+                headers["Authorization"] = f"Bearer {token}"
             try:
                 response = await self._client.get(
                     url,
-                    headers={"Authorization": f"Bearer {token}"},
+                    headers=headers,
                     params=params,
                 )
             except httpx.TransportError as exc:
@@ -250,6 +265,10 @@ class FirestoreOperationalTelemetryAdapter:
                 f"Firestore operational request was rejected with status {response.status_code}",
             )
         raise AssertionError("Firestore operational retry loop exited unexpectedly")
+
+    @property
+    def _authentication_mode(self) -> str:
+        return "service_account" if self._token_provider is not None else "public_rules"
 
 
 class _CollectionResult:

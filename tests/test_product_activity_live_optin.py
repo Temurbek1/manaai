@@ -20,6 +20,9 @@ from app.mana_operation_ai.infrastructure.retention.ga4 import Ga4MobileActivity
 from app.mana_operation_ai.infrastructure.retention.manakids import (
     ManakidsAdminActivityAdapter,
 )
+from app.mana_operation_ai.infrastructure.retention.unavailable import (
+    UnavailableMobileActivityAdapter,
+)
 
 pytestmark = [
     pytest.mark.live_product_activity,
@@ -33,7 +36,11 @@ pytestmark = [
 async def test_live_first_party_sources_are_readable_and_return_aggregate_facts() -> None:
     get_settings.cache_clear()
     settings = get_settings()
-    assert settings.operation_product_activity_provider in {"manakids_firebase", "manakids_ga4"}
+    assert settings.operation_product_activity_provider in {
+        "manakids",
+        "manakids_firebase",
+        "manakids_ga4",
+    }
     assert settings.manakids_api_username is not None
     assert settings.manakids_api_password is not None
 
@@ -59,7 +66,9 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
             max_pages=min(settings.manakids_max_pages, 20),
         )
         mobile: MobileActivityPort
-        if settings.operation_product_activity_provider == "manakids_firebase":
+        if settings.operation_product_activity_provider == "manakids":
+            mobile = UnavailableMobileActivityAdapter(clock=clock)
+        elif settings.operation_product_activity_provider == "manakids_firebase":
             assert settings.firebase_project_id is not None
             assert settings.firebase_service_account_file is not None
             mobile = FirestoreMobileActivityAdapter(
@@ -97,15 +106,19 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
         operational: OperationalTelemetryPort | None = None
         if settings.firebase_operational_telemetry_enabled:
             assert settings.firebase_project_id is not None
-            assert settings.firebase_service_account_file is not None
+            token_provider = (
+                GoogleServiceAccountTokenProvider(
+                    str(settings.firebase_service_account_file),
+                    scopes=["https://www.googleapis.com/auth/datastore"],
+                )
+                if settings.firebase_service_account_file is not None
+                else None
+            )
             operational = FirestoreOperationalTelemetryAdapter(
                 client=operational_http,
                 project_id=settings.firebase_project_id,
                 database_id=settings.firebase_database_id,
-                token_provider=GoogleServiceAccountTokenProvider(
-                    str(settings.firebase_service_account_file),
-                    scopes=["https://www.googleapis.com/auth/datastore"],
-                ),
+                token_provider=token_provider,
                 clock=clock,
                 max_documents_per_collection=min(
                     settings.firebase_operational_max_documents_per_collection,
@@ -119,7 +132,12 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
         if operational is not None:
             health_checks.append(operational.health())
         health = await asyncio.gather(*health_checks)
-        assert all(item.status is IntegrationStatus.HEALTHY for item in health)
+        if settings.operation_product_activity_provider == "manakids":
+            assert health[0].status is IntegrationStatus.HEALTHY
+            assert health[1].status is IntegrationStatus.UNCONFIGURED
+            assert all(item.status is IntegrationStatus.HEALTHY for item in health[2:])
+        else:
+            assert all(item.status is IntegrationStatus.HEALTHY for item in health)
 
         period_end = clock.now()
         period_start = period_end - timedelta(days=1)

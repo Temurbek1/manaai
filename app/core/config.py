@@ -114,6 +114,7 @@ class Settings(BaseSettings):
     operation_ads_provider: Literal["fake_meta", "meta"] = "fake_meta"
     operation_product_activity_provider: Literal[
         "fake",
+        "manakids",
         "manakids_firebase",
         "manakids_ga4",
     ] = "fake"
@@ -146,6 +147,7 @@ class Settings(BaseSettings):
     firebase_max_retries: int = Field(default=3, ge=0, le=8)
     firebase_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
     firebase_operational_telemetry_enabled: bool = False
+    firebase_public_read_enabled: bool = False
     firebase_operational_max_documents_per_collection: int = Field(
         default=50_000,
         ge=100,
@@ -357,7 +359,11 @@ class Settings(BaseSettings):
             raise ValueError("META_REAL_WRITES_ENABLED must remain false in read-only Meta mode")
         if self.operation_ads_provider == "meta" and not self.operation_dry_run:
             raise ValueError("OPERATION_DRY_RUN must remain true for the live Meta provider")
-        if self.operation_product_activity_provider in {"manakids_firebase", "manakids_ga4"}:
+        if self.operation_product_activity_provider in {
+            "manakids",
+            "manakids_firebase",
+            "manakids_ga4",
+        }:
             if not self.manakids_api_username or self.manakids_api_password is None:
                 raise ValueError(
                     "MANAKIDS_API_USERNAME and MANAKIDS_API_PASSWORD are required for live "
@@ -389,12 +395,19 @@ class Settings(BaseSettings):
                     "FIREBASE_OPERATIONAL_TELEMETRY_ENABLED requires a live product activity "
                     "provider",
                 )
-            if self.firebase_project_id is None or self.firebase_service_account_file is None:
+            if self.firebase_project_id is None:
                 raise ValueError(
-                    "FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT_FILE are required when "
-                    "operational telemetry is enabled",
+                    "FIREBASE_PROJECT_ID is required when operational telemetry is enabled",
                 )
-            if not self.firebase_service_account_file.is_file():
+            if self.firebase_service_account_file is None and not self.firebase_public_read_enabled:
+                raise ValueError(
+                    "FIREBASE_SERVICE_ACCOUNT_FILE or explicit FIREBASE_PUBLIC_READ_ENABLED is "
+                    "required when operational telemetry is enabled",
+                )
+            if (
+                self.firebase_service_account_file is not None
+                and not self.firebase_service_account_file.is_file()
+            ):
                 raise ValueError("FIREBASE_SERVICE_ACCOUNT_FILE must reference a readable file")
         if self.audio_moderation_enabled:
             if self.ai_audio_moderation_auth_token is None:

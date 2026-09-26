@@ -14,7 +14,8 @@ The repository defaults to deterministic fake sources. The recommended live comb
 `FIREBASE_OPERATIONAL_TELEMETRY_ENABLED=true`. The older
 `OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_firebase` mode remains available for a future
 canonical `app_activity_events` collection, but that collection was not present in the audited
-Firebase project on 2026-09-25.
+Firebase project on 2026-09-25. The explicit `manakids` mode connects only real backend aggregates
+and marks mobile analytics unavailable instead of mixing fake values into a live run.
 
 Advertising platforms, Meta data, raw child content, and provider-specific marketing data are
 outside this capability. Operation AI stores only aggregate facts, checksums, provider request
@@ -33,6 +34,11 @@ instrumentation or export configuration.
 | GA4 Data API | Active users for 1/7/30 days, sessions, engaged sessions, new users, engagement duration, screen views, app version, OS/version, device brand/model, language, country/region/city, and supported event counts | Aggregate reports do not expose an individual action sequence or raw user/session identifiers |
 | GA4 events observed | `screen_view`, `button_click`, `session_start`, `first_open`, `user_engagement`, `app_exception`, `notification_receive`, `notification_dismiss`, `notification_open`, `notification_foreground`, `app_update`, `os_update`, `app_clear_data`, `app_remove` | An absent event is returned as zero, not inferred from another signal |
 | Firestore operational collections | Device counts with battery state, silent-mode count, device counts with a current location, moving-device count, internet records, monitoring enabled/disabled, and screen-command counts | These are current operational records, not analytics sessions or ordered user timelines |
+
+The selected operational collections currently allow public REST reads. Production may use those
+existing rules only with the explicit `FIREBASE_PUBLIC_READ_ENABLED=true` opt-in; the run records
+that mode as a limitation. This is not a substitute for fixing overly broad Firebase rules and
+provisioning a least-privilege service identity.
 
 The operational Firestore reader currently covers `battery`, `children_location`, `internet`,
 `monitoring`, and `screen-commands`. It reads child IDs and coordinates only long enough to dedupe

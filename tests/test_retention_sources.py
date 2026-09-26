@@ -16,6 +16,9 @@ from app.mana_operation_ai.infrastructure.retention.ga4 import Ga4MobileActivity
 from app.mana_operation_ai.infrastructure.retention.manakids import (
     ManakidsAdminActivityAdapter,
 )
+from app.mana_operation_ai.infrastructure.retention.unavailable import (
+    UnavailableMobileActivityAdapter,
+)
 
 
 class StaticTokenProvider:
@@ -296,6 +299,49 @@ async def test_firestore_operational_adapter_aggregates_and_discards_sensitive_f
     serialized = facts.model_dump_json()
     for forbidden in ("private-device", "latitude", "longitude", "41.2", "69.1"):
         assert forbidden not in serialized
+
+
+async def test_firestore_operational_adapter_supports_explicit_public_reads() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert "Authorization" not in request.headers
+        return httpx.Response(200, json={"documents": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = FirestoreOperationalTelemetryAdapter(
+            client=client,
+            project_id="bosstracker-dev",
+            database_id="(default)",
+            token_provider=None,
+            clock=SystemClock(),
+            max_documents_per_collection=100,
+            max_retries=0,
+            retry_backoff_seconds=0.01,
+        )
+        facts = await adapter.collect_telemetry()
+        health = await adapter.health()
+
+    assert facts.documents_scanned == 0
+    assert any("public project rules" in item for item in facts.limitations)
+    assert health.status is IntegrationStatus.HEALTHY
+    assert health.diagnostics["authentication"] == "public_rules"
+
+
+async def test_unavailable_mobile_adapter_never_invents_activity() -> None:
+    adapter = UnavailableMobileActivityAdapter(clock=SystemClock())
+    period_end = datetime(2026, 9, 5, 12, tzinfo=UTC)
+    facts = await adapter.collect_activity(
+        period_start=period_end - timedelta(days=1),
+        period_end=period_end,
+    )
+    health = await adapter.health()
+
+    assert facts.event_counts == {}
+    assert facts.active_subjects == 0
+    assert facts.sessions == 0
+    assert facts.completeness == Decimal("0")
+    assert any("unavailable data" in item for item in facts.limitations)
+    assert health.status is IntegrationStatus.UNCONFIGURED
+    assert health.diagnostics["synthetic_data"] is False
 
 
 async def test_manakids_adapter_translates_documented_endpoints_to_aggregates() -> None:

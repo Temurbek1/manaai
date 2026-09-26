@@ -34,6 +34,18 @@ def test_live_product_activity_requires_both_first_party_sources(tmp_path: Path)
     assert configured.firebase_activity_collection == "app_activity_events"
 
 
+def test_manakids_only_mode_requires_backend_credentials() -> None:
+    with pytest.raises(ValidationError, match="MANAKIDS_API_USERNAME"):
+        base_settings(operation_product_activity_provider="manakids")
+
+    configured = base_settings(
+        operation_product_activity_provider="manakids",
+        manakids_api_username="service-user",
+        manakids_api_password="test-password-fixture",
+    )
+    assert configured.operation_product_activity_provider == "manakids"
+
+
 def test_live_product_activity_rejects_insecure_or_missing_files(tmp_path: Path) -> None:
     values = {
         "operation_product_activity_provider": "manakids_firebase",
@@ -98,3 +110,25 @@ def test_operational_firestore_requires_live_provider_and_credentials(tmp_path: 
         firebase_service_account_file=service_account,
     )
     assert configured.firebase_operational_telemetry_enabled is True
+
+
+def test_operational_firestore_allows_explicit_public_read_mode() -> None:
+    with pytest.raises(ValidationError, match="FIREBASE_SERVICE_ACCOUNT_FILE or explicit"):
+        base_settings(
+            operation_product_activity_provider="manakids",
+            manakids_api_username="service-user",
+            manakids_api_password="test-password-fixture",
+            firebase_operational_telemetry_enabled=True,
+            firebase_project_id="bosstracker-dev",
+        )
+
+    configured = base_settings(
+        operation_product_activity_provider="manakids",
+        manakids_api_username="service-user",
+        manakids_api_password="test-password-fixture",
+        firebase_operational_telemetry_enabled=True,
+        firebase_public_read_enabled=True,
+        firebase_project_id="bosstracker-dev",
+    )
+    assert configured.firebase_public_read_enabled is True
+    assert configured.firebase_service_account_file is None

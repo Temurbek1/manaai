@@ -37,6 +37,19 @@ The alternative `manakids_firebase` provider reads the canonical collection conf
 `FIREBASE_ACTIVITY_COLLECTION`. Do not enable it until `app_activity_events` exists and the mobile
 event contract in `first-party-product-activity.md` is being emitted reliably.
 
+`OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids` is an honest partial-live mode for deployments that
+have Manakids credentials but do not yet have GA4 server credentials. It returns real backend
+aggregates and marks mobile analytics as unconfigured with zero completeness; it never substitutes
+fake mobile data.
+
+The operational Firestore adapter normally uses a read-only service account. A project whose
+existing Firestore rules already permit these five reads may explicitly set
+`FIREBASE_PUBLIC_READ_ENABLED=true` and omit `FIREBASE_SERVICE_ACCOUNT_FILE`. This flag does not
+change Firebase rules or grant access. It only permits unauthenticated reads already authorized by
+the project, records `public_rules` in health diagnostics, and adds the access mode to every
+snapshot limitation. Treat it as a temporary deployment mode and audit the Firebase rules with a
+project owner.
+
 Timeouts, retry budgets, backoff, page/document ceilings, and GA4 dimension limits are independently
 configurable in `.env.example`. `MANAKIDS_MAX_PAGES` bounds each fixed-size Admin API scan; a capped
 scan is partial and its measured completeness is retained.
@@ -89,11 +102,14 @@ After it passes:
 
 ## Current external preflight status
 
-As of 2026-09-25, the authorized console audit confirmed live GA4 events and the listed Firestore
-operational collections. The Manakids Admin API had also previously passed bounded read-only
-envelope checks. The local project `.env` does not currently contain the Manakids credentials,
-numeric GA4 property ID, or mounted GA4/Firestore service-account paths, so the live smoke test and
-production activation remain externally blocked until deployment secrets are provisioned.
+As of 2026-09-26, practical read-only checks confirmed the Manakids login and all documented
+aggregate endpoints, GA4 property `424940486` with live events, and public REST reads for the five
+selected Firestore operational collections. The authorized Google account is only a Firebase
+Viewer and cannot create a private key. No existing GA4/Firestore service-account JSON was found in
+the available local files, browser downloads, Gmail, or Drive. Therefore Manakids plus explicitly
+enabled public-rule Firestore reads can be activated now; GA4 Data API activation still requires a
+project owner to provision a dedicated read-only service account and grant that account property
+Viewer access.
 
 Detailed Crashlytics analysis is also blocked on an approved BigQuery/export path and is reserved
 for Technical Reliability. Do not label GA4 `app_exception` counts as crash root-cause analysis.
