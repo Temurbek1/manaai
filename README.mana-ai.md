@@ -144,7 +144,7 @@ platform and is ignored here.
 | `AUDIO_MODERATION_TRANSCRIPTION_MODEL` | no | `gpt-transcribe` | Completed-file transcription model |
 | `AUDIO_MODERATION_OPENAI_TIMEOUT_SECONDS` | no | `300` | Per-recording upload and transcription timeout |
 | `AUDIO_MODERATION_MODEL` | no | `OPENAI_MODEL` | Structured child-safety classifier |
-| `AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS` | no | `["*.digitaloceanspaces.com"]` | Replace with the exact production bucket host |
+| `AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS` | no | `["*.digitaloceanspaces.com"]` | Production permits only this controlled provider suffix or exact hosts; narrow to the bucket host when known |
 | `AUDIO_MODERATION_ALLOWED_CALLBACK_HOSTS` | no | `["api.360rec.uz"]` | HTTPS callback destination allowlist |
 
 In production the factory refuses to start if `APP_API_KEY` is missing or shorter than 32

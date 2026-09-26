@@ -454,12 +454,25 @@ def test_audio_moderation_configuration_requires_a_strong_service_token() -> Non
         )
 
 
-def test_audio_moderation_production_configuration_requires_exact_audio_hosts() -> None:
-    with pytest.raises(ValidationError, match="must use exact hosts"):
+def test_audio_moderation_production_configuration_allows_spaces_provider_suffix() -> None:
+    settings = Settings(
+        _env_file=None,
+        app_env="production",
+        openai_api_key="test-openai-key",
+        audio_moderation_enabled=True,
+        ai_audio_moderation_auth_token=_SERVICE_TOKEN,
+    )
+
+    assert settings.audio_moderation_allowed_audio_hosts == ["*.digitaloceanspaces.com"]
+
+
+def test_audio_moderation_production_configuration_rejects_arbitrary_wildcards() -> None:
+    with pytest.raises(ValidationError, match="controlled.*provider suffix"):
         Settings(
             _env_file=None,
             app_env="production",
             openai_api_key="test-openai-key",
             audio_moderation_enabled=True,
             ai_audio_moderation_auth_token=_SERVICE_TOKEN,
+            audio_moderation_allowed_audio_hosts=["*.example.com"],
         )

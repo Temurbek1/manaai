@@ -76,8 +76,10 @@ legal/privacy review for child audio.
 - Validation responses omit submitted values so signed URLs and callback tokens cannot be echoed.
 - Audio and callback destinations must use HTTPS on port 443 and match independent host allowlists.
 - Redirects are disabled. The callback path must contain the same `audio_id` as the job.
-- The default audio allowlist accepts DigitalOcean Spaces subdomains; replace it with the exact
-  production bucket hostname when known.
+- The production allowlist may use the controlled `*.digitaloceanspaces.com` provider suffix, so
+  the independent API can accept presigned objects before a bucket name is shared. Arbitrary
+  wildcard domains are rejected. Narrow the setting to the exact production bucket hostname when
+  it becomes known.
 - The callback allowlist defaults to the exact `api.360rec.uz` host.
 - Queue capacity and maximum queue delay prevent accepting work that is likely to outlive the
   30-minute presigned asset URL.
@@ -99,7 +101,7 @@ AI_AUDIO_MODERATION_AUTH_TOKEN=<rotated-shared-service-token>
 AUDIO_MODERATION_TRANSCRIPTION_MODEL=gpt-transcribe
 AUDIO_MODERATION_OPENAI_TIMEOUT_SECONDS=300
 AUDIO_MODERATION_MODEL=
-AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS=["private-space.nyc3.digitaloceanspaces.com"]
+AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS=["*.digitaloceanspaces.com"]
 AUDIO_MODERATION_ALLOWED_CALLBACK_HOSTS=["api.360rec.uz"]
 ```
 
@@ -125,7 +127,8 @@ queue is introduced.
 Before enabling historical backlog moderation:
 
 1. Rotate the shared token if it has appeared in chat, logs, screenshots, or tickets.
-2. Confirm the exact DigitalOcean Spaces hostname and narrow the audio allowlist.
+2. Confirm that production assets use DigitalOcean Spaces. Narrow the provider-wide allowlist to
+   the exact bucket hostname once the backend team shares it.
 3. Run `make verify` and build `Dockerfile.mana-ai`.
 4. Submit one synthetic safe recording and verify a `REJECTED` callback.
 5. Submit one synthetic threat fixture and verify an `APPROVED` callback.

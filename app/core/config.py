@@ -436,11 +436,15 @@ class Settings(BaseSettings):
                 raise ValueError("AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS cannot be empty")
             if not self.audio_moderation_allowed_callback_hosts:
                 raise ValueError("AUDIO_MODERATION_ALLOWED_CALLBACK_HOSTS cannot be empty")
-            if self.app_env in {"staging", "production"} and any(
-                host.startswith("*.") for host in self.audio_moderation_allowed_audio_hosts
-            ):
+            wildcard_audio_hosts = {
+                host for host in self.audio_moderation_allowed_audio_hosts if host.startswith("*.")
+            }
+            if self.app_env in {"staging", "production"} and wildcard_audio_hosts - {
+                "*.digitaloceanspaces.com"
+            }:
                 raise ValueError(
-                    "AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS must use exact hosts in staging and "
+                    "AUDIO_MODERATION_ALLOWED_AUDIO_HOSTS may use only the controlled "
+                    "*.digitaloceanspaces.com provider suffix or exact hosts in staging and "
                     "production"
                 )
         if self.meta_max_retries > self.meta_live_max_total_retries:
