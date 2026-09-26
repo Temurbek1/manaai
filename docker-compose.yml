@@ -52,6 +52,7 @@ services:
       OPERATION_SCHEDULER_ENABLED: "false"
       OPERATION_DRY_RUN: "true"
       META_REAL_WRITES_ENABLED: "false"
+      FORWARDED_ALLOW_IPS: "*"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

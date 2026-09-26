@@ -12,6 +12,7 @@ services:
       OPERATION_SCHEDULER_ENABLED: "false"
       META_REAL_WRITES_ENABLED: "false"
       MANA_AI_MAX_REQUEST_BODY_BYTES: "1048576"
+      FORWARDED_ALLOW_IPS: "*"
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped

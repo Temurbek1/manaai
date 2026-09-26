@@ -34,6 +34,11 @@ application-time schema creation. `/api/v1/health/live` remains unauthenticated 
 health checks; `/healthz` checks the admin Node process. The worker writes an event-loop heartbeat
 that its container healthcheck verifies. API and admin host ports bind to loopback, so the public
 surface is the TLS reverse proxy rather than Docker's port-forwarding rules.
+The shipped Nginx configuration also rejects origin traffic outside the current Cloudflare ranges,
+restores the client address from `CF-Connecting-IP`, replaces rather than appends forwarded client
+headers, and allows Uvicorn to trust them only because its host port is loopback-only. Install
+`deploy/nginx/cloudflare-origin.conf` in `/etc/nginx/conf.d/` and review it against
+`https://www.cloudflare.com/ips/` during every release.
 
 The admin build receives `ADMIN_FASTAPI_BASE_URL` as the private `FASTAPI_BASE_URL` build argument.
 The default Compose value is `http://api:8000`, so browser requests remain same-origin and the
