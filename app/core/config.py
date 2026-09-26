@@ -100,6 +100,9 @@ class Settings(BaseSettings):
     operation_auto_create_schema: bool = True
     operation_scheduler_enabled: bool = False
     operation_scheduler_poll_seconds: float = Field(default=30.0, gt=0, le=300)
+    operation_worker_heartbeat_path: Path = Path("/tmp/mana-operation-worker-heartbeat")
+    operation_worker_heartbeat_interval_seconds: float = Field(default=15.0, gt=0, le=60)
+    operation_worker_heartbeat_max_age_seconds: float = Field(default=60.0, gt=0, le=300)
     operation_job_timeout_seconds: int = Field(default=900, ge=10, le=86_400)
     operation_data_retention_days: int = Field(default=90, ge=7, le=3_650)
     operation_verification_attempts: int = Field(default=4, ge=1, le=20)
@@ -359,6 +362,14 @@ class Settings(BaseSettings):
             raise ValueError("META_REAL_WRITES_ENABLED must remain false in read-only Meta mode")
         if self.operation_ads_provider == "meta" and not self.operation_dry_run:
             raise ValueError("OPERATION_DRY_RUN must remain true for the live Meta provider")
+        if (
+            self.operation_worker_heartbeat_max_age_seconds
+            <= self.operation_worker_heartbeat_interval_seconds * 2
+        ):
+            raise ValueError(
+                "OPERATION_WORKER_HEARTBEAT_MAX_AGE_SECONDS must be greater than twice "
+                "OPERATION_WORKER_HEARTBEAT_INTERVAL_SECONDS",
+            )
         if self.operation_product_activity_provider in {
             "manakids",
             "manakids_firebase",

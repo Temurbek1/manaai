@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_application_logging
 from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
+from app.core.production import validate_production_api_settings
 from app.core.rate_limiter import RequestRateLimiter
 from app.core.request_body_limit import RequestBodyLimitMiddleware
 from app.core.validation_errors import sanitized_request_validation_handler
@@ -449,6 +450,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    validate_production_api_settings(settings)
     configure_application_logging(
         level=settings.log_level,
         secrets=[

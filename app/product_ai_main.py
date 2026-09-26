@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_application_logging
 from app.core.middleware import EXPOSED_RESPONSE_HEADERS, request_trace_middleware
 from app.core.openapi import API_DESCRIPTION, OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
+from app.core.production import validate_production_api_settings
 from app.core.rate_limiter import RequestRateLimiter
 from app.core.request_body_limit import RequestBodyLimitMiddleware
 from app.core.validation_errors import sanitized_request_validation_handler
@@ -45,16 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    if settings.app_env == "production" and not settings.is_app_api_key_configured:
-        raise RuntimeError("APP_API_KEY is required for the production MANA AI API")
-    if (
-        settings.app_env == "production"
-        and settings.app_api_key is not None
-        and len(settings.app_api_key.get_secret_value()) < 32
-    ):
-        raise RuntimeError("APP_API_KEY must contain at least 32 characters in production")
-    if settings.app_env == "production" and not settings.is_openai_configured:
-        raise RuntimeError("OPENAI_API_KEY is required for the production MANA AI API")
+    validate_production_api_settings(settings)
     configure_application_logging(
         level=settings.log_level,
         secrets=[

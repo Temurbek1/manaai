@@ -1,11 +1,20 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:17-alpine
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - manaai_postgres:/var/lib/postgresql/data
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -27,6 +36,9 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
 
   api:
     build:
@@ -41,13 +53,17 @@ services:
       OPERATION_DRY_RUN: "true"
       META_REAL_WRITES_ENABLED: "false"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - manaai_data:/data
     depends_on:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+    stop_grace_period: 2m
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=2)"]
       interval: 30s
@@ -74,6 +90,16 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+    stop_grace_period: 2m
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.mana_operation_ai.background.worker_health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   admin:
     build:
@@ -86,8 +112,12 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s

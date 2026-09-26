@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily MANA AI production backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+Unit=mana-ai-backup.service
+
+[Install]
+WantedBy=timers.target

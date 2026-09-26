@@ -8,6 +8,7 @@ def production_settings(**overrides: object) -> Settings:
     values: dict[str, object] = {
         "_env_file": None,
         "app_env": "production",
+        "app_api_key": "test-api-key-with-at-least-32-characters",
         "openai_api_key": "test-openai-key",
         "mana_telegram_auth_enabled": True,
         "MANA_TELEGRAM_BOT_TOKEN": "test-bot-token",

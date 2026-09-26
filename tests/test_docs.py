@@ -51,7 +51,7 @@ async def test_swagger_docs_disabled_in_production(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("APP_API_KEY", "")
+    monkeypatch.setenv("APP_API_KEY", "test-api-key-with-at-least-32-characters")
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
     monkeypatch.setenv("MARKETING_DATABASE_PATH", str(tmp_path / "marketing.db"))
     get_settings.cache_clear()

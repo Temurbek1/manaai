@@ -1,0 +1,17 @@
+[Unit]
+Description=MANA AI production backup
+Requires=docker.service
+After=docker.service
+ConditionPathExists=/root/mana-ai/docker-compose.yml
+
+[Service]
+Type=oneshot
+ExecStart=/opt/manaai-api/scripts/backup_production.sh
+Environment=MANA_AI_COMPOSE_DIR=/root/mana-ai
+Environment=MANA_AI_BACKUP_ROOT=/var/backups/mana-ai
+Environment=MANA_AI_BACKUP_RETENTION_DAYS=14
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/backups/mana-ai

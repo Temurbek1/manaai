@@ -9,6 +9,8 @@ from app.core.config import Settings, get_settings
 from app.main import create_app
 from app.schemas.ai import ChatRequest, ChatResponse
 
+_TEST_API_KEY = "test-server-api-key-with-at-least-32-characters"
+
 
 class FakeOpenAIService:
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -45,7 +47,7 @@ async def test_api_key_required_for_protected_routes(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    configure_test_env(monkeypatch, tmp_path / "marketing.db", app_api_key="server-key")
+    configure_test_env(monkeypatch, tmp_path / "marketing.db", app_api_key=_TEST_API_KEY)
     app = create_app()
 
     async with app.router.lifespan_context(app):
@@ -63,7 +65,7 @@ async def test_api_key_required_for_protected_routes(
             )
             valid_key_response = await client.post(
                 "/api/v1/ai/chat",
-                headers={"Authorization": "Bearer server-key"},
+                headers={"Authorization": f"Bearer {_TEST_API_KEY}"},
                 json={"message": "hello"},
             )
 
@@ -85,20 +87,8 @@ async def test_production_api_auth_requires_configured_key(
     tmp_path: Path,
 ) -> None:
     configure_test_env(monkeypatch, tmp_path / "marketing.db", app_api_key=None)
-    app = create_app()
-
-    async with app.router.lifespan_context(app):
-        app.state.openai_service = FakeOpenAIService()
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as client:
-            response = await client.post("/api/v1/ai/chat", json={"message": "hello"})
-
-    assert response.status_code == 503
-    assert response.json()["detail"] == (
-        "APP_API_KEY must be configured when API authentication is required"
-    )
+    with pytest.raises(RuntimeError, match="APP_API_KEY is required"):
+        create_app()
     get_settings.cache_clear()
 
 
@@ -106,7 +96,7 @@ async def test_repeated_authentication_failures_are_throttled_and_valid_key_reco
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    configure_test_env(monkeypatch, tmp_path / "rate-limit.db", app_api_key="server-key")
+    configure_test_env(monkeypatch, tmp_path / "rate-limit.db", app_api_key=_TEST_API_KEY)
     monkeypatch.setenv("AUTH_FAILURE_LIMIT", "2")
     get_settings.cache_clear()
     app = create_app()
@@ -128,7 +118,7 @@ async def test_repeated_authentication_failures_are_throttled_and_valid_key_reco
         app.state.openai_service = FakeOpenAIService()
         valid = await client.post(
             "/api/v1/ai/chat",
-            headers={"Authorization": "Bearer server-key"},
+            headers={"Authorization": f"Bearer {_TEST_API_KEY}"},
             json={"message": "hello"},
         )
         after_clear = await client.post(
@@ -150,7 +140,7 @@ async def test_retired_api_key_header_is_rejected(
     tmp_path: Path,
 ) -> None:
     """The product API layer accepts bearer tokens only; X-API-Key must no longer authenticate."""
-    configure_test_env(monkeypatch, tmp_path / "retired-header.db", app_api_key="server-key")
+    configure_test_env(monkeypatch, tmp_path / "retired-header.db", app_api_key=_TEST_API_KEY)
     app = create_app()
 
     async with app.router.lifespan_context(app):
@@ -161,12 +151,12 @@ async def test_retired_api_key_header_is_rejected(
         ) as client:
             legacy = await client.post(
                 "/api/v1/ai/chat",
-                headers={"X-API-Key": "server-key"},
+                headers={"X-API-Key": _TEST_API_KEY},
                 json={"message": "hello"},
             )
             bearer = await client.post(
                 "/api/v1/ai/chat",
-                headers={"Authorization": "Bearer server-key"},
+                headers={"Authorization": f"Bearer {_TEST_API_KEY}"},
                 json={"message": "hello"},
             )
 
@@ -181,7 +171,7 @@ async def test_authenticated_requests_are_rate_limited(
     tmp_path: Path,
 ) -> None:
     """A valid token still gets a bounded request budget, so a leaked token cannot drain spend."""
-    configure_test_env(monkeypatch, tmp_path / "request-budget.db", app_api_key="server-key")
+    configure_test_env(monkeypatch, tmp_path / "request-budget.db", app_api_key=_TEST_API_KEY)
     monkeypatch.setenv("API_RATE_LIMIT_REQUESTS", "2")
     monkeypatch.setenv("API_RATE_LIMIT_WINDOW_SECONDS", "60")
     get_settings.cache_clear()
@@ -197,7 +187,7 @@ async def test_authenticated_requests_are_rate_limited(
             for _ in range(3):
                 response = await client.post(
                     "/api/v1/ai/chat",
-                    headers={"Authorization": "Bearer server-key"},
+                    headers={"Authorization": f"Bearer {_TEST_API_KEY}"},
                     json={"message": "hello"},
                 )
                 statuses.append(response)

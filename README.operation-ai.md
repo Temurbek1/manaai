@@ -269,12 +269,13 @@ Terminate TLS in a reverse proxy in front of the admin service and put that publ
 - **Replace `MANA_BOOTSTRAP_ADMIN_TELEGRAM_IDS`.** It grants admin idempotently on every API start,
   and the shipped value contains the maintainers' own Telegram IDs. Set your own or you will grant
   production admin to accounts you do not control.
-- **Compose publishes the API on `0.0.0.0:8000`.** That surface accepts the internal
-  `OPERATION_*_API_KEY` role keys, which must never be distributed to people. Firewall it or bind
-  it to loopback the way `docker-compose.mana-ai.yml` does.
-- **`env_file: .env` is applied to the `postgres` service too**, so provider secrets reach the
-  database container. Narrow this if your threat model requires it.
-- **The `worker` service has no healthcheck**, so a wedged scheduler is not automatically visible.
+- **Keep Docker ports on loopback.** The full Compose stack binds API and admin to `127.0.0.1` so
+  internal role keys and plain HTTP are not reachable by bypassing the TLS reverse proxy.
+- **Keep database environment scoped.** PostgreSQL receives only its database name, user, and
+  password; provider and application secrets are injected only into the containers that use them.
+- **Monitor every long-running container.** API, admin, PostgreSQL, and the scheduler worker all
+  expose health state; the worker healthcheck verifies a periodically refreshed event-loop
+  heartbeat.
 - Keep `OPERATION_ALLOW_INSECURE_DEV_HEADERS=false` outside tests.
 
 ### Admin UI build note

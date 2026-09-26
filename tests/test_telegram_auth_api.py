@@ -237,6 +237,7 @@ async def test_production_session_cookie_is_secure_and_session_payload_is_minima
     database_path = tmp_path / "production-cookie.db"
     configure_auth_env(monkeypatch, database_path, tmp_path / "unused-sink.jsonl")
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("APP_API_KEY", "test-api-key-with-at-least-32-characters")
     monkeypatch.setenv("MANA_AUTH_TEST_MODE", "0")
     monkeypatch.delenv("MANA_AUTH_TEST_OTP_SINK_PATH", raising=False)
     monkeypatch.setenv("MANA_TELEGRAM_BOT_TOKEN", "test-production-bot-token")

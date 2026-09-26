@@ -83,11 +83,15 @@ If a proposal is approved but blocked by a temporary kill switch, resolve the co
 
 ## Backups and retention
 
-Back up the PostgreSQL database and legacy marketing store before migrations. SQLite is suitable
-for one process and local development only. Use managed PostgreSQL and the standalone worker for
-production. The maintenance job deletes old technical snapshots and dependent analyses/findings
-after `OPERATION_DATA_RETENTION_DAYS` (90 days by default), and removes expired locks. Audit, action,
-configuration, recommendation, and report records are retained.
+Back up the PostgreSQL database and legacy marketing store before migrations. The repository ships
+`scripts/backup_production.sh` plus a daily systemd service/timer in `deploy/systemd/`. The script
+creates a consistent PostgreSQL custom-format dump, uses SQLite's online backup API, validates the
+PostgreSQL archive, records checksums, and keeps 14 daily backup directories by default. Copy those
+archives to an encrypted off-host store; local-disk backups alone do not cover host loss. SQLite is
+suitable for one process and local development only. Use managed PostgreSQL and the standalone
+worker for production. The maintenance job deletes old technical snapshots and dependent
+analyses/findings after `OPERATION_DATA_RETENTION_DAYS` (90 days by default), and removes expired
+locks. Audit, action, configuration, recommendation, and report records are retained.
 
 ## Live Meta read verification
 

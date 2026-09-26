@@ -31,7 +31,9 @@ Compose implements this shape with `postgres`, one-shot `migrate`, scheduler-dis
 separate scheduler-enabled `worker`, and the standalone Next.js `admin` server. API and worker
 start only after migration succeeds. Production sets `APP_ENV=production` and disables
 application-time schema creation. `/api/v1/health/live` remains unauthenticated for API container
-health checks; `/healthz` checks the admin Node process.
+health checks; `/healthz` checks the admin Node process. The worker writes an event-loop heartbeat
+that its container healthcheck verifies. API and admin host ports bind to loopback, so the public
+surface is the TLS reverse proxy rather than Docker's port-forwarding rules.
 
 The admin build receives `ADMIN_FASTAPI_BASE_URL` as the private `FASTAPI_BASE_URL` build argument.
 The default Compose value is `http://api:8000`, so browser requests remain same-origin and the
@@ -64,7 +66,8 @@ they never copy those credentials into an image.
 - The legacy marketing repository still uses `MARKETING_DATABASE_PATH`; in Compose it has a durable
   volume. It is not the operation lock/idempotency store.
 - Use a managed secret store for all API/role/provider keys plus Telegram bot/HMAC secrets. `.env`
-  is ignored and not copied into images; Compose `env_file` injects values at runtime.
+  is ignored and not copied into images; Compose `env_file` injects values into application
+  containers. PostgreSQL receives only its three database variables.
 
 ## Release sequence
 
