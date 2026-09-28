@@ -85,6 +85,8 @@ class AgentSchedule(DomainModel):
     enabled: bool
     next_run_at: datetime | None = None
     last_run_at: datetime | None = None
+    consecutive_permanent_failures: int = Field(default=0, ge=0)
+    circuit_open: bool = False
 
 
 class AgentRun(DomainModel):

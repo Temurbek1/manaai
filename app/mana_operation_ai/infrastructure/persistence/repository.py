@@ -178,9 +178,14 @@ class SqlAlchemyOperationRepository:
             rows = list((await session.scalars(statement)).all())
         return [AgentConfiguration.model_validate(row.payload) for row in rows]
 
-    async def save_schedule(self, schedule: AgentSchedule) -> None:
+    async def save_schedule(
+        self,
+        schedule: AgentSchedule,
+        *,
+        reset_circuit: bool = False,
+    ) -> None:
         async with self._database.session_factory.begin() as session:
-            row = await session.get(AgentScheduleRow, schedule.schedule_id)
+            row = await session.get(AgentScheduleRow, schedule.schedule_id, with_for_update=True)
             if row is None:
                 session.add(
                     AgentScheduleRow(
@@ -194,6 +199,17 @@ class SqlAlchemyOperationRepository:
                     ),
                 )
             else:
+                persisted = AgentSchedule.model_validate(row.payload)
+                if not reset_circuit and (
+                    (persisted.circuit_open and not schedule.circuit_open)
+                    or (not persisted.enabled and schedule.enabled)
+                    or schedule.consecutive_permanent_failures
+                    < persisted.consecutive_permanent_failures
+                ):
+                    raise ConcurrentOperationError(
+                        "Schedule safety state changed; reload it before editing or explicitly "
+                        "re-enable the repaired schedule",
+                    )
                 if (
                     row.agent_id != schedule.agent_id
                     or row.capability_key != schedule.capability_key
@@ -252,6 +268,19 @@ class SqlAlchemyOperationRepository:
                     AgentScheduleRow.schedule_id == current.schedule_id,
                     AgentScheduleRow.enabled.is_(True),
                     AgentScheduleRow.next_run_at == current.next_run_at,
+                    AgentScheduleRow.payload["cron_expression"].as_string()
+                    == current.cron_expression,
+                    AgentScheduleRow.payload["timezone"].as_string() == current.timezone,
+                    func.coalesce(
+                        AgentScheduleRow.payload["consecutive_permanent_failures"].as_integer(),
+                        0,
+                    )
+                    == current.consecutive_permanent_failures,
+                    func.coalesce(
+                        AgentScheduleRow.payload["circuit_open"].as_boolean(),
+                        False,
+                    )
+                    == current.circuit_open,
                 )
                 .values(
                     enabled=advanced.enabled,

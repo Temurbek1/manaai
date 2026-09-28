@@ -45,6 +45,7 @@ from app.mana_operation_ai.application.ports import (
     MobileActivityPort,
     OperationalTelemetryPort,
 )
+from app.mana_operation_ai.application.read_budget import FirestoreReadLimits
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
 from app.mana_operation_ai.application.retention.agent import RetentionAgent
 from app.mana_operation_ai.application.retention.engagement import (
@@ -334,6 +335,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             repository=operation_repository,
             clock=clock,
             ids=ids,
+            firestore_read_limits=FirestoreReadLimits(
+                documents=settings.firebase_max_document_reads_per_run,
+                pages=settings.firebase_max_pages_per_run,
+                requests=settings.firebase_max_requests_per_run,
+            ),
         ),
     )
     agent_registry = AgentRegistry()
@@ -386,6 +392,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         clock=clock,
         poll_seconds=settings.operation_scheduler_poll_seconds,
         job_timeout_seconds=settings.operation_job_timeout_seconds,
+        max_attempts=settings.operation_scheduler_max_attempts,
+        permanent_failure_threshold=settings.operation_scheduler_permanent_failure_threshold,
     )
     metrics_builder = MarketingMetricsBuilder(
         conversion_action_types=settings.marketing_conversion_action_types,

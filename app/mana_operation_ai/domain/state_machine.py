@@ -54,7 +54,7 @@ RUN_TRANSITIONS: Mapping[AgentRunStatus, frozenset[AgentRunStatus]] = {
         {AgentRunStatus.COMPLETED, AgentRunStatus.FAILED},
     ),
     AgentRunStatus.COMPLETED: frozenset(),
-    AgentRunStatus.FAILED: frozenset({AgentRunStatus.QUEUED}),
+    AgentRunStatus.FAILED: frozenset(),
     AgentRunStatus.CANCELLED: frozenset(),
 }
 

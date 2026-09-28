@@ -9,11 +9,13 @@ from urllib.parse import quote
 
 import httpx
 
+from app.mana_operation_ai.application.concurrency import gather_or_cancel
 from app.mana_operation_ai.application.ports import (
     Clock,
     ProviderPermanentError,
     ProviderTransientError,
 )
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget, FirestoreReadLimits
 from app.mana_operation_ai.domain.enums import IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import OperationalTelemetryFacts
@@ -66,10 +68,26 @@ class FirestoreOperationalTelemetryAdapter:
             f"{encoded_project}/databases/{encoded_database}/documents"
         )
 
-    async def collect_telemetry(self) -> OperationalTelemetryFacts:
-        results = await asyncio.gather(
-            *(self._list_collection(collection) for collection in _COLLECTIONS),
-        )
+    async def collect_telemetry(
+        self,
+        *,
+        read_budget: FirestoreReadBudget | None = None,
+    ) -> OperationalTelemetryFacts:
+        budget = read_budget or FirestoreReadBudget(FirestoreReadLimits())
+        reason = "success"
+        try:
+            results = await gather_or_cancel(
+                *(
+                    self._list_collection(collection, read_budget=budget)
+                    for collection in _COLLECTIONS
+                ),
+            )
+        except BaseException as exc:
+            reason = type(exc).__name__
+            raise
+        finally:
+            if read_budget is None:
+                budget.log_summary(reason)
         by_collection = dict(zip(_COLLECTIONS, results, strict=True))
         battery_subjects: set[str] = set()
         percent_available = 0
@@ -189,12 +207,16 @@ class FirestoreOperationalTelemetryAdapter:
         collection: str,
         *,
         limit: int | None = None,
+        read_budget: FirestoreReadBudget | None = None,
     ) -> "_CollectionResult":
         document_limit = limit or self._max_documents_per_collection
+        budget = read_budget or FirestoreReadBudget(FirestoreReadLimits())
         documents: list[Mapping[str, Any]] = []
         request_ids: list[str] = []
         page_token: str | None = None
+        seen_tokens: set[str] = set()
         while len(documents) < document_limit:
+            budget.begin_page()
             page_size = min(document_limit - len(documents), 1_000)
             params: list[tuple[str, str | int | float | bool | None]] = [
                 ("pageSize", str(page_size)),
@@ -205,11 +227,19 @@ class FirestoreOperationalTelemetryAdapter:
             response = await self._request(
                 f"{self._documents_url}/{quote(collection, safe='')}",
                 params=params,
+                budget=budget,
+                endpoint=f"documents/{collection}",
+                document_limit=page_size,
             )
             payload = _json_object(response)
             raw_documents = payload.get("documents", [])
             if not isinstance(raw_documents, list):
                 raise ProviderPermanentError("Firestore documents response is invalid")
+            budget.observe_documents(len(raw_documents))
+            if len(raw_documents) > page_size or any(
+                not isinstance(item, Mapping) for item in raw_documents
+            ):
+                raise ProviderPermanentError("Firestore page violated its document contract")
             documents.extend(item for item in raw_documents if isinstance(item, Mapping))
             request_ids.extend(
                 _unique_nonempty(
@@ -223,6 +253,9 @@ class FirestoreOperationalTelemetryAdapter:
             page_token = next_token if isinstance(next_token, str) and next_token else None
             if page_token is None:
                 break
+            if page_token in seen_tokens:
+                raise ProviderPermanentError("Firestore repeated a pagination token")
+            seen_tokens.add(page_token)
         return _CollectionResult(
             collection=collection,
             documents=documents[:document_limit],
@@ -235,6 +268,9 @@ class FirestoreOperationalTelemetryAdapter:
         url: str,
         *,
         params: list[tuple[str, str | int | float | bool | None]],
+        budget: FirestoreReadBudget,
+        endpoint: str,
+        document_limit: int,
     ) -> httpx.Response:
         for attempt in range(self._max_retries + 1):
             headers: dict[str, str] = {}
@@ -242,11 +278,14 @@ class FirestoreOperationalTelemetryAdapter:
                 token = await self._token_provider.access_token()
                 headers["Authorization"] = f"Bearer {token}"
             try:
-                response = await self._client.get(
-                    url,
-                    headers=headers,
-                    params=params,
-                )
+                with budget.request(
+                    provider=self.integration_id,
+                    endpoint=endpoint,
+                    document_limit=document_limit,
+                    retry=attempt > 0,
+                ) as metric:
+                    response = await self._client.get(url, headers=headers, params=params)
+                    metric.status_code = response.status_code
             except httpx.TransportError as exc:
                 if attempt >= self._max_retries:
                     raise ProviderTransientError("Firestore operational request failed") from exc

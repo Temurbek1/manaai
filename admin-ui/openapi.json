@@ -2002,6 +2002,17 @@
             "title": "Capability Key",
             "type": "string"
           },
+          "circuit_open": {
+            "default": false,
+            "title": "Circuit Open",
+            "type": "boolean"
+          },
+          "consecutive_permanent_failures": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Consecutive Permanent Failures",
+            "type": "integer"
+          },
           "cron_expression": {
             "maxLength": 120,
             "minLength": 5,

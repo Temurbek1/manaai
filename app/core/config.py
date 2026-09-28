@@ -100,6 +100,8 @@ class Settings(BaseSettings):
     operation_auto_create_schema: bool = True
     operation_scheduler_enabled: bool = False
     operation_scheduler_poll_seconds: float = Field(default=30.0, gt=0, le=300)
+    operation_scheduler_max_attempts: int = Field(default=3, ge=1, le=5)
+    operation_scheduler_permanent_failure_threshold: int = Field(default=3, ge=1, le=20)
     operation_worker_heartbeat_path: Path = Path("/tmp/mana-operation-worker-heartbeat")
     operation_worker_heartbeat_interval_seconds: float = Field(default=15.0, gt=0, le=60)
     operation_worker_heartbeat_max_age_seconds: float = Field(default=60.0, gt=0, le=300)
@@ -146,14 +148,17 @@ class Settings(BaseSettings):
         pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,1499}$",
     )
     firebase_request_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
-    firebase_max_activity_documents: int = Field(default=50_000, ge=100, le=250_000)
+    firebase_max_activity_documents: int = Field(default=5_000, ge=1, le=250_000)
+    firebase_max_document_reads_per_run: int = Field(default=25_000, ge=1, le=250_000)
+    firebase_max_pages_per_run: int = Field(default=30, ge=1, le=500)
+    firebase_max_requests_per_run: int = Field(default=40, ge=1, le=500)
     firebase_max_retries: int = Field(default=3, ge=0, le=8)
     firebase_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
     firebase_operational_telemetry_enabled: bool = False
     firebase_public_read_enabled: bool = False
     firebase_operational_max_documents_per_collection: int = Field(
-        default=50_000,
-        ge=100,
+        default=5_000,
+        ge=1,
         le=250_000,
     )
     ga4_property_id: str | None = Field(default=None, pattern=r"^[0-9]{5,20}$")

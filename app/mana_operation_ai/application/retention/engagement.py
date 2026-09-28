@@ -8,6 +8,7 @@ from typing import cast
 
 from pydantic import JsonValue
 
+from app.mana_operation_ai.application.concurrency import gather_or_cancel
 from app.mana_operation_ai.application.ports import (
     BackendActivityPort,
     Clock,
@@ -16,6 +17,7 @@ from app.mana_operation_ai.application.ports import (
     OperationalTelemetryPort,
     OperationRepository,
 )
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget, FirestoreReadLimits
 from app.mana_operation_ai.application.retention.constants import (
     ENGAGEMENT_CAPABILITY_KEY,
     RETENTION_AGENT_ID,
@@ -68,6 +70,7 @@ class RetentionEngagementCapabilityHandler:
         repository: OperationRepository,
         clock: Clock,
         ids: IdGenerator,
+        firestore_read_limits: FirestoreReadLimits | None = None,
     ) -> None:
         self._backend_activity = backend_activity
         self._mobile_activity = mobile_activity
@@ -75,6 +78,7 @@ class RetentionEngagementCapabilityHandler:
         self._repository = repository
         self._clock = clock
         self._ids = ids
+        self._firestore_read_limits = firestore_read_limits or FirestoreReadLimits()
         self._definition = CapabilityDefinition(
             key=ENGAGEMENT_CAPABILITY_KEY,
             agent_id=RETENTION_AGENT_ID,
@@ -155,6 +159,8 @@ class RetentionEngagementCapabilityHandler:
         typed_configuration = RetentionEngagementConfiguration.model_validate(
             configuration.values,
         )
+        read_budget = FirestoreReadBudget(self._firestore_read_limits, run_id=run.run_id)
+        stop_reason = "cancelled"
         try:
             run = await self._transition(run, AgentRunStatus.COLLECTING, AgentRunStage.COLLECT)
             period_end = self._clock.now()
@@ -166,15 +172,16 @@ class RetentionEngagementCapabilityHandler:
             mobile_task = self._mobile_activity.collect_activity(
                 period_start=period_start,
                 period_end=period_end,
+                read_budget=read_budget,
             )
             operational: OperationalTelemetryFacts | None = None
             if self._operational_telemetry is None:
-                backend, mobile = await asyncio.gather(backend_task, mobile_task)
+                backend, mobile = await gather_or_cancel(backend_task, mobile_task)
             else:
-                backend, mobile, operational = await asyncio.gather(
+                backend, mobile, operational = await gather_or_cancel(
                     backend_task,
                     mobile_task,
-                    self._operational_telemetry.collect_telemetry(),
+                    self._operational_telemetry.collect_telemetry(read_budget=read_budget),
                 )
 
             run = await self._transition(
@@ -211,8 +218,11 @@ class RetentionEngagementCapabilityHandler:
                 AgentRunStatus.POLICY_CHECK,
                 AgentRunStage.POLICY_CHECK,
             )
-            return await self._finish(run=run, snapshot=normalized, findings=findings)
+            result = await self._finish(run=run, snapshot=normalized, findings=findings)
+            stop_reason = "success"
+            return result
         except Exception as exc:
+            stop_reason = type(exc).__name__
             if run.status is not AgentRunStatus.FAILED:
                 require_transition(run.status, AgentRunStatus.FAILED, RUN_TRANSITIONS)
                 now = self._clock.now()
@@ -227,6 +237,8 @@ class RetentionEngagementCapabilityHandler:
                 )
                 await self._repository.update_run(failed)
             raise
+        finally:
+            read_budget.log_summary(stop_reason)
 
     async def finalize_after_actions(self, run_id: str) -> AgentRunResult:
         run = await self._repository.get_run(run_id)
@@ -536,7 +548,7 @@ class RetentionEngagementCapabilityHandler:
             job_type="analysis",
             cron_expression=configuration.schedule,
             timezone=configuration.timezone,
-            enabled=previous.enabled if previous is not None else True,
+            enabled=previous.enabled if previous is not None else False,
             next_run_at=next_cron_occurrence(
                 configuration.schedule,
                 configuration.timezone,

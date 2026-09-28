@@ -4,9 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.mana_operation_ai.application.ports import ConcurrentOperationError
 from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType
 from app.mana_operation_ai.domain.models import AgentDefinition, AgentRun, AgentSchedule
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
+from app.mana_operation_ai.infrastructure.persistence.models import AgentScheduleRow
 from app.mana_operation_ai.infrastructure.persistence.repository import (
     SqlAlchemyOperationRepository,
 )
@@ -61,6 +63,16 @@ async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None
         next_run_at=now,
     )
     await repository.save_schedule(schedule)
+    # Existing production JSON predates the safety fields. Claims must still work
+    # without a data migration, while all new writes persist the defaults.
+    async with database.session_factory.begin() as session:
+        row = await session.get(AgentScheduleRow, schedule.schedule_id)
+        assert row is not None
+        row.payload = {
+            key: value
+            for key, value in row.payload.items()
+            if key not in {"circuit_open", "consecutive_permanent_failures"}
+        }
     advanced = schedule.model_copy(
         update={"last_run_at": now, "next_run_at": now + timedelta(hours=6)},
     )
@@ -68,6 +80,26 @@ async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None
         *(repository.claim_schedule(current=schedule, advanced=advanced) for _ in range(16)),
     )
     assert claims.count(True) == 1
+
+    tripped = advanced.model_copy(
+        update={
+            "enabled": False,
+            "circuit_open": True,
+            "consecutive_permanent_failures": 3,
+        }
+    )
+    race = await asyncio.gather(
+        repository.claim_schedule(current=advanced, advanced=tripped),
+        *(repository.save_schedule(advanced) for _ in range(16)),
+        return_exceptions=True,
+    )
+    assert race[0] is True
+    assert all(
+        result is None or isinstance(result, ConcurrentOperationError) for result in race[1:]
+    )
+    saved = (await repository.list_schedules("postgres-agent"))[0]
+    assert saved.circuit_open and not saved.enabled
+    assert saved.consecutive_permanent_failures == 3
 
     template = AgentRun(
         run_id="postgres-run-0",

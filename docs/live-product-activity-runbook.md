@@ -116,6 +116,54 @@ for Technical Reliability. Do not label GA4 `app_exception` counts as crash root
 
 ## Incident response
 
+### Retention read safety controls
+
+The 2026-09-28 remediation introduces explicit process settings:
+
+```dotenv
+OPERATION_SCHEDULER_MAX_ATTEMPTS=3
+OPERATION_SCHEDULER_PERMANENT_FAILURE_THRESHOLD=3
+FIREBASE_MAX_ACTIVITY_DOCUMENTS=5000
+FIREBASE_OPERATIONAL_MAX_DOCUMENTS_PER_COLLECTION=5000
+FIREBASE_MAX_DOCUMENT_READS_PER_RUN=25000
+FIREBASE_MAX_PAGES_PER_RUN=30
+FIREBASE_MAX_REQUESTS_PER_RUN=40
+```
+
+The last three limits are shared across canonical and operational Firestore sources, not multiplied
+by the number of collections. If both sources are enabled, size their sampling limits to fit the
+shared budget. Exceeding a limit raises a permanent controlled error before the next request.
+Budget exhaustion is never silently presented as a successful complete analysis. The existing
+per-collection sampling cap still reports truncation explicitly in data-quality notes.
+
+Each HTTP attempt reserves its requested document limit (at least one), including retries,
+timeouts and cancelled requests. Reservations are not refunded. This bounds document retrieval,
+not the entire Google Cloud invoice: index reads, security-rule dependent reads, network and
+storage have their own billing. See the official [Firestore billing explanation](https://firebase.google.com/docs/firestore/pricing)
+and [listDocuments page-size contract](https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents/list).
+
+For an operational-only canary, keep the schedule disabled and use a one-document collection cap,
+`FIREBASE_MAX_DOCUMENT_READS_PER_RUN=5`, `FIREBASE_MAX_PAGES_PER_RUN=5`,
+`FIREBASE_MAX_REQUESTS_PER_RUN=5`, `FIREBASE_MAX_RETRIES=0`, `MANAKIDS_MAX_RETRIES=0`,
+`MANAKIDS_MAX_PAGES=1`, and `OPERATION_SCHEDULER_MAX_ATTEMPTS=1`. Use one unique manual idempotency
+key. Replaying that key must not collect again, even if its run failed. Do not turn this into an
+automatic production smoke loop. A successful bounded sample is not proof of complete analytics.
+
+Structured `Retention provider request` records count dispatches by provider/endpoint, retries,
+status and duration. `Retention Firestore budget summary` reports the run ID, observed returned
+documents separately from reserved upper bounds, pages, requests by endpoint, and stop reason.
+Scheduler terminal logs/audit expose circuit state and consecutive permanent errors. No request
+body, auth headers, page token, raw document or user identifier is logged. Compare these counters
+with Billing/Monitoring when assessing cost; do not describe sampled or reconstructed counts as
+actual billed reads.
+
+Manakids refreshes on the first 401 **or** 403, shares refreshes for concurrent rejections of the
+same token generation, then repeats the original request once. A second rejection is permanent.
+Login failures do not start the Manakids endpoint batch. Mandatory-source errors cancel and drain
+already started Firestore batches; already dispatched remote reads cannot be undone.
+
+### Response procedure
+
 - Disable the Retention schedule or its capability kill switch first.
 - Preserve only run/correlation IDs, provider request IDs, checksums, aggregate counts, and
   sanitized error categories.

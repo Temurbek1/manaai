@@ -2295,6 +2295,16 @@ export interface components {
             agent_id: string;
             /** Capability Key */
             capability_key: string;
+            /**
+             * Circuit Open
+             * @default false
+             */
+            circuit_open: boolean;
+            /**
+             * Consecutive Permanent Failures
+             * @default 0
+             */
+            consecutive_permanent_failures: number;
             /** Cron Expression */
             cron_expression: string;
             /** Enabled */

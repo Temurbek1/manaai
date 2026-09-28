@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -9,8 +10,10 @@ from typing import Any
 import httpx
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
+from app.mana_operation_ai.application.concurrency import gather_or_cancel
 from app.mana_operation_ai.application.ports import (
     Clock,
+    ProviderOperationError,
     ProviderPermanentError,
     ProviderTransientError,
 )
@@ -24,6 +27,7 @@ _CHILD_LIST_PATH = "/api/v1/admin-panel-child/child-list/"
 _APP_USAGE_PATH = "/api/v1/admin-panel-child/app-usage-statistics/"
 _REALTIME_USAGE_PATH = "/api/v1/admin-panel-child/camera-audio-usage-logs/"
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+logger = logging.getLogger(__name__)
 
 
 class _LoginResponse(BaseModel):
@@ -118,6 +122,8 @@ class ManakidsAdminActivityAdapter:
         self._retry_backoff_seconds = retry_backoff_seconds
         self._max_pages = max_pages
         self._access_token: str | None = None
+        self._token_generation = 0
+        self._auth_failure: ProviderOperationError | None = None
         self._auth_lock = asyncio.Lock()
 
     async def collect_activity(
@@ -128,6 +134,8 @@ class ManakidsAdminActivityAdapter:
     ) -> BackendActivityFacts:
         if period_end <= period_start:
             raise ValueError("Activity period end must be after its start")
+        # Authenticate before starting the batch, including when authentication fails.
+        await self._token()
         joined_params: dict[str, str | int] = {
             "date_joined_gte": period_start.date().isoformat(),
             "date_joined_lt": (period_end.date() + timedelta(days=1)).isoformat(),
@@ -148,7 +156,7 @@ class ManakidsAdminActivityAdapter:
             ),
             app_usage,
             realtime_usage,
-        ) = await asyncio.gather(
+        ) = await gather_or_cancel(
             self._get_page(
                 _ACCOUNT_PATH,
                 params={**joined_params, "role": "PARENT"},
@@ -312,33 +320,51 @@ class ManakidsAdminActivityAdapter:
         *,
         params: Mapping[str, str | int],
     ) -> tuple[Any, str | None]:
-        token = await self._token()
+        token, generation = await self._token()
         response = await self._request(
             "GET",
             path,
             params=params,
             headers={"Authorization": f"Bearer {token}"},
         )
-        if response.status_code == 401:
-            async with self._auth_lock:
-                if self._access_token == token:
-                    self._access_token = None
-            token = await self._token()
+        if response.status_code in {401, 403}:
+            token = await self._refresh_rejected_token(generation)
             response = await self._request(
                 "GET",
                 path,
+                auth_retry=True,
                 params=params,
                 headers={"Authorization": f"Bearer {token}"},
             )
         _raise_for_status(response, operation="Admin API read")
         return _json_payload(response, operation="Admin API read"), _request_id(response)
 
-    async def _token(self) -> str:
+    async def _token(self) -> tuple[str, int]:
         if self._access_token is not None:
-            return self._access_token
+            return self._access_token, self._token_generation
         async with self._auth_lock:
             if self._access_token is not None:
+                return self._access_token, self._token_generation
+            token = await self._login_locked()
+            return token, self._token_generation
+
+    async def _refresh_rejected_token(self, generation: int) -> str:
+        async with self._auth_lock:
+            if generation == self._token_generation:
+                return await self._login_locked()
+            # A sibling has already refreshed this generation, even if the provider
+            # returned the same token text. Do not send another login for that wave.
+            if self._access_token is not None:
                 return self._access_token
+            if self._auth_failure is not None:
+                raise self._auth_failure
+            raise ProviderPermanentError("Admin API authentication is unavailable")
+
+    async def _login_locked(self) -> str:
+        self._access_token = None
+        self._token_generation += 1
+        self._auth_failure = None
+        try:
             response = await self._request(
                 "POST",
                 _AUTH_PATH,
@@ -355,12 +381,40 @@ class ManakidsAdminActivityAdapter:
                 ) from None
             self._access_token = parsed.access_token
             return parsed.access_token
+        except ProviderOperationError as exc:
+            self._auth_failure = exc
+            raise
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        auth_retry: bool = False,
+        **kwargs: Any,
+    ) -> httpx.Response:
         url = f"{self._base_url}{path}"
         for attempt in range(self._max_retries + 1):
+            started = time.monotonic()
+            status: int | None = None
             try:
-                response = await self._client.request(method, url, **kwargs)
+                try:
+                    response = await self._client.request(method, url, **kwargs)
+                    status = response.status_code
+                finally:
+                    logger.info(
+                        "Retention provider request",
+                        extra={
+                            "provider": self.integration_id,
+                            "endpoint": path,
+                            "method": method,
+                            "request_count": 1,
+                            "retry_count": int(attempt > 0 or auth_retry),
+                            "auth_retry": auth_retry,
+                            "http_status": status,
+                            "duration_ms": _latency_ms(started),
+                        },
+                    )
             except httpx.RequestError as exc:
                 if attempt >= self._max_retries:
                     raise ProviderTransientError("Admin API network request failed") from exc

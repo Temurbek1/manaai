@@ -39,19 +39,38 @@ Each due occurrence has an identity `schedule-occurrence:{schedule_id}:{schedule
 
 1. reads due schedules;
 2. acquires that occurrence lease;
-3. runs the agent with an occurrence-derived idempotency key;
-4. advances `last_run_at/next_run_at` only after success;
-5. releases the lease.
+3. atomically consumes the due occurrence by moving `next_run_at` to a future cron slot,
+   before any provider I/O; a stale due-list cannot claim it again;
+4. runs at most `OPERATION_SCHEDULER_MAX_ATTEMPTS` attempts, retrying only explicit transient
+   errors/timeouts/lock contention, with a distinct occurrence/attempt idempotency key;
+5. records completion and advances to a future slot after both success and failure;
+6. releases the lease.
 
-If the worker dies, the schedule remains due. After lease expiry a worker retries the same
-occurrence and run idempotency prevents duplication. Two scheduler instances and dead-worker lease
-recovery are tested. Cron calculation works in UTC while matching local wall-clock values, skips
+If the worker dies before claiming, the due occurrence can be claimed after lease expiry. If it
+dies after claiming, that occurrence is consumed and is **not automatically replayed**. This
+at-most-once policy deliberately trades a possibly missed report for no duplicate paid collection.
+Historical overdue slots are skipped; there is no catch-up scan storm. Terminal failed runs never
+reopen with the same idempotency key. Two-worker races, stale claims, finite retries and dead-worker
+lease recovery are tested. Cron calculation works in UTC while matching local wall-clock values, skips
 nonexistent DST minutes, and does not duplicate a folded minute.
 
 The job runner has a whole-job timeout. Provider reads have request timeouts/retries; writes have no
 blind transport retry. Schedule update preserves identity, validates timezone, and atomically
 compares the persisted occurrence before advancing, so a concurrent schedule edit cannot be
 overwritten by an old claim.
+
+Consecutive permanent failures are persisted per agent/capability schedule. At
+`OPERATION_SCHEDULER_PERMANENT_FAILURE_THRESHOLD`, the schedule is disabled, its circuit is opened,
+an audit event is written, and an ERROR alert is logged and shown in the schedule editor. Manual
+runs of that capability are blocked too. Editing analysis configuration does not reset the trip;
+explicitly saving the repaired schedule as enabled resets it. Existing disabled schedules stay
+disabled at bootstrap; newly created Retention schedules are disabled by default.
+
+Retention collection cancels and drains siblings at both the source and nested HTTP-batch layers.
+All Firestore sources in a run share one explicit budget for requested document-read bounds,
+pages and HTTP attempts. Every retry reserves its full page/query limit before dispatch; cancelled
+or ambiguous requests are not refunded. See the live product activity runbook for billing caveats
+and canary limits.
 
 ## Database evidence
 

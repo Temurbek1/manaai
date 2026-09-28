@@ -161,6 +161,19 @@ class OperationAdminService:
         )
         await self.repository.save_configuration(configuration)
         for schedule in configured_schedules:
+            previous = next(
+                (item for item in existing_schedules if item.schedule_id == schedule.schedule_id),
+                None,
+            )
+            if previous is not None:
+                # Editing analysis thresholds must not silently reset a safety trip.
+                schedule = schedule.model_copy(
+                    update={
+                        "circuit_open": previous.circuit_open,
+                        "consecutive_permanent_failures": previous.consecutive_permanent_failures,
+                        "enabled": schedule.enabled and not previous.circuit_open,
+                    }
+                )
             await self.repository.save_schedule(schedule)
         await self._audit(
             event_type=AuditEventType.CONFIGURATION_CREATED,
@@ -199,6 +212,10 @@ class OperationAdminService:
                 "cron_expression": cron_expression,
                 "timezone": timezone,
                 "enabled": enabled,
+                "circuit_open": existing.circuit_open if not enabled else False,
+                "consecutive_permanent_failures": (
+                    existing.consecutive_permanent_failures if not enabled else 0
+                ),
                 "next_run_at": next_cron_occurrence(
                     cron_expression,
                     timezone,
@@ -206,14 +223,15 @@ class OperationAdminService:
                 ),
             },
         )
-        await self.repository.save_schedule(schedule)
+        await self.repository.save_schedule(schedule, reset_circuit=enabled)
         await self._audit(
             event_type=AuditEventType.SCHEDULE_CHANGED,
             actor=actor,
             correlation_id=schedule.schedule_id,
             agent_id=schedule.agent_id,
+            capability_key=schedule.capability_key,
             summary=f"Schedule {schedule.schedule_id} updated",
-            details={"enabled": schedule.enabled},
+            details={"enabled": schedule.enabled, "circuit_open": schedule.circuit_open},
         )
         return schedule
 

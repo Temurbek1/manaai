@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.mana_operation_ai.application.ports import Clock
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget
 from app.mana_operation_ai.domain.enums import IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import MobileActivityFacts
@@ -20,6 +21,7 @@ class UnavailableMobileActivityAdapter:
         *,
         period_start: datetime,
         period_end: datetime,
+        read_budget: FirestoreReadBudget | None = None,
     ) -> MobileActivityFacts:
         return MobileActivityFacts(
             source=self.integration_id,

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import JsonValue
 
@@ -51,6 +51,9 @@ from app.mana_operation_ai.domain.retention import (
     MobileActivityFacts,
     OperationalTelemetryFacts,
 )
+
+if TYPE_CHECKING:
+    from app.mana_operation_ai.application.read_budget import FirestoreReadBudget
 
 
 class ConcurrentOperationError(RuntimeError):
@@ -112,7 +115,12 @@ class OperationRepository(Protocol):
         capability_key: str | None = None,
     ) -> list[AgentConfiguration]: ...
 
-    async def save_schedule(self, schedule: AgentSchedule) -> None: ...
+    async def save_schedule(
+        self,
+        schedule: AgentSchedule,
+        *,
+        reset_circuit: bool = False,
+    ) -> None: ...
 
     async def list_schedules(
         self,
@@ -442,7 +450,11 @@ class MobileActivityPort(Protocol):
     def integration_id(self) -> str: ...
 
     async def collect_activity(
-        self, *, period_start: datetime, period_end: datetime
+        self,
+        *,
+        period_start: datetime,
+        period_end: datetime,
+        read_budget: "FirestoreReadBudget | None" = None,
     ) -> MobileActivityFacts: ...
 
     async def health(self) -> IntegrationHealth: ...
@@ -452,6 +464,10 @@ class OperationalTelemetryPort(Protocol):
     @property
     def integration_id(self) -> str: ...
 
-    async def collect_telemetry(self) -> OperationalTelemetryFacts: ...
+    async def collect_telemetry(
+        self,
+        *,
+        read_budget: "FirestoreReadBudget | None" = None,
+    ) -> OperationalTelemetryFacts: ...
 
     async def health(self) -> IntegrationHealth: ...

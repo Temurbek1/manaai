@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.mana_operation_ai.application.ports import Clock
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget
 from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import (
@@ -62,6 +63,7 @@ class FakeMobileActivityAdapter:
         *,
         period_start: datetime,
         period_end: datetime,
+        read_budget: FirestoreReadBudget | None = None,
     ) -> MobileActivityFacts:
         return MobileActivityFacts(
             source=self.integration_id,
@@ -132,7 +134,11 @@ class FakeOperationalTelemetryAdapter:
     def __init__(self, *, clock: Clock) -> None:
         self._clock = clock
 
-    async def collect_telemetry(self) -> OperationalTelemetryFacts:
+    async def collect_telemetry(
+        self,
+        *,
+        read_budget: FirestoreReadBudget | None = None,
+    ) -> OperationalTelemetryFacts:
         return OperationalTelemetryFacts(
             source=self.integration_id,
             collected_at=self._clock.now(),

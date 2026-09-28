@@ -45,6 +45,13 @@ export function ScheduleEditor({
   return (
     <fieldset className="schedule-editor" disabled={disabled || busy}>
       <legend>{schedule.job_type}</legend>
+      {schedule.circuit_open ? (
+        <p className="error-banner" role="alert">
+          Automatically stopped after {schedule.consecutive_permanent_failures}{" "}
+          consecutive permanent failures. Repair the provider before enabling
+          this schedule. Saving it as enabled resets the circuit breaker.
+        </p>
+      ) : null}
       <label>
         <span>Cron expression</span>
         <input

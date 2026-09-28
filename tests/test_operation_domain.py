@@ -39,6 +39,11 @@ class FixedClock:
         return self._now
 
 
+def test_failed_run_is_terminal_and_cannot_be_requeued() -> None:
+    with pytest.raises(InvalidStateTransition):
+        require_transition(AgentRunStatus.FAILED, AgentRunStatus.QUEUED, RUN_TRANSITIONS)
+
+
 def test_financial_metrics_are_decimal_and_unavailable_is_explicit() -> None:
     metrics = build_metrics(
         spend=Decimal("20"),

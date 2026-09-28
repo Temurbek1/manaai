@@ -56,6 +56,29 @@ frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates
 - The opt-in live test was not run because local deployment secrets and service-account file paths
   are not configured. This checkpoint proves code readiness, not live-provider activation.
 
+## Verified 2026-09-28 Retention incident remediation (local only)
+
+- `make lint`, `make typecheck`, `make test`, `make verify`, `ruff check .`, `mypy .`,
+  and `pytest`: passed. Backend: 275 passed; the ordinary `make test` excludes two opt-in live
+  tests and skips the isolated PostgreSQL test. Plain `pytest` reports three skips instead.
+- Frontend: 24 tests across 10 suites, including the persisted circuit-breaker alert and explicit
+  recovery control. The production build and high-severity npm audit passed (zero vulnerabilities).
+- `make audit-schema`: OpenAPI and generated TypeScript contracts are synchronized.
+- `make audit-postgres`: migration upgrade/downgrade/upgrade and schema-drift check passed. Its
+  production-database test covers 16-way occurrence/lock/run contention, legacy schedule JSON
+  without the new safety fields, and a circuit trip racing 16 stale configuration writes.
+- New fake/mock regressions cover first/repeated 401 and 403, single-flight refresh (including a
+  provider returning identical token text), rejected refresh/login, nested cancellation/draining,
+  finite transient retries, permanent failure without 30-second replay, terminal idempotency,
+  scheduler disable during retries, stale schedule claims, circuit persistence/manual reset,
+  per-run shared Firestore budgets and retry reservations, empty/repeated pagination, and safe logs.
+- No real OpenAI, Meta write, Manakids or Firestore calls were used for these regression tests.
+
+This is **not** production acceptance. Deployment, use of the newly provided read-only credential,
+the bounded live canary and the six-hour control cycle still require the coordinated release in
+[`retention-incident-release-plan.md`](retention-incident-release-plan.md). No production success or
+historical billing amount can be inferred from these local test results.
+
 ## Adversarial matrix
 
 | Area | Scenarios proved |
@@ -66,7 +89,7 @@ frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates
 | finance | stale/expired/deleted object, policy changed/removed, config removed, kill switch timing, provider minimum/currency, absolute/factor delta, cooldown/daily limits, wrong/partial/eventually consistent provider value |
 | identity/RBAC | no implicit admin, viewer denial, self-approval denial, role-key resolution, failed-auth throttling, bulk homogeneity |
 | concurrency | 12-way SQLite and 16-way PostgreSQL lock/claim/run creation, concurrent HTTP decision, per-object write lease, transaction rollback/recovery |
-| scheduler | two schedulers, dead worker, due occurrence retention, DST, job timeout, retry/idempotency |
+| scheduler | two schedulers, stale due snapshots, dead worker before claim, consumed occurrence after claim, future-slot advancement on failure, DST, job timeout, finite retry/idempotency, durable circuit trip and concurrent stale-edit protection |
 | API | malformed values/UUID-shaped identifiers, enum validation, pagination limits, duplicate requests, extra/mass-assignment fields, invalid timezone, controlled upstream errors |
 | frontend | login/session, viewer-disabled controls, approval/rejection/expiry, failed/partial/executing states, global/agent kill switches, configuration/schedule, manual run, loading/error/empty, mutation failure, pagination/filter, report/timeline, redaction/XSS, responsive/keyboard navigation |
 | security | ignored `.env`, no browser storage, no dangerous HTML, structured log redaction, security headers/CSP, production CORS, bundle/OpenAPI inspection, secret scan, dependency audit |

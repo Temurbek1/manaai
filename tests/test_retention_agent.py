@@ -1,10 +1,21 @@
+import asyncio
+from datetime import datetime
 from pathlib import Path
+from typing import cast
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 from pytest import MonkeyPatch
 
 from app.core.config import get_settings
 from app.main import create_app
+from app.mana_operation_ai.application.admin_service import ActorContext, OperationAdminService
+from app.mana_operation_ai.application.agent_service import AgentService, AgentUnavailableError
+from app.mana_operation_ai.application.ports import OperationRepository, ProviderPermanentError
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget
+from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
+from app.mana_operation_ai.domain.retention import BackendActivityFacts, OperationalTelemetryFacts
+from app.mana_operation_ai.infrastructure.retention.fake import FakeOperationalTelemetryAdapter
 
 
 def configure_retention_test_env(monkeypatch: MonkeyPatch, database_path: Path) -> None:
@@ -16,6 +27,117 @@ def configure_retention_test_env(monkeypatch: MonkeyPatch, database_path: Path) 
     monkeypatch.setenv("OPERATION_ADS_PROVIDER", "fake_meta")
     monkeypatch.setenv("OPERATION_PRODUCT_ACTIVITY_PROVIDER", "fake")
     monkeypatch.setenv("OPERATION_DRY_RUN", "true")
+    get_settings.cache_clear()
+
+
+async def test_retention_failure_drains_source_and_is_terminal_for_idempotency_key(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_retention_test_env(monkeypatch, tmp_path / "retention-failure.db")
+    app = create_app()
+    started = asyncio.Event()
+    drained = asyncio.Event()
+    backend_calls = 0
+
+    async def denied_backend(
+        *, period_start: datetime, period_end: datetime
+    ) -> BackendActivityFacts:
+        nonlocal backend_calls
+        backend_calls += 1
+        await started.wait()
+        raise ProviderPermanentError("Admin API read failed with HTTP 403")
+
+    async def pending_firestore(
+        self: FakeOperationalTelemetryAdapter,
+        *,
+        read_budget: FirestoreReadBudget | None = None,
+    ) -> OperationalTelemetryFacts:
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await asyncio.sleep(0)
+            drained.set()
+        raise AssertionError("Expected cancellation")
+
+    monkeypatch.setattr(FakeOperationalTelemetryAdapter, "collect_telemetry", pending_firestore)
+    async with app.router.lifespan_context(app):
+        monkeypatch.setattr(
+            app.state.operation_backend_activity,
+            "collect_activity",
+            denied_backend,
+        )
+        runner = cast(AgentService, app.state.operation_agent_service)
+        repository = cast(OperationRepository, app.state.operation_repository)
+        with pytest.raises(ProviderPermanentError, match="403"):
+            await runner.run_now(
+                agent_id="retention-agent",
+                capability_key="retention.engagement.analyze",
+                job_type="analysis",
+                trigger=TriggerType.USER,
+                actor_id="operator",
+                actor_role=UserRole.OPERATOR,
+                idempotency_key="failed-once",
+            )
+        assert drained.is_set()
+        for _ in range(3):
+            result = await runner.run_now(
+                agent_id="retention-agent",
+                capability_key="retention.engagement.analyze",
+                job_type="analysis",
+                trigger=TriggerType.USER,
+                actor_id="operator",
+                actor_role=UserRole.OPERATOR,
+                idempotency_key="failed-once",
+            )
+            assert result.status is AgentRunStatus.FAILED
+        runs, total = await repository.list_runs(agent_id="retention-agent")
+        assert backend_calls == total == 1
+        assert runs[0].retry_count == 0
+        assert runs[0].error_code == "ProviderPermanentError"
+    get_settings.cache_clear()
+
+
+async def test_retention_circuit_blocks_manual_runs_until_explicit_schedule_recovery(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    configure_retention_test_env(monkeypatch, tmp_path / "retention-circuit.db")
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        repository = cast(OperationRepository, app.state.operation_repository)
+        runner = cast(AgentService, app.state.operation_agent_service)
+        admin = cast(OperationAdminService, app.state.operation_admin_service)
+        actor = ActorContext(actor_id="test-admin", role=UserRole.ADMIN)
+        schedule = (await repository.list_schedules("retention-agent"))[0]
+        assert not schedule.enabled
+        await repository.save_schedule(
+            schedule.model_copy(
+                update={
+                    "circuit_open": True,
+                    "consecutive_permanent_failures": 3,
+                }
+            )
+        )
+        await admin.create_configuration(
+            agent_id="retention-agent",
+            capability_key="retention.engagement.analyze",
+            values={"lookback_days": 1},
+            actor=actor,
+        )
+        with pytest.raises(AgentUnavailableError, match="circuit breaker"):
+            await runner.validate_run("retention-agent", "retention.engagement.analyze")
+        restored = await admin.update_schedule(
+            schedule_id=schedule.schedule_id,
+            cron_expression="20 */6 * * *",
+            timezone="UTC",
+            enabled=True,
+            actor=actor,
+        )
+        assert not restored.circuit_open
+        assert restored.consecutive_permanent_failures == 0
+        await runner.validate_run("retention-agent", "retention.engagement.analyze")
     get_settings.cache_clear()
 
 

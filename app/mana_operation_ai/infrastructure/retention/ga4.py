@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 import re
 import time
 import unicodedata
@@ -10,17 +11,20 @@ from typing import Any, Literal
 
 import httpx
 
+from app.mana_operation_ai.application.concurrency import gather_or_cancel
 from app.mana_operation_ai.application.ports import (
     Clock,
     ProviderPermanentError,
     ProviderTransientError,
 )
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget
 from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import MobileActivityFacts
 from app.mana_operation_ai.infrastructure.google_auth import GoogleAccessTokenProvider
 
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+logger = logging.getLogger(__name__)
 _DIMENSION_REPORTS: tuple[tuple[str, str, str], ...] = (
     ("unifiedScreenName", "screenPageViews", "screen_views"),
     ("appVersion", "activeUsers", "app_versions"),
@@ -68,6 +72,7 @@ class Ga4MobileActivityAdapter:
         *,
         period_start: datetime,
         period_end: datetime,
+        read_budget: FirestoreReadBudget | None = None,
     ) -> MobileActivityFacts:
         if period_end <= period_start:
             raise ValueError("Activity period end must be after its start")
@@ -104,7 +109,7 @@ class Ga4MobileActivityAdapter:
             )
             for dimension, metric, _ in _DIMENSION_REPORTS
         ]
-        responses = await asyncio.gather(
+        responses = await gather_or_cancel(
             summary_task,
             events_task,
             *active_window_tasks,
@@ -275,11 +280,28 @@ class Ga4MobileActivityAdapter:
             token = await self._token_provider.access_token()
             try:
                 async with self._request_semaphore:
-                    response = await self._client.post(
-                        self._run_report_url,
-                        headers={"Authorization": f"Bearer {token}"},
-                        json=body,
-                    )
+                    started = time.monotonic()
+                    status: int | None = None
+                    try:
+                        response = await self._client.post(
+                            self._run_report_url,
+                            headers={"Authorization": f"Bearer {token}"},
+                            json=body,
+                        )
+                        status = response.status_code
+                    finally:
+                        logger.info(
+                            "Retention provider request",
+                            extra={
+                                "provider": self.integration_id,
+                                "endpoint": "properties:runReport",
+                                "method": "POST",
+                                "request_count": 1,
+                                "retry_count": int(attempt > 0),
+                                "http_status": status,
+                                "duration_ms": round((time.monotonic() - started) * 1000),
+                            },
+                        )
             except httpx.TransportError as exc:
                 if attempt >= self._max_retries:
                     raise ProviderTransientError("GA4 request failed") from exc

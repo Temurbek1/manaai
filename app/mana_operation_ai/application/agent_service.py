@@ -157,19 +157,6 @@ class AgentService:
             updated_at=now,
         )
         run = await self._repository.create_run(run)
-        if run.status is AgentRunStatus.FAILED:
-            require_transition(run.status, AgentRunStatus.QUEUED, RUN_TRANSITIONS)
-            run = run.model_copy(
-                update={
-                    "status": AgentRunStatus.QUEUED,
-                    "updated_at": now,
-                    "completed_at": None,
-                    "error_code": None,
-                    "error_message": None,
-                    "retry_count": run.retry_count + 1,
-                },
-            )
-            await self._repository.update_run(run)
         if run.status is not AgentRunStatus.QUEUED:
             return AgentRunResult(run_id=run.run_id, status=run.status)
 
@@ -186,6 +173,15 @@ class AgentService:
                 f"Capability {effective_capability_key!r} already has an active run",
             )
         try:
+            # A duplicate request may have waited while the original finished. Its
+            # earlier queued snapshot is not permission to execute the run again.
+            persisted = await self._repository.get_run(run.run_id)
+            if persisted is None:
+                raise LookupError("The queued run no longer exists")
+            if persisted.status is not AgentRunStatus.QUEUED:
+                return AgentRunResult(run_id=persisted.run_id, status=persisted.status)
+            run = persisted
+            await self.validate_run(canonical_agent_id, effective_capability_key)
             try:
                 async with asyncio.timeout(self._job_timeout_seconds):
                     return await agent.execute(
@@ -243,6 +239,17 @@ class AgentService:
         ):
             raise AgentUnavailableError(
                 f"The kill switch for capability {effective_capability_key!r} is enabled",
+            )
+        if any(
+            schedule.circuit_open
+            for schedule in await self._repository.list_schedules(
+                canonical_agent_id,
+                effective_capability_key,
+            )
+        ):
+            raise AgentUnavailableError(
+                f"The circuit breaker for capability {effective_capability_key!r} is open; "
+                "repair the provider and explicitly re-enable its schedule",
             )
 
         configuration = await self._repository.latest_configuration(

@@ -16,6 +16,7 @@ from app.mana_operation_ai.application.ports import (
     ProviderPermanentError,
     ProviderTransientError,
 )
+from app.mana_operation_ai.application.read_budget import FirestoreReadBudget, FirestoreReadLimits
 from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import MobileActivityFacts
@@ -81,12 +82,38 @@ class FirestoreMobileActivityAdapter:
         *,
         period_start: datetime,
         period_end: datetime,
+        read_budget: FirestoreReadBudget | None = None,
+    ) -> MobileActivityFacts:
+        budget = read_budget or FirestoreReadBudget(FirestoreReadLimits())
+        reason = "success"
+        try:
+            return await self._collect_activity(
+                period_start=period_start,
+                period_end=period_end,
+                budget=budget,
+            )
+        except BaseException as exc:
+            reason = type(exc).__name__
+            raise
+        finally:
+            if read_budget is None:
+                budget.log_summary(reason)
+
+    async def _collect_activity(
+        self,
+        *,
+        period_start: datetime,
+        period_end: datetime,
+        budget: FirestoreReadBudget,
     ) -> MobileActivityFacts:
         if period_end <= period_start:
             raise ValueError("Activity period end must be after its start")
+        budget.begin_page()
         response = await self._request(
             "POST",
             f"{self._base_url}/documents:runQuery",
+            read_budget=budget,
+            document_limit=self._max_documents,
             json=_query_payload(
                 collection_id=self._collection_id,
                 period_start=period_start,
@@ -97,6 +124,12 @@ class FirestoreMobileActivityAdapter:
         payload = _json_payload(response, operation="Firestore activity query")
         if not isinstance(payload, list):
             raise ProviderPermanentError("Firestore activity query returned a non-list payload")
+        returned_documents = sum(
+            isinstance(item, Mapping) and "document" in item for item in payload
+        )
+        budget.observe_documents(returned_documents)
+        if returned_documents > self._max_documents:
+            raise ProviderPermanentError("Firestore query exceeded its document limit")
 
         event_counts = {event_type: 0 for event_type in ActivityEventType}
         dimension_counts: dict[str, Counter[str]] = {
@@ -222,13 +255,29 @@ class FirestoreMobileActivityAdapter:
             },
         )
 
-    async def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        read_budget: FirestoreReadBudget | None = None,
+        document_limit: int = 0,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        budget = read_budget or FirestoreReadBudget(FirestoreReadLimits())
         for attempt in range(self._max_retries + 1):
             token = await self._token_provider.access_token()
             headers = dict(cast(Mapping[str, str], kwargs.pop("headers", {})))
             headers["Authorization"] = f"Bearer {token}"
             try:
-                response = await self._client.request(method, url, headers=headers, **kwargs)
+                with budget.request(
+                    provider=self.integration_id,
+                    endpoint="documents:runQuery" if method == "POST" else "database:get",
+                    document_limit=document_limit,
+                    retry=attempt > 0,
+                ) as metric:
+                    response = await self._client.request(method, url, headers=headers, **kwargs)
+                    metric.status_code = response.status_code
             except httpx.RequestError as exc:
                 if attempt >= self._max_retries:
                     raise ProviderTransientError("Firestore network request failed") from exc
