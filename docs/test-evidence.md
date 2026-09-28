@@ -74,10 +74,12 @@ frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates
   per-run shared Firestore budgets and retry reservations, empty/repeated pagination, and safe logs.
 - No real OpenAI, Meta write, Manakids or Firestore calls were used for these regression tests.
 
-This is **not** production acceptance. Deployment, use of the newly provided read-only credential,
-the bounded live canary and the six-hour control cycle still require the coordinated release in
-[`retention-incident-release-plan.md`](retention-incident-release-plan.md). No production success or
-historical billing amount can be inferred from these local test results.
+Local tests alone are **not** production acceptance. The coordinated release subsequently deployed
+code commit `4253e82`, passed a bounded live canary and the first scheduled occurrence. Evidence and
+the still-running full six-hour observation are recorded in
+[`retention-incident-production-evidence.md`](retention-incident-production-evidence.md), following
+[`retention-incident-release-plan.md`](retention-incident-release-plan.md). Historical billing amounts
+cannot be inferred from either local tests or client-side request counters.
 
 ## Adversarial matrix
 
