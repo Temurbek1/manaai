@@ -76,7 +76,7 @@ frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates
 
 Local tests alone are **not** production acceptance. The coordinated release subsequently deployed
 code commit `4253e82`, passed a bounded live canary and the first scheduled occurrence. Evidence and
-the still-running full six-hour observation are recorded in
+the incomplete six-hour observation, handed back to the user at their request, are recorded in
 [`retention-incident-production-evidence.md`](retention-incident-production-evidence.md), following
 [`retention-incident-release-plan.md`](retention-incident-release-plan.md). Historical billing amounts
 cannot be inferred from either local tests or client-side request counters.
