@@ -75,11 +75,18 @@ frontend tests, plus the 15 isolated mutation probes and browser lifecycle gates
 - No real OpenAI, Meta write, Manakids or Firestore calls were used for these regression tests.
 
 Local tests alone are **not** production acceptance. The coordinated release subsequently deployed
-code commit `4253e82`, passed a bounded live canary and the first scheduled occurrence. Evidence and
-the incomplete six-hour observation, handed back to the user at their request, are recorded in
+code commit `4253e82`, passed a bounded live canary and five scheduled occurrences across 24 hours.
+The final read-only review on September 29 confirmed four full six-hour intervals, no duplicate
+occurrences, five Firestore documents per run, and bounded Manakids reauthentication. Evidence is in
 [`retention-incident-production-evidence.md`](retention-incident-production-evidence.md), following
 [`retention-incident-release-plan.md`](retention-incident-release-plan.md). Historical billing amounts
 cannot be inferred from either local tests or client-side request counters.
+
+The final September 29 `make verify` again passed (275 backend and 24 frontend tests). npm's updated
+advisory database reported one moderate issue, `GHSA-3wwx-pv8p-q78v`, in dev-only `undici@7.29.0`
+through jsdom/Jest. The high-severity gate passed; the separate production-only
+`npm audit --omit=dev --audit-level=high` reported zero vulnerabilities. No dependency upgrade or
+production configuration change was made as part of closure.
 
 ## Adversarial matrix
 
