@@ -8,6 +8,7 @@ import { DataTable } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
+import { labelFor } from "../ui/labels";
 import {
   compactId,
   formatDate,
@@ -45,30 +46,32 @@ export function RunsPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Observability"
-        title="Runs & audit"
-        description="Inspect stages, retries, sanitized evidence, outputs, and correlation IDs."
+        eyebrow="История работы"
+        title="Запуски и журнал"
+        description="История работы агентов: этапы, результаты, ошибки и подтверждающие данные."
       />
-      <section className="panel list-controls" aria-label="Run filters">
+      <section className="panel list-controls" aria-label="Фильтры запусков">
         <label>
-          <span>Status</span>
+          <span>Состояние</span>
           <select
-            aria-label="Filter runs by status"
+            aria-label="Фильтр запусков по статусу"
             onChange={(event) => {
               setStatus(event.target.value);
               setOffset(0);
             }}
             value={status}
           >
-            <option value="">All statuses</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
-            <option value="waiting_approval">Waiting approval</option>
-            <option value="executing">Executing</option>
+            <option value="">Все статусы</option>
+            <option value="completed">Завершён</option>
+            <option value="failed">Ошибка</option>
+            <option value="waiting_approval">Ожидает согласования</option>
+            <option value="executing">Выполняется</option>
           </select>
         </label>
         <span>
-          {data ? `${String(data.total)} runs` : "Loading run count…"}
+          {data
+            ? `Запусков: ${String(data.total)}`
+            : "Загружаем количество запусков…"}
         </span>
         <button
           className="button secondary compact"
@@ -76,7 +79,7 @@ export function RunsPage(): React.JSX.Element {
           onClick={() => setOffset(Math.max(offset - PAGE_SIZE, 0))}
           type="button"
         >
-          Previous
+          Назад
         </button>
         <button
           className="button secondary compact"
@@ -84,17 +87,17 @@ export function RunsPage(): React.JSX.Element {
           onClick={() => setOffset(offset + PAGE_SIZE)}
           type="button"
         >
-          Next
+          Далее
         </button>
       </section>
       {error ? (
         <p className="error-banner" role="alert">
-          Unable to load runs: {String(error)}
+          Не удалось загрузить запуски: {String(error)}
         </p>
       ) : null}
       {detailError ? (
         <p className="error-banner" role="alert">
-          Unable to refresh the selected run timeline.
+          Не удалось обновить историю выбранного запуска.
         </p>
       ) : null}
       <section className="panel">
@@ -102,7 +105,7 @@ export function RunsPage(): React.JSX.Element {
           columns={[
             {
               key: "run",
-              label: "Run",
+              label: "Запуск",
               render: (item) => (
                 <button
                   className="link-button"
@@ -113,25 +116,29 @@ export function RunsPage(): React.JSX.Element {
                 </button>
               ),
             },
-            { key: "agent", label: "Agent", render: (item) => item.agent_id },
+            {
+              key: "agent",
+              label: "Агент",
+              render: (item) => labelFor(item.agent_id),
+            },
             {
               key: "status",
-              label: "Status",
+              label: "Состояние",
               render: (item) => <StatusBadge status={item.status} />,
             },
             {
               key: "trigger",
-              label: "Initiator",
+              label: "Инициатор",
               render: (item) => `${item.trigger} · ${item.initiated_by}`,
             },
             {
               key: "start",
-              label: "Started",
+              label: "Начало",
               render: (item) => formatDate(item.started_at),
             },
             {
               key: "correlation",
-              label: "Correlation",
+              label: "Связь событий",
               render: (item) => <code>{compactId(item.correlation_id)}</code>,
             },
           ]}
@@ -139,11 +146,11 @@ export function RunsPage(): React.JSX.Element {
           getKey={(item) => item.run_id}
           empty={
             <EmptyState
-              title={isLoading ? "Loading runs" : "No runs"}
+              title={isLoading ? "Загружаем запуски" : "Запусков пока нет"}
               detail={
                 isLoading
-                  ? "Retrieving the operational timeline."
-                  : "No runs match the current filter."
+                  ? "Загружаем историю работы."
+                  : "Нет запусков с выбранным фильтром."
               }
             />
           }
@@ -153,7 +160,7 @@ export function RunsPage(): React.JSX.Element {
         <section className="panel run-detail">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Run timeline</p>
+              <p className="eyebrow">Этапы запуска</p>
               <h2>{compactId(selectedRunId)}</h2>
             </div>
             {detail ? <StatusBadge status={detail.run.status} /> : null}
@@ -175,21 +182,21 @@ export function RunsPage(): React.JSX.Element {
           </ol>
           <dl className="detail-grid summary-grid">
             <div>
-              <dt>Correlation ID</dt>
+              <dt>Идентификатор связи событий</dt>
               <dd>
                 <code>{detail?.run.correlation_id ?? "…"}</code>
               </dd>
             </div>
             <div>
-              <dt>Duration</dt>
+              <dt>Длительность</dt>
               <dd>{formatDuration(duration)}</dd>
             </div>
             <div>
-              <dt>Retries</dt>
+              <dt>Повторы</dt>
               <dd>{detail?.run.retry_count ?? "…"}</dd>
             </div>
             <div>
-              <dt>Initiated by</dt>
+              <dt>Кто запустил</dt>
               <dd>
                 {detail
                   ? `${detail.run.trigger} · ${detail.run.initiated_by}`
@@ -197,19 +204,19 @@ export function RunsPage(): React.JSX.Element {
               </dd>
             </div>
             <div>
-              <dt>Snapshots</dt>
+              <dt>Снимки данных</dt>
               <dd>{detail?.snapshots.length ?? "…"}</dd>
             </div>
             <div>
-              <dt>Findings</dt>
+              <dt>Выводы</dt>
               <dd>{detail?.findings.length ?? "…"}</dd>
             </div>
             <div>
-              <dt>Recommendations</dt>
+              <dt>Предложения</dt>
               <dd>{detail?.recommendations.length ?? "…"}</dd>
             </div>
             <div>
-              <dt>Action proposals</dt>
+              <dt>Предложения действий</dt>
               <dd>{detail?.proposals.length ?? "…"}</dd>
             </div>
           </dl>
@@ -220,7 +227,7 @@ export function RunsPage(): React.JSX.Element {
             </div>
           ) : null}
           <details className="inspection-block">
-            <summary>Sanitized timeline details</summary>
+            <summary>Технические сведения об этапах</summary>
             <pre>
               {JSON.stringify(
                 redactForDisplay(
@@ -235,7 +242,7 @@ export function RunsPage(): React.JSX.Element {
             </pre>
           </details>
           <details className="inspection-block">
-            <summary>Input snapshots</summary>
+            <summary>Исходные данные</summary>
             <pre>
               {JSON.stringify(
                 redactForDisplay(detail?.snapshots ?? []),
@@ -245,7 +252,7 @@ export function RunsPage(): React.JSX.Element {
             </pre>
           </details>
           <details className="inspection-block">
-            <summary>Structured outputs</summary>
+            <summary>Технические результаты</summary>
             <pre>
               {JSON.stringify(
                 redactForDisplay({

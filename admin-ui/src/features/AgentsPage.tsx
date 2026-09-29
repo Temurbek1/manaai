@@ -23,6 +23,7 @@ import {
 } from "../components/ScheduleEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatDate, isRecord } from "../ui/format";
+import { descriptionFor, labelFor } from "../ui/labels";
 
 export function AgentsPage(): React.JSX.Element {
   const { session } = useSession();
@@ -86,7 +87,9 @@ export function AgentsPage(): React.JSX.Element {
       ]);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Agent status update failed",
+        error instanceof Error
+          ? error.message
+          : "Не удалось изменить состояние агента",
       );
     }
   }
@@ -98,17 +101,17 @@ export function AgentsPage(): React.JSX.Element {
         configurationText ?? activeConfigurationText,
       );
       if (!isRecord(parsed))
-        throw new Error("Configuration must be a JSON object");
+        throw new Error("Настройки должны быть объектом JSON");
       const saved = await apiPost<Configuration>(
         `/api/v1/admin/operation/agents/${selectedId}/configurations?capability_key=${encodeURIComponent(effectiveCapability)}`,
         { values: parsed },
       );
-      setMessage(`Configuration version ${String(saved.version)} activated.`);
+      setMessage(`Сохранена версия настроек ${String(saved.version)}.`);
       await mutate(`/api/v1/admin/operation/agents/${selectedId}`);
       setConfigurationText(null);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Configuration is invalid",
+        error instanceof Error ? error.message : "Некорректные настройки",
       );
     }
   }
@@ -124,7 +127,7 @@ export function AgentsPage(): React.JSX.Element {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Agent kill switch update failed",
+          : "Не удалось изменить остановку агента",
       );
     }
   }
@@ -143,7 +146,7 @@ export function AgentsPage(): React.JSX.Element {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Capability kill switch update failed",
+          : "Не удалось остановить возможность агента",
       );
     }
   }
@@ -160,7 +163,7 @@ export function AgentsPage(): React.JSX.Element {
       mutate(`/api/v1/admin/operation/agents/${schedule.agent_id}`),
       mutate("/api/v1/admin/operation/dashboard"),
     ]);
-    setMessage(`${schedule.job_type} schedule updated.`);
+    setMessage(`Расписание «${labelFor(schedule.job_type)}» обновлено.`);
   }
 
   const properties = isRecord(schema?.properties)
@@ -169,23 +172,23 @@ export function AgentsPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Registry"
-        title="Agent management"
-        description="Generic controls, typed configuration, capabilities, schedules, health, and history."
+        eyebrow="Каталог"
+        title="Управление агентами"
+        description="Возможности агентов, состояние источников, настройки, расписание и история работы."
       />
       {agentsError || detailError ? (
         <p className="error-banner" role="alert">
-          Unable to refresh agent management data. Existing mutation controls
-          remain guarded by the API.
+          Не удалось обновить данные агентов. Ограничения действий продолжают
+          действовать на сервере.
         </p>
       ) : null}
       {agentsLoading ? (
         <p className="notice" role="status">
-          Loading the agent registry…
+          Загружаем список агентов…
         </p>
       ) : null}
       <div className="management-layout">
-        <aside className="agent-list panel" aria-label="Registered agents">
+        <aside className="agent-list panel" aria-label="Подключено агентов">
           {(agents?.items ?? []).map((agent) => (
             <button
               className={
@@ -202,14 +205,17 @@ export function AgentsPage(): React.JSX.Element {
               type="button"
             >
               <span>
-                <strong>{agent.display_name}</strong>
+                <strong>{labelFor(agent.agent_id)}</strong>
                 <small>{agent.version}</small>
               </span>
               <StatusBadge status={agent.status} />
             </button>
           ))}
           {(agents?.items.length ?? 0) === 0 ? (
-            <EmptyState title="No agents" detail="The registry is empty." />
+            <EmptyState
+              title="Агентов пока нет"
+              detail="Подключённых агентов пока нет."
+            />
           ) : null}
         </aside>
         <section className="panel configuration-panel">
@@ -217,18 +223,22 @@ export function AgentsPage(): React.JSX.Element {
             <>
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">{detail.agent.agent_id}</p>
-                  <h2>{detail.agent.display_name}</h2>
+                  <p className="eyebrow">Настройки агента</p>
+                  <h2>{labelFor(detail.agent.agent_id)}</h2>
                 </div>
                 <StatusBadge status={detail.agent.status} />
               </div>
-              <p>{detail.agent.description}</p>
+              <p>{descriptionFor(detail.agent.agent_id)}</p>
               <div className="health-list">
                 {detail.integration_health.map((health) => (
                   <div key={health.integration_id}>
                     <span>
-                      <strong>{health.integration_id}</strong>
-                      <small>{health.message ?? "No diagnostic message"}</small>
+                      <strong>{labelFor(health.integration_id)}</strong>
+                      <small>
+                        {health.diagnostics?.observation === "missing"
+                          ? "Сохранённой проверки нет"
+                          : `Последняя проверка: ${formatDate(health.checked_at)}`}
+                      </small>
                     </span>
                     <StatusBadge status={health.status} />
                   </div>
@@ -244,7 +254,7 @@ export function AgentsPage(): React.JSX.Element {
                       onClick={() => void changeStatus(action)}
                       type="button"
                     >
-                      {action}
+                      {labelFor(action)}
                     </button>
                   ),
                 )}
@@ -254,19 +264,19 @@ export function AgentsPage(): React.JSX.Element {
                   }
                   confirmLabel={
                     detail.kill_switch_enabled
-                      ? "Confirm re-arm"
-                      : "Confirm emergency stop"
+                      ? "Подтвердить возобновление"
+                      : "Подтвердить остановку"
                   }
                   disabled={!canAdminister}
                   label={
                     detail.kill_switch_enabled
-                      ? "Re-arm agent actions"
-                      : "Emergency stop agent"
+                      ? "Возобновить действия агента"
+                      : "Остановить агента"
                   }
                   onConfirm={() => void toggleKillSwitch()}
                 />
               </div>
-              <h3>Capabilities</h3>
+              <h3>Возможности</h3>
               <div className="capability-list">
                 {detail.agent.capabilities.map((capability) => (
                   <button
@@ -283,8 +293,8 @@ export function AgentsPage(): React.JSX.Element {
                     type="button"
                   >
                     <span>
-                      <strong>{capability.key}</strong>
-                      <small>{capability.description}</small>
+                      <strong>{labelFor(capability.key)}</strong>
+                      <small>{descriptionFor(capability.key)}</small>
                     </span>
                     <StatusBadge status={capability.risk} />
                   </button>
@@ -307,32 +317,37 @@ export function AgentsPage(): React.JSX.Element {
                     }
                     confirmLabel={
                       detail.capability_kill_switches[effectiveCapability]
-                        ? "Confirm capability re-arm"
-                        : "Confirm capability stop"
+                        ? "Подтвердить возобновление"
+                        : "Подтвердить остановку"
                     }
                     disabled={!canAdminister}
                     label={
                       detail.capability_kill_switches[effectiveCapability]
-                        ? "Re-arm capability"
-                        : "Emergency stop capability"
+                        ? "Возобновить возможность"
+                        : "Остановить возможность"
                     }
                     onConfirm={() => void toggleCapabilityKillSwitch()}
                   />
                 </div>
               ) : null}
               <div className="section-heading">
-                <h3>Typed configuration</h3>
-                <span>{properties} schema fields</span>
+                <h3>Настройки агента</h3>
+                <span>Параметров: {properties}</span>
               </div>
-              <label className="field">
-                <span>Active JSON values</span>
-                <textarea
-                  className="code-editor"
-                  disabled={!canAdminister}
-                  onChange={(event) => setConfigurationText(event.target.value)}
-                  value={configurationText ?? activeConfigurationText}
-                />
-              </label>
+              <details>
+                <summary>Расширенные настройки (JSON)</summary>
+                <label className="field">
+                  <span>Настройки в формате JSON</span>
+                  <textarea
+                    className="code-editor"
+                    disabled={!canAdminister}
+                    onChange={(event) =>
+                      setConfigurationText(event.target.value)
+                    }
+                    value={configurationText ?? activeConfigurationText}
+                  />
+                </label>
+              </details>
               {message ? (
                 <p className="notice" role="status">
                   {message}
@@ -344,9 +359,9 @@ export function AgentsPage(): React.JSX.Element {
                 onClick={() => void saveConfiguration()}
                 type="button"
               >
-                Validate & activate version
+                Проверить и сохранить настройки
               </button>
-              <h3>Schedules</h3>
+              <h3>Расписание</h3>
               <div className="schedule-editors">
                 {detail.schedules
                   .filter(
@@ -363,8 +378,8 @@ export function AgentsPage(): React.JSX.Element {
                   ))}
               </div>
               <div className="section-heading">
-                <h3>Recent runs</h3>
-                <span>{runs?.total ?? 0} total</span>
+                <h3>Последние запуски</h3>
+                <span>Всего: {runs?.total ?? 0}</span>
               </div>
               <div className="compact-history">
                 {(runs?.items ?? []).map((run) => (
@@ -375,12 +390,12 @@ export function AgentsPage(): React.JSX.Element {
                   </div>
                 ))}
                 {(runs?.items.length ?? 0) === 0 ? (
-                  <span className="muted">No runs yet.</span>
+                  <span className="muted">Запусков пока нет.</span>
                 ) : null}
               </div>
               <div className="section-heading">
-                <h3>Recent reports</h3>
-                <span>{reports?.total ?? 0} total</span>
+                <h3>Последние отчёты</h3>
+                <span>Всего: {reports?.total ?? 0}</span>
               </div>
               <div className="compact-history">
                 {(reports?.items ?? []).map((report) => (
@@ -391,14 +406,14 @@ export function AgentsPage(): React.JSX.Element {
                   </div>
                 ))}
                 {(reports?.items.length ?? 0) === 0 ? (
-                  <span className="muted">No reports yet.</span>
+                  <span className="muted">Отчётов пока нет.</span>
                 ) : null}
               </div>
             </>
           ) : (
             <EmptyState
-              title="Select an agent"
-              detail="Choose an agent to manage its contract and schedules."
+              title="Выберите агента"
+              detail="Выберите агента, чтобы посмотреть его возможности, настройки и расписание."
             />
           )}
         </section>

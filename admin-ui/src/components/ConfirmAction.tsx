@@ -34,7 +34,7 @@ export function ConfirmAction({
 
   return (
     <span
-      aria-label={`Confirm ${label}`}
+      aria-label={`Подтверждение: ${label}`}
       className="confirm-action"
       role="group"
     >
@@ -43,7 +43,7 @@ export function ConfirmAction({
         onClick={() => setConfirming(false)}
         type="button"
       >
-        Cancel
+        Отмена
       </button>
       <button
         className={className}

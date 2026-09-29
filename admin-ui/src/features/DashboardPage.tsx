@@ -12,6 +12,7 @@ import { MetricCard } from "../components/MetricCard";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatDate, formatDuration } from "../ui/format";
+import { labelFor } from "../ui/labels";
 
 const DASHBOARD_KEY = "/api/v1/admin/operation/dashboard";
 
@@ -33,7 +34,7 @@ export function DashboardPage(): React.JSX.Element {
     try {
       const freshDashboard = await mutate<Dashboard>(DASHBOARD_KEY);
       if (!freshDashboard)
-        throw new Error("Current global safety state is unavailable");
+        throw new Error("Текущее состояние ограничений недоступно");
       await apiPut("/api/v1/admin/operation/kill-switch/global", {
         enabled: !freshDashboard.global_kill_switch,
       });
@@ -42,7 +43,7 @@ export function DashboardPage(): React.JSX.Element {
       setActionError(
         caught instanceof Error
           ? caught.message
-          : "Safety control update failed",
+          : "Не удалось изменить ограничения",
       );
     } finally {
       setBusy(false);
@@ -59,7 +60,9 @@ export function DashboardPage(): React.JSX.Element {
       await mutate(DASHBOARD_KEY);
     } catch (caught) {
       setActionError(
-        caught instanceof Error ? caught.message : "Agent run request failed",
+        caught instanceof Error
+          ? caught.message
+          : "Не удалось запустить анализ",
       );
     } finally {
       setBusy(false);
@@ -78,9 +81,9 @@ export function DashboardPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Control room"
-        title="Operation overview"
-        description="Live agent health, approvals, schedules, and operational safeguards."
+        eyebrow="Администрация"
+        title="Обзор работы"
+        description="Состояние агентов, ожидающие решения, расписание и ограничения. Просмотр страницы не запускает сбор данных."
         actions={
           <ConfirmAction
             className={
@@ -88,14 +91,14 @@ export function DashboardPage(): React.JSX.Element {
             }
             confirmLabel={
               data?.global_kill_switch
-                ? "Confirm re-arm"
-                : "Confirm emergency stop"
+                ? "Подтвердить возобновление"
+                : "Подтвердить остановку"
             }
             disabled={!data || busy || !canAdminister}
             label={
               data?.global_kill_switch
-                ? "Disable kill switch"
-                : "Emergency stop"
+                ? "Возобновить действия"
+                : "Остановить действия"
             }
             onConfirm={() => void toggleKillSwitch()}
           />
@@ -103,7 +106,7 @@ export function DashboardPage(): React.JSX.Element {
       />
       {error ? (
         <p className="error-banner">
-          Unable to load dashboard: {String(error)}
+          Не удалось загрузить обзор: {String(error)}
         </p>
       ) : null}
       {actionError ? (
@@ -111,87 +114,98 @@ export function DashboardPage(): React.JSX.Element {
           {actionError}
         </p>
       ) : null}
-      <section className="metric-grid" aria-label="Operational metrics">
+      <section className="metric-grid" aria-label="Показатели работы агентов">
         <MetricCard
-          label="Registered agents"
+          label="Подключено агентов"
           value={isLoading ? "…" : agents.length}
         />
-        <MetricCard label="Pending approvals" value={pending} accent="amber" />
-        <MetricCard label="Recent incidents" value={incidents} accent="rose" />
         <MetricCard
-          label="Global safety"
-          value={data?.global_kill_switch ? "Stopped" : "Armed"}
-          detail="Real Meta writes remain opt-in"
+          label="Ожидают согласования"
+          value={pending}
+          accent="amber"
+        />
+        <MetricCard
+          label="Запуски с ошибками"
+          value={incidents}
+          accent="rose"
+        />
+        <MetricCard
+          label="Выполнение действий"
+          value={
+            data?.global_kill_switch ? "Остановлено" : "Разрешено политикой"
+          }
+          detail="Изменения в реальном рекламном кабинете запрещены"
           accent="blue"
         />
       </section>
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Agent registry</p>
-            <h2>Operational agents</h2>
+            <p className="eyebrow">Агенты и настройки</p>
+            <h2>Агенты</h2>
           </div>
           <span className="muted">
-            Updated {formatDate(data?.generated_at)}
+            Обновлено {formatDate(data?.generated_at)}
           </span>
         </div>
         <DataTable
           columns={[
             {
               key: "agent",
-              label: "Agent",
+              label: "Агент",
               render: (item) => (
                 <div className="primary-cell">
-                  <strong>{item.display_name}</strong>
-                  <span>{item.agent_id}</span>
+                  <strong>{labelFor(item.agent_id)}</strong>
                 </div>
               ),
             },
             {
               key: "status",
-              label: "Status",
+              label: "Состояние",
               render: (item) => <StatusBadge status={item.status} />,
             },
             {
               key: "health",
-              label: "Health",
+              label: "Подключения",
               render: (item) => <StatusBadge status={item.health} />,
             },
             {
               key: "last",
-              label: "Last run",
+              label: "Последний запуск",
               render: (item) => formatDate(item.last_run),
             },
             {
               key: "next",
-              label: "Next run",
+              label: "Следующий запуск",
               render: (item) => formatDate(item.next_run),
             },
             {
               key: "duration",
-              label: "Duration",
+              label: "Длительность",
               render: (item) => formatDuration(item.last_duration_ms),
             },
             {
               key: "success",
-              label: "Success",
-              render: (item) => item.success_rate,
+              label: "Успешно",
+              render: (item) =>
+                item.success_rate === "unavailable"
+                  ? "Нет запусков"
+                  : new Intl.NumberFormat("ru-RU", {
+                      style: "percent",
+                      maximumFractionDigits: 0,
+                    }).format(Number(item.success_rate)),
             },
             {
               key: "actions",
               label: "",
               render: (item) => (
-                <button
+                <ConfirmAction
                   className="button compact"
-                  aria-description={
-                    canRun ? undefined : "Operator role required"
-                  }
                   disabled={busy || item.status !== "enabled" || !canRun}
-                  onClick={() => void runAgent(item.agent_id)}
-                  type="button"
-                >
-                  Run now
-                </button>
+                  onConfirm={() => void runAgent(item.agent_id)}
+                  label="Запустить анализ"
+                  confirmLabel="Подтвердить сбор данных"
+                />
               ),
             },
           ]}
@@ -199,12 +213,16 @@ export function DashboardPage(): React.JSX.Element {
           getKey={(item) => item.agent_id}
           empty={
             <EmptyState
-              title="No agents"
-              detail="Register an agent to start operations."
+              title="Агентов пока нет"
+              detail="Здесь появятся подключённые агенты."
             />
           }
         />
       </section>
+      <p className="notice">
+        Обновление экрана читает только сохранённые данные. Кнопка «Запустить
+        анализ» обращается к внешним источникам в пределах настроенных лимитов.
+      </p>
     </>
   );
 }

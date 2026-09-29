@@ -1,6 +1,7 @@
 import type { BreakdownPerformance, Metric } from "../api/client";
 import { DataTable } from "./DataTable";
 import { EmptyState } from "./EmptyState";
+import { labelFor } from "../ui/labels";
 
 interface PerformanceBreakdownTableProps {
   rows: readonly BreakdownPerformance[];
@@ -9,7 +10,7 @@ interface PerformanceBreakdownTableProps {
 function metricValue(metric: Metric): string {
   return metric.availability === "available" && metric.value !== null
     ? metric.value
-    : "unavailable";
+    : "Нет данных";
 }
 
 export function PerformanceBreakdownTable({
@@ -20,18 +21,18 @@ export function PerformanceBreakdownTable({
       columns={[
         {
           key: "dimension",
-          label: "Breakdown",
-          render: (item) => item.dimension,
+          label: "Разрез данных",
+          render: (item) => labelFor(item.dimension),
         },
-        { key: "value", label: "Value", render: (item) => item.value },
+        { key: "value", label: "Значение", render: (item) => item.value },
         {
           key: "spend",
-          label: "Spend",
+          label: "Расходы",
           render: (item) => metricValue(item.metrics.spend),
         },
         {
           key: "leads",
-          label: "Leads",
+          label: "Заявки",
           render: (item) => metricValue(item.metrics.leads),
         },
         {
@@ -54,8 +55,8 @@ export function PerformanceBreakdownTable({
       getKey={(item) => `${item.dimension}:${item.value}`}
       empty={
         <EmptyState
-          title="No breakdown data"
-          detail="Hourly, daily, region, placement, and demographic slices appear after collection."
+          title="Нет данных по разрезам"
+          detail="Данные по времени, регионам, площадкам и демографии появятся после сбора."
         />
       }
     />

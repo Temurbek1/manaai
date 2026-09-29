@@ -51,7 +51,16 @@ describe("DashboardPage", () => {
     jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
     renderWithSession(<DashboardPage />, "admin");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Run now" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Запустить анализ" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/run"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить сбор данных" }),
+    );
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/agents/marketing-agent/run"),
@@ -59,12 +68,12 @@ describe("DashboardPage", () => {
       ),
     );
     const emergencyStop = screen.getByRole("button", {
-      name: "Emergency stop",
+      name: "Остановить действия",
     });
     await waitFor(() => expect(emergencyStop).toBeEnabled());
     fireEvent.click(emergencyStop);
     fireEvent.click(
-      screen.getByRole("button", { name: "Confirm emergency stop" }),
+      screen.getByRole("button", { name: "Подтвердить остановку" }),
     );
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -84,7 +93,7 @@ describe("DashboardPage", () => {
       .mockImplementation(jest.fn<typeof fetch>(() => pending));
     const rendered = renderWithSession(<DashboardPage />, "viewer");
     expect(rendered.container).toHaveTextContent("…");
-    expect(screen.getByText("No agents")).toBeInTheDocument();
+    expect(screen.getByText("Агентов пока нет")).toBeInTheDocument();
 
     resolveRequest?.(
       new Response(JSON.stringify({ detail: "Database unavailable" }), {
@@ -93,7 +102,7 @@ describe("DashboardPage", () => {
       }),
     );
     expect(
-      await screen.findByText(/Unable to load dashboard/),
+      await screen.findByText(/Не удалось загрузить обзор/),
     ).toBeInTheDocument();
   });
 });

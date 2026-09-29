@@ -38,6 +38,22 @@ runtime. FastAPI remains the only business backend.
 
 ## Pages and safety behavior
 
+The primary interface language is Russian. Navigation, action/agent names, status badges,
+confirmations, dates, empty/loading/error states use administrator-facing labels; wire identifiers
+remain unchanged. Original provider narratives can remain in their source language in evidence.
+Advanced configuration and action JSON are secondary expandable details.
+
+Administrative GET views read saved database state only, including dashboard, agent detail,
+advertising overview and integration status. They never call provider health probes. Missing
+observations and successful checks older than `OPERATION_HEALTH_STALE_SECONDS` (default six hours)
+show `unknown`; historical timestamps are preserved. A manual analysis requires a separate
+confirmation because it may read external providers. Viewing an old status is not a fresh check.
+
+- Retention (`/retention`): latest completed engagement snapshot, independently shown latest run,
+  source coverage, observation time, findings, limited device aggregates and run history. It
+  distinguishes live/demo/mixed evidence and missing mobile analytics from zero sessions. It does
+  not claim per-user churn classification or send offers/change subscriptions.
+
 - Overview: registry-derived agents, status, integration health, last/next run, duration, success
   rate, approvals/incidents, manual run, and a confirmed global emergency stop.
 - Growth & Conversion: one capability selector for advertising and funnel analysis. Advertising

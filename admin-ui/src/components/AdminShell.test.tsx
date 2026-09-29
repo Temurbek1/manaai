@@ -87,10 +87,9 @@ describe("AdminShell Telegram authentication", () => {
     renderShell();
 
     expect(await screen.findByText("Test Admin")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Пользователи" })).toHaveAttribute(
-      "href",
-      "/users",
-    );
+    expect(
+      screen.getByRole("link", { name: "Сотрудники и доступ" }),
+    ).toHaveAttribute("href", "/users");
     expect(storageSpy).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Выйти" }));

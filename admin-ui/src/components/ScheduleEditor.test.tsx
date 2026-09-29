@@ -25,12 +25,14 @@ describe("ScheduleEditor circuit breaker", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Automatically stopped after 3 consecutive permanent failures",
+      "Автоматически остановлено после 3 постоянных ошибок подряд",
     );
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(save).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Save schedule" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить расписание" }),
+    );
     await waitFor(() =>
       expect(save).toHaveBeenCalledWith(schedule, {
         cron_expression: schedule.cron_expression,

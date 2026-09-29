@@ -35,7 +35,7 @@ describe("GrowthPage", () => {
               {
                 key: "growth.advertising",
                 agent_id: "growth-agent",
-                description: "Advertising intelligence",
+                description: "Аналитика рекламы",
                 risk: "financial",
                 minimum_role: "operator",
               },
@@ -184,19 +184,19 @@ describe("GrowthPage", () => {
 
     renderWithSession(<GrowthPage />, "viewer");
     expect(
-      await screen.findByRole("heading", { name: "Growth & Conversion" }),
+      await screen.findByRole("heading", { name: "Рост и конверсия" }),
     ).toBeInTheDocument();
     fireEvent.click(
-      await screen.findByRole("button", { name: /growth\.funnel\.analyze/ }),
+      await screen.findByRole("button", { name: /Воронка продаж/ }),
     );
 
     expect(
       await screen.findByText("Activation conversion is below threshold"),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("create_experiment")).toHaveLength(2);
+    expect(screen.getAllByText("Создать эксперимент")).toHaveLength(2);
     expect(screen.getByText("activation_rate")).toBeInTheDocument();
     expect(
-      screen.getByText(/deterministic fake adapters/i),
+      screen.getByText(/Воронка пока использует тестовые данные/),
     ).toBeInTheDocument();
   });
 });

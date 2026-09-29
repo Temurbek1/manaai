@@ -29,8 +29,10 @@ Growth advertising and the funnel experiment sandbox demonstrate the reusable li
 `collect -> normalize -> analyze -> propose -> policy_check -> approval -> execute -> verify -> report`
 
 All records use a run/correlation ID. A database lock prevents overlapping runs for one capability.
-Scheduled retry attempts reuse one run idempotency key and increment `retry_count` after a failed
-run. Actions have a second deterministic idempotency key based on target, typed change, and provider
+Scheduled occurrences are claimed before external reads; finite transient attempts use distinct
+attempt keys. Failed terminal runs are never reopened for the same idempotency key. Permanent
+failures are not retried within an occurrence, and repeated permanent failures open a persisted
+circuit breaker. Actions have a second deterministic idempotency key based on target, typed change, and provider
 state. Cooldowns and current-state hashes protect repeated scaling.
 
 ## Scheduler

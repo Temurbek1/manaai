@@ -6,23 +6,30 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { useSession } from "@/auth/SessionContext";
+import { labelFor } from "../ui/labels";
 
 interface AuthenticatedShellProps {
   children: ReactNode;
 }
 
 const NAVIGATION = [
-  { href: "/", label: "Overview", icon: "⌂", adminOnly: false },
+  { href: "/", label: "Обзор", icon: "⌂", adminOnly: false },
   {
     href: "/growth",
-    label: "Growth & Conversion",
+    label: "Рост и конверсия",
     icon: "↗",
     adminOnly: false,
   },
-  { href: "/approvals", label: "Approvals", icon: "✓", adminOnly: false },
-  { href: "/runs", label: "Runs & audit", icon: "≋", adminOnly: false },
-  { href: "/agents", label: "Agent registry", icon: "◇", adminOnly: false },
-  { href: "/users", label: "Пользователи", icon: "◎", adminOnly: true },
+  { href: "/approvals", label: "Согласования", icon: "✓", adminOnly: false },
+  {
+    href: "/retention",
+    label: "Удержание и лояльность",
+    icon: "♡",
+    adminOnly: false,
+  },
+  { href: "/runs", label: "Запуски и журнал", icon: "≋", adminOnly: false },
+  { href: "/agents", label: "Агенты и настройки", icon: "◇", adminOnly: false },
+  { href: "/users", label: "Сотрудники и доступ", icon: "◎", adminOnly: true },
 ] as const;
 
 export function AuthenticatedShell({
@@ -55,7 +62,7 @@ export function AuthenticatedShell({
             <small>Operation AI</small>
           </div>
         </div>
-        <nav aria-label="Primary navigation">
+        <nav aria-label="Основное меню">
           {NAVIGATION.map((item) => {
             if (item.adminOnly && session.user.role !== "admin") return null;
             const active = pathname === item.href;
@@ -78,13 +85,13 @@ export function AuthenticatedShell({
           <div>
             <strong>
               {session.live_meta_read_only
-                ? "Live read-only"
-                : "Controlled execution"}
+                ? "Реальные данные: только чтение"
+                : "Контролируемые действия"}
             </strong>
             <small>
               {session.live_meta_read_only
-                ? "Meta writes unavailable"
-                : "Server policy · approvals · audit"}
+                ? "Изменения в Meta отключены"
+                : "Ограничения · согласование · журнал"}
             </small>
           </div>
         </div>
@@ -95,7 +102,7 @@ export function AuthenticatedShell({
                 session.user.username ??
                 String(session.user.telegram_id)}
             </strong>
-            <small>{session.user.role}</small>
+            <small>{labelFor(session.user.role)}</small>
           </span>
           <button onClick={() => void signOut()} type="button">
             Выйти
@@ -104,7 +111,7 @@ export function AuthenticatedShell({
       </aside>
       {menuOpen ? (
         <button
-          aria-label="Close menu"
+          aria-label="Закрыть меню"
           className="scrim"
           onClick={() => setMenuOpen(false)}
           type="button"
@@ -113,10 +120,10 @@ export function AuthenticatedShell({
       <div className="workspace">
         {session.live_meta_read_only ? (
           <div className="live-readonly-banner" role="status">
-            <strong>LIVE META — READ ONLY</strong>
+            <strong>META — ТОЛЬКО ЧТЕНИЕ</strong>
             <span>
-              Recommendations are advisory. Budget, status, targeting, and
-              creative writes are unavailable.
+              Доступны только рекомендации. Бюджеты, статусы, таргетинг и
+              креативы не изменяются.
             </span>
           </div>
         ) : null}
@@ -124,7 +131,7 @@ export function AuthenticatedShell({
           <button
             aria-controls="primary-menu"
             aria-expanded={menuOpen}
-            aria-label="Open menu"
+            aria-label="Открыть меню"
             onClick={() => setMenuOpen(true)}
             type="button"
           >

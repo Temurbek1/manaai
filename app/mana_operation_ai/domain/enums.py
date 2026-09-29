@@ -52,6 +52,7 @@ class CapabilityRisk(StrEnum):
 
 
 class IntegrationStatus(StrEnum):
+    UNKNOWN = "unknown"
     UNCONFIGURED = "unconfigured"
     HEALTHY = "healthy"
     DEGRADED = "degraded"

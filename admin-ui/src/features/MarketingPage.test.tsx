@@ -137,8 +137,8 @@ describe("MarketingPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("nightly")).toBeInTheDocument();
     expect(await screen.findByText("partially applied")).toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
-    expect(screen.getByText("executing")).toBeInTheDocument();
+    expect(screen.getByText("Ошибка")).toBeInTheDocument();
+    expect(screen.getByText("Выполняется")).toBeInTheDocument();
   });
 
   it("shows enforced read-only safety from the authenticated server session", async () => {
@@ -174,7 +174,9 @@ describe("MarketingPage", () => {
       live_meta_read_only: true,
     });
 
-    expect(await screen.findByText("Enforced")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Принудительно включено"),
+    ).toBeInTheDocument();
     expect(screen.getByText("live read only")).toBeInTheDocument();
   });
 });

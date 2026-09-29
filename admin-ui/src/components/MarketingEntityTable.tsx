@@ -28,22 +28,22 @@ export function MarketingEntityTable({
         },
         {
           key: "status",
-          label: "Delivery",
+          label: "Показы",
           render: (item) => <StatusBadge status={item.effective_status} />,
         },
         {
           key: "budget",
-          label: "Daily budget",
+          label: "Дневной бюджет",
           render: (item) => item.daily_budget ?? "—",
         },
-        { key: "currency", label: "Currency", render: (item) => item.currency },
+        { key: "currency", label: "Валюта", render: (item) => item.currency },
       ]}
       items={entities}
       getKey={(item) => item.provider_id}
       empty={
         <EmptyState
-          title={`No ${label.toLowerCase()}`}
-          detail="The latest snapshot has no matching entities."
+          title="Нет подходящих объектов"
+          detail="В последнем сборе нет подходящих объектов."
         />
       }
     />

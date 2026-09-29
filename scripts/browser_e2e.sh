@@ -14,6 +14,10 @@ cleanup() {
   local exit_status=$?
   trap - EXIT INT TERM
   set +e
+  if [[ $exit_status -ne 0 && -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" screenshot "$AUDIT_SCREENSHOT_DIRECTORY/failure.png" --full >/dev/null 2>&1
+    "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" errors 2>/dev/null
+  fi
   "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" close >/dev/null 2>&1
   if [[ -n "$FRONTEND_PID" ]]; then kill "$FRONTEND_PID" >/dev/null 2>&1; fi
   if [[ -n "$BACKEND_PID" ]]; then kill "$BACKEND_PID" >/dev/null 2>&1; fi
@@ -51,6 +55,8 @@ MANA_AUTH_TEST_MODE=true \
 MANA_AUTH_TEST_OTP_SINK_PATH="$AUDIT_TMP_DIR/otp-sink.jsonl" \
 OPERATION_ALLOW_INSECURE_DEV_HEADERS=false \
 OPERATION_ADS_PROVIDER=fake_meta \
+OPERATION_PRODUCT_ACTIVITY_PROVIDER=fake \
+AUDIO_MODERATION_ENABLED=false \
 OPERATION_DRY_RUN=false \
 OPERATION_ALLOW_SELF_APPROVAL=false \
 OPERATION_SCHEDULER_ENABLED=false \
@@ -117,39 +123,42 @@ assert_browser '!document.body.innerText.includes("Internal API key")' 'human lo
 assert_browser '!document.querySelector("nextjs-portal")?.shadowRoot?.querySelector("[data-nextjs-dialog-overlay]")' 'Next.js error overlay is visible'
 
 login_browser 976835256
-assert_browser 'document.body.innerText.includes("Operation overview")' 'dashboard did not render'
-assert_browser 'document.querySelector(".session-box small")?.textContent?.trim() === "admin"' 'server session role is not admin'
+assert_browser 'document.body.innerText.includes("Обзор работы")' 'dashboard did not render'
+assert_browser 'document.querySelector(".session-box small")?.textContent?.trim() === "Администратор"' 'server session role is not admin'
 assert_browser '!document.cookie.includes("mana_admin_session")' 'HttpOnly session cookie is browser-readable'
 
 browser eval '(() => { const link = document.querySelector("a[href=\"/growth\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("growth route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("Advertising intelligence")' 'Growth advertising capability did not render'
+assert_browser 'document.body.innerText.includes("Аналитика рекламы")' 'Growth advertising capability did not render'
 browser eval '(() => { const link = document.querySelector("a[href=\"/\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("overview route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-browser find role button click --name "Run now" >/dev/null
+browser eval '(() => { const row = [...document.querySelectorAll("tr")].find(item => item.textContent.includes("Рост и конверсия")); row.querySelector("button").click(); return "started"; })()' >/dev/null
+browser find role button click --name "Подтвердить сбор данных" >/dev/null
 browser wait --load networkidle >/dev/null
 browser eval '(() => { const link = document.querySelector("a[href=\"/growth\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("growth route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("Best-performing creative")' 'finding was not rendered'
 assert_browser 'document.body.innerText.includes("scale_audience")' 'scale proposal was not rendered'
 
-browser find role button click --name "Выйти" >/dev/null
+browser click '.session-box button' >/dev/null
+browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
 assert_browser 'document.body.innerText.includes("Вход в MANA")' 'logout did not restore login boundary'
 login_browser 51456737
 browser eval '(() => { const link = document.querySelector("a[href=\"/approvals\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("approvals route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
 
-browser eval '(() => { const card = [...document.querySelectorAll(".approval-card")].find((item) => item.textContent?.includes("scale audience")); if (!card) throw new Error("scale approval card missing"); const input = card.querySelector("textarea"); const button = [...card.querySelectorAll("button")].find((item) => item.textContent?.trim() === "Approve"); if (!(input instanceof HTMLTextAreaElement) || !(button instanceof HTMLButtonElement)) throw new Error("scale controls missing"); const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set; setter?.call(input, "Browser E2E reviewed evidence and policy limits"); input.dispatchEvent(new Event("input", { bubbles: true })); button.click(); return "submitted"; })()' >/dev/null
+browser eval '(() => { const card = [...document.querySelectorAll(".approval-card")].find((item) => item.textContent?.includes("Расширить аудиторию")); if (!card) throw new Error("scale approval card missing"); const input = card.querySelector("textarea"); const button = [...card.querySelectorAll("button")].find((item) => item.textContent?.trim() === "Одобрить"); if (!(input instanceof HTMLTextAreaElement) || !(button instanceof HTMLButtonElement)) throw new Error("scale controls missing"); const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set; setter?.call(input, "Browser E2E reviewed evidence and policy limits"); input.dispatchEvent(new Event("input", { bubbles: true })); button.click(); return "submitted"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("Approved and succeeded")' 'approved write did not succeed'
+assert_browser 'document.body.innerText.includes("Одобрено. Выполнено")' 'approved write did not succeed'
 
-browser eval '(() => { const card = document.querySelector(".approval-card"); if (!card) throw new Error("remaining approval card missing"); const input = card.querySelector("textarea"); const button = [...card.querySelectorAll("button")].find((item) => item.textContent?.trim() === "Reject"); if (!(input instanceof HTMLTextAreaElement) || !(button instanceof HTMLButtonElement)) throw new Error("rejection controls missing"); const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set; setter?.call(input, "Browser E2E rejects the remaining financial increase"); input.dispatchEvent(new Event("input", { bubbles: true })); button.click(); return "submitted"; })()' >/dev/null
+browser eval '(() => { const card = document.querySelector(".approval-card"); if (!card) throw new Error("remaining approval card missing"); const input = card.querySelector("textarea"); const button = [...card.querySelectorAll("button")].find((item) => item.textContent?.trim() === "Отклонить"); if (!(input instanceof HTMLTextAreaElement) || !(button instanceof HTMLButtonElement)) throw new Error("rejection controls missing"); const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set; setter?.call(input, "Browser E2E rejects the remaining financial increase"); input.dispatchEvent(new Event("input", { bubbles: true })); button.click(); return "submitted"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("Queue is clear")' 'approval queue did not clear'
+assert_browser 'document.body.innerText.includes("Всё рассмотрено")' 'approval queue did not clear'
 
 browser eval '(() => { const link = document.querySelector("a[href=\"/growth\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("growth route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-assert_browser 'document.body.innerText.includes("SUCCEEDED")' 'execution status was not rendered'
+browser wait --fn 'document.body.textContent.includes("Выполнено")' >/dev/null
+assert_browser 'document.body.textContent.includes("Выполнено")' 'execution status was not rendered'
 assert_browser 'document.querySelector(".report-copy")?.textContent?.includes("Marketing report")' 'report was not rendered'
 
 browser eval '(() => { const link = document.querySelector("a[href=\"/runs\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("runs route link missing"); link.click(); return "clicked"; })()' >/dev/null
@@ -158,21 +167,33 @@ browser eval 'document.querySelector(".link-button")?.click(); "opened"' >/dev/n
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("action_verified")' 'verification audit event was not rendered'
 assert_browser 'document.body.innerText.includes("report_created")' 'report audit event was not rendered'
-assert_browser 'document.body.innerText.includes("COMPLETED")' 'run did not complete'
+assert_browser 'document.body.textContent.includes("Завершён")' 'run did not complete'
 assert_browser '!document.querySelector("script .provider-payload")' 'untrusted provider markup rendered as HTML'
 assert_browser '!document.querySelector("nextjs-portal")?.shadowRoot?.querySelector("[data-nextjs-dialog-overlay]")' 'Next.js error overlay appeared'
 
 browser open "http://127.0.0.1:${AUDIT_UI_PORT}/runs" >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'location.pathname === "/runs"' 'direct nested navigation changed the route'
-assert_browser 'document.body.innerText.includes("Runs & audit")' 'server session did not survive direct refresh'
+assert_browser 'document.body.innerText.includes("Запуски и журнал")' 'server session did not survive direct refresh'
 
 browser set viewport 390 844 >/dev/null
 assert_browser 'getComputedStyle(document.querySelector(".mobile-bar")).display !== "none"' 'responsive navigation did not render'
-browser eval 'document.querySelector("[aria-label=\"Open menu\"]")?.click(); "opened"' >/dev/null
-assert_browser 'document.querySelector("[aria-label=\"Open menu\"]")?.getAttribute("aria-expanded") === "true"' 'mobile menu did not open'
+browser eval 'document.querySelector("[aria-label=\"Открыть меню\"]")?.click(); "opened"' >/dev/null
+assert_browser 'document.querySelector("[aria-label=\"Открыть меню\"]")?.getAttribute("aria-expanded") === "true"' 'mobile menu did not open'
 browser press Escape >/dev/null
-assert_browser 'document.querySelector("[aria-label=\"Open menu\"]")?.getAttribute("aria-expanded") === "false"' 'Escape did not close the mobile menu'
+assert_browser 'document.querySelector("[aria-label=\"Открыть меню\"]")?.getAttribute("aria-expanded") === "false"' 'Escape did not close the mobile menu'
+
+browser eval '(async () => { const csrf = document.cookie.split("; ").find(item => item.startsWith("mana_csrf="))?.split("=")[1]; const response = await fetch("/api/v1/admin/operation/agents/retention-agent/run", {method:"POST", headers:{"Content-Type":"application/json", "X-CSRF-Token":decodeURIComponent(csrf)}, body:JSON.stringify({job_type:"analysis",idempotency_key:"browser-retention"})}); if (response.status !== 202) throw new Error("Retention fake run failed"); return "accepted"; })()' >/dev/null
+browser open "http://127.0.0.1:${AUDIT_UI_PORT}/retention" >/dev/null
+browser wait --load networkidle >/dev/null
+assert_browser 'document.body.innerText.includes("Демонстрационные данные")' 'retention source mode is missing'
+assert_browser 'document.body.innerText.includes("Источники и полнота данных")' 'retention evidence is missing'
+assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'retention mobile layout overflows'
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/retention-mobile.png" --full >/dev/null
+  browser set viewport 1440 1000 >/dev/null
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/retention-desktop.png" --full >/dev/null
+fi
 
 browser eval '(() => { const button = document.querySelector(".session-box button"); if (!(button instanceof HTMLButtonElement)) throw new Error("logout button missing"); button.click(); return "clicked"; })()' >/dev/null
 browser open "http://127.0.0.1:${AUDIT_UI_PORT}/runs" >/dev/null

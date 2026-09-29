@@ -59,7 +59,6 @@ from app.mana_operation_ai.domain.enums import (
     AgentRunStatus,
     AgentStatus,
     ApprovalStatus,
-    IntegrationStatus,
     ProviderMode,
     UserRole,
 )
@@ -70,8 +69,23 @@ from app.mana_operation_ai.domain.models import (
     AgentReport,
     AgentSchedule,
 )
+from app.mana_operation_ai.domain.retention import RetentionOverview
 
 router = APIRouter()
+
+
+@router.get(
+    "/retention/overview",
+    response_model=RetentionOverview,
+    summary="Read saved retention engagement evidence",
+    description="Returns saved aggregate evidence, coverage and history without external reads.",
+)
+async def retention_overview(
+    admin: OperationAdminServiceDep,
+    actor: ActorDep,
+) -> RetentionOverview:
+    require_role(actor, UserRole.VIEWER)
+    return await admin.retention_overview()
 
 
 @router.get(
@@ -171,9 +185,7 @@ async def dashboard(
                 agent_id=agent.agent_id,
                 display_name=agent.display_name,
                 status=agent.status,
-                health=(
-                    health_checks[0].status if health_checks else IntegrationStatus.UNCONFIGURED
-                ),
+                health=admin.overall_health(health_checks),
                 last_run=last.started_at if last else None,
                 next_run=next_run,
                 last_duration_ms=duration_ms,
@@ -253,7 +265,8 @@ async def register_agent(
     summary="Get an agent",
     description=(
         "Returns the agent definition together with its latest configuration, its schedules, a "
-        "freshly probed integration health report and the state of its dedicated kill switch. "
+        "persisted integration health report and the state of its dedicated kill switch. "
+        "Viewing this endpoint never probes external providers. "
         "Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog."
     ),
 )
@@ -1053,10 +1066,10 @@ async def list_outcome_evaluations(
 @router.get(
     "/integrations/{provider}/health",
     response_model=IntegrationHealthResponse,
-    summary="Check an ads provider integration",
+    summary="Read the saved ads provider integration status",
     description=(
-        "Probes the named ads platform, stores the resulting health record and returns it with "
-        "its status, latency and any error detail. Requires at least the `viewer` role. Returns "
+        "Reads the persisted status without probing the provider. Missing or stale successful "
+        "checks are reported as unknown. Requires at least the `viewer` role. Returns "
         "404 when no platform is registered under that provider name."
     ),
 )

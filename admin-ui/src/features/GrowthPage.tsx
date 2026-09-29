@@ -16,6 +16,7 @@ import { MetricCard } from "../components/MetricCard";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { compactId, displayValue, formatDate } from "../ui/format";
+import { descriptionFor, labelFor } from "../ui/labels";
 import { MarketingPage } from "./MarketingPage";
 
 const ADVERTISING = "growth.advertising";
@@ -67,20 +68,20 @@ export function GrowthPage(): React.JSX.Element {
     <>
       <PageHeader
         eyebrow="MANA Operation AI"
-        title="Growth & Conversion"
-        description="One governed agent for advertising, funnel analysis, conversion hypotheses, offers, and controlled experiments."
+        title="Рост и конверсия"
+        description="Анализ рекламы и воронки, предложения по росту конверсии и согласованные эксперименты. Режим данных указан в каждом разделе."
         actions={detail ? <StatusBadge status={detail.agent.status} /> : null}
       />
       {detailError || runsError ? (
         <p className="error-banner" role="alert">
-          Growth control-plane data could not be refreshed.
+          Не удалось обновить данные агента роста.
         </p>
       ) : null}
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Capability control plane</p>
-            <h2>Independent capabilities</h2>
+            <p className="eyebrow">Возможности агента</p>
+            <h2>Возможности агента</h2>
           </div>
           <span className="counter">
             {detail?.agent.capabilities.length ?? 0}
@@ -104,11 +105,11 @@ export function GrowthPage(): React.JSX.Element {
                 type="button"
               >
                 <span>
-                  <strong>{capability.key}</strong>
-                  <small>{capability.description}</small>
+                  <strong>{labelFor(capability.key)}</strong>
+                  <small>{descriptionFor(capability.key)}</small>
                   <small>
-                    Configuration v{configuration?.version ?? "—"} ·{" "}
-                    {schedules.length} schedule(s)
+                    Версия настроек {configuration?.version ?? "—"} ·{" "}
+                    расписаний: {schedules.length}
                   </small>
                 </span>
                 <StatusBadge status={capability.risk} />
@@ -124,42 +125,44 @@ export function GrowthPage(): React.JSX.Element {
         <>
           <section
             className="metric-grid"
-            aria-label="Funnel capability status"
+            aria-label="Состояние анализа воронки"
           >
             <MetricCard
-              label="Latest run"
+              label="Последний запуск"
               value={
-                latestFunnelRun ? compactId(latestFunnelRun.run_id) : "No data"
+                latestFunnelRun
+                  ? compactId(latestFunnelRun.run_id)
+                  : "Нет данных"
               }
               detail={formatDate(latestFunnelRun?.started_at)}
             />
             <MetricCard
-              label="Findings"
+              label="Выводы"
               value={findings?.total ?? 0}
               accent="amber"
             />
             <MetricCard
-              label="Action proposals"
+              label="Предложения действий"
               value={proposals?.total ?? 0}
               accent="blue"
             />
             <MetricCard
-              label="Outcome evaluations"
+              label="Оценки результата"
               value={outcomes?.total ?? 0}
               accent="rose"
             />
           </section>
           <p className="notice" role="status">
-            Funnel sources are deterministic fake adapters in this milestone.
-            Experiment writes target only the in-memory sandbox and always
-            require approval.
+            Воронка пока использует тестовые данные. Эксперименты выполняются
+            только в тестовой среде и требуют согласования. Это не показатели
+            реальных продаж.
           </p>
           <div className="split-grid">
             <section className="panel">
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">Deterministic analysis</p>
-                  <h2>Latest findings</h2>
+                  <p className="eyebrow">Расчёт по данным</p>
+                  <h2>Последние выводы</h2>
                 </div>
               </div>
               {(findings?.items ?? []).map((finding) => (
@@ -169,7 +172,7 @@ export function GrowthPage(): React.JSX.Element {
                       <strong>{finding.title}</strong>
                       <small>
                         {finding.deterministic_calculation ??
-                          "Deterministic metric"}
+                          "Показатель рассчитан по данным"}
                       </small>
                     </span>
                     <StatusBadge status={finding.severity} />
@@ -178,23 +181,23 @@ export function GrowthPage(): React.JSX.Element {
               ))}
               {(findings?.items.length ?? 0) === 0 ? (
                 <EmptyState
-                  title="No funnel findings"
-                  detail="Run growth.funnel.analyze to calculate the normalized funnel."
+                  title="Нет выводов по воронке"
+                  detail="После анализа воронки здесь появятся рассчитанные показатели."
                 />
               ) : null}
             </section>
             <section className="panel">
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">Governed actions</p>
-                  <h2>Experiments and outcomes</h2>
+                  <p className="eyebrow">Действия под контролем</p>
+                  <h2>Эксперименты и результаты</h2>
                 </div>
               </div>
               {(proposals?.items ?? []).map((proposal) => (
                 <div className="compact-history" key={proposal.proposal_id}>
                   <div>
                     <code>{compactId(proposal.proposal_id)}</code>
-                    <span>{proposal.action_type}</span>
+                    <span>{labelFor(proposal.action_type)}</span>
                     <StatusBadge status={proposal.status} />
                   </div>
                 </div>
@@ -205,7 +208,7 @@ export function GrowthPage(): React.JSX.Element {
                     <span>
                       <strong>{outcome.metric_name}</strong>
                       <small>
-                        Baseline {displayValue(outcome.baseline_value)}
+                        Исходное значение {displayValue(outcome.baseline_value)}
                       </small>
                     </span>
                     <StatusBadge status={outcome.status} />
@@ -215,8 +218,8 @@ export function GrowthPage(): React.JSX.Element {
               {(proposals?.items.length ?? 0) === 0 &&
               (outcomes?.items.length ?? 0) === 0 ? (
                 <EmptyState
-                  title="No experiment lifecycle"
-                  detail="Shadow mode stores recommendations without creating action proposals."
+                  title="Экспериментов пока нет"
+                  detail="В режиме наблюдения сохраняются рекомендации без запросов на выполнение."
                 />
               ) : null}
             </section>
@@ -224,8 +227,8 @@ export function GrowthPage(): React.JSX.Element {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Recommendations</p>
-                <h2>Conversion hypotheses</h2>
+                <p className="eyebrow">Предложения</p>
+                <h2>Гипотезы роста конверсии</h2>
               </div>
             </div>
             {(recommendations?.items ?? []).map((recommendation) => (
@@ -235,7 +238,7 @@ export function GrowthPage(): React.JSX.Element {
               >
                 <div>
                   <span>
-                    <strong>{recommendation.action_type}</strong>
+                    <strong>{labelFor(recommendation.action_type)}</strong>
                     <small>{recommendation.reasoning}</small>
                   </span>
                   <StatusBadge status={String(recommendation.confidence)} />
@@ -246,8 +249,8 @@ export function GrowthPage(): React.JSX.Element {
         </>
       ) : (
         <EmptyState
-          title="Capability is not available"
-          detail="This Growth capability has no loaded handler in the current runtime."
+          title="Возможность пока недоступна"
+          detail="Эта возможность агента роста пока не реализована."
         />
       )}
     </>

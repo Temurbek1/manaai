@@ -66,12 +66,32 @@ a {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 28px 20px 22px;
   color: #edf7f1;
   background: var(--dark);
   z-index: 20;
+}
+.sidebar > * {
+  flex-shrink: 0;
+}
+.retention-workspace > .panel {
+  padding: 24px;
+}
+.retention-workspace details {
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+.retention-workspace summary {
+  cursor: pointer;
+}
+.retention-finding + .retention-finding {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
 }
 .brand {
   display: flex;

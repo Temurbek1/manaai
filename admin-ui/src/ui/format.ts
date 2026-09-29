@@ -1,8 +1,8 @@
 export function formatDate(value: string | null | undefined): string {
   if (!value) {
-    return "Not available";
+    return "Нет данных";
   }
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -13,9 +13,9 @@ export function formatDuration(milliseconds: number | null): string {
     return "—";
   }
   if (milliseconds < 1_000) {
-    return `${String(milliseconds)} ms`;
+    return `${String(milliseconds)} мс`;
   }
-  return `${(milliseconds / 1_000).toFixed(1)} s`;
+  return `${(milliseconds / 1_000).toFixed(1)} с`;
 }
 
 export function compactId(value: string): string {
@@ -34,7 +34,7 @@ export function displayValue(value: unknown): string {
   if (typeof value === "string" || typeof value === "number") {
     return String(value);
   }
-  return "unavailable";
+  return "Нет данных";
 }
 
 const SECRET_KEY =

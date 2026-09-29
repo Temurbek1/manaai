@@ -14,6 +14,7 @@ import { hasRole, useSession } from "../auth/SessionContext";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
+import { labelFor } from "../ui/labels";
 import { compactId, formatDate } from "../ui/format";
 import { isRecord } from "../ui/format";
 
@@ -72,7 +73,7 @@ export function ApprovalsPage(): React.JSX.Element {
   async function decide(proposal: Proposal, approve: boolean): Promise<void> {
     const reason = reasonByProposal[proposal.proposal_id]?.trim();
     if (!reason) {
-      setMessage("Add a decision reason before approving or rejecting.");
+      setMessage("Укажите причину решения перед одобрением или отклонением.");
       return;
     }
     setBusyProposal(proposal.proposal_id);
@@ -84,7 +85,7 @@ export function ApprovalsPage(): React.JSX.Element {
       );
       if (!freshProposal || freshProposal.status !== "awaiting_approval") {
         throw new Error(
-          "Proposal is no longer awaiting approval. The queue was refreshed.",
+          "Предложение больше не ожидает согласования. Очередь обновлена.",
         );
       }
       const result = await apiPost<ApprovalLifecycle>(
@@ -98,9 +99,9 @@ export function ApprovalsPage(): React.JSX.Element {
       setMessage(
         approve
           ? proposal.execution_forbidden
-            ? "Advisory recommendation acknowledged; execution remains forbidden."
-            : `Approved and ${result.execution?.status ?? "queued"}.`
-          : "Proposal rejected.",
+            ? "Ознакомление подтверждено. Выполнение изменений по-прежнему запрещено."
+            : `Одобрено. ${labelFor(result.execution?.status ?? "queued")}.`
+          : "Предложение отклонено.",
       );
       await Promise.all([
         mutate(PENDING_APPROVALS_KEY),
@@ -110,7 +111,7 @@ export function ApprovalsPage(): React.JSX.Element {
       ]);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Approval decision failed",
+        error instanceof Error ? error.message : "Не удалось сохранить решение",
       );
     } finally {
       setBusyProposal(null);
@@ -126,7 +127,7 @@ export function ApprovalsPage(): React.JSX.Element {
         (proposal) => selected.has(proposal.proposal_id),
       );
       if (!bulkReason.trim() || selectedProposals.length === 0) {
-        throw new Error("Select proposals and add a bulk decision reason.");
+        throw new Error("Выберите предложения и укажите причину решения.");
       }
       const actionTypes = new Set(
         selectedProposals.map((proposal) => proposal.action_type),
@@ -136,7 +137,7 @@ export function ApprovalsPage(): React.JSX.Element {
         (approve && !actionTypes.has("decrease_budget"))
       ) {
         throw new Error(
-          "Bulk approval is limited to homogeneous budget-decrease actions.",
+          "Одновременно можно одобрить только однотипные действия по снижению бюджета.",
         );
       }
       await apiPost("/api/v1/admin/operation/approvals/bulk-decision", {
@@ -147,8 +148,8 @@ export function ApprovalsPage(): React.JSX.Element {
       });
       setMessage(
         approve
-          ? "Selected budget decreases approved."
-          : "Selected actions rejected.",
+          ? "Снижения бюджета одобрены."
+          : "Выбранные действия отклонены.",
       );
       setSelected(new Set());
       setBulkReason("");
@@ -159,7 +160,9 @@ export function ApprovalsPage(): React.JSX.Element {
       ]);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Bulk decision failed",
+        error instanceof Error
+          ? error.message
+          : "Не удалось сохранить групповое решение",
       );
     } finally {
       setBusyProposal(null);
@@ -173,19 +176,19 @@ export function ApprovalsPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Decision queue"
-        title="Approvals"
-        description="Review current state, proposed change, evidence, policy, and risk before acting."
+        eyebrow="Ожидают вашего решения"
+        title="Согласования"
+        description="Перед решением проверьте, что изменится, на чём основано предложение и какие есть риски."
       />
       {approvalsError || historyError || proposalsError ? (
         <p className="error-banner" role="alert">
-          Unable to refresh the decision queue. No mutation will run from stale
-          data.
+          Не удалось обновить очередь. Действия по устаревшим данным не
+          выполняются.
         </p>
       ) : null}
       {isLoading ? (
         <p className="notice" role="status">
-          Refreshing current approvals…
+          Обновляем очередь согласований…
         </p>
       ) : null}
       {message ? (
@@ -194,15 +197,18 @@ export function ApprovalsPage(): React.JSX.Element {
         </p>
       ) : null}
       {items.length > 0 ? (
-        <section className="panel bulk-bar" aria-label="Bulk decision">
+        <section
+          className="panel bulk-bar"
+          aria-label="Решение по выбранным действиям"
+        >
           <label className="field">
-            <span>Bulk decision reason</span>
+            <span>Причина решения по выбранным действиям</span>
             <input
               onChange={(event) => setBulkReason(event.target.value)}
               value={bulkReason}
             />
           </label>
-          <span>{selected.size} selected</span>
+          <span>Выбрано: {selected.size}</span>
           <button
             className="button secondary compact"
             disabled={
@@ -211,7 +217,7 @@ export function ApprovalsPage(): React.JSX.Element {
             onClick={() => void bulkDecide(false)}
             type="button"
           >
-            Reject selected
+            Отклонить выбранные
           </button>
           <button
             className="button compact"
@@ -221,7 +227,7 @@ export function ApprovalsPage(): React.JSX.Element {
             onClick={() => void bulkDecide(true)}
             type="button"
           >
-            Approve safe decreases
+            Одобрить снижение бюджетов
           </button>
         </section>
       ) : null}
@@ -241,7 +247,7 @@ export function ApprovalsPage(): React.JSX.Element {
             <article className="approval-card" key={proposal.proposal_id}>
               <header>
                 <input
-                  aria-label={`Select ${proposal.action_type} proposal`}
+                  aria-label={`Выбрать: ${labelFor(proposal.action_type)}`}
                   checked={selected.has(proposal.proposal_id)}
                   disabled={decisionDisabled || isLiveAdvisory}
                   onChange={(event) => {
@@ -256,75 +262,75 @@ export function ApprovalsPage(): React.JSX.Element {
                 />
                 <div>
                   <p className="eyebrow">{proposal.object_type}</p>
-                  <h2>{proposal.action_type.replaceAll("_", " ")}</h2>
+                  <h2>{labelFor(proposal.action_type)}</h2>
                 </div>
                 <StatusBadge status={proposal.status} />
               </header>
               {isLiveAdvisory ? (
                 <p className="live-advisory-note">
-                  <strong>LIVE META — READ-ONLY ADVISORY</strong>
-                  No approve or execute control can dispatch this recommendation
-                  to Meta.
+                  <strong>META — РЕКОМЕНДАЦИЯ БЕЗ ИЗМЕНЕНИЙ</strong>
+                  Одобрение не отправляет изменения в Meta. Это рекомендация для
+                  ознакомления.
                 </p>
               ) : null}
               {isSelfApproval ? (
                 <p className="error-banner" role="status">
-                  Self-approval is not permitted. A different approver must
-                  decide this proposal.
+                  Нельзя согласовать собственное предложение. Решение должен
+                  принять другой сотрудник.
                 </p>
               ) : null}
               <dl className="detail-grid">
                 <div>
-                  <dt>Provider object</dt>
+                  <dt>Объект источника</dt>
                   <dd>
                     <code>{compactId(proposal.provider_object_id)}</code>
                   </dd>
                 </div>
                 <div>
-                  <dt>Confidence</dt>
+                  <dt>Уверенность</dt>
                   <dd>{proposal.confidence}</dd>
                 </div>
                 <div>
-                  <dt>Requested by</dt>
+                  <dt>Кто предложил</dt>
                   <dd>{approval?.requested_by ?? "unknown"}</dd>
                 </div>
                 <div>
-                  <dt>Expires</dt>
+                  <dt>Действует до</dt>
                   <dd>{formatDate(proposal.expires_at)}</dd>
                 </div>
                 <div>
-                  <dt>Provider mode</dt>
-                  <dd>{proposal.provider_mode}</dd>
+                  <dt>Режим источника</dt>
+                  <dd>{labelFor(proposal.provider_mode)}</dd>
                 </div>
               </dl>
               <div className="old-new-grid">
                 <div>
-                  <span>Current value</span>
+                  <span>Сейчас</span>
                   <strong>
                     {parameterValue(
                       proposal.parameters,
                       ["current_daily_budget", "current_status"],
-                      "See evidence",
+                      "Смотрите основания",
                     )}
                   </strong>
                 </div>
                 <div>
-                  <span>Proposed value</span>
+                  <span>Предлагается</span>
                   <strong>
                     {parameterValue(
                       proposal.parameters,
                       ["proposed_daily_budget", "proposed_status"],
-                      "Typed change",
+                      "Параметры изменения",
                     )}
                   </strong>
                 </div>
               </div>
-              <div className="change-box">
-                <span>Typed change</span>
+              <details className="change-box">
+                <summary>Технические параметры изменения</summary>
                 <pre>{JSON.stringify(proposal.parameters, null, 2)}</pre>
-              </div>
+              </details>
               <div className="evidence-block">
-                <h3>Evidence</h3>
+                <h3>Основания</h3>
                 {proposal.evidence.map((evidence) => (
                   <div key={evidence.name}>
                     <span>{evidence.name}</span>
@@ -341,7 +347,7 @@ export function ApprovalsPage(): React.JSX.Element {
               </ul>
               {isLiveAdvisory ? (
                 <div className="manual-instructions">
-                  <h3>Manual Ads Manager instructions</h3>
+                  <h3>Как выполнить вручную в рекламном кабинете</h3>
                   <ol>
                     {(proposal.manual_action_instructions ?? []).map(
                       (instruction) => (
@@ -352,7 +358,7 @@ export function ApprovalsPage(): React.JSX.Element {
                 </div>
               ) : null}
               <label className="field">
-                <span>Decision reason</span>
+                <span>Причина решения</span>
                 <textarea
                   disabled={decisionDisabled}
                   onChange={(event) => {
@@ -361,7 +367,7 @@ export function ApprovalsPage(): React.JSX.Element {
                       [proposal.proposal_id]: event.target.value,
                     }));
                   }}
-                  placeholder="Explain the evidence and decision"
+                  placeholder="Объясните, почему вы принимаете это решение"
                   value={reasonByProposal[proposal.proposal_id] ?? ""}
                 />
               </label>
@@ -372,7 +378,7 @@ export function ApprovalsPage(): React.JSX.Element {
                   onClick={() => void decide(proposal, false)}
                   type="button"
                 >
-                  Reject
+                  Отклонить
                 </button>
                 <button
                   className="button"
@@ -381,10 +387,10 @@ export function ApprovalsPage(): React.JSX.Element {
                   type="button"
                 >
                   {isBusy
-                    ? "Saving…"
+                    ? "Сохраняем…"
                     : isLiveAdvisory
-                      ? "Acknowledge advisory"
-                      : "Approve"}
+                      ? "Подтвердить ознакомление"
+                      : "Одобрить"}
                 </button>
               </footer>
             </article>
@@ -393,8 +399,8 @@ export function ApprovalsPage(): React.JSX.Element {
         {items.length === 0 ? (
           <div className="panel">
             <EmptyState
-              title="Queue is clear"
-              detail="No actions currently require approval."
+              title="Всё рассмотрено"
+              detail="Нет действий, ожидающих согласования."
             />
           </div>
         ) : null}
@@ -402,8 +408,8 @@ export function ApprovalsPage(): React.JSX.Element {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Decision history</p>
-            <h2>Completed approvals</h2>
+            <p className="eyebrow">История решений</p>
+            <h2>Принятые решения</h2>
           </div>
         </div>
         <div className="compact-history">
@@ -419,7 +425,7 @@ export function ApprovalsPage(): React.JSX.Element {
           {(approvalHistory?.items ?? []).every(
             (approval) => approval.status === "pending",
           ) ? (
-            <div className="empty-inline">No completed decisions yet.</div>
+            <div className="empty-inline">Принятых решений пока нет.</div>
           ) : null}
         </div>
       </section>

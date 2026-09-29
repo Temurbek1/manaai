@@ -6,7 +6,13 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.mana_operation_ai.domain.enums import ActivityEventType
-from app.mana_operation_ai.domain.models import DomainModel, EvidenceRef
+from app.mana_operation_ai.domain.models import (
+    AgentReport,
+    AgentRun,
+    DomainModel,
+    EvidenceRef,
+    Finding,
+)
 
 _TAXONOMY = r"[a-z][a-z0-9_.-]{0,63}"
 _DIMENSION_CATEGORIES = {
@@ -179,3 +185,17 @@ class RetentionEngagementSnapshot(DomainModel):
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
     evidence_refs: list[EvidenceRef]
     limitations: list[str] = Field(default_factory=list)
+
+
+class RetentionOverview(DomainModel):
+    generated_at: datetime
+    mode: Literal["live", "demo", "mixed", "unavailable"]
+    latest_run: AgentRun | None = None
+    snapshot_run_id: str | None = None
+    snapshot: RetentionEngagementSnapshot | None = None
+    snapshot_age_seconds: int | None = Field(default=None, ge=0)
+    mobile_analytics_available: bool = False
+    findings: list[Finding] = Field(default_factory=list)
+    reports: list[AgentReport] = Field(default_factory=list)
+    recent_runs: list[AgentRun] = Field(default_factory=list)
+    external_reads_on_view: Literal[False] = False

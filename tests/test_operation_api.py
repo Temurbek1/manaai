@@ -112,7 +112,7 @@ async def test_admin_api_rbac_typed_configuration_overview_and_kill_switch(
             headers=headers("viewer", "viewer"),
         )
         assert dashboard.status_code == 200
-        assert dashboard.json()["agents"][0]["health"] == "healthy"
+        assert dashboard.json()["agents"][0]["health"] == "unknown"
 
         forbidden = await client.post(
             "/api/v1/admin/operation/agents/marketing-agent/run",

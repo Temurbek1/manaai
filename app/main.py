@@ -376,6 +376,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         clock=clock,
         ids=ids,
         default_ads_provider=settings.operation_ads_provider,
+        health_stale_seconds=settings.operation_health_stale_seconds,
     )
     maintenance_service = OperationMaintenanceService(
         repository=operation_repository,

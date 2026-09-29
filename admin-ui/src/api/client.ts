@@ -32,6 +32,7 @@ export type OutcomeEvaluation = components["schemas"]["OutcomeEvaluation"];
 export type OutcomeEvaluationPage =
   components["schemas"]["Page_OutcomeEvaluation_"];
 export type MarketingOverview = components["schemas"]["MarketingOverview"];
+export type RetentionOverview = components["schemas"]["RetentionOverview"];
 export type AdEntity = components["schemas"]["AdEntity"];
 export type InsightRow = components["schemas"]["InsightRow"];
 export type Creative = components["schemas"]["Creative"];

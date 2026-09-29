@@ -14,8 +14,7 @@ export function StatusBadge({ status }: StatusBadgeProps): React.JSX.Element {
           ? "success"
           : "neutral";
   return (
-    <span className={`status-badge status-${tone}`}>
-      {status.replaceAll("_", " ")}
-    </span>
+    <span className={`status-badge status-${tone}`}>{labelFor(status)}</span>
   );
 }
+import { labelFor } from "../ui/labels";

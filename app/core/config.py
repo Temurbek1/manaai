@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     operation_worker_heartbeat_max_age_seconds: float = Field(default=60.0, gt=0, le=300)
     operation_job_timeout_seconds: int = Field(default=900, ge=10, le=86_400)
     operation_data_retention_days: int = Field(default=90, ge=7, le=3_650)
+    operation_health_stale_seconds: int = Field(default=21_600, ge=60, le=604_800)
     operation_verification_attempts: int = Field(default=4, ge=1, le=20)
     operation_verification_delay_seconds: float = Field(default=1.0, ge=0, le=60)
     operation_dry_run: bool = True

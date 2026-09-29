@@ -20,6 +20,7 @@ from app.mana_operation_ai.application.ports import (
     OperationRepository,
 )
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
+from app.mana_operation_ai.application.retention.overview import RetentionOverviewService
 from app.mana_operation_ai.application.scheduling import next_cron_occurrence
 from app.mana_operation_ai.domain.enums import (
     ActionStatus,
@@ -28,6 +29,7 @@ from app.mana_operation_ai.domain.enums import (
     AgentStatus,
     ApprovalStatus,
     AuditEventType,
+    IntegrationStatus,
     TriggerType,
     UserRole,
 )
@@ -49,6 +51,7 @@ from app.mana_operation_ai.domain.models import (
     AuditEvent,
     IntegrationHealth,
 )
+from app.mana_operation_ai.domain.retention import RetentionOverview
 from app.mana_operation_ai.domain.state_machine import ACTION_TRANSITIONS, require_transition
 
 logger = logging.getLogger(__name__)
@@ -76,6 +79,7 @@ class OperationAdminService:
         clock: Clock,
         ids: IdGenerator,
         default_ads_provider: str,
+        health_stale_seconds: int = 21_600,
     ) -> None:
         self.repository = repository
         self._agents = agents
@@ -85,6 +89,7 @@ class OperationAdminService:
         self._clock = clock
         self._ids = ids
         self._default_ads_provider = default_ads_provider
+        self._health_stale_seconds = health_stale_seconds
 
     async def register_loaded_agent(
         self,
@@ -532,15 +537,63 @@ class OperationAdminService:
         return scope
 
     async def integration_health(self, provider: str) -> IntegrationHealth:
-        health = await self._platforms.get(provider).health()
-        await self.repository.save_integration_health(health)
-        return health
+        self._platforms.get(provider)
+        return await self._stored_integration_health(provider)
 
     async def agent_health(self, agent_id: str) -> list[IntegrationHealth]:
-        health_checks = await self._agents.get(agent_id).health()
-        for health in health_checks:
-            await self.repository.save_integration_health(health)
-        return health_checks
+        integration_ids = {
+            integration_id
+            for capability in self._agents.get(agent_id).definition.capabilities
+            for integration_id in capability.required_integrations
+        }
+        return [
+            await self._stored_integration_health(integration_id)
+            for integration_id in sorted(integration_ids)
+        ]
+
+    @staticmethod
+    def overall_health(checks: list[IntegrationHealth]) -> IntegrationStatus:
+        statuses = {item.status for item in checks}
+        for status in (
+            IntegrationStatus.UNHEALTHY,
+            IntegrationStatus.UNCONFIGURED,
+            IntegrationStatus.DEGRADED,
+            IntegrationStatus.UNKNOWN,
+        ):
+            if status in statuses:
+                return status
+        return IntegrationStatus.HEALTHY if checks else IntegrationStatus.UNKNOWN
+
+    async def _stored_integration_health(self, integration_id: str) -> IntegrationHealth:
+        """Administrative reads must never initiate external provider requests."""
+        health = await self.repository.get_integration_health(integration_id)
+        now = self._clock.now()
+        if health is None:
+            return IntegrationHealth(
+                integration_id=integration_id,
+                status=IntegrationStatus.UNKNOWN,
+                checked_at=now,
+                message="No saved integration check. Viewing this page does not probe providers.",
+                diagnostics={"observation": "missing", "external_reads": False},
+            )
+        age_seconds = max(int((now - health.checked_at).total_seconds()), 0)
+        stale = age_seconds > self._health_stale_seconds
+        return health.model_copy(
+            update={
+                "status": (
+                    IntegrationStatus.UNKNOWN
+                    if stale and health.status is IntegrationStatus.HEALTHY
+                    else health.status
+                ),
+                "diagnostics": {
+                    **health.diagnostics,
+                    "observation": "persisted",
+                    "age_seconds": age_seconds,
+                    "stale": stale,
+                    "external_reads": False,
+                },
+            },
+        )
 
     async def marketing_overview(self) -> MarketingOverview:
         health = await self.integration_health(self._default_ads_provider)
@@ -585,6 +638,9 @@ class OperationAdminService:
             configuration=configuration,
             schedules=schedules,
         )
+
+    async def retention_overview(self) -> RetentionOverview:
+        return await RetentionOverviewService(self.repository, self._clock).overview()
 
     async def expire_approvals(self, now: datetime) -> int:
         approvals, _ = await self.repository.list_approvals(

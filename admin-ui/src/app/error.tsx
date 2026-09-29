@@ -17,14 +17,14 @@ export default function RouteError({
 
   return (
     <section className="panel route-error" role="alert">
-      <p className="eyebrow">Route unavailable</p>
-      <h1>Operational data could not be rendered</h1>
+      <p className="eyebrow">Страница недоступна</p>
+      <h1>Не удалось показать данные</h1>
       <p>
-        Retry the route. If the failure persists, check the sanitized server
-        logs.
+        Попробуйте открыть страницу ещё раз. Если ошибка повторяется, сообщите
+        администратору.
       </p>
       <button className="button" onClick={reset} type="button">
-        Try again
+        Повторить
       </button>
     </section>
   );

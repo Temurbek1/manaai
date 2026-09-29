@@ -7,7 +7,8 @@ import { Providers } from "@/components/Providers";
 import "../styles.css";
 
 export const metadata: Metadata = {
-  description: "Internal control room for MANA OPERATION AI agents.",
+  description:
+    "Панель администрации MANA: аналитика, агенты и согласование действий.",
   title: {
     default: "MANA Operation AI",
     template: "%s · MANA Operation AI",

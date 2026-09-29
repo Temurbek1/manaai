@@ -736,6 +736,36 @@
         "title": "ActionVerification",
         "type": "object"
       },
+      "ActivityEventType": {
+        "enum": [
+          "app_open",
+          "app_close",
+          "session_start",
+          "first_open",
+          "user_engagement",
+          "screen_view",
+          "button_click",
+          "search",
+          "navigation",
+          "registration_started",
+          "registration_completed",
+          "form_completed",
+          "file_uploaded",
+          "feature_used",
+          "screen_time",
+          "app_exception",
+          "app_remove",
+          "app_update",
+          "os_update",
+          "app_clear_data",
+          "notification_receive",
+          "notification_dismiss",
+          "notification_open",
+          "notification_foreground"
+        ],
+        "title": "ActivityEventType",
+        "type": "string"
+      },
       "ActorResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5796,6 +5826,7 @@
       },
       "IntegrationStatus": {
         "enum": [
+          "unknown",
           "unconfigured",
           "healthy",
           "degraded",
@@ -8544,6 +8575,108 @@
         "title": "NotifyParentAction",
         "type": "object"
       },
+      "OperationalTelemetryFacts": {
+        "additionalProperties": false,
+        "description": "Privacy-minimized aggregates from operational mobile Firestore collections.",
+        "properties": {
+          "battery_devices": {
+            "minimum": 0.0,
+            "title": "Battery Devices",
+            "type": "integer"
+          },
+          "battery_percent_available": {
+            "minimum": 0.0,
+            "title": "Battery Percent Available",
+            "type": "integer"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "completeness": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completeness",
+            "type": "string"
+          },
+          "documents_scanned": {
+            "minimum": 0.0,
+            "title": "Documents Scanned",
+            "type": "integer"
+          },
+          "internet_records": {
+            "minimum": 0.0,
+            "title": "Internet Records",
+            "type": "integer"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "located_devices": {
+            "minimum": 0.0,
+            "title": "Located Devices",
+            "type": "integer"
+          },
+          "monitoring_disabled": {
+            "minimum": 0.0,
+            "title": "Monitoring Disabled",
+            "type": "integer"
+          },
+          "monitoring_enabled": {
+            "minimum": 0.0,
+            "title": "Monitoring Enabled",
+            "type": "integer"
+          },
+          "moving_devices": {
+            "minimum": 0.0,
+            "title": "Moving Devices",
+            "type": "integer"
+          },
+          "screen_command_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Screen Command Counts",
+            "type": "object"
+          },
+          "silent_devices": {
+            "minimum": 0.0,
+            "title": "Silent Devices",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_request_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Request Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "collected_at",
+          "battery_devices",
+          "battery_percent_available",
+          "silent_devices",
+          "located_devices",
+          "moving_devices",
+          "internet_records",
+          "monitoring_enabled",
+          "monitoring_disabled",
+          "documents_scanned",
+          "completeness"
+        ],
+        "title": "OperationalTelemetryFacts",
+        "type": "object"
+      },
       "OutcomeEvaluation": {
         "additionalProperties": false,
         "properties": {
@@ -10655,6 +10788,267 @@
           "normalized_value"
         ],
         "title": "ResourceSignal",
+        "type": "object"
+      },
+      "RetentionEngagementSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "backend_active_children": {
+            "minimum": 0.0,
+            "title": "Backend Active Children",
+            "type": "integer"
+          },
+          "child_accounts_joined": {
+            "minimum": 0.0,
+            "title": "Child Accounts Joined",
+            "type": "integer"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "completeness": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Completeness",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "mobile_active_subjects": {
+            "minimum": 0.0,
+            "title": "Mobile Active Subjects",
+            "type": "integer"
+          },
+          "mobile_active_users_by_window": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "1d",
+                "7d",
+                "30d"
+              ]
+            },
+            "title": "Mobile Active Users By Window",
+            "type": "object"
+          },
+          "mobile_dimension_counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Mobile Dimension Counts",
+            "type": "object"
+          },
+          "mobile_engaged_sessions": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Mobile Engaged Sessions",
+            "type": "integer"
+          },
+          "mobile_event_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/ActivityEventType"
+            },
+            "title": "Mobile Event Counts",
+            "type": "object"
+          },
+          "mobile_new_users": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Mobile New Users",
+            "type": "integer"
+          },
+          "mobile_screen_time_seconds": {
+            "minimum": 0.0,
+            "title": "Mobile Screen Time Seconds",
+            "type": "integer"
+          },
+          "mobile_sequence_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Mobile Sequence Counts",
+            "type": "object"
+          },
+          "mobile_sessions": {
+            "minimum": 0.0,
+            "title": "Mobile Sessions",
+            "type": "integer"
+          },
+          "operational_telemetry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationalTelemetryFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_accounts_joined": {
+            "minimum": 0.0,
+            "title": "Parent Accounts Joined",
+            "type": "integer"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "retention-engagement-v2",
+            "default": "retention-engagement-v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "total_children": {
+            "minimum": 0.0,
+            "title": "Total Children",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end",
+          "collected_at",
+          "parent_accounts_joined",
+          "child_accounts_joined",
+          "total_children",
+          "backend_active_children",
+          "mobile_active_subjects",
+          "mobile_sessions",
+          "mobile_screen_time_seconds",
+          "mobile_event_counts",
+          "completeness",
+          "evidence_refs"
+        ],
+        "title": "RetentionEngagementSnapshot",
+        "type": "object"
+      },
+      "RetentionOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "external_reads_on_view": {
+            "const": false,
+            "default": false,
+            "title": "External Reads On View",
+            "type": "boolean"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "latest_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mobile_analytics_available": {
+            "default": false,
+            "title": "Mobile Analytics Available",
+            "type": "boolean"
+          },
+          "mode": {
+            "enum": [
+              "live",
+              "demo",
+              "mixed",
+              "unavailable"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRun"
+            },
+            "title": "Recent Runs",
+            "type": "array"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/AgentReport"
+            },
+            "title": "Reports",
+            "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetentionEngagementSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snapshot_age_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Age Seconds"
+          },
+          "snapshot_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Run Id"
+          }
+        },
+        "required": [
+          "generated_at",
+          "mode"
+        ],
+        "title": "RetentionOverview",
         "type": "object"
       },
       "RiskLevel": {
@@ -13058,7 +13452,7 @@
     },
     "/api/v1/admin/operation/agents/{agent_id}": {
       "get": {
-        "description": "Returns the agent definition together with its latest configuration, its schedules, a freshly probed integration health report and the state of its dedicated kill switch. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.",
+        "description": "Returns the agent definition together with its latest configuration, its schedules, a persisted integration health report and the state of its dedicated kill switch. Viewing this endpoint never probes external providers. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.",
         "operationId": "get_agent_api_v1_admin_operation_agents__agent_id__get",
         "parameters": [
           {
@@ -15222,7 +15616,7 @@
     },
     "/api/v1/admin/operation/integrations/{provider}/health": {
       "get": {
-        "description": "Probes the named ads platform, stores the resulting health record and returns it with its status, latency and any error detail. Requires at least the `viewer` role. Returns 404 when no platform is registered under that provider name.",
+        "description": "Reads the persisted status without probing the provider. Missing or stale successful checks are reported as unknown. Requires at least the `viewer` role. Returns 404 when no platform is registered under that provider name.",
         "operationId": "integration_health_api_v1_admin_operation_integrations__provider__health_get",
         "parameters": [
           {
@@ -15321,7 +15715,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Check an ads provider integration",
+        "summary": "Read the saved ads provider integration status",
         "tags": [
           "operation-admin"
         ]
@@ -16321,6 +16715,104 @@
           }
         },
         "summary": "Get a report",
+        "tags": [
+          "operation-admin"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/retention/overview": {
+      "get": {
+        "description": "Returns saved aggregate evidence, coverage and history without external reads.",
+        "operationId": "retention_overview_api_v1_admin_operation_retention_overview_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read saved retention engagement evidence",
         "tags": [
           "operation-admin"
         ]

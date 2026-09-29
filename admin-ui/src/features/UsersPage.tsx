@@ -120,7 +120,7 @@ export function UsersPage(): React.JSX.Element {
       <section>
         <PageHeader
           description="Управление доступом доступно только администраторам."
-          eyebrow="Access control"
+          eyebrow="Доступ сотрудников"
           title="Недостаточно прав"
         />
       </section>
@@ -131,7 +131,7 @@ export function UsersPage(): React.JSX.Element {
     <section>
       <PageHeader
         description="Выдавайте доступ по Telegram ID, меняйте роли и немедленно отзывайте сессии."
-        eyebrow="Access control"
+        eyebrow="Доступ сотрудников"
         title="Пользователи"
       />
 

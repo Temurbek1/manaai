@@ -73,7 +73,7 @@ export interface paths {
         };
         /**
          * Get an agent
-         * @description Returns the agent definition together with its latest configuration, its schedules, a freshly probed integration health report and the state of its dedicated kill switch. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.
+         * @description Returns the agent definition together with its latest configuration, its schedules, a persisted integration health report and the state of its dedicated kill switch. Viewing this endpoint never probes external providers. Requires at least the `viewer` role. Returns 404 when the agent is not in the catalog.
          */
         get: operations["get_agent_api_v1_admin_operation_agents__agent_id__get"];
         put?: never;
@@ -416,8 +416,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Check an ads provider integration
-         * @description Probes the named ads platform, stores the resulting health record and returns it with its status, latency and any error detail. Requires at least the `viewer` role. Returns 404 when no platform is registered under that provider name.
+         * Read the saved ads provider integration status
+         * @description Reads the persisted status without probing the provider. Missing or stale successful checks are reported as unknown. Requires at least the `viewer` role. Returns 404 when no platform is registered under that provider name.
          */
         get: operations["integration_health_api_v1_admin_operation_integrations__provider__health_get"];
         put?: never;
@@ -580,6 +580,26 @@ export interface paths {
          * @description Returns one stored report in full, with its reporting period, structured payload, human-readable body and data-quality notes. Requires at least the `viewer` role. Returns 404 when the report identifier is unknown.
          */
         get: operations["get_report_api_v1_admin_operation_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/retention/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read saved retention engagement evidence
+         * @description Returns saved aggregate evidence, coverage and history without external reads.
+         */
+        get: operations["retention_overview_api_v1_admin_operation_retention_overview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1847,6 +1867,11 @@ export interface components {
             /** Verification Id */
             verification_id: string;
         };
+        /**
+         * ActivityEventType
+         * @enum {string}
+         */
+        ActivityEventType: "app_open" | "app_close" | "session_start" | "first_open" | "user_engagement" | "screen_view" | "button_click" | "search" | "navigation" | "registration_started" | "registration_completed" | "form_completed" | "file_uploaded" | "feature_used" | "screen_time" | "app_exception" | "app_remove" | "app_update" | "os_update" | "app_clear_data" | "notification_receive" | "notification_dismiss" | "notification_open" | "notification_foreground";
         /** ActorResponse */
         ActorResponse: {
             /** Actor Id */
@@ -3667,7 +3692,7 @@ export interface components {
          * IntegrationStatus
          * @enum {string}
          */
-        IntegrationStatus: "unconfigured" | "healthy" | "degraded" | "unhealthy";
+        IntegrationStatus: "unknown" | "unconfigured" | "healthy" | "degraded" | "unhealthy";
         JsonValue: unknown;
         /** KillSwitchRequest */
         KillSwitchRequest: {
@@ -4581,6 +4606,47 @@ export interface components {
             message: string;
             urgency: components["schemas"]["RiskLevel"];
         };
+        /**
+         * OperationalTelemetryFacts
+         * @description Privacy-minimized aggregates from operational mobile Firestore collections.
+         */
+        OperationalTelemetryFacts: {
+            /** Battery Devices */
+            battery_devices: number;
+            /** Battery Percent Available */
+            battery_percent_available: number;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Completeness */
+            completeness: string;
+            /** Documents Scanned */
+            documents_scanned: number;
+            /** Internet Records */
+            internet_records: number;
+            /** Limitations */
+            limitations?: string[];
+            /** Located Devices */
+            located_devices: number;
+            /** Monitoring Disabled */
+            monitoring_disabled: number;
+            /** Monitoring Enabled */
+            monitoring_enabled: number;
+            /** Moving Devices */
+            moving_devices: number;
+            /** Screen Command Counts */
+            screen_command_counts?: {
+                [key: string]: number;
+            };
+            /** Silent Devices */
+            silent_devices: number;
+            /** Source */
+            source: string;
+            /** Source Request Ids */
+            source_request_ids?: string[];
+        };
         /** OutcomeEvaluation */
         OutcomeEvaluation: {
             /** Agent Id */
@@ -5330,6 +5396,115 @@ export interface components {
             source: components["schemas"]["SignalSource"];
             /** Source Application */
             source_application?: string | null;
+        };
+        /** RetentionEngagementSnapshot */
+        RetentionEngagementSnapshot: {
+            /** Backend Active Children */
+            backend_active_children: number;
+            /** Child Accounts Joined */
+            child_accounts_joined: number;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Completeness */
+            completeness: string;
+            /** Evidence Refs */
+            evidence_refs: components["schemas"]["EvidenceRef"][];
+            /** Limitations */
+            limitations?: string[];
+            /** Mobile Active Subjects */
+            mobile_active_subjects: number;
+            /** Mobile Active Users By Window */
+            mobile_active_users_by_window?: {
+                [key: string]: number;
+            };
+            /** Mobile Dimension Counts */
+            mobile_dimension_counts?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /**
+             * Mobile Engaged Sessions
+             * @default 0
+             */
+            mobile_engaged_sessions: number;
+            /** Mobile Event Counts */
+            mobile_event_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Mobile New Users
+             * @default 0
+             */
+            mobile_new_users: number;
+            /** Mobile Screen Time Seconds */
+            mobile_screen_time_seconds: number;
+            /** Mobile Sequence Counts */
+            mobile_sequence_counts?: {
+                [key: string]: number;
+            };
+            /** Mobile Sessions */
+            mobile_sessions: number;
+            operational_telemetry?: components["schemas"]["OperationalTelemetryFacts"] | null;
+            /** Parent Accounts Joined */
+            parent_accounts_joined: number;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /**
+             * Schema Version
+             * @default retention-engagement-v2
+             * @constant
+             */
+            schema_version: "retention-engagement-v2";
+            /** Total Children */
+            total_children: number;
+        };
+        /** RetentionOverview */
+        RetentionOverview: {
+            /**
+             * External Reads On View
+             * @default false
+             * @constant
+             */
+            external_reads_on_view: false;
+            /** Findings */
+            findings?: components["schemas"]["Finding"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            latest_run?: components["schemas"]["AgentRun"] | null;
+            /**
+             * Mobile Analytics Available
+             * @default false
+             */
+            mobile_analytics_available: boolean;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "live" | "demo" | "mixed" | "unavailable";
+            /** Recent Runs */
+            recent_runs?: components["schemas"]["AgentRun"][];
+            /** Reports */
+            reports?: components["schemas"]["AgentReport"][];
+            snapshot?: components["schemas"]["RetentionEngagementSnapshot"] | null;
+            /** Snapshot Age Seconds */
+            snapshot_age_seconds?: number | null;
+            /** Snapshot Run Id */
+            snapshot_run_id?: string | null;
         };
         /**
          * RiskLevel
@@ -7209,6 +7384,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retention_overview_api_v1_admin_operation_retention_overview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionOverview"];
                 };
             };
             /** @description Validation Error */

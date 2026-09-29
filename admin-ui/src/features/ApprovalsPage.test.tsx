@@ -92,13 +92,13 @@ describe("ApprovalsPage", () => {
 
     renderWithSession(<ApprovalsPage />, "approver");
 
-    const approve = await screen.findByRole("button", { name: "Approve" });
+    const approve = await screen.findByRole("button", { name: "Одобрить" });
     fireEvent.click(approve);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Add a decision reason",
+      "Укажите причину решения",
     );
 
-    fireEvent.change(screen.getByLabelText("Decision reason"), {
+    fireEvent.change(screen.getByLabelText("Причина решения"), {
       target: { value: "Evidence reviewed by operator" },
     });
     fireEvent.click(approve);
@@ -132,10 +132,10 @@ describe("ApprovalsPage", () => {
 
     renderWithSession(<ApprovalsPage />, "viewer");
 
-    expect(await screen.findByText("expired")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
-    expect(screen.getByLabelText("Decision reason")).toBeDisabled();
+    expect(await screen.findByText("Срок истёк")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Одобрить" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Отклонить" })).toBeDisabled();
+    expect(screen.getByLabelText("Причина решения")).toBeDisabled();
   });
 
   it("keeps approval controls unavailable to operators", async () => {
@@ -155,9 +155,9 @@ describe("ApprovalsPage", () => {
     renderWithSession(<ApprovalsPage />, "operator");
 
     expect(
-      await screen.findByRole("button", { name: "Approve" }),
+      await screen.findByRole("button", { name: "Одобрить" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Отклонить" })).toBeDisabled();
   });
 
   it("prevents self-approval before a mutation reaches the API", async () => {
@@ -186,10 +186,10 @@ describe("ApprovalsPage", () => {
     renderWithSession(<ApprovalsPage />, "approver");
 
     expect(
-      await screen.findByText(/Self-approval is not permitted/),
+      await screen.findByText(/Нельзя согласовать собственное предложение/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
-    expect(screen.getByLabelText("Decision reason")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Одобрить" })).toBeDisabled();
+    expect(screen.getByLabelText("Причина решения")).toBeDisabled();
     expect(fetchMock).not.toHaveBeenCalledWith(
       expect.stringContaining("/decision"),
       expect.objectContaining({ method: "POST" }),
@@ -236,16 +236,16 @@ describe("ApprovalsPage", () => {
     jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
     renderWithSession(<ApprovalsPage />, "approver");
 
-    fireEvent.change(await screen.findByLabelText("Decision reason"), {
+    fireEvent.change(await screen.findByLabelText("Причина решения"), {
       target: { value: "Risk outweighs expected improvement" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отклонить" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Proposal rejected",
+      "Предложение отклонено",
     );
 
     failDecision = true;
-    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отклонить" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Proposal became stale",
     );
@@ -282,19 +282,17 @@ describe("ApprovalsPage", () => {
     renderWithSession(<ApprovalsPage />, "approver");
 
     expect(
-      await screen.findByText("LIVE META — READ-ONLY ADVISORY"),
+      await screen.findByText("META — РЕКОМЕНДАЦИЯ БЕЗ ИЗМЕНЕНИЙ"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Acknowledge advisory" }),
+      screen.getByRole("button", { name: "Подтвердить ознакомление" }),
     ).toBeEnabled();
     expect(
-      screen.queryByRole("button", { name: "Approve" }),
+      screen.queryByRole("button", { name: "Одобрить" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /execute/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByLabelText("Select decrease_budget proposal"),
-    ).toBeDisabled();
+    expect(screen.getByLabelText("Выбрать: Уменьшить бюджет")).toBeDisabled();
   });
 });

@@ -92,7 +92,7 @@ describe("RunsPage", () => {
     expect(rendered.container).not.toHaveTextContent("test-secret-token-value");
     expect(rendered.container).toHaveTextContent("[REDACTED]");
 
-    fireEvent.change(screen.getByLabelText("Filter runs by status"), {
+    fireEvent.change(screen.getByLabelText("Фильтр запусков по статусу"), {
       target: { value: "failed" },
     });
     await waitFor(() =>
@@ -101,7 +101,7 @@ describe("RunsPage", () => {
         expect.anything(),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Далее" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("offset=20"),

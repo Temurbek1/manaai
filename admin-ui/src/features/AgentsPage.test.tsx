@@ -191,36 +191,36 @@ describe("AgentsPage", () => {
     jest.spyOn(globalThis, "fetch").mockImplementation(mockAgentApi());
     renderWithSession(<AgentsPage />, "operator");
     fireEvent.click(
-      await screen.findByRole("button", { name: /Retention & Loyalty Agent/ }),
+      await screen.findByRole("button", { name: /Удержание и лояльность/ }),
     );
 
     expect(
-      await screen.findByText("retention.engagement.analyze"),
+      await screen.findByText("Вовлечённость пользователей"),
     ).toBeInTheDocument();
-    expect(screen.getByText("fake_manakids_admin_api")).toBeInTheDocument();
-    expect(screen.getByText("fake_firestore_activity")).toBeInTheDocument();
+    expect(screen.getByText("Тестовые данные Manakids")).toBeInTheDocument();
+    expect(screen.getByText("Тестовые события приложения")).toBeInTheDocument();
   });
 
   it("disables configuration, schedule, status, and kill-switch controls for viewers", async () => {
     jest.spyOn(globalThis, "fetch").mockImplementation(mockAgentApi());
     renderWithSession(<AgentsPage />, "viewer");
     fireEvent.click(
-      await screen.findByRole("button", { name: /Growth & Conversion Agent/ }),
+      await screen.findByRole("button", { name: /Рост и конверсия/ }),
     );
 
     expect(
       await screen.findByRole("button", {
-        name: "Validate & activate version",
+        name: "Проверить и сохранить настройки",
       }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Emergency stop agent" }),
+      screen.getByRole("button", { name: "Остановить агента" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Emergency stop capability" }),
+      screen.getByRole("button", { name: "Остановить возможность" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Save schedule" }),
+      screen.getByRole("button", { name: "Сохранить расписание" }),
     ).toBeDisabled();
     expect(screen.getByLabelText("analysis cron expression")).toBeDisabled();
   });
@@ -246,13 +246,13 @@ describe("AgentsPage", () => {
     jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
     renderWithSession(<AgentsPage />, "admin");
     fireEvent.click(
-      await screen.findByRole("button", { name: /Growth & Conversion Agent/ }),
+      await screen.findByRole("button", { name: /Рост и конверсия/ }),
     );
 
-    const editor = await screen.findByLabelText("Active JSON values");
+    const editor = await screen.findByLabelText("Настройки в формате JSON");
     fireEvent.change(editor, { target: { value: "not-json" } });
     fireEvent.click(
-      screen.getByRole("button", { name: "Validate & activate version" }),
+      screen.getByRole("button", { name: "Проверить и сохранить настройки" }),
     );
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Unexpected token",
@@ -264,8 +264,10 @@ describe("AgentsPage", () => {
     fireEvent.change(screen.getByLabelText("analysis timezone"), {
       target: { value: "Asia/Samarkand" },
     });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save schedule" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Включено" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить расписание" }),
+    );
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -274,7 +276,7 @@ describe("AgentsPage", () => {
       ),
     );
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "analysis schedule updated",
+      "Расписание «Анализ» обновлено",
     );
   });
 
@@ -289,18 +291,18 @@ describe("AgentsPage", () => {
     jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
     renderWithSession(<AgentsPage />, "admin");
     fireEvent.click(
-      await screen.findByRole("button", { name: /Growth & Conversion Agent/ }),
+      await screen.findByRole("button", { name: /Рост и конверсия/ }),
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Emergency stop agent" }),
+      await screen.findByRole("button", { name: "Остановить агента" }),
     );
     expect(fetchMock).not.toHaveBeenCalledWith(
       expect.stringContaining("/kill-switch/agents/growth-agent"),
       expect.objectContaining({ method: "PUT" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Confirm emergency stop" }),
+      screen.getByRole("button", { name: "Подтвердить остановку" }),
     );
 
     await waitFor(() =>
