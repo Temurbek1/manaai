@@ -104,3 +104,36 @@ Production evidence at 15:23 UTC:
 Remaining scope is the full ledger above, including real per-account risk, governed customer
 actions, executive goals/orchestration and Technical Reliability last. This release does not
 close the overall objective.
+
+### Conversation-first increment (deployed 2026-09-30)
+
+Release `91b19f76edf447d16404b93ae2750d776e4a62df` adds four agent conversation rooms,
+private persisted topics, bounded contextual model replies, explicit analysis confirmations and
+inline Growth approval cards. The default interface is chat; the previous operational panels
+remain in Professional mode. See [admin-ux-ui.md](admin-ux-ui.md) for exact behavior and evidence.
+
+This is a new interaction layer, **not** completion of the Orchestrator or Technical Reliability
+workstreams. Those rooms support advisory conversation/planning only and are labelled accordingly.
+Retention customer actions and live Growth writes remain unimplemented/unavailable as above.
+Product selection does not establish MANA/360REC provenance of existing aggregate reports.
+
+Verified release evidence:
+
+- Clean backend image: 282 tests passed; UI: 38 tests. Fake-model/Telegram browser flow,
+  private topics, CSRF, mobile layout, accessibility checks and migration/quota tests passed.
+  Next.js patched to 16.3.6; npm and backend image dependency audits passed.
+- Additive chat migration `d58e3a1b720f` applied after a verified PostgreSQL backup in
+  `/var/backups/mana-ai/chat-ui-20260930/`. No existing-data rewrite or schema downgrade.
+- Separate chat API container with scheduler/audio disabled and existing source budgets;
+  new admin image. Only the chat route is proxied to the new process. Main API/audio, worker
+  and PostgreSQL IDs/start times unchanged; audio readiness remains `ready`.
+- Canary and both public domains passed authenticated GET 200 / unauthenticated 401 checks.
+  Public Russian login and security headers checked; protected browser workflows tested locally,
+  not through production auth bypass. No paid OpenAI production test was performed.
+- GET verification created no runs or chat turns. An existing scheduled Growth run completed
+  during preparation; its report is not attributed to the chat release. No manual source collection,
+  real approvals, Firebase mutations, SSH/key changes or new analytics integration.
+- `/etc/manaai/deploy/ACTIVE-RELEASE.md` records split-service commands and UI-only rollback.
+  Old images/configs retained; rollback must not restart the audio API or delete chat history.
+
+The interaction-layer objective is delivered; the larger business-capability ledger remains open.
