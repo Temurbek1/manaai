@@ -15,7 +15,7 @@
     "generate:api": "(cd .. && .venv/bin/python scripts/export_openapi.py) && openapi-typescript openapi.json -o src/api/schema.d.ts"
   },
   "dependencies": {
-    "next": "16.3.5",
+    "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "swr": "2.4.2"
@@ -30,7 +30,7 @@
     "axe-core": "4.12.1",
     "cross-fetch": "4.1.0",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.3.6",
     "jest": "30.2.0",
     "jest-environment-jsdom": "30.2.0",
     "jsdom": "29.1.1",

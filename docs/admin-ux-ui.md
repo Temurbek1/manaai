@@ -112,6 +112,12 @@ Idempotency UUID + тело запроса исключают повторную
 
 ## Проверка и выпуск
 
+Release dependency check: Next.js and eslint-config-next pinned to 16.3.6 after
+[GHSA-vcvr-r3jv-pc5j](https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j).
+Transitive brace-expansion and undici security patches are locked as well. The application does
+not use `next/og` ImageResponse; the dependency is still patched before release. Registry advisory
+results can change during a release, so the final image must be audited, not just an earlier tree.
+
 - `make verify`: форматирование, Ruff, ESLint, mypy, TypeScript, backend/UI tests,
   production build, npm audit с порогом high.
 - `make audit-browser`: изолированные fake-провайдеры и fake Telegram, без настоящего
