@@ -9,6 +9,7 @@ import { EmptyState } from "../components/EmptyState";
 import { MetricCard } from "../components/MetricCard";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
+import { QueryState } from "../components/QueryState";
 import { formatDate } from "../ui/format";
 import { labelFor } from "../ui/labels";
 
@@ -63,24 +64,29 @@ export function RetentionPage(): React.JSX.Element {
           <button
             className="button secondary"
             disabled={isValidating}
-            onClick={() => void mutate()}
+            onClick={() => void mutate().catch(() => undefined)}
             type="button"
           >
             {isValidating ? "Обновляем экран…" : "Обновить экран"}
           </button>
         }
       />
-      <p className="notice" role="status">
-        {data ? MODE_LABELS[data.mode] : "Загружаем сохранённый отчёт…"}.
-        Просмотр и обновление этой страницы не обращаются к Firebase и другим
-        внешним источникам.
-      </p>
-      {error ? (
-        <p className="error-banner" role="alert">
-          Не удалось загрузить отчёт. Повторите обновление экрана. Сбор данных
-          автоматически не запускается.
+      {data ? (
+        <p
+          className={data.mode === "live" ? "notice" : "notice notice-warning"}
+        >
+          <strong>{MODE_LABELS[data.mode]}.</strong> Просмотр и обновление этой
+          страницы не обращаются к Firebase и другим внешним источникам.
         </p>
       ) : null}
+      <QueryState
+        error={error}
+        loading={isLoading}
+        hasData={Boolean(data)}
+        retrying={isValidating}
+        onRetry={mutate}
+        subject="отчёт"
+      />
       {data?.latest_run?.status === "failed" ? (
         <p className="error-banner" role="alert">
           Последний анализ завершился ошибкой. Ниже показаны данные предыдущего
@@ -88,12 +94,14 @@ export function RetentionPage(): React.JSX.Element {
         </p>
       ) : null}
       {!snapshot ? (
-        <EmptyState
-          title={
-            isLoading ? "Загружаем данные" : "Пока нет завершённого анализа"
-          }
-          detail="После успешного запланированного анализа здесь появятся сохранённые показатели и выводы. Никакие данные не подставляются вместо отсутствующих."
-        />
+        data && !error ? (
+          <EmptyState
+            title={
+              isLoading ? "Загружаем данные" : "Пока нет завершённого анализа"
+            }
+            detail="После успешного запланированного анализа здесь появятся сохранённые показатели и выводы. Никакие данные не подставляются вместо отсутствующих."
+          />
+        ) : null
       ) : (
         <>
           <section className="panel">
@@ -103,15 +111,15 @@ export function RetentionPage(): React.JSX.Element {
               {formatDate(snapshot.period_end)}.
             </p>
             <p>
-              Данные получены: {formatDate(snapshot.collected_at)}. Полнота по
-              самому ограниченному источнику:{" "}
+              Данные получены: {formatDate(snapshot.collected_at)}. Технический
+              показатель полноты:{" "}
               <strong>{percent(snapshot.completeness)}</strong>.
             </p>
             {data &&
             data.snapshot_age_seconds !== null &&
             data.snapshot_age_seconds !== undefined &&
             data.snapshot_age_seconds > 21600 ? (
-              <p className="notice">
+              <p className="notice notice-warning">
                 Данным больше шести часов. Это сохранённый результат, не текущая
                 проверка приложения.
               </p>
@@ -121,6 +129,17 @@ export function RetentionPage(): React.JSX.Element {
               процент удержания платящих клиентов, выручку или вероятность ухода
               конкретного человека.
             </p>
+            <p className="notice notice-warning">
+              Разделение MANA и 360REC в этом снимке не подтверждено. Не
+              используйте эти агрегаты как показатели отдельного приложения.
+            </p>
+            {!mobileAvailable ? (
+              <p className="notice notice-warning">
+                <strong>Мобильная аналитика в снимке недоступна.</strong> Сеансы
+                и поведение в приложении нельзя оценивать по состоянию
+                устройств. Обновление экрана не подключает GA4.
+              </p>
+            ) : null}
           </section>
           <section className="metric-grid" aria-label="Показатели приложения">
             <MetricCard
@@ -182,6 +201,7 @@ export function RetentionPage(): React.JSX.Element {
             <p className="eyebrow">Достоверность отчёта</p>
             <h2>Источники и полнота данных</h2>
             <DataTable
+              caption="Источники сохранённого отчёта"
               items={snapshot.evidence_refs}
               getKey={(item) => item.source}
               columns={[
@@ -192,7 +212,7 @@ export function RetentionPage(): React.JSX.Element {
                 },
                 {
                   key: "coverage",
-                  label: "Полнота",
+                  label: "Техническая полнота",
                   render: (item) => percent(item.completeness),
                 },
                 {
@@ -204,8 +224,10 @@ export function RetentionPage(): React.JSX.Element {
               empty={<p>Источники не указаны.</p>}
             />
             <p>
-              Полнота описывает охват источника, а не точность прогноза.
-              Ограниченная выборка не является статистикой всех пользователей.
+              Это показатель адаптера, а не процент охваченных пользователей и
+              не точность прогноза. Даже 100% не означает, что прочитана вся
+              база. Ограниченная выборка не является статистикой всех
+              пользователей.
             </p>
             {snapshot.limitations?.length ? (
               <details>
@@ -256,6 +278,7 @@ export function RetentionPage(): React.JSX.Element {
       <section className="panel">
         <h2>История анализов</h2>
         <DataTable
+          caption="История анализов удержания"
           items={data?.recent_runs ?? []}
           getKey={(item) => item.run_id}
           columns={[
@@ -275,7 +298,7 @@ export function RetentionPage(): React.JSX.Element {
               render: (item) => formatDate(item.completed_at),
             },
           ]}
-          empty={<p>Запусков пока нет.</p>}
+          empty={data && !error ? <p>Запусков пока нет.</p> : null}
         />
         <p>
           <Link href="/runs">Открыть журнал запусков</Link> ·{" "}

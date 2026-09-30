@@ -91,6 +91,16 @@ describe("RunsPage", () => {
     expect(rendered.container).not.toHaveTextContent("EAA_REAL_LOOKING_SECRET");
     expect(rendered.container).not.toHaveTextContent("test-secret-token-value");
     expect(rendered.container).toHaveTextContent("[REDACTED]");
+    expect(
+      screen.getByRole("heading", { name: /Запуск run-0000/ }),
+    ).toHaveFocus();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Закрыть подробности" }),
+    );
+    expect(screen.getByRole("button", { name: /run-0000/ })).toHaveFocus();
+    expect(
+      screen.queryByRole("heading", { name: /Запуск run-0000/ }),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Фильтр запусков по статусу"), {
       target: { value: "failed" },
@@ -108,5 +118,17 @@ describe("RunsPage", () => {
         expect.anything(),
       ),
     );
+    fireEvent.change(screen.getByLabelText("Фильтр запусков по агенту"), {
+      target: { value: "retention-agent" },
+    });
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("agent_id=retention-agent"),
+        expect.anything(),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Сбросить фильтры" }));
+    expect(screen.getByLabelText("Фильтр запусков по статусу")).toHaveValue("");
+    expect(screen.getByLabelText("Фильтр запусков по агенту")).toHaveValue("");
   });
 });

@@ -97,6 +97,11 @@ describe("ApprovalsPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Укажите причину решения",
     );
+    expect(screen.getByLabelText("Причина решения")).toHaveFocus();
+    expect(screen.getByLabelText("Причина решения")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
 
     fireEvent.change(screen.getByLabelText("Причина решения"), {
       target: { value: "Evidence reviewed by operator" },
@@ -109,6 +114,20 @@ describe("ApprovalsPage", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+  });
+
+  it("does not claim the queue is clear when it cannot be loaded", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "unavailable" }), {
+        status: 503,
+      }),
+    );
+    renderWithSession(<ApprovalsPage />, "approver");
+    await screen.findByText(/Не удалось загрузить очередь согласований/);
+    expect(screen.queryByText("Всё рассмотрено")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Принятых решений пока нет."),
+    ).not.toBeInTheDocument();
   });
 
   it("renders expired proposals and disables every decision control for viewers", async () => {

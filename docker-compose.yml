@@ -107,8 +107,10 @@ services:
       context: ./admin-ui
       args:
         FASTAPI_BASE_URL: ${ADMIN_FASTAPI_BASE_URL:-http://api:8000}
+        OPERATION_CHAT_BASE_URL: ${ADMIN_OPERATION_CHAT_BASE_URL:-}
     environment:
       FASTAPI_BASE_URL: ${ADMIN_FASTAPI_BASE_URL:-http://api:8000}
+      OPERATION_CHAT_BASE_URL: ${ADMIN_OPERATION_CHAT_BASE_URL:-}
     depends_on:
       api:
         condition: service_healthy

@@ -12,6 +12,7 @@ import {
 } from "../api/client";
 import { hasRole, useSession } from "../auth/SessionContext";
 import { EmptyState } from "../components/EmptyState";
+import { QueryState } from "../components/QueryState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { labelFor } from "../ui/labels";
@@ -42,10 +43,14 @@ function parameterValue(
 export function ApprovalsPage(): React.JSX.Element {
   const { session } = useSession();
   const canDecide = hasRole(session, "approver");
-  const { data: approvals, error: approvalsError } = useSWR<
-    ApprovalPage,
-    Error
-  >(PENDING_APPROVALS_KEY, { refreshInterval: 10_000 });
+  const {
+    data: approvals,
+    error: approvalsError,
+    isLoading: approvalsLoading,
+    isValidating: approvalsValidating,
+  } = useSWR<ApprovalPage, Error>(PENDING_APPROVALS_KEY, {
+    refreshInterval: 10_000,
+  });
   const { data: approvalHistory, error: historyError } = useSWR<
     ApprovalPage,
     Error
@@ -54,6 +59,7 @@ export function ApprovalsPage(): React.JSX.Element {
     data: proposals,
     error: proposalsError,
     isLoading,
+    isValidating,
   } = useSWR<ProposalPage, Error>(PROPOSALS_KEY, { refreshInterval: 10_000 });
   const { mutate } = useSWRConfig();
   const [reasonByProposal, setReasonByProposal] = useState<
@@ -63,6 +69,11 @@ export function ApprovalsPage(): React.JSX.Element {
   const [message, setMessage] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkReason, setBulkReason] = useState("");
+  const [invalidReasons, setInvalidReasons] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const queueUnavailable =
+    !approvals || !proposals || Boolean(approvalsError || proposalsError);
   const approvalByProposal = new Map(
     (approvals?.items ?? []).map((approval) => [
       approval.proposal_id,
@@ -71,9 +82,14 @@ export function ApprovalsPage(): React.JSX.Element {
   );
 
   async function decide(proposal: Proposal, approve: boolean): Promise<void> {
+    if (busyProposal !== null || queueUnavailable || !canDecide) return;
     const reason = reasonByProposal[proposal.proposal_id]?.trim();
     if (!reason) {
       setMessage("Укажите причину решения перед одобрением или отклонением.");
+      setInvalidReasons((current) =>
+        new Set(current).add(proposal.proposal_id),
+      );
+      document.getElementById(`reason-${proposal.proposal_id}`)?.focus();
       return;
     }
     setBusyProposal(proposal.proposal_id);
@@ -119,6 +135,7 @@ export function ApprovalsPage(): React.JSX.Element {
   }
 
   async function bulkDecide(approve: boolean): Promise<void> {
+    if (busyProposal !== null || queueUnavailable || !canDecide) return;
     setBusyProposal("bulk");
     setMessage(null);
     try {
@@ -180,15 +197,25 @@ export function ApprovalsPage(): React.JSX.Element {
         title="Согласования"
         description="Перед решением проверьте, что изменится, на чём основано предложение и какие есть риски."
       />
-      {approvalsError || historyError || proposalsError ? (
-        <p className="error-banner" role="alert">
-          Не удалось обновить очередь. Действия по устаревшим данным не
-          выполняются.
+      <QueryState
+        error={approvalsError || proposalsError}
+        loading={isLoading || approvalsLoading}
+        hasData={Boolean(proposals)}
+        retrying={isValidating || approvalsValidating}
+        onRetry={() =>
+          Promise.all([mutate(PENDING_APPROVALS_KEY), mutate(PROPOSALS_KEY)])
+        }
+        subject="очередь согласований"
+      />
+      {!canDecide ? (
+        <p className="notice">
+          Вы можете просматривать предложения. Принимать решения могут
+          согласующие и администраторы.
         </p>
       ) : null}
-      {isLoading ? (
-        <p className="notice" role="status">
-          Обновляем очередь согласований…
+      {historyError ? (
+        <p className="error-banner" role="alert">
+          Не удалось обновить историю решений.
         </p>
       ) : null}
       {message ? (
@@ -212,7 +239,10 @@ export function ApprovalsPage(): React.JSX.Element {
           <button
             className="button secondary compact"
             disabled={
-              !canDecide || busyProposal !== null || selected.size === 0
+              !canDecide ||
+              queueUnavailable ||
+              busyProposal !== null ||
+              selected.size === 0
             }
             onClick={() => void bulkDecide(false)}
             type="button"
@@ -222,7 +252,10 @@ export function ApprovalsPage(): React.JSX.Element {
           <button
             className="button compact"
             disabled={
-              !canDecide || busyProposal !== null || selected.size === 0
+              !canDecide ||
+              queueUnavailable ||
+              busyProposal !== null ||
+              selected.size === 0
             }
             onClick={() => void bulkDecide(true)}
             type="button"
@@ -240,7 +273,8 @@ export function ApprovalsPage(): React.JSX.Element {
             approval?.requested_by === session.user.user_id;
           const decisionDisabled =
             !canDecide ||
-            isBusy ||
+            busyProposal !== null ||
+            queueUnavailable ||
             proposal.status !== "awaiting_approval" ||
             isSelfApproval;
           return (
@@ -327,7 +361,13 @@ export function ApprovalsPage(): React.JSX.Element {
               </div>
               <details className="change-box">
                 <summary>Технические параметры изменения</summary>
-                <pre>{JSON.stringify(proposal.parameters, null, 2)}</pre>
+                <pre
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Технические параметры изменения"
+                >
+                  {JSON.stringify(proposal.parameters, null, 2)}
+                </pre>
               </details>
               <div className="evidence-block">
                 <h3>Основания</h3>
@@ -357,11 +397,27 @@ export function ApprovalsPage(): React.JSX.Element {
                   </ol>
                 </div>
               ) : null}
-              <label className="field">
-                <span>Причина решения</span>
+              <div className="field">
+                <label htmlFor={`reason-${proposal.proposal_id}`}>
+                  Причина решения
+                </label>
                 <textarea
+                  id={`reason-${proposal.proposal_id}`}
+                  aria-invalid={
+                    invalidReasons.has(proposal.proposal_id) || undefined
+                  }
+                  aria-describedby={
+                    invalidReasons.has(proposal.proposal_id)
+                      ? `reason-error-${proposal.proposal_id}`
+                      : undefined
+                  }
                   disabled={decisionDisabled}
                   onChange={(event) => {
+                    setInvalidReasons((current) => {
+                      const next = new Set(current);
+                      next.delete(proposal.proposal_id);
+                      return next;
+                    });
                     setReasonByProposal((current) => ({
                       ...current,
                       [proposal.proposal_id]: event.target.value,
@@ -370,7 +426,15 @@ export function ApprovalsPage(): React.JSX.Element {
                   placeholder="Объясните, почему вы принимаете это решение"
                   value={reasonByProposal[proposal.proposal_id] ?? ""}
                 />
-              </label>
+                {invalidReasons.has(proposal.proposal_id) ? (
+                  <span
+                    className="field-error"
+                    id={`reason-error-${proposal.proposal_id}`}
+                  >
+                    Укажите причину решения.
+                  </span>
+                ) : null}
+              </div>
               <footer>
                 <button
                   className="button secondary"
@@ -396,7 +460,7 @@ export function ApprovalsPage(): React.JSX.Element {
             </article>
           );
         })}
-        {items.length === 0 ? (
+        {proposals && !proposalsError && items.length === 0 ? (
           <div className="panel">
             <EmptyState
               title="Всё рассмотрено"
@@ -422,7 +486,9 @@ export function ApprovalsPage(): React.JSX.Element {
                 <time>{formatDate(approval.requested_at)}</time>
               </div>
             ))}
-          {(approvalHistory?.items ?? []).every(
+          {approvalHistory &&
+          !historyError &&
+          approvalHistory.items.every(
             (approval) => approval.status === "pending",
           ) ? (
             <div className="empty-inline">Принятых решений пока нет.</div>

@@ -6,10 +6,21 @@ on it through agents under an approval-gated safety pipeline.
 **This is not the product API.** The application-facing AI layer is a separate deliverable that
 runs without any of this — see [README.mana-ai.md](README.mana-ai.md).
 
+## Conversation-first workspace
+
+The default administrator UI is a private conversation workspace: exactly four agent rooms,
+with separate server-persisted topics and an explicit MANA/360REC conversation context.
+The existing dense operational screens are available through **Professional mode** (`/overview`).
+See [admin-ux-ui.md](docs/admin-ux-ui.md) for behavior, safety limits and release verification.
+
+Growth and Retention chats can explain saved evidence and offer a confirmation card for the
+existing analysis workflow. Orchestrator and Technical chats are advisory planning interfaces,
+not implementations of those future operational agents. No new action family is enabled.
+
 ## What this platform is
 
-- **FastAPI backend** (`app.main:create_app`) exposing 75 endpoints, including the 14 of the
-  product API layer.
+- **FastAPI backend** (`app.main:create_app`) with typed operational, conversation and
+  independent product API endpoints. The generated OpenAPI contract is authoritative.
 - **Next.js 16 / React 19 admin UI** in `admin-ui/`, served on port 3000, proxying same-origin
   `/api` to FastAPI. Business logic stays in FastAPI.
 - **PostgreSQL** in production (SQLite locally), managed by Alembic.

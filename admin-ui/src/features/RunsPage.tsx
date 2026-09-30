@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import type { RunDetail, RunPage } from "../api/client";
@@ -8,6 +8,7 @@ import { DataTable } from "../components/DataTable";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
+import { QueryState } from "../components/QueryState";
 import { labelFor } from "../ui/labels";
 import {
   compactId,
@@ -18,20 +19,41 @@ import {
 
 const PAGE_SIZE = 20;
 
-export function RunsPage(): React.JSX.Element {
+export function RunsPage({
+  initialRunId = null,
+}: {
+  initialRunId?: string | null;
+}): React.JSX.Element {
   const [status, setStatus] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [offset, setOffset] = useState(0);
   const query = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(offset),
   });
   if (status) query.set("status", status);
-  const { data, error, isLoading } = useSWR<RunPage, Error>(
-    `/api/v1/admin/operation/runs?${query.toString()}`,
-    { refreshInterval: 15_000 },
+  if (agentId) query.set("agent_id", agentId);
+  const { data, error, isLoading, isValidating, mutate } = useSWR<
+    RunPage,
+    Error
+  >(`/api/v1/admin/operation/runs?${query.toString()}`, {
+    refreshInterval: 15_000,
+  });
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(
+    initialRunId,
   );
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const { data: detail, error: detailError } = useSWR<RunDetail, Error>(
+  const detailHeading = useRef<HTMLHeadingElement>(null);
+  const selectedButton = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (selectedRunId) detailHeading.current?.focus();
+  }, [selectedRunId]);
+  const {
+    data: detail,
+    error: detailError,
+    isLoading: detailLoading,
+    isValidating: detailValidating,
+    mutate: refreshDetail,
+  } = useSWR<RunDetail, Error>(
     selectedRunId ? `/api/v1/admin/operation/runs/${selectedRunId}` : null,
     { refreshInterval: 15_000 },
   );
@@ -49,8 +71,36 @@ export function RunsPage(): React.JSX.Element {
         eyebrow="История работы"
         title="Запуски и журнал"
         description="История работы агентов: этапы, результаты, ошибки и подтверждающие данные."
+        actions={
+          <button
+            className="button secondary"
+            disabled={isValidating}
+            onClick={() => void mutate().catch(() => undefined)}
+            type="button"
+          >
+            {isValidating ? "Обновляем…" : "Обновить экран"}
+          </button>
+        }
       />
       <section className="panel list-controls" aria-label="Фильтры запусков">
+        <label>
+          <span>Агент</span>
+          <select
+            aria-label="Фильтр запусков по агенту"
+            value={agentId}
+            onChange={(event) => {
+              setAgentId(event.target.value);
+              setOffset(0);
+            }}
+          >
+            <option value="">Все агенты</option>
+            <option value="growth-agent">Рост и конверсия</option>
+            <option value="retention-agent">Удержание и лояльность</option>
+            <option value="marketing-agent">
+              Маркетинг — исторические запуски
+            </option>
+          </select>
+        </label>
         <label>
           <span>Состояние</span>
           <select
@@ -66,16 +116,35 @@ export function RunsPage(): React.JSX.Element {
             <option value="failed">Ошибка</option>
             <option value="waiting_approval">Ожидает согласования</option>
             <option value="executing">Выполняется</option>
+            <option value="queued">В очереди</option>
+            <option value="collecting">Сбор данных</option>
+            <option value="analyzing">Анализируется</option>
+            <option value="cancelled">Отменён</option>
           </select>
         </label>
-        <span>
+        {status || agentId ? (
+          <button
+            type="button"
+            className="button secondary compact"
+            onClick={() => {
+              setStatus("");
+              setAgentId("");
+              setOffset(0);
+            }}
+          >
+            Сбросить фильтры
+          </button>
+        ) : null}
+        <span role="status">
           {data
-            ? `Запусков: ${String(data.total)}`
-            : "Загружаем количество запусков…"}
+            ? data.total === 0
+              ? "Запусков: 0"
+              : `${offset + 1}–${Math.min(offset + PAGE_SIZE, data.total)} из ${data.total}`
+            : "Количество неизвестно"}
         </span>
         <button
           className="button secondary compact"
-          disabled={offset === 0}
+          disabled={offset === 0 || isLoading}
           onClick={() => setOffset(Math.max(offset - PAGE_SIZE, 0))}
           type="button"
         >
@@ -83,25 +152,24 @@ export function RunsPage(): React.JSX.Element {
         </button>
         <button
           className="button secondary compact"
-          disabled={!data || offset + PAGE_SIZE >= data.total}
+          disabled={!data || isLoading || offset + PAGE_SIZE >= data.total}
           onClick={() => setOffset(offset + PAGE_SIZE)}
           type="button"
         >
           Далее
         </button>
       </section>
-      {error ? (
-        <p className="error-banner" role="alert">
-          Не удалось загрузить запуски: {String(error)}
-        </p>
-      ) : null}
-      {detailError ? (
-        <p className="error-banner" role="alert">
-          Не удалось обновить историю выбранного запуска.
-        </p>
-      ) : null}
+      <QueryState
+        error={error}
+        loading={isLoading}
+        hasData={Boolean(data)}
+        retrying={isValidating}
+        onRetry={mutate}
+        subject="запуски"
+      />
       <section className="panel">
         <DataTable
+          caption="История запусков агентов"
           columns={[
             {
               key: "run",
@@ -109,7 +177,16 @@ export function RunsPage(): React.JSX.Element {
               render: (item) => (
                 <button
                   className="link-button"
-                  onClick={() => setSelectedRunId(item.run_id)}
+                  aria-expanded={selectedRunId === item.run_id}
+                  aria-controls={
+                    selectedRunId === item.run_id ? "run-detail" : undefined
+                  }
+                  onClick={(event) => {
+                    selectedButton.current = event.currentTarget;
+                    setSelectedRunId(item.run_id);
+                    if (selectedRunId === item.run_id)
+                      detailHeading.current?.focus();
+                  }}
                   type="button"
                 >
                   <code>{compactId(item.run_id)}</code>
@@ -145,26 +222,52 @@ export function RunsPage(): React.JSX.Element {
           items={runs}
           getKey={(item) => item.run_id}
           empty={
-            <EmptyState
-              title={isLoading ? "Загружаем запуски" : "Запусков пока нет"}
-              detail={
-                isLoading
-                  ? "Загружаем историю работы."
-                  : "Нет запусков с выбранным фильтром."
-              }
-            />
+            data && !error ? (
+              <EmptyState
+                title={isLoading ? "Загружаем запуски" : "Запусков пока нет"}
+                detail={
+                  isLoading
+                    ? "Загружаем историю работы."
+                    : "Нет запусков с выбранным фильтром."
+                }
+              />
+            ) : null
           }
         />
       </section>
       {selectedRunId ? (
-        <section className="panel run-detail">
+        <section
+          className="panel run-detail"
+          id="run-detail"
+          aria-labelledby="run-detail-heading"
+        >
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Этапы запуска</p>
-              <h2>{compactId(selectedRunId)}</h2>
+              <h2 ref={detailHeading} tabIndex={-1} id="run-detail-heading">
+                Запуск {compactId(selectedRunId)}
+              </h2>
             </div>
             {detail ? <StatusBadge status={detail.run.status} /> : null}
+            <button
+              className="button secondary compact"
+              type="button"
+              onClick={() => {
+                setSelectedRunId(null);
+                selectedButton.current?.focus();
+              }}
+            >
+              Закрыть подробности
+            </button>
           </div>
+          <QueryState
+            error={detailError}
+            loading={detailLoading}
+            hasData={Boolean(detail)}
+            retrying={detailValidating}
+            onRetry={refreshDetail}
+            subject="подробности запуска"
+          />
           <ol className="timeline">
             {(detail?.timeline ?? [])
               .slice()
@@ -228,7 +331,11 @@ export function RunsPage(): React.JSX.Element {
           ) : null}
           <details className="inspection-block">
             <summary>Технические сведения об этапах</summary>
-            <pre>
+            <pre
+              tabIndex={0}
+              role="region"
+              aria-label="Технические сведения об этапах"
+            >
               {JSON.stringify(
                 redactForDisplay(
                   detail?.timeline.map((event) => ({
@@ -243,7 +350,11 @@ export function RunsPage(): React.JSX.Element {
           </details>
           <details className="inspection-block">
             <summary>Исходные данные</summary>
-            <pre>
+            <pre
+              tabIndex={0}
+              role="region"
+              aria-label="Исходные данные запуска"
+            >
               {JSON.stringify(
                 redactForDisplay(detail?.snapshots ?? []),
                 null,
@@ -253,7 +364,11 @@ export function RunsPage(): React.JSX.Element {
           </details>
           <details className="inspection-block">
             <summary>Технические результаты</summary>
-            <pre>
+            <pre
+              tabIndex={0}
+              role="region"
+              aria-label="Технические результаты запуска"
+            >
               {JSON.stringify(
                 redactForDisplay({
                   findings: detail?.findings ?? [],

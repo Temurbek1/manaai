@@ -14,7 +14,11 @@ export function MetricCard({
   return (
     <article className={`metric-card metric-${accent}`}>
       <p>{label}</p>
-      <strong>{value}</strong>
+      <strong>
+        {typeof value === "number"
+          ? new Intl.NumberFormat("ru-RU").format(value)
+          : value}
+      </strong>
       {detail ? <small>{detail}</small> : null}
     </article>
   );

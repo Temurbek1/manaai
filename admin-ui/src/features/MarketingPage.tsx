@@ -607,7 +607,12 @@ export function MarketingPage(): React.JSX.Element {
             </div>
             <span className="counter">{findingItems.length}</span>
           </div>
-          <div className="signal-list">
+          <div
+            className="signal-list"
+            tabIndex={0}
+            role="region"
+            aria-label="Выводы по рекламе"
+          >
             {findingItems.slice(0, 12).map((finding) => (
               <article className="signal" key={finding.finding_id}>
                 <div>
@@ -685,7 +690,12 @@ export function MarketingPage(): React.JSX.Element {
             </div>
             <span className="counter">{recommendationItems.length}</span>
           </div>
-          <div className="signal-list">
+          <div
+            className="signal-list"
+            tabIndex={0}
+            role="region"
+            aria-label="Предложения по рекламе"
+          >
             {recommendationItems.slice(0, 12).map((recommendation) => (
               <article
                 className="signal"
@@ -833,7 +843,11 @@ export function MarketingPage(): React.JSX.Element {
             </div>
             <span>v{overview?.configuration?.version ?? "—"}</span>
           </div>
-          <pre>
+          <pre
+            tabIndex={0}
+            role="region"
+            aria-label="Технические настройки рекламы"
+          >
             {JSON.stringify(overview?.configuration?.values ?? {}, null, 2)}
           </pre>
           <div className="schedule-list">

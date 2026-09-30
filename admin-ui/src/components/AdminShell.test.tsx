@@ -6,8 +6,7 @@ import { requestBodyText, requestUrl } from "@/test/http";
 
 import { AdminShell } from "./AdminShell";
 import { Providers } from "./Providers";
-
-jest.mock("next/navigation", () => ({ usePathname: () => "/" }));
+import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 
 const authenticatedSession = {
   authenticated: true,
@@ -44,9 +43,11 @@ function jsonResponse(body: unknown, status = 200): Promise<Response> {
 function renderShell(): void {
   render(
     <Providers>
-      <AdminShell>
-        <DashboardPage />
-      </AdminShell>
+      <PathnameContext.Provider value="/overview">
+        <AdminShell>
+          <DashboardPage />
+        </AdminShell>
+      </PathnameContext.Provider>
     </Providers>,
   );
 }

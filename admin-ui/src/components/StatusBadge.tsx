@@ -4,11 +4,16 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps): React.JSX.Element {
   const tone =
-    status.includes("fail") || status === "unhealthy" || status === "rejected"
+    status.includes("fail") ||
+    status === "unhealthy" ||
+    status === "rejected" ||
+    status === "critical" ||
+    status === "high"
       ? "danger"
       : status.includes("pending") ||
           status.includes("waiting") ||
-          status === "degraded"
+          status === "degraded" ||
+          status === "medium"
         ? "warning"
         : status === "enabled" || status === "completed" || status === "healthy"
           ? "success"

@@ -348,6 +348,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/chat/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Availability */
+        get: operations["availability_api_v1_admin_operation_chat_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/chat/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topics */
+        get: operations["topics_api_v1_admin_operation_chat_topics_get"];
+        put?: never;
+        /** Create Topic */
+        post: operations["create_topic_api_v1_admin_operation_chat_topics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/chat/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topic Detail */
+        get: operations["topic_detail_api_v1_admin_operation_chat_topics__topic_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/chat/topics/{topic_id}/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Analysis */
+        post: operations["request_analysis_api_v1_admin_operation_chat_topics__topic_id__analysis_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/chat/topics/{topic_id}/analysis/{turn_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analysis State */
+        get: operations["analysis_state_api_v1_admin_operation_chat_topics__topic_id__analysis__turn_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/chat/topics/{topic_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Message */
+        post: operations["send_message_api_v1_admin_operation_chat_topics__topic_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/chat/topics/{topic_id}/messages/{turn_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Message */
+        post: operations["stop_message_api_v1_admin_operation_chat_topics__topic_id__messages__turn_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/dashboard": {
         parameters: {
             query?: never;
@@ -2371,6 +2491,19 @@ export interface components {
             /** Rationale */
             rationale: string;
         };
+        /** AnalysisRequest */
+        AnalysisRequest: {
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
         /**
          * AnalysisStatus
          * @enum {string}
@@ -2876,6 +3009,24 @@ export interface components {
          * @enum {string}
          */
         CapabilityRisk: "read" | "propose" | "write" | "financial";
+        /** ChatAnalysisState */
+        ChatAnalysisState: {
+            /** Run Id */
+            run_id?: string | null;
+            /** State */
+            state: string;
+            /** Summary */
+            summary: string;
+        };
+        /** ChatAvailability */
+        ChatAvailability: {
+            /** Daily Limit */
+            daily_limit: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Hourly Limit */
+            hourly_limit: number;
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
@@ -2892,6 +3043,103 @@ export interface components {
             answer: string;
             /** Model */
             model: string;
+        };
+        /** ChatSource */
+        ChatSource: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Report Id */
+            report_id: string;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Scope Verified
+             * @default false
+             * @constant
+             */
+            scope_verified: false;
+            /** Title */
+            title: string;
+        };
+        /** ChatTopic */
+        ChatTopic: {
+            /**
+             * Agent Id
+             * @enum {string}
+             */
+            agent_id: "operations-orchestrator" | "growth-agent" | "retention-agent" | "technical-agent";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
+            /** Title */
+            title: string;
+            /** Topic Id */
+            topic_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ChatTurn */
+        ChatTurn: {
+            /**
+             * Analysis Requested
+             * @default false
+             */
+            analysis_requested: boolean;
+            /**
+             * Answer
+             * @default
+             */
+            answer: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Input Tokens */
+            input_tokens?: number | null;
+            /** Message */
+            message: string;
+            /** Model */
+            model?: string | null;
+            /**
+             * Next Action
+             * @default none
+             * @enum {string}
+             */
+            next_action: "none" | "analyze" | "approvals";
+            /** Output Tokens */
+            output_tokens?: number | null;
+            /** Plan */
+            plan?: string[];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Sources */
+            sources?: components["schemas"]["ChatSource"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "reading" | "thinking" | "completed" | "failed" | "cancelled";
+            /** Topic Id */
+            topic_id: string;
+            /** Turn Id */
+            turn_id: string;
         };
         /** CheckResult */
         CheckResult: {
@@ -4339,6 +4587,16 @@ export interface components {
             patterns: components["schemas"]["MarketingPattern"][];
             /** Source Record Count */
             source_record_count: number;
+        };
+        /** MessageCreate */
+        MessageCreate: {
+            /** Message */
+            message: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
         };
         /** MetaDiscoveryResponse */
         MetaDiscoveryResponse: {
@@ -6103,6 +6361,27 @@ export interface components {
             /** Test Type */
             test_type: string;
         };
+        /** TopicCreate */
+        TopicCreate: {
+            /**
+             * Agent Id
+             * @enum {string}
+             */
+            agent_id: "operations-orchestrator" | "growth-agent" | "retention-agent" | "technical-agent";
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
+            /** Title */
+            title: string;
+        };
+        /** TopicDetail */
+        TopicDetail: {
+            topic: components["schemas"]["ChatTopic"];
+            /** Turns */
+            turns: components["schemas"]["ChatTurn"][];
+        };
         /**
          * TriggerType
          * @enum {string}
@@ -6932,6 +7211,302 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_AuditEvent_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    availability_api_v1_admin_operation_chat_availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    topics_api_v1_admin_operation_chat_topics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTopic"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_topic_api_v1_admin_operation_chat_topics_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTopic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    topic_detail_api_v1_admin_operation_chat_topics__topic_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_analysis_api_v1_admin_operation_chat_topics__topic_id__analysis_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTurn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analysis_state_api_v1_admin_operation_chat_topics__topic_id__analysis__turn_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatAnalysisState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_api_v1_admin_operation_chat_topics__topic_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTurn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_message_api_v1_admin_operation_chat_topics__topic_id__messages__turn_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTurn"];
                 };
             };
             /** @description Validation Error */

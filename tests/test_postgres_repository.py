@@ -1,12 +1,18 @@
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 
+from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.ports import ConcurrentOperationError
+from app.mana_operation_ai.domain.chat import MessageCreate, TopicCreate
 from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType
 from app.mana_operation_ai.domain.models import AgentDefinition, AgentRun, AgentSchedule
+from app.mana_operation_ai.infrastructure.persistence.chat_repository import (
+    SqlAlchemyChatRepository,
+)
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import AgentScheduleRow
 from app.mana_operation_ai.infrastructure.persistence.repository import (
@@ -18,6 +24,44 @@ pytestmark = pytest.mark.skipif(
     POSTGRES_URL is None,
     reason="TEST_POSTGRES_URL is required for isolated PostgreSQL integration tests",
 )
+
+
+async def test_postgres_chat_budget_serializes_across_connections() -> None:
+    assert POSTGRES_URL is not None
+    first_db = OperationDatabase(POSTGRES_URL)
+    second_db = OperationDatabase(POSTGRES_URL)
+    first = SqlAlchemyChatRepository(first_db, hourly_limit=1, daily_limit=1)
+    second = SqlAlchemyChatRepository(second_db, hourly_limit=1, daily_limit=1)
+    try:
+        await first.initialize()
+        topics = [
+            await repository.create(
+                owner,
+                TopicCreate(
+                    agent_id="growth-agent",
+                    product="mana",
+                    title="Concurrent budget test",
+                ),
+            )
+            for repository, owner in ((first, "pg-chat-alice"), (second, "pg-chat-bob"))
+        ]
+        results = await asyncio.gather(
+            first.reserve(
+                "pg-chat-alice",
+                topics[0].topic_id,
+                MessageCreate(request_id=uuid4(), message="One"),
+            ),
+            second.reserve(
+                "pg-chat-bob", topics[1].topic_id, MessageCreate(request_id=uuid4(), message="Two")
+            ),
+            return_exceptions=True,
+        )
+        assert sum(isinstance(result, tuple) for result in results) == 1
+        errors = [result for result in results if isinstance(result, ChatError)]
+        assert len(errors) == 1 and errors[0].status == 429
+    finally:
+        await first_db.dispose()
+        await second_db.dispose()
 
 
 async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None:

@@ -19,6 +19,35 @@ class Base(DeclarativeBase):
     """Declarative base for operation-platform persistence rows."""
 
 
+class ChatBudgetRow(Base):
+    __tablename__ = "operation_chat_budget"
+
+    budget_id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ChatTopicRow(Base):
+    __tablename__ = "operation_chat_topics"
+
+    topic_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(128), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class ChatTurnRow(Base):
+    __tablename__ = "operation_chat_turns"
+    __table_args__ = (UniqueConstraint("topic_id", "request_id", name="uq_chat_request"),)
+
+    turn_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"), index=True)
+    owner: Mapped[str] = mapped_column(String(128), index=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
 class AdminUserRow(Base):
     __tablename__ = "operation_admin_users"
 

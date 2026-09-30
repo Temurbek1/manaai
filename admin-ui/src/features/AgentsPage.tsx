@@ -197,6 +197,7 @@ export function AgentsPage(): React.JSX.Element {
                   : "agent-button"
               }
               key={agent.agent_id}
+              aria-pressed={selectedId === agent.agent_id}
               onClick={() => {
                 setSelectedId(agent.agent_id);
                 setSelectedCapability(agent.default_capability_key);
@@ -211,7 +212,7 @@ export function AgentsPage(): React.JSX.Element {
               <StatusBadge status={agent.status} />
             </button>
           ))}
-          {(agents?.items.length ?? 0) === 0 ? (
+          {agents && !agentsError && agents.items.length === 0 ? (
             <EmptyState
               title="Агентов пока нет"
               detail="Подключённых агентов пока нет."

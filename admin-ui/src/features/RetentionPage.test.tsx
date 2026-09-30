@@ -50,6 +50,8 @@ describe("RetentionPage", () => {
       screen.getByText("Сеансы мобильного приложения").closest("article"),
     ).toHaveTextContent("Нет данных");
     expect(screen.getByText("Приложение Manakids")).toBeInTheDocument();
+    expect(screen.getByText(/Разделение MANA и 360REC/)).toBeInTheDocument();
+    expect(screen.getByText(/Даже 100% не означает/)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Удержание и лояльность" }),
     ).toBeInTheDocument();
@@ -57,6 +59,22 @@ describe("RetentionPage", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     for (const [, options] of fetch.mock.calls)
       expect(options?.method).toBe("GET");
+  });
+
+  it("does not present a failed request as an empty analysis history", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "unavailable" }), {
+        status: 503,
+      }),
+    );
+    renderWithSession(<RetentionPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Не удалось загрузить отчёт",
+    );
+    expect(
+      screen.queryByText("Пока нет завершённого анализа"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Запусков пока нет.")).not.toBeInTheDocument();
   });
 
   it("explains an empty history without suggesting fabricated results", async () => {

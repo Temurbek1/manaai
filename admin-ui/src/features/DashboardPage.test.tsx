@@ -92,8 +92,9 @@ describe("DashboardPage", () => {
       .spyOn(globalThis, "fetch")
       .mockImplementation(jest.fn<typeof fetch>(() => pending));
     const rendered = renderWithSession(<DashboardPage />, "viewer");
-    expect(rendered.container).toHaveTextContent("…");
-    expect(screen.getByText("Агентов пока нет")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Загружаем обзор");
+    expect(screen.queryByText("Агентов пока нет")).not.toBeInTheDocument();
+    expect(rendered.container).not.toHaveTextContent("Разрешено политикой");
 
     resolveRequest?.(
       new Response(JSON.stringify({ detail: "Database unavailable" }), {
@@ -104,5 +105,30 @@ describe("DashboardPage", () => {
     expect(
       await screen.findByText(/Не удалось загрузить обзор/),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Агентов пока нет")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Остановить действия" }),
+    ).toBeDisabled();
+  });
+
+  it("refreshes stored data without launching an analysis and provides task links", async () => {
+    const fetchMock = jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => response(dashboard));
+    renderWithSession(<DashboardPage />, "viewer");
+    expect(
+      await screen.findByRole("link", { name: /Рассмотреть согласования/ }),
+    ).toHaveAttribute("href", "/approvals");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Обновить экран" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Обновить экран" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    for (const [url, options] of fetchMock.mock.calls) {
+      expect(requestUrl(url)).toContain("/dashboard");
+      expect(options?.method).toBe("GET");
+    }
   });
 });

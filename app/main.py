@@ -33,6 +33,7 @@ from app.mana_operation_ai.application.agent_service import AgentService
 from app.mana_operation_ai.application.auth_ports import TelegramOtpSender
 from app.mana_operation_ai.application.auth_service import AdminAuthService
 from app.mana_operation_ai.application.capabilities import CapabilityRegistry
+from app.mana_operation_ai.application.chat_service import OperationChatService
 from app.mana_operation_ai.application.growth.agent import GrowthAgent
 from app.mana_operation_ai.application.growth.funnel import GrowthFunnelCapabilityHandler
 from app.mana_operation_ai.application.maintenance import OperationMaintenanceService
@@ -54,8 +55,10 @@ from app.mana_operation_ai.application.retention.engagement import (
 from app.mana_operation_ai.application.runtime import SystemClock, UuidGenerator
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
+from app.mana_operation_ai.domain.chat import ChatAvailability
 from app.mana_operation_ai.infrastructure.ads.fake_meta import FakeMetaAdsAdapter
 from app.mana_operation_ai.infrastructure.ads.meta import MetaAdsAdapter
+from app.mana_operation_ai.infrastructure.chat_model import OpenAIConversationModel
 from app.mana_operation_ai.infrastructure.google_auth import (
     GoogleServiceAccountTokenProvider,
 )
@@ -70,6 +73,9 @@ from app.mana_operation_ai.infrastructure.notifications.logging import (
 )
 from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
     SqlAlchemyAdminAuthRepository,
+)
+from app.mana_operation_ai.infrastructure.persistence.chat_repository import (
+    SqlAlchemyChatRepository,
 )
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.repository import (
@@ -441,6 +447,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.operation_agent_service = agent_service
     app.state.operation_action_lifecycle = action_lifecycle
     app.state.operation_admin_service = operation_admin_service
+    chat_repository = SqlAlchemyChatRepository(
+        operation_database,
+        hourly_limit=settings.operation_chat_hourly_limit,
+        daily_limit=settings.operation_chat_daily_limit,
+    )
+    await chat_repository.initialize()
+    chat_model = OpenAIConversationModel(settings)
+    app.state.operation_chat_service = OperationChatService(
+        repository=chat_repository,
+        model=chat_model,
+        admin=operation_admin_service,
+        availability=ChatAvailability(
+            enabled=settings.operation_chat_enabled and settings.is_openai_configured,
+            hourly_limit=settings.operation_chat_hourly_limit,
+            daily_limit=settings.operation_chat_daily_limit,
+        ),
+    )
     app.state.operation_maintenance_service = maintenance_service
     app.state.operation_scheduler = operation_scheduler
     if settings.operation_scheduler_enabled:
@@ -449,6 +472,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await chat_model.close()
         await audio_moderation_runtime.stop()
         await operation_scheduler.stop()
         for client in first_party_http_clients:

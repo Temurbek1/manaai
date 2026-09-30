@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { DashboardPage } from "@/features/DashboardPage";
+import { ChatPage } from "@/features/chat/ChatPage";
 
-export const metadata: Metadata = { title: "Обзор" };
+export const metadata: Metadata = { title: "Чаты с агентами" };
 
 export default function OverviewRoute(): React.JSX.Element {
-  return <DashboardPage />;
+  return <ChatPage agentId="growth-agent" />;
 }

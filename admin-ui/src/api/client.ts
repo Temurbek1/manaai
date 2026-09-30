@@ -69,8 +69,16 @@ export async function apiGet<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: "GET" });
 }
 
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  return apiRequest<T>(path, { method: "POST", body: JSON.stringify(body) });
+export async function apiPost<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  return apiRequest<T>(path, {
+    method: "POST",
+    body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
+  });
 }
 
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {

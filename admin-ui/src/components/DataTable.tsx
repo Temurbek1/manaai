@@ -11,6 +11,7 @@ interface DataTableProps<Item> {
   items: readonly Item[];
   getKey: (item: Item) => string;
   empty: ReactNode;
+  caption?: string;
 }
 
 export function DataTable<Item>({
@@ -18,13 +19,15 @@ export function DataTable<Item>({
   items,
   getKey,
   empty,
+  caption = "Сохранённые данные",
 }: DataTableProps<Item>): React.JSX.Element {
   if (items.length === 0) {
     return <>{empty}</>;
   }
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label={caption} tabIndex={0}>
       <table>
+        <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
             {columns.map((column) => (

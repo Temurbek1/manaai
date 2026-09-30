@@ -14,6 +14,7 @@ import { SessionProvider } from "@/auth/SessionContext";
 
 import { AuthenticatedShell } from "./AuthenticatedShell";
 import { LoginPanel } from "./LoginPanel";
+import { Providers } from "./Providers";
 
 interface AdminShellProps {
   children: ReactNode;
@@ -84,7 +85,9 @@ export function AdminShell({ children }: AdminShellProps): React.JSX.Element {
 
   return (
     <SessionProvider value={{ session, signOut }}>
-      <AuthenticatedShell>{children}</AuthenticatedShell>
+      <Providers key={session.user.user_id}>
+        <AuthenticatedShell>{children}</AuthenticatedShell>
+      </Providers>
     </SessionProvider>
   );
 }

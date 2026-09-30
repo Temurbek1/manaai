@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useSession } from "@/auth/SessionContext";
 import { labelFor } from "../ui/labels";
+import { TopicNavigation } from "../features/chat/TopicNavigation";
 
 interface AuthenticatedShellProps {
   children: ReactNode;
 }
 
 const NAVIGATION = [
-  { href: "/", label: "Обзор", icon: "⌂", adminOnly: false },
+  { href: "/overview", label: "Обзор", icon: "⌂", adminOnly: false },
   {
     href: "/growth",
     label: "Рост и конверсия",
@@ -35,20 +36,58 @@ const NAVIGATION = [
 export function AuthenticatedShell({
   children,
 }: AuthenticatedShellProps): React.JSX.Element {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
+  const chatMode = pathname === "/" || pathname.startsWith("/chat");
   const { session, signOut } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const navigation = useRef<HTMLElement>(null);
+  const main = useRef<HTMLElement>(null);
+  const previousPath = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPath.current !== pathname) {
+      main.current?.focus();
+      previousPath.current = pathname;
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (menuOpen)
+      navigation.current
+        ?.querySelector<HTMLAnchorElement>("a[aria-current='page'], a")
+        ?.focus();
+  }, [menuOpen]);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent): void {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape" && menuOpen) {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, []);
+  }, [menuOpen]);
 
   return (
-    <div className="app-shell">
+    <div className={chatMode ? "app-shell chat-shell" : "app-shell"}>
+      <a className="skip-link" href="#main-content">
+        Перейти к содержимому
+      </a>
+      <header className="mobile-bar">
+        <button
+          ref={menuButton}
+          aria-controls="primary-menu"
+          aria-expanded={menuOpen}
+          aria-label="Открыть меню"
+          onClick={() => setMenuOpen(!menuOpen)}
+          type="button"
+        >
+          <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span> Меню
+        </button>
+        <strong>MANA Operation AI</strong>
+      </header>
       <aside
         className={menuOpen ? "sidebar open" : "sidebar"}
         id="primary-menu"
@@ -62,39 +101,73 @@ export function AuthenticatedShell({
             <small>Operation AI</small>
           </div>
         </div>
-        <nav aria-label="Основное меню">
-          {NAVIGATION.map((item) => {
-            if (item.adminOnly && session.user.role !== "admin") return null;
-            const active = pathname === item.href;
-            return (
-              <Link
-                aria-current={active ? "page" : undefined}
-                className={active ? "nav-item active" : "nav-item"}
-                href={item.href}
-                key={item.href}
-                onClick={() => setMenuOpen(false)}
-              >
-                <span aria-hidden="true">{item.icon}</span>
-                {item.label}
+        <nav ref={navigation} aria-label="Основное меню">
+          {chatMode ? (
+            <TopicNavigation
+              pathname={pathname}
+              onNavigate={() => {
+                setMenuOpen(false);
+                main.current?.focus();
+              }}
+            />
+          ) : (
+            <>
+              <Link className="nav-item" href="/">
+                ← К чатам с агентами
               </Link>
-            );
-          })}
+              <p className="nav-section-label">Профессиональный режим</p>
+            </>
+          )}
+          {!chatMode &&
+            NAVIGATION.map((item) => {
+              if (item.adminOnly && session.user.role !== "admin") return null;
+              const active =
+                pathname === item.href ||
+                (item.href === "/growth" && pathname === "/marketing");
+              return (
+                <Link
+                  aria-current={active ? "page" : undefined}
+                  className={active ? "nav-item active" : "nav-item"}
+                  href={item.href}
+                  key={item.href}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    main.current?.focus();
+                  }}
+                >
+                  <span aria-hidden="true">{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
         </nav>
-        <div className="sidebar-safety">
-          <div className="pulse-dot" aria-hidden="true" />
-          <div>
-            <strong>
-              {session.live_meta_read_only
-                ? "Реальные данные: только чтение"
-                : "Контролируемые действия"}
-            </strong>
-            <small>
-              {session.live_meta_read_only
-                ? "Изменения в Meta отключены"
-                : "Ограничения · согласование · журнал"}
-            </small>
+        {chatMode && (
+          <Link
+            className="professional-link"
+            href="/overview"
+            onClick={() => setMenuOpen(false)}
+          >
+            Профессиональный режим <span aria-hidden="true">↗</span>
+            <small>Отчёты, согласования, настройки</small>
+          </Link>
+        )}
+        {!chatMode && (
+          <div className="sidebar-safety">
+            <div className="pulse-dot" aria-hidden="true" />
+            <div>
+              <strong>
+                {session.live_meta_read_only
+                  ? "Meta: только чтение"
+                  : "Контролируемые действия"}
+              </strong>
+              <small>
+                {session.live_meta_read_only
+                  ? "Изменения в Meta отключены"
+                  : "Ограничения · согласование · журнал"}
+              </small>
+            </div>
           </div>
-        </div>
+        )}
         <div className="session-box">
           <span>
             <strong>
@@ -109,16 +182,8 @@ export function AuthenticatedShell({
           </button>
         </div>
       </aside>
-      {menuOpen ? (
-        <button
-          aria-label="Закрыть меню"
-          className="scrim"
-          onClick={() => setMenuOpen(false)}
-          type="button"
-        />
-      ) : null}
       <div className="workspace">
-        {session.live_meta_read_only ? (
+        {!chatMode && session.live_meta_read_only ? (
           <div className="live-readonly-banner" role="status">
             <strong>META — ТОЛЬКО ЧТЕНИЕ</strong>
             <span>
@@ -127,20 +192,9 @@ export function AuthenticatedShell({
             </span>
           </div>
         ) : null}
-        <header className="mobile-bar">
-          <button
-            aria-controls="primary-menu"
-            aria-expanded={menuOpen}
-            aria-label="Открыть меню"
-            onClick={() => setMenuOpen(true)}
-            type="button"
-          >
-            ☰
-          </button>
-          <strong>MANA Operation AI</strong>
-          <span className="pulse-dot" aria-hidden="true" />
-        </header>
-        <main>{children}</main>
+        <main ref={main} id="main-content" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   );

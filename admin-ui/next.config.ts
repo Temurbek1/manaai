@@ -5,12 +5,19 @@ const configuredFastApiBaseUrl =
   process.env.FASTAPI_BASE_URL ?? defaultFastApiBaseUrl;
 const fastApiBaseUrl = configuredFastApiBaseUrl.replace(/\/+$/, "");
 const parsedFastApiBaseUrl = new URL(fastApiBaseUrl);
+const chatBaseUrl = (
+  process.env.OPERATION_CHAT_BASE_URL || fastApiBaseUrl
+).replace(/\/+$/, "");
+const parsedChatBaseUrl = new URL(chatBaseUrl);
 
 if (
   parsedFastApiBaseUrl.protocol !== "http:" &&
   parsedFastApiBaseUrl.protocol !== "https:"
 ) {
   throw new Error("FASTAPI_BASE_URL must use http or https");
+}
+if (!["http:", "https:"].includes(parsedChatBaseUrl.protocol)) {
+  throw new Error("OPERATION_CHAT_BASE_URL must use http or https");
 }
 
 const scriptSource =
@@ -32,6 +39,7 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  experimental: { proxyTimeout: 120_000 },
   agentRules: false,
   output: "standalone",
   poweredByHeader: false,
@@ -54,6 +62,10 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      {
+        source: "/api/v1/admin/operation/chat/:path*",
+        destination: `${chatBaseUrl}/api/v1/admin/operation/chat/:path*`,
+      },
       {
         source: "/api/:path*",
         destination: `${fastApiBaseUrl}/api/:path*`,

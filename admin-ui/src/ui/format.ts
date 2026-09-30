@@ -1,5 +1,5 @@
 export function formatDate(value: string | null | undefined): string {
-  if (!value) {
+  if (!value || !Number.isFinite(new Date(value).getTime())) {
     return "Нет данных";
   }
   return new Intl.DateTimeFormat("ru-RU", {

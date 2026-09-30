@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     openai_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     openai_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] = "none"
     openai_verbosity: Literal["low", "medium", "high"] = "low"
+    operation_chat_enabled: bool = True
+    operation_chat_hourly_limit: int = Field(default=20, ge=1, le=100)
+    operation_chat_daily_limit: int = Field(default=200, ge=1, le=2000)
 
     audio_moderation_enabled: bool = False
     ai_audio_moderation_auth_token: SecretStr | None = None
