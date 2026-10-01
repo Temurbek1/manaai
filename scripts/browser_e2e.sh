@@ -132,6 +132,8 @@ login_browser 976835256
 assert_browser 'document.body.innerText.includes("Над чем поработаем?")' 'chat-first home did not render'
 assert_browser 'document.querySelectorAll(".agent-nav-group").length === 4' 'four agent chats are missing'
 assert_browser '!document.querySelector(".task-grid") && !document.querySelector("a[href=\"/users\"]")' 'professional controls leaked into chat mode'
+assert_browser '!document.querySelector(".topic-options, .chat-starters, .chat-tools-links")' 'manual setup controls leaked into the simple chat'
+assert_browser 'document.querySelectorAll(".chat-page button").length === 1' 'new chat has extra action buttons'
 assert_accessible
 if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
   browser set viewport 1440 1000 >/dev/null
@@ -232,8 +234,9 @@ assert_browser 'document.querySelector(".report-copy")?.textContent?.includes("M
 
 browser eval '(() => { const link = document.querySelector("a[href=\"/runs\"]"); if (!(link instanceof HTMLAnchorElement)) throw new Error("runs route link missing"); link.click(); return "clicked"; })()' >/dev/null
 browser wait --load networkidle >/dev/null
-browser eval 'document.querySelector(".link-button")?.click(); "opened"' >/dev/null
-browser wait --load networkidle >/dev/null
+browser wait --fn 'document.querySelector(".link-button") !== null' >/dev/null
+browser click '.link-button' >/dev/null
+browser wait --fn 'document.body.innerText.includes("action_verified")' >/dev/null
 assert_browser 'document.body.innerText.includes("action_verified")' 'verification audit event was not rendered'
 assert_browser 'document.body.innerText.includes("report_created")' 'report audit event was not rendered'
 assert_browser 'document.body.textContent.includes("Завершён")' 'run did not complete'
