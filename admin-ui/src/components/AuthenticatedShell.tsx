@@ -148,7 +148,6 @@ export function AuthenticatedShell({
             onClick={() => setMenuOpen(false)}
           >
             Профессиональный режим <span aria-hidden="true">↗</span>
-            <small>Отчёты, согласования, настройки</small>
           </Link>
         )}
         {!chatMode && (

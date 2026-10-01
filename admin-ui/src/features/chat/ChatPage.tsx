@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
@@ -8,14 +7,16 @@ import { apiGet, apiPost } from "@/api/client";
 import type { components } from "@/api/schema";
 import { QueryState } from "@/components/QueryState";
 import { useSession } from "@/auth/SessionContext";
-import { formatDate } from "@/ui/format";
 import { AnalysisButton, AnalysisResult } from "./ChatAnalysis";
 import { ChatApprovals } from "./ChatApprovals";
+import { ChatMessageDetails } from "./ChatMessageDetails";
+import type {
+  ChatViewAvailability as Availability,
+  ChatViewDetail as Detail,
+} from "./contracts";
 import { CHAT_AGENTS, CHAT_BASE, type ChatAgentId } from "./agents";
 
 type Topic = components["schemas"]["ChatTopic"];
-type Detail = components["schemas"]["TopicDetail"];
-type Availability = components["schemas"]["ChatAvailability"];
 const ACTIVE = ["reading", "thinking"];
 
 export function ChatPage({
@@ -29,8 +30,17 @@ export function ChatPage({
   const router = useRouter();
   const { session } = useSession();
   const draftKey = `mana:chat-draft:${session.user.user_id}:${topicId ?? agentId}`;
+  const productKey = `mana:chat-product:${session.user.user_id}`;
   const { mutate } = useSWRConfig();
-  const [product, setProduct] = useState<"mana" | "360rec">("mana");
+  const [product, setProduct] = useState<"mana" | "360rec">(() => {
+    try {
+      return sessionStorage.getItem(productKey) === "360rec"
+        ? "360rec"
+        : "mana";
+    } catch {
+      return "mana";
+    }
+  });
   const [draft, setDraft] = useState(() => {
     try {
       return sessionStorage.getItem(draftKey) ?? "";
@@ -40,8 +50,6 @@ export function ChatPage({
   });
   const [sending, setSending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState("");
-  const [title, setTitle] = useState("");
   const [optimistic, setOptimistic] = useState<string | null>(null);
   const [optimisticId, setOptimisticId] = useState<string | null>(null);
   const [createdTopicId, setCreatedTopicId] = useState<string | null>(null);
@@ -76,6 +84,7 @@ export function ChatPage({
   const scope = data?.topic.product ?? product;
   const wrongAgent = data && data.topic.agent_id !== agentId;
   const busy = sending || Boolean(active);
+  const latestTurn = turns.at(-1);
 
   useEffect(() => {
     if (sending || active)
@@ -113,7 +122,7 @@ export function ChatPage({
         const created = await apiPost<Topic>(`${CHAT_BASE}/topics`, {
           agent_id: agentId,
           product,
-          title: title.trim() || message.slice(0, 80),
+          title: message.replace(/\s+/g, " ").slice(0, 80),
         });
         target = created.topic_id;
         setCreatedTopicId(target);
@@ -180,17 +189,20 @@ export function ChatPage({
     }
   }
 
-  async function copy(text: string): Promise<void> {
+  function chooseProduct(value: "mana" | "360rec"): void {
+    setProduct(value);
     try {
-      await navigator.clipboard.writeText(text);
-      setCopyStatus("Ответ скопирован");
+      sessionStorage.setItem(productKey, value);
     } catch {
-      setCopyStatus("Не удалось скопировать. Выделите текст вручную.");
+      /* Storage is optional. Existing topics keep their server-owned scope. */
     }
   }
 
   return (
-    <section className="chat-page" aria-label={`Чат: ${agent.name}`}>
+    <section
+      className={`chat-page${!currentTopicId ? " chat-page-new" : ""}`}
+      aria-label={`Чат: ${agent.name}`}
+    >
       <header className="chat-header">
         <div>
           <span className={`agent-avatar ${agent.id}`} aria-hidden="true">
@@ -198,23 +210,39 @@ export function ChatPage({
           </span>
           <div>
             <h1>{agent.name}</h1>
-            <p>
-              {topicId
-                ? (data?.topic.title ?? "Загружаем тему…")
-                : "Новая тема"}
-            </p>
+            {(currentTopicId || agent.planned) && (
+              <p>
+                {currentTopicId ? (data?.topic.title ?? "Загружаем тему…") : ""}
+                {agent.planned
+                  ? `${currentTopicId ? " · " : ""}Только планирование`
+                  : ""}
+              </p>
+            )}
           </div>
         </div>
-        <span className="product-chip">
-          {scope === "mana" ? "MANA" : "360REC"}
-        </span>
+        {currentTopicId ? (
+          <span
+            className="product-chip"
+            aria-label={`Приложение: ${scope === "mana" ? "MANA" : "360REC"}`}
+          >
+            {scope === "mana" ? "MANA" : "360REC"}
+          </span>
+        ) : (
+          <label className="chat-product-picker">
+            <span className="sr-only">Приложение</span>
+            <select
+              value={product}
+              onChange={(event) =>
+                chooseProduct(event.target.value as "mana" | "360rec")
+              }
+              disabled={busy}
+            >
+              <option value="mana">MANA</option>
+              <option value="360rec">360REC</option>
+            </select>
+          </label>
+        )}
       </header>
-      {agent.planned && (
-        <p className="chat-notice">
-          Пока помогаю обсуждать и планировать. Выполнение задач этим агентом
-          ещё не подключено.
-        </p>
-      )}
       {topicId && (
         <QueryState
           error={error}
@@ -240,60 +268,7 @@ export function ChatPage({
           >
             {!currentTopicId && (
               <div className="chat-welcome">
-                <div
-                  className={`welcome-avatar agent-avatar ${agent.id}`}
-                  aria-hidden="true"
-                >
-                  {agent.short}
-                </div>
-                <p className="eyebrow">{agent.description}</p>
                 <h2>Над чем поработаем?</h2>
-                <p>
-                  Опишите задачу своими словами.
-                  <br />
-                  Обсудим контекст и найдём следующий шаг.
-                </p>
-                <div className="topic-options">
-                  <label>
-                    Приложение
-                    <select
-                      value={product}
-                      onChange={(event) =>
-                        setProduct(event.target.value as "mana" | "360rec")
-                      }
-                      disabled={busy}
-                    >
-                      <option value="mana">MANA</option>
-                      <option value="360rec">360REC</option>
-                    </select>
-                  </label>
-                  <label>
-                    Название темы <span>(необязательно)</span>
-                    <input
-                      maxLength={100}
-                      placeholder="Например, рост регистраций"
-                      value={title}
-                      onChange={(event) => setTitle(event.target.value)}
-                      disabled={busy}
-                    />
-                  </label>
-                </div>
-                <div className="chat-starters">
-                  {agent.prompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        updateDraft(prompt);
-                        input.current?.focus();
-                      }}
-                    >
-                      {prompt}
-                      <span aria-hidden="true">↗</span>
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
             {topicId && !isLoading && !error && turns.length === 0 && (
@@ -320,16 +295,6 @@ export function ChatPage({
                     {agent.short}
                   </span>
                   <div className="message-body">
-                    {(turn.plan ?? []).length > 0 && (
-                      <details className="chat-plan">
-                        <summary>План работы</summary>
-                        <ol>
-                          {turn.plan?.map((step, index) => (
-                            <li key={index}>{step}</li>
-                          ))}
-                        </ol>
-                      </details>
-                    )}
                     {ACTIVE.includes(turn.status) ? (
                       <p className="chat-progress" role="status">
                         <span className="working-dot" />
@@ -346,59 +311,41 @@ export function ChatPage({
                         {turn.answer}
                       </p>
                     )}
-                    {(turn.sources ?? []).length > 0 && (
-                      <details className="chat-sources">
-                        <summary>
-                          Источники · {(turn.sources ?? []).length}
-                        </summary>
-                        <p>
-                          Сохранённые отчёты. Привязка к{" "}
-                          {scope === "mana" ? "MANA" : "360REC"} не
-                          подтверждена; это не свежий сбор данных.
-                        </p>
-                        {(turn.sources ?? []).map((source) => (
-                          <Link
-                            key={source.report_id}
-                            href={`/runs?run=${encodeURIComponent(source.run_id)}`}
-                          >
-                            {source.title} · {formatDate(source.created_at)}{" "}
-                            <span aria-hidden="true">↗</span>
-                          </Link>
-                        ))}
-                      </details>
-                    )}
                     {turn.analysis_requested && currentTopicId && (
                       <AnalysisResult
                         topicId={currentTopicId}
                         turnId={turn.turn_id}
                       />
                     )}
-                    {turn.next_action === "analyze" &&
+                    {(turn.next_action === "analyze" ||
+                      turn.next_action === "mana_parents") &&
                       currentTopicId &&
-                      !agent.planned && (
-                        <div className="chat-action-suggestion">
-                          <p>
-                            Для этой задачи предлагаю новый анализ. Он начнётся
-                            только после вашего подтверждения.
-                          </p>
-                          <AnalysisButton
-                            topicId={currentTopicId}
-                            disabled={busy || Boolean(error)}
-                            onDone={refresh}
-                          />
-                        </div>
+                      turn === latestTurn &&
+                      turn.status === "completed" &&
+                      !turn.analysis_requested &&
+                      !agent.planned &&
+                      (turn.next_action !== "mana_parents" ||
+                        (agent.id === "retention-agent" &&
+                          scope === "mana" &&
+                          availability?.parent_summary_enabled)) && (
+                        <AnalysisButton
+                          key={turn.turn_id}
+                          kind={
+                            turn.next_action === "mana_parents"
+                              ? "mana_parents"
+                              : "default"
+                          }
+                          topicId={currentTopicId}
+                          disabled={busy || Boolean(error)}
+                          onDone={refresh}
+                        />
                       )}
                     {turn.next_action === "approvals" &&
+                      turn === latestTurn &&
+                      turn.status === "completed" &&
                       agent.id === "growth-agent" && <ChatApprovals />}
                     {turn.status === "completed" && (
-                      <button
-                        className="copy-answer"
-                        type="button"
-                        onClick={() => void copy(turn.answer)}
-                        aria-label="Скопировать ответ"
-                      >
-                        Копировать
-                      </button>
+                      <ChatMessageDetails turn={turn} />
                     )}
                   </div>
                 </article>
@@ -426,9 +373,6 @@ export function ChatPage({
                 {actionError}
               </p>
             )}
-            <span className="sr-only" role="status">
-              {copyStatus}
-            </span>
             {!availability?.enabled && (
               <p className="chat-notice">
                 {availabilityError ? (
@@ -465,8 +409,8 @@ export function ChatPage({
                 ref={input}
                 value={draft}
                 maxLength={6000}
-                placeholder={`Напишите агенту «${agent.name}»…`}
-                rows={3}
+                placeholder="Опишите задачу…"
+                rows={2}
                 onChange={(event) => updateDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (
@@ -483,9 +427,7 @@ export function ChatPage({
               />
               <div className="composer-toolbar">
                 <span>
-                  {draft.length > 5000
-                    ? `${draft.length} / 6000`
-                    : "Enter — отправить · Shift+Enter — новая строка"}
+                  {draft.length > 5000 ? `${draft.length} / 6000` : ""}
                 </span>
                 {active ? (
                   <button
@@ -513,31 +455,11 @@ export function ChatPage({
                 )}
               </div>
             </form>
-            <p id="chat-composer-hint" className="composer-hint">
+            <p id="chat-composer-hint" className="sr-only">
               AI может ошибаться. Не отправляйте ключи и личные данные. Новые
-              сборы и действия — отдельно, с подтверждением.
+              сборы и изменения требуют подтверждения. Enter — отправить,
+              Shift+Enter — новая строка.
             </p>
-            <div className="chat-tools-links">
-              {currentTopicId && !agent.planned && (
-                <AnalysisButton
-                  topicId={currentTopicId}
-                  disabled={busy || Boolean(error)}
-                  onDone={refresh}
-                />
-              )}
-              <Link
-                href={
-                  agent.id === "retention-agent"
-                    ? "/retention"
-                    : agent.id === "growth-agent"
-                      ? "/growth"
-                      : "/overview"
-                }
-              >
-                Отчёты и действия <span aria-hidden="true">↗</span>
-              </Link>
-              <span>Темы видны только вам</span>
-            </div>
           </div>
         </>
       )}

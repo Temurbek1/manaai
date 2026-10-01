@@ -39,47 +39,46 @@ export function TopicNavigation({
               </span>
               <span>
                 {agent.name}
-                {agent.planned && <small>Планирование · без выполнения</small>}
+                {agent.planned && <small>Планирование</small>}
               </span>
             </Link>
-            {selected && (
-              <div className="topic-navigation">
-                <Link
-                  href={`/chat/${agent.id}`}
-                  className="new-topic-link"
-                  onClick={onNavigate}
-                >
-                  ＋ Новая тема
-                </Link>
-                {error ? (
-                  <p className="nav-hint">Не удалось загрузить темы</p>
-                ) : topics.length === 0 ? (
-                  <p className="nav-hint">Здесь появятся ваши темы</p>
-                ) : (
-                  topics.map((topic) => (
-                    <Link
-                      key={topic.topic_id}
-                      title={topic.title}
-                      href={`/chat/${agent.id}/topic/${topic.topic_id}`}
-                      onClick={onNavigate}
-                      aria-current={
-                        pathname.endsWith(topic.topic_id) ? "page" : undefined
-                      }
-                      className={
-                        pathname.endsWith(topic.topic_id)
-                          ? "topic-link active"
-                          : "topic-link"
-                      }
-                    >
-                      <span>{topic.title}</span>
-                      <small>
-                        {topic.product === "mana" ? "MANA" : "360REC"}
-                      </small>
-                    </Link>
-                  ))
-                )}
-              </div>
-            )}
+            {selected &&
+              (topics.length > 0 || error || pathname.includes("/topic/")) && (
+                <div className="topic-navigation">
+                  <Link
+                    href={`/chat/${agent.id}`}
+                    className="new-topic-link"
+                    onClick={onNavigate}
+                  >
+                    ＋ Новая тема
+                  </Link>
+                  {error ? (
+                    <p className="nav-hint">Не удалось загрузить темы</p>
+                  ) : (
+                    topics.map((topic) => (
+                      <Link
+                        key={topic.topic_id}
+                        title={topic.title}
+                        href={`/chat/${agent.id}/topic/${topic.topic_id}`}
+                        onClick={onNavigate}
+                        aria-current={
+                          pathname.endsWith(topic.topic_id) ? "page" : undefined
+                        }
+                        className={
+                          pathname.endsWith(topic.topic_id)
+                            ? "topic-link active"
+                            : "topic-link"
+                        }
+                      >
+                        <span>{topic.title}</span>
+                        <small>
+                          {topic.product === "mana" ? "MANA" : "360REC"}
+                        </small>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              )}
           </div>
         );
       })}

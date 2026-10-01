@@ -64,6 +64,41 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it.each(["mana", "360rec"])(
+    "offers the parent source only in MANA Retention topics (%s)",
+    async (product) => {
+      const fetchMock = jest.fn<typeof fetch>((input) => {
+        const url = requestUrl(input);
+        if (url.endsWith("/availability"))
+          return response({ enabled: true, parent_summary_enabled: true });
+        if (url.endsWith("/topic-1"))
+          return response({
+            topic: { ...topic, agent_id: "retention-agent", product },
+            turns: [{ ...turn, next_action: "mana_parents" }],
+          });
+        return response([]);
+      });
+      jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
+      renderWithSession(
+        <ChatPage agentId="retention-agent" topicId="topic-1" />,
+      );
+      await screen.findByLabelText("Сообщение агенту");
+      if (product === "mana") {
+        await screen.findByRole("button", { name: "Подтвердить сбор данных" });
+        expect(
+          screen.getByRole("region", { name: "Предлагаемый следующий шаг" }),
+        ).toHaveTextContent("Firebase не вызывается");
+        expect(
+          fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+        ).toHaveLength(0);
+      } else {
+        expect(
+          screen.queryByRole("button", { name: "Подтвердить сбор данных" }),
+        ).not.toBeInTheDocument();
+      }
+    },
+  );
+
   it("creates a product-specific topic and sends exactly one explicit message", async () => {
     const fetchMock = jest.fn<typeof fetch>((input, init) => {
       const url = requestUrl(input);
@@ -100,6 +135,7 @@ describe("ChatPage", () => {
     expect(JSON.parse(posts[0]?.[1]?.body as string)).toMatchObject({
       product: "360rec",
       agent_id: "growth-agent",
+      title: "Разбери конверсию",
     });
     expect(JSON.parse(posts[1]?.[1]?.body as string)).toMatchObject({
       message: "Разбери конверсию",
@@ -113,7 +149,13 @@ describe("ChatPage", () => {
         ? response({ enabled: true })
         : response({
             topic,
-            turns: [{ ...turn, answer: "<img src=x onerror=alert(1)>" }],
+            turns: [
+              {
+                ...turn,
+                answer: "<img src=x onerror=alert(1)>",
+                next_action: "analyze",
+              },
+            ],
           }),
     );
     jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
@@ -125,7 +167,9 @@ describe("ChatPage", () => {
       await screen.findByText("<img src=x onerror=alert(1)>"),
     ).toBeInTheDocument();
     expect(document.querySelector(".agent-message img")).toBeNull();
-    expect(screen.getByRole("button", { name: "Новый анализ" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Подтвердить сбор данных" }),
+    ).toBeDisabled();
     expect(
       fetchMock.mock.calls.every(([, init]) => init?.method === "GET"),
     ).toBe(true);
@@ -136,9 +180,7 @@ describe("ChatPage", () => {
       .spyOn(globalThis, "fetch")
       .mockImplementation(() => response({ enabled: false }));
     renderWithSession(<ChatPage agentId="technical-agent" />);
-    expect(
-      screen.getByText(/Выполнение задач этим агентом ещё не подключено/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Только планирование")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Новый анализ" })).toBeNull();
     expect(
       await screen.findByText(/AI временно недоступен/),
@@ -151,19 +193,17 @@ describe("ChatPage", () => {
         return response({ enabled: true });
       if (init?.method === "POST")
         return response({ detail: "Временная ошибка" }, 503);
-      return response({ topic, turns: [turn] });
+      return response({ topic, turns: [{ ...turn, next_action: "analyze" }] });
     });
     jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
     renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
     await screen.findByText("Нет подтверждённых данных.");
-    fireEvent.click(screen.getByRole("button", { name: "Новый анализ" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent(
-      "НЕ фильтрует источники",
-    );
+    expect(
+      screen.getByRole("region", { name: "Предлагаемый следующий шаг" }),
+    ).toHaveTextContent("НЕ фильтрует источники");
     expect(
       fetchMock.mock.calls.every(([, init]) => init?.method === "GET"),
     ).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Отмена" }));
     fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
       target: { value: "Важный черновик" },
     });
@@ -179,5 +219,84 @@ describe("ChatPage", () => {
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
     ).toHaveLength(1);
+  });
+
+  it("starts with one send button, no setup form or automatic source calls", async () => {
+    const fetchMock = jest.fn<typeof fetch>(() => response({ enabled: true }));
+    jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
+    renderWithSession(<ChatPage agentId="growth-agent" />);
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Проверяем доступность AI…"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByLabelText(/Название темы/)).not.toBeInTheDocument();
+    expect(
+      document.querySelector(".chat-starters, .chat-tools-links"),
+    ).toBeNull();
+    expect(
+      fetchMock.mock.calls.every(([, init]) => init?.method === "GET"),
+    ).toBe(true);
+  });
+
+  it("remembers the product for a new topic but never overrides an existing topic", async () => {
+    sessionStorage.setItem(
+      "mana:chat-product:00000000-0000-4000-8000-000000000001",
+      "360rec",
+    );
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input) =>
+        requestUrl(input).endsWith("/availability")
+          ? response({ enabled: true })
+          : response({ topic, turns: [] }),
+      );
+    const first = renderWithSession(<ChatPage agentId="growth-agent" />);
+    expect(screen.getByLabelText("Приложение")).toHaveValue("360rec");
+    first.unmount();
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    await screen.findByText("Моя тема");
+    expect(screen.getByLabelText("Приложение: MANA")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("hides old proposals and folds technical details into one disclosure", async () => {
+    const fetchMock = jest.fn<typeof fetch>((input) =>
+      requestUrl(input).endsWith("/availability")
+        ? response({ enabled: true })
+        : response({
+            topic,
+            turns: [
+              { ...turn, next_action: "analyze", plan: ["Проверить отчёт"] },
+              {
+                ...turn,
+                turn_id: "turn-2",
+                request_id: "00000000-0000-4000-8000-000000000002",
+                next_action: "none",
+              },
+            ],
+          }),
+    );
+    jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    await screen.findByText("Моя тема");
+    expect(
+      screen.queryByRole("button", { name: "Подтвердить сбор данных" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Скопировать ответ" })[0],
+    ).not.toBeVisible();
+    const details = document.querySelector(
+      ".chat-message-details",
+    ) as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    fireEvent.click(details.querySelector("summary")!);
+    expect(
+      screen.getAllByRole("button", { name: "Скопировать ответ" })[0],
+    ).toBeVisible();
+    expect(
+      fetchMock.mock.calls.every(([, init]) => init?.method === "GET"),
+    ).toBe(true);
   });
 });
