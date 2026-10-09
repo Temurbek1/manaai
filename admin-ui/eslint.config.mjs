@@ -5,6 +5,11 @@ import nextTypeScript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
+  {
+    files: ["vendor/bounded-braces/**/*.js"],
+    // The pinned lint dependency consumes this MIT-licensed fork through CommonJS.
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   globalIgnores([
     ".next/**",
     "coverage/**",
