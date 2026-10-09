@@ -457,6 +457,8 @@ class OutputContractConversation(FakeConversation):
             "Even after confirmation, scope, access",
             "Never divide active parents by child inventory",
             "Geographic active-user/event counts and profile cities are NOT orders",
+            "For a standalone greeting or thanks, answer in one short natural sentence",
+            "a greeting alone needs no capability disclaimer",
         ):
             assert rule in instructions
         result = await super().reply(instructions=instructions, context=context, owner=owner)
