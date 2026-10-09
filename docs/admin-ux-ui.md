@@ -131,7 +131,7 @@ results can change during a release, so the final image must be audited, not jus
 chat API-процесс с теми же настройками авторизации/БД и неизменными ограничениями источников,
 выключенными scheduler и audio, плюс новый admin image. В Next.js предусмотрен необязательный
 `OPERATION_CHAT_BASE_URL` (build-time); по умолчанию это основной `FASTAPI_BASE_URL`.
-При отдельном процессе только chat-prefix направляется туда; остальные маршруты неизменны.
+При отдельном процессе chat- и Goals-prefix направляются туда; остальные маршруты неизменны.
 
 Сборка производится локально, не расходуя память общего production-сервера. Перед миграцией
 нужен проверенный PostgreSQL backup; перед маршрутизацией — canary health/auth/saved reads.

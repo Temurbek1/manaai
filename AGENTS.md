@@ -21,6 +21,11 @@
 - Operations Orchestrator may create and manage goals/tasks but must delegate infrastructure,
   financial, customer-contact, and deployment mutations to the owning domain agent. Do not give
   the orchestrator arbitrary provider payloads or unrestricted integration credentials.
+- The shared durable Goals workspace supports private analysis objectives, SQL checkpoints,
+  bounded strong-model planning/investigation/review, pause/resume/steering and separately
+  confirmed read-only delegation. It is not a fifth agent, a full Orchestrator implementation,
+  or proof of business-outcome improvement. Keep unknown in-flight costs reserved and never
+  automatically retry a lost source read. See `docs/operation-goals.md`.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias
@@ -28,6 +33,9 @@
   sources and experiment writes are fake/sandbox. Retention defaults to fake sources and has
   explicit live read-only Manakids Admin API, GA4 aggregate, canonical Firestore event, and
   operational Firestore aggregate adapters. Live Meta remains read-only.
+  `retention.parents.analyze` is a separate manual-only, MANA-only minimized Parent API summary;
+  opt-in source, one bounded page, shared six-hour read cooldown, no default schedule. Do not
+  treat current tariffs as paid subscriptions or mix these reports into 360REC chat context.
 - Keep capability configuration, schedules, run locks, audit, and kill switches independently
   scoped by `agent_id` plus `capability_key`. New actions use domain-specific action enums and the
   typed executor/policy registries; do not expand advertising `ActionType` across domains.

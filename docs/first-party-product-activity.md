@@ -2,6 +2,30 @@
 
 ## Scope and current sources
 
+The 2026-10-08 local cost-optimization work introduces durable shared acquisition,
+explicit application binding, stream-filtered GA4 reads and global admission limits.
+See [cost-optimization-implementation.md](cost-optimization-implementation.md).
+This work is **not deployed**. In that candidate runtime, automatic historical and
+prefix Firestore scans are disabled until a reliable change/deletion contract is
+confirmed. Existing adapter classes and historical observations below do not prove
+incremental synchronization support or authorize activating those scans.
+
+The separate manual MANA-only parent/tariff/connection summary is documented in
+[mana-parent-api.md](mana-parent-api.md). It is not added to the scheduled engagement
+collector and does not establish product provenance for legacy sources.
+GA4 authentication/read access was confirmed by a bounded check on 2026-10-05;
+the remaining ownership questions and already discovered IDs are in
+[source-ownership-confirmation.md](source-ownership-confirmation.md). No new source
+check, binding approval or production activation is implied by this document.
+
+On 2026-10-09 the product owner clarified that 360REC works on incoming requests
+and has no application-database data for this work; most database data belongs to
+MANA. The current acquisition plan is therefore MANA-focused. There is no need
+to locate or build a 360REC database collector. This does not prove that all
+collections or GA4 streams belong to MANA, nor that parental and child app users
+are the same cohort. Existing cross-product fake fixtures verify isolation only;
+they are not evidence that both products have live analytical databases.
+
 `retention.engagement.analyze` is the first implemented Retention & Loyalty capability. It can
 combine three application-owned, read-only sources:
 
@@ -10,8 +34,9 @@ combine three application-owned, read-only sources:
 - optional aggregate operational state from existing Firebase Firestore collections.
 
 The repository defaults to deterministic fake sources. The recommended live combination is
-`OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_ga4` plus
-`FIREBASE_OPERATIONAL_TELEMETRY_ENABLED=true`. The older
+`OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_ga4`, approved application ownership,
+an explicit numeric GA4 stream filter, and
+`FIREBASE_OPERATIONAL_TELEMETRY_ENABLED=false`. The older
 `OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids_firebase` mode remains available for a future
 canonical `app_activity_events` collection, but that collection was not present in the audited
 Firebase project on 2026-09-25. The explicit `manakids` mode connects only real backend aggregates
@@ -28,7 +53,7 @@ The Firebase project and linked Analytics property were inspected through the au
 console session. This table distinguishes data that exists now from data that would require new
 instrumentation or export configuration.
 
-| Source | Already observable and connected by this implementation | Important limit |
+| Source | Historical observations / implemented raw adapter coverage | Important limit |
 | --- | --- | --- |
 | Manakids Admin API | Registration completion by role/date, child inventory, presence of app-usage statistics, presence of camera/audio/screen-share usage | Bulk activity endpoints use a fixed ten-child page; capped scans report measured coverage and never extrapolate |
 | GA4 Data API | Active users for 1/7/30 days, sessions, engaged sessions, new users, engagement duration, screen views, app version, OS/version, device brand/model, language, country/region/city, and supported event counts | Aggregate reports do not expose an individual action sequence or raw user/session identifiers |
@@ -40,7 +65,7 @@ existing rules only with the explicit `FIREBASE_PUBLIC_READ_ENABLED=true` opt-in
 that mode as a limitation. This is not a substitute for fixing overly broad Firebase rules and
 provisioning a least-privilege service identity.
 
-The operational Firestore reader currently covers `battery`, `children_location`, `internet`,
+The raw operational Firestore reader covers `battery`, `children_location`, `internet`,
 `monitoring`, and `screen-commands`. It reads child IDs and coordinates only long enough to dedupe
 and aggregate in memory, then discards them. It deliberately does not ingest raw documents from
 `calls`, `recordCollection`, `stream`, `webrtc`, `webrtc-audio`, `webrtc-screen`, or
@@ -76,6 +101,12 @@ bounded aggregate queries and maps only known event names into `ActivityEventTyp
 names are ignored. Free-form dimension values are normalized into a bounded taxonomy; raw values
 and analytics identifiers are not persisted.
 
+The shared runtime supplies `dimensionFilter.filter.fieldName=streamId` with an
+`inListFilter` on **every** report shape, including DAU/WAU/MAU windows. The approved
+stream set is part of the source-binding fingerprint. One source bundle is scoped
+to one application; it cannot serve 360REC by changing a MANA chat topic. Existing
+unverified reports are excluded from product-specific AI context.
+
 The adapter supplies:
 
 - DAU/WAU/MAU-style active-user windows (1, 7, and 30 days);
@@ -100,9 +131,13 @@ Raw search text, form contents, filenames, notification/message contents, contac
 must never be emitted to this collection. The adapter uses subject/session identifiers only in
 memory for distinct counts and aggregate transitions, then discards them.
 
-## Runtime output
+## Runtime output and scheduling boundary
 
-The capability runs every six hours by default and persists:
+The capability's historical schedule has a six-hour interval. This is not an active
+production schedule or authorization to enable it. The candidate uses one shared
+six-hour source gate, not separate source scans for every consumer. Goals and saved
+report views do not create a recurring data schedule. An explicitly admitted run
+persists:
 
 - backend registration, inventory, and bounded usage aggregates;
 - aggregate mobile users, sessions, engagement, events, and safe dimensions;

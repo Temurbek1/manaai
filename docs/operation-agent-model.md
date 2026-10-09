@@ -16,6 +16,10 @@ This document separates the target design from the current implementation:
   funnel data ports and experiment execution are deterministic fake/sandbox implementations.
   Retention defaults to deterministic fake sources and can use explicit live read-only Manakids
   Admin API plus GA4/Firestore adapters. Live Meta is intentionally read-only.
+  The manual `retention.parents.analyze` capability also supports an opt-in MANA-only Parent API
+  summary with minimized profile/tariff/connection counts, no scheduler and a shared six-hour
+  source-read cooldown. It is not a billing ledger, per-user churn model or customer-action
+  implementation. See `mana-parent-api.md` for local/production status.
 - **Target:** four action-capable agents operate through typed ports, policies, approvals,
   idempotent executors, verification, and outcome measurement.
 
@@ -49,6 +53,21 @@ The following names from source material are capabilities, not top-level agents:
 The 360REC child-audio safety moderation intake and callback service is likewise a MANA AI
 product-safety capability, not a top-level operational agent. Raw recordings and transcripts must
 not enter the operational data plane.
+
+Product-owner clarification on 2026-10-09: 360REC has no application-database data
+source for this work; its service operates on incoming requests. Most existing
+database data belongs to MANA. Therefore the current operational analytics/Goals
+source plan targets MANA, not a second 360REC database collector. Keep the independent
+360REC request/moderation path unchanged. A 360REC-labelled topic must never use MANA
+reports as substitute evidence. This clarification does not classify every existing
+collection, legacy GA4 stream, or parent/child population as MANA: unknown bindings
+remain unverified, and a future 360REC source would require separate approval.
+
+The owner also confirmed on 2026-10-09 that in-app behavioral activity (including
+button clicks) describes **parents only**. Keep this population separate from
+backend child inventories and child feature records. Do not calculate a parent
+activity rate with a child denominator. Geographic activity and profile cities
+do not establish geographic orders or sales; those require order/payment evidence.
 
 Do not create separate top-level agents for these capability names merely because they appear as
 rows in a report or require different schedules.
@@ -97,6 +116,16 @@ unrestricted provider credentials or emit arbitrary provider payloads. Infrastru
 are delegated to the agent that owns the domain policy and typed executor.
 
 ## Capability and task model
+
+### Implemented Goals workspace (2026-10-08)
+
+The chat now has a durable analysis Goals workspace: typed private objectives, SQL plans,
+evidence checkpoints, queued background steps, review, pause/resume/steering/cancellation,
+bounded strong-model calls and independent read approval. This shared delivery infrastructure
+does not register a fifth agent or claim that the full Orchestrator/domain action roadmap is done.
+Only loaded read-only capabilities may be delegated, under existing admission policies;
+business-outcome goals, customer actions and Technical tasks remain future work. Completing
+an analysis is not completing a retention-improvement outcome. See [operation-goals.md](operation-goals.md).
 
 The existing `OperationalAgent` registry remains the registry of the four domain owners. Each
 agent should compose a registry of typed capability handlers rather than a growing `if job_type`

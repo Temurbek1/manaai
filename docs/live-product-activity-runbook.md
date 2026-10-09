@@ -1,5 +1,25 @@
 # Live first-party product activity runbook
 
+## Candidate release boundary — 2026-10-08
+
+Cost optimization is local and not deployed. The updated runtime requires an
+approved `OPERATION_DATA_PRODUCT_SCOPE`, an explicit
+`OPERATION_DATA_BINDING_REVISION`, a matching engagement configuration `product`,
+and `GA4_PRODUCT_STREAM_IDS` for live GA4. Default ownership remains `unverified`
+and refuses collection before authentication. A revision change must represent an
+approved source/configuration recovery, not an automatic way around a circuit.
+
+Automatic Firestore historical/prefix readers are **disabled**, including when old
+settings request them, because no reliable update/deletion contract is established.
+Only the backend/GA4 bundle participates in shared cached acquisition. The raw
+Firestore adapter classes are not proof of an approved incremental integration.
+Historical canary instructions later in this file are incident evidence, not
+authorization for a new read or production activation.
+
+No live test, new schedule, export, function, backend change or deployment is
+authorized by this runbook. Use the separately approved release procedure in
+[cost-optimization-implementation.md](cost-optimization-implementation.md).
+
 ## Invariants
 
 - Every connector is read-only; these adapters implement no Manakids, GA4, or Firestore writes.
@@ -20,8 +40,11 @@ MANAKIDS_API_PASSWORD=<secret-managed-password>
 
 GA4_PROPERTY_ID=<numeric-property-id>
 GA4_SERVICE_ACCOUNT_FILE=/run/secrets/ga4-service-account.json
+GA4_PRODUCT_STREAM_IDS=<JSON-array-of-owner-approved-numeric-stream-IDs>
+OPERATION_DATA_PRODUCT_SCOPE=<mana-or-360rec-confirmed-by-owner>
+OPERATION_DATA_BINDING_REVISION=<approved-config-revision>
 
-FIREBASE_OPERATIONAL_TELEMETRY_ENABLED=true
+FIREBASE_OPERATIONAL_TELEMETRY_ENABLED=false
 FIREBASE_PROJECT_ID=bosstracker-dev
 FIREBASE_DATABASE_ID=(default)
 FIREBASE_SERVICE_ACCOUNT_FILE=/run/secrets/firebase-service-account.json
@@ -33,9 +56,10 @@ Firestore database/collections (for example, the narrowest organization-approved
 Datastore Viewer). The application validates that required files exist and that live base URLs use
 HTTPS before startup.
 
-The alternative `manakids_firebase` provider reads the canonical collection configured by
-`FIREBASE_ACTIVITY_COLLECTION`. Do not enable it until `app_activity_events` exists and the mobile
-event contract in `first-party-product-activity.md` is being emitted reliably.
+The legacy `manakids_firebase` provider's raw adapter can read the canonical
+collection, but the candidate shared runtime marks it unavailable without a
+verified incremental contract. Collection existence and `occurred_at` alone are
+insufficient: late arrivals, old-document updates and deletions must be covered.
 
 `OPERATION_PRODUCT_ACTIVITY_PROVIDER=manakids` is an honest partial-live mode for deployments that
 have Manakids credentials but do not yet have GA4 server credentials. It returns real backend
@@ -100,16 +124,37 @@ After it passes:
 3. Verify source request IDs, completeness, limitations, report payload, and audit stages.
 4. Enable `retention-engagement-analysis` scheduling only after that evidence is accepted.
 
-## Current external preflight status
+## Latest external preflight evidence — 2026-10-05
+
+The preserved bounded check in
+[ga4-key2-access-20261005.md](../output/ga4-key2-access-20261005.md) returned HTTP 200
+for OAuth, Analytics Admin account summaries and one Data API aggregate report for
+property `424940486`. Thus the previous API-disabled/credential-unavailable status is
+historical, not the current blocker. This report was not recollected for this local
+cost-optimization work and does not prove every adapter report is accessible now.
+
+What remains unconfirmed is the **product and parent/child population composition**
+of the streams and legacy backend aggregates. Successful authentication cannot
+confirm that composition. Existing saved metadata/IDs are collected in
+[the source confirmation sheet](source-ownership-confirmation.md); owners only need
+to correct/confirm the semantic labels, not supply a new key or discover numeric IDs.
+The MANA-only Parent API confirmation does not approve the other sources.
+
+Until those bindings are approved, keep the candidate bundle unverified and refuse
+collection before authentication. Firestore automatic scans remain disabled pending
+a reliable change/deletion contract. Do not activate the old public-read or canary
+recipes below merely because credentials or existing rules permit a read.
+
+### Historical preflight — 2026-09-26
 
 As of 2026-09-26, practical read-only checks confirmed the Manakids login and all documented
 aggregate endpoints, GA4 property `424940486` with live events, and public REST reads for the five
 selected Firestore operational collections. The authorized Google account is only a Firebase
-Viewer and cannot create a private key. No existing GA4/Firestore service-account JSON was found in
-the available local files, browser downloads, Gmail, or Drive. Therefore Manakids plus explicitly
-enabled public-rule Firestore reads can be activated now; GA4 Data API activation still requires a
-project owner to provision a dedicated read-only service account and grant that account property
-Viewer access.
+Viewer and could not create a private key at that checkpoint. No existing
+GA4/Firestore service-account JSON was found in the then-inspected files or browser
+sources. This historical observation was superseded by the subsequently provided
+read-only key and the 2026-10-05 successful GA4 report. It is **not authorization**
+to activate public-rule Firestore reads or a new production integration.
 
 Detailed Crashlytics analysis is also blocked on an approved BigQuery/export path and is reserved
 for Technical Reliability. Do not label GA4 `app_exception` counts as crash root-cause analysis.

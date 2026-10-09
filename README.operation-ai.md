@@ -8,10 +8,20 @@ runs without any of this — see [README.mana-ai.md](README.mana-ai.md).
 
 ## Conversation-first workspace
 
+Durable analysis **Goals** are available inside chat: create an objective, watch its saved plan
+and background progress, pause/resume, clarify, and retrieve the reviewed result. New source
+reads need separate confirmation. This is not arbitrary business-action execution and does not
+implement the full Orchestrator or Technical agent. See [Goals](docs/operation-goals.md).
+
 The default administrator UI is a private conversation workspace: exactly four agent rooms,
 with separate server-persisted topics and an explicit MANA/360REC conversation context.
 The existing dense operational screens are available through **Professional mode** (`/overview`).
 See [admin-ux-ui.md](docs/admin-ux-ui.md) for behavior, safety limits and release verification.
+
+MANA-only Parent API integration: [mana-parent-api.md](docs/mana-parent-api.md).
+The manual `retention.parents.analyze` capability adds minimized tariff/connection summaries
+without enabling new scheduled reads, Firebase access or customer actions. Local integration
+and live one-row verification are complete; production activation is a separate release.
 
 Growth and Retention chats can explain saved evidence and offer a confirmation card for the
 existing analysis workflow. Orchestrator and Technical chats are advisory planning interfaces,
@@ -262,6 +272,23 @@ When live first-party analytics is enabled, also provide the Manakids service cr
 the Firebase project and read-only service-account mount. The exact variables, least-privilege
 requirements, smoke test, and Compose overlays are in
 [`docs/live-product-activity-runbook.md`](docs/live-product-activity-runbook.md).
+
+The local cost-optimization candidate adds a durable shared cache, global cost
+admission and explicit product ownership/GA4 stream filters. Automatic Firestore
+history/prefix scans are unavailable until reliable change/deletion semantics are
+established. This is not a deployed production claim. Configuration, evidence,
+remaining work and the separately approved rollout boundary are in
+[`docs/cost-optimization-implementation.md`](docs/cost-optimization-implementation.md).
+Synthetic chat comparisons are documented in
+[`docs/operation-chat-quality-evaluation.md`](docs/operation-chat-quality-evaluation.md).
+Optional `OPERATION_CHAT_MODEL`/`OPERATION_CHAT_REASONING_EFFORT` isolate operational
+chat configuration from public MANA AI and audio; blank values inherit the existing
+global settings. An explicit model requires the complete matching operational rate card.
+The candidate mini model is not activated; quality acceptance and confirmed live
+source mappings remain prerequisites for rollout. The local full dependency gate
+now passes using a [guarded private dev-only fork](admin-ui/vendor/bounded-braces/README.md)
+with mandatory compatibility/DoS tests, not an upstream patched release. Keep the
+full gate green before any separately approved rollout.
 
 Two cross-field ceilings are enforced at startup and are easy to trip: `META_MAX_RETRIES` must not
 exceed `META_LIVE_MAX_TOTAL_RETRIES`, and `META_MAX_PAGES` must not exceed `META_LIVE_MAX_PAGES`.
