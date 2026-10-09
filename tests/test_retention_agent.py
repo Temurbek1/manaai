@@ -169,6 +169,7 @@ async def test_retention_agent_runs_first_party_engagement_analysis_without_pii(
         assert detail.json()["agent"]["default_capability_key"] == ("retention.engagement.analyze")
         assert detail.json()["schedules"][0]["schedule_id"] == ("retention-engagement-analysis")
         assert {item["integration_id"] for item in detail.json()["integration_health"]} == {
+            "manakids_parent_api",
             "fake_manakids_admin_api",
             "fake_firestore_activity",
             "fake_firebase_operational_telemetry",

@@ -20,6 +20,7 @@ from app.mana_operation_ai.domain.enums import IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import OperationalTelemetryFacts
 from app.mana_operation_ai.infrastructure.google_auth import GoogleAccessTokenProvider
+from app.mana_operation_ai.infrastructure.metered_http import MeteredReadHttp
 
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 _COLLECTIONS = (
@@ -54,6 +55,7 @@ class FirestoreOperationalTelemetryAdapter:
         max_documents_per_collection: int,
         max_retries: int,
         retry_backoff_seconds: float,
+        metered_http: MeteredReadHttp | None = None,
     ) -> None:
         self._client = client
         self._token_provider = token_provider
@@ -61,6 +63,7 @@ class FirestoreOperationalTelemetryAdapter:
         self._max_documents_per_collection = max_documents_per_collection
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
+        self._metered_http = metered_http
         encoded_project = quote(project_id, safe="")
         encoded_database = quote(database_id, safe="")
         self._documents_url = (
@@ -284,7 +287,17 @@ class FirestoreOperationalTelemetryAdapter:
                     document_limit=document_limit,
                     retry=attempt > 0,
                 ) as metric:
-                    response = await self._client.get(url, headers=headers, params=params)
+                    if self._metered_http is None:
+                        response = await self._client.get(url, headers=headers, params=params)
+                    else:
+                        response = await self._metered_http.request(
+                            self._client,
+                            "GET",
+                            url,
+                            document_limit=document_limit,
+                            headers=headers,
+                            params=params,
+                        )
                     metric.status_code = response.status_code
             except httpx.TransportError as exc:
                 if attempt >= self._max_retries:

@@ -13,8 +13,9 @@ class UnavailableMobileActivityAdapter:
 
     integration_id = "mobile_product_analytics_unconfigured"
 
-    def __init__(self, *, clock: Clock) -> None:
+    def __init__(self, *, clock: Clock, reason: str | None = None) -> None:
         self._clock = clock
+        self._reason = reason
 
     async def collect_activity(
         self,
@@ -36,6 +37,7 @@ class UnavailableMobileActivityAdapter:
             invalid_documents=0,
             completeness=Decimal("0"),
             limitations=[
+                *([self._reason] if self._reason else []),
                 "Mobile product analytics is not configured. Zero values are unavailable data, "
                 "not observed activity; connect GA4 with read-only server credentials.",
             ],

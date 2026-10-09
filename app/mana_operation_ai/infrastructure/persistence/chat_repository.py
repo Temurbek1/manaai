@@ -17,6 +17,42 @@ from app.mana_operation_ai.infrastructure.persistence.models import (
 ACTIVE = ("reading", "thinking")
 
 
+def _turn(row: ChatTurnRow) -> ChatTurn:
+    return ChatTurn.model_validate({**row.payload, **(row.context_metadata or {})})
+
+
+def _storage(turn: ChatTurn) -> dict[str, object]:
+    """Keep the prior release's JSON readable during application-only rollback.
+
+    New source provenance/inference fields live in an additive nullable column.
+    Old code sees unknown provenance and no unsupported Parent confirmation card,
+    never a fabricated read grant. Migration does not rewrite historical rows.
+    """
+    payload = turn.model_dump(
+        mode="json", exclude={"read_confirmation", "analysis_kind", "model_choice", "reasoning"}
+    )
+    metadata = {
+        "analysis_kind": turn.analysis_kind,
+        "model_choice": turn.model_choice,
+        "reasoning": turn.reasoning,
+        "sources": payload["sources"],
+        "next_action": turn.next_action,
+    }
+    payload["sources"] = [
+        {
+            "report_id": source.report_id,
+            "run_id": source.run_id,
+            "created_at": source.created_at.isoformat(),
+            "title": source.title,
+            "scope_verified": False,
+        }
+        for source in turn.sources
+    ]
+    if turn.next_action == "mana_parents":
+        payload["next_action"] = "none"
+    return {"payload": payload, "context_metadata": metadata}
+
+
 class SqlAlchemyChatRepository:
     def __init__(self, database: OperationDatabase, *, hourly_limit: int, daily_limit: int) -> None:
         self._sessions = database.session_factory
@@ -90,7 +126,7 @@ class SqlAlchemyChatRepository:
                 .order_by(ChatTurnRow.created_at, ChatTurnRow.turn_id)
                 .limit(100)
             )
-            return [ChatTurn.model_validate(row.payload) for row in rows]
+            return [_turn(row) for row in rows]
 
     async def _lock_budget(self, session: AsyncSession) -> None:
         # A real write serializes admission on PostgreSQL AND SQLite, across API processes.
@@ -108,7 +144,7 @@ class SqlAlchemyChatRepository:
             )
         )
         for row in rows:
-            turn = ChatTurn.model_validate(row.payload).model_copy(
+            turn = _turn(row).model_copy(
                 update={
                     "status": "failed",
                     "answer": "Ответ прерван. Автоматического повторного запроса не будет.",
@@ -117,7 +153,10 @@ class SqlAlchemyChatRepository:
             await session.execute(
                 update(ChatTurnRow)
                 .where(ChatTurnRow.turn_id == row.turn_id, ChatTurnRow.status.in_(ACTIVE))
-                .values(status=turn.status, payload=turn.model_dump(mode="json"))
+                .values(
+                    status=turn.status,
+                    **_storage(turn),
+                )
             )
 
     async def reserve(
@@ -134,8 +173,12 @@ class SqlAlchemyChatRepository:
                 )
             )
             if existing is not None:
-                turn = ChatTurn.model_validate(existing.payload)
-                if turn.message != payload.message:
+                turn = _turn(existing)
+                if (
+                    turn.message != payload.message
+                    or turn.model_choice != payload.model_choice
+                    or turn.reasoning != payload.reasoning
+                ):
                     raise ChatError("Идентификатор запроса уже использован для другого сообщения.")
                 return turn, False
             active = await session.scalar(
@@ -173,6 +216,8 @@ class SqlAlchemyChatRepository:
                 topic_id=topic_id,
                 request_id=payload.request_id,
                 message=payload.message,
+                model_choice=payload.model_choice,
+                reasoning=payload.reasoning,
                 status="reading",
                 created_at=now,
             )
@@ -189,7 +234,7 @@ class SqlAlchemyChatRepository:
                     request_id=str(payload.request_id),
                     status=turn.status,
                     created_at=now,
-                    payload=turn.model_dump(mode="json"),
+                    **_storage(turn),
                 )
             )
             return turn, True
@@ -199,7 +244,10 @@ class SqlAlchemyChatRepository:
             result = await session.execute(
                 update(ChatTurnRow)
                 .where(ChatTurnRow.turn_id == turn.turn_id, ChatTurnRow.status.in_(ACTIVE))
-                .values(status=turn.status, payload=turn.model_dump(mode="json"))
+                .values(
+                    status=turn.status,
+                    **_storage(turn),
+                )
             )
             return bool(result.rowcount)
 
@@ -215,7 +263,7 @@ class SqlAlchemyChatRepository:
             )
             if row is None:
                 raise ChatError("Сообщение не найдено.", 404)
-            turn = ChatTurn.model_validate(row.payload)
+            turn = _turn(row)
         if turn.status in ACTIVE:
             turn = turn.model_copy(
                 update={

@@ -128,7 +128,8 @@ async def test_private_topics_idempotency_context_and_no_external_reads(
         await client.post(
             f"{url}/messages", headers=h, json={"request_id": str(uuid4()), "message": "Продолжи"}
         )
-        assert model.contexts[-1]["scope_verified"] is False
+        assert "scope_verified" not in model.contexts[-1]
+        assert json.loads(json.dumps(model.contexts[-1]))["topic"]["product"] == "mana"
         assert "Что известно о MANA?" in str(model.contexts[-1]["history"])
         assert model.contexts[-1]["saved_reports"] == []
         runs = await client.get("/api/v1/admin/operation/runs", headers=h)

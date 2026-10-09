@@ -2179,6 +2179,15 @@
             "title": "Confirmed",
             "type": "boolean"
           },
+          "kind": {
+            "default": "default",
+            "enum": [
+              "default",
+              "mana_parents"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "request_id": {
             "format": "uuid",
             "title": "Request Id",
@@ -3611,6 +3620,16 @@
           "hourly_limit": {
             "title": "Hourly Limit",
             "type": "integer"
+          },
+          "model_selection_enabled": {
+            "default": false,
+            "title": "Model Selection Enabled",
+            "type": "boolean"
+          },
+          "parent_summary_enabled": {
+            "default": false,
+            "title": "Parent Summary Enabled",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3619,6 +3638,90 @@
           "daily_limit"
         ],
         "title": "ChatAvailability",
+        "type": "object"
+      },
+      "ChatReadConfirmation": {
+        "additionalProperties": false,
+        "description": "Server-owned read conditions, not model-issued consent or an admission receipt.",
+        "properties": {
+          "admission_checks": {
+            "default": [
+              "access",
+              "product_scope",
+              "cooldown",
+              "budget"
+            ],
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "const": "access",
+                "type": "string"
+              },
+              {
+                "const": "product_scope",
+                "type": "string"
+              },
+              {
+                "const": "cooldown",
+                "type": "string"
+              },
+              {
+                "const": "budget",
+                "type": "string"
+              }
+            ],
+            "title": "Admission Checks",
+            "type": "array"
+          },
+          "capability_key": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Capability Key",
+            "type": "string"
+          },
+          "confirmation_required": {
+            "const": true,
+            "default": true,
+            "title": "Confirmation Required",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "default",
+              "mana_parents"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "minimum_interval_seconds": {
+            "anyOf": [
+              {
+                "maximum": 86400.0,
+                "minimum": 21600.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Interval Seconds"
+          },
+          "product": {
+            "enum": [
+              "mana",
+              "360rec"
+            ],
+            "title": "Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "product",
+          "capability_key"
+        ],
+        "title": "ChatReadConfirmation",
         "type": "object"
       },
       "ChatRequest": {
@@ -3673,9 +3776,59 @@
       "ChatSource": {
         "additionalProperties": false,
         "properties": {
+          "collected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
+            "type": "string"
+          },
+          "fresh_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fresh Until"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mana",
+                  "360rec"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product"
+          },
+          "refresh_status": {
+            "default": "unknown",
+            "enum": [
+              "live",
+              "cached",
+              "stale",
+              "unknown"
+            ],
+            "title": "Refresh Status",
             "type": "string"
           },
           "report_id": {
@@ -3687,7 +3840,6 @@
             "type": "string"
           },
           "scope_verified": {
-            "const": false,
             "default": false,
             "title": "Scope Verified",
             "type": "boolean"
@@ -3762,6 +3914,15 @@
       "ChatTurn": {
         "additionalProperties": false,
         "properties": {
+          "analysis_kind": {
+            "default": "default",
+            "enum": [
+              "default",
+              "mana_parents"
+            ],
+            "title": "Analysis Kind",
+            "type": "string"
+          },
           "analysis_requested": {
             "default": false,
             "title": "Analysis Requested",
@@ -3803,12 +3964,24 @@
             ],
             "title": "Model"
           },
+          "model_choice": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "gpt-5.4-mini",
+              "gpt-6.1-sol",
+              "gpt-6-astra"
+            ],
+            "title": "Model Choice",
+            "type": "string"
+          },
           "next_action": {
             "default": "none",
             "enum": [
               "none",
               "analyze",
-              "approvals"
+              "approvals",
+              "mana_parents"
             ],
             "title": "Next Action",
             "type": "string"
@@ -3830,6 +4003,27 @@
             },
             "title": "Plan",
             "type": "array"
+          },
+          "read_confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatReadConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasoning": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Reasoning",
+            "type": "string"
           },
           "request_id": {
             "format": "uuid",
@@ -5857,6 +6051,321 @@
           "rationale"
         ],
         "title": "GeofenceAction",
+        "type": "object"
+      },
+      "GoalAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_microusd": {
+            "title": "Budget Microusd",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "max_steps": {
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "model_selection_enabled": {
+            "default": false,
+            "title": "Model Selection Enabled",
+            "type": "boolean"
+          },
+          "read_capabilities": {
+            "items": {
+              "enum": [
+                "retention.engagement.analyze",
+                "growth.funnel.analyze"
+              ],
+              "type": "string"
+            },
+            "title": "Read Capabilities",
+            "type": "array"
+          },
+          "read_product": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mana",
+                  "360rec"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Product"
+          }
+        },
+        "required": [
+          "enabled",
+          "model",
+          "max_steps",
+          "budget_microusd",
+          "read_capabilities"
+        ],
+        "title": "GoalAvailability",
+        "type": "object"
+      },
+      "GoalCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "pause",
+              "resume",
+              "cancel",
+              "steer",
+              "approve_read"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "message": {
+            "default": "",
+            "maxLength": 6000,
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "command",
+          "expected_revision"
+        ],
+        "title": "GoalCommand",
+        "type": "object"
+      },
+      "GoalCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "budget_microusd": {
+            "default": 500000,
+            "maximum": 10000000.0,
+            "minimum": 50000.0,
+            "title": "Budget Microusd",
+            "type": "integer"
+          },
+          "constraints": {
+            "default": "Не изменять данные и не связываться с клиентами.",
+            "maxLength": 2000,
+            "title": "Constraints",
+            "type": "string"
+          },
+          "max_steps": {
+            "default": 6,
+            "maximum": 12.0,
+            "minimum": 3.0,
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "model_choice": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "gpt-5.4-mini",
+              "gpt-6.1-sol",
+              "gpt-6-astra"
+            ],
+            "title": "Model Choice",
+            "type": "string"
+          },
+          "objective": {
+            "maxLength": 6000,
+            "minLength": 10,
+            "title": "Objective",
+            "type": "string"
+          },
+          "reasoning": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Reasoning",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "success_criteria": {
+            "default": "Подготовить проверенный анализ и план следующих шагов.",
+            "maxLength": 2000,
+            "title": "Success Criteria",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "objective"
+        ],
+        "title": "GoalCreate",
+        "type": "object"
+      },
+      "GoalEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "created",
+              "progress",
+              "control",
+              "waiting",
+              "result",
+              "recovery"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 16000,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "kind",
+          "message"
+        ],
+        "title": "GoalEvent",
+        "type": "object"
+      },
+      "GoalEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_key": {
+            "title": "Capability Key",
+            "type": "string"
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
+          "fresh_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fresh Until"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "product": {
+            "enum": [
+              "mana",
+              "360rec"
+            ],
+            "title": "Product",
+            "type": "string"
+          },
+          "refresh_status": {
+            "enum": [
+              "live",
+              "cached",
+              "stale",
+              "unknown"
+            ],
+            "title": "Refresh Status",
+            "type": "string"
+          },
+          "report_id": {
+            "title": "Report Id",
+            "type": "string"
+          },
+          "shortened": {
+            "default": false,
+            "title": "Shortened",
+            "type": "boolean"
+          },
+          "summary": {
+            "maxLength": 5000,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "capability_key",
+          "product",
+          "collected_at",
+          "fresh_until",
+          "refresh_status",
+          "summary"
+        ],
+        "title": "GoalEvidence",
+        "type": "object"
+      },
+      "GoalTask": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "pending",
+              "active",
+              "done",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "status"
+        ],
+        "title": "GoalTask",
         "type": "object"
       },
       "GrowthActionType": {
@@ -8093,6 +8602,28 @@
             "title": "Message",
             "type": "string"
           },
+          "model_choice": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "gpt-5.4-mini",
+              "gpt-6.1-sol",
+              "gpt-6-astra"
+            ],
+            "title": "Model Choice",
+            "type": "string"
+          },
+          "reasoning": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Reasoning",
+            "type": "string"
+          },
           "request_id": {
             "format": "uuid",
             "title": "Request Id",
@@ -8876,6 +9407,195 @@
         "title": "NotifyParentAction",
         "type": "object"
       },
+      "OperationGoal": {
+        "additionalProperties": false,
+        "properties": {
+          "accounted_microusd": {
+            "default": 0,
+            "title": "Accounted Microusd",
+            "type": "integer"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "approved_capability": {
+            "anyOf": [
+              {
+                "enum": [
+                  "retention.engagement.analyze",
+                  "growth.funnel.analyze"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved Capability"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/GoalEvent"
+            },
+            "maxItems": 100,
+            "title": "Events",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/GoalEvidence"
+            },
+            "maxItems": 4,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "goal_id": {
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "instructions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Instructions",
+            "type": "array"
+          },
+          "lease_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Until"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "phase": {
+            "default": "plan",
+            "enum": [
+              "plan",
+              "investigate",
+              "review"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "plan": {
+            "items": {
+              "$ref": "#/components/schemas/GoalTask"
+            },
+            "maxItems": 8,
+            "title": "Plan",
+            "type": "array"
+          },
+          "product": {
+            "enum": [
+              "mana",
+              "360rec"
+            ],
+            "title": "Product",
+            "type": "string"
+          },
+          "read_attempted": {
+            "default": false,
+            "title": "Read Attempted",
+            "type": "boolean"
+          },
+          "request": {
+            "$ref": "#/components/schemas/GoalCreate"
+          },
+          "requested_capability": {
+            "anyOf": [
+              {
+                "enum": [
+                  "retention.engagement.analyze",
+                  "growth.funnel.analyze"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Capability"
+          },
+          "result": {
+            "default": "",
+            "maxLength": 16000,
+            "title": "Result",
+            "type": "string"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "default": "queued",
+            "enum": [
+              "queued",
+              "running",
+              "paused",
+              "waiting",
+              "completed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps_used": {
+            "default": 0,
+            "title": "Steps Used",
+            "type": "integer"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "waiting_reason": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Waiting Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal_id",
+          "topic_id",
+          "agent_id",
+          "product",
+          "request",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OperationGoal",
+        "type": "object"
+      },
       "OperationalTelemetryFacts": {
         "additionalProperties": false,
         "description": "Privacy-minimized aggregates from operational mobile Firestore collections.",
@@ -8904,6 +9624,18 @@
             "minimum": 0.0,
             "title": "Documents Scanned",
             "type": "integer"
+          },
+          "fresh_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fresh Until"
           },
           "internet_records": {
             "minimum": 0.0,
@@ -8937,6 +9669,20 @@
             "title": "Moving Devices",
             "type": "integer"
           },
+          "product_scope": {
+            "$ref": "#/components/schemas/ProductScope",
+            "default": "unverified"
+          },
+          "refresh_status": {
+            "default": "live",
+            "enum": [
+              "live",
+              "cached",
+              "stale"
+            ],
+            "title": "Refresh Status",
+            "type": "string"
+          },
           "screen_command_counts": {
             "additionalProperties": {
               "type": "integer"
@@ -8962,8 +9708,8 @@
           }
         },
         "required": [
-          "source",
           "collected_at",
+          "source",
           "battery_devices",
           "battery_percent_available",
           "silent_devices",
@@ -9878,6 +10624,15 @@
         },
         "title": "PrivacyGuarantees",
         "type": "object"
+      },
+      "ProductScope": {
+        "enum": [
+          "mana",
+          "360rec",
+          "unverified"
+        ],
+        "title": "ProductScope",
+        "type": "string"
       },
       "ProposedFamilyRule": {
         "additionalProperties": false,
@@ -11121,6 +11876,18 @@
             "title": "Evidence Refs",
             "type": "array"
           },
+          "fresh_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fresh Until"
+          },
           "limitations": {
             "items": {
               "type": "string"
@@ -11179,6 +11946,15 @@
             "title": "Mobile New Users",
             "type": "integer"
           },
+          "mobile_population": {
+            "default": "unknown",
+            "enum": [
+              "parents",
+              "unknown"
+            ],
+            "title": "Mobile Population",
+            "type": "string"
+          },
           "mobile_screen_time_seconds": {
             "minimum": 0.0,
             "title": "Mobile Screen Time Seconds",
@@ -11219,6 +11995,20 @@
           "period_start": {
             "format": "date-time",
             "title": "Period Start",
+            "type": "string"
+          },
+          "product_scope": {
+            "$ref": "#/components/schemas/ProductScope",
+            "default": "unverified"
+          },
+          "refresh_status": {
+            "default": "live",
+            "enum": [
+              "live",
+              "cached",
+              "stale"
+            ],
+            "title": "Refresh Status",
             "type": "string"
           },
           "schema_version": {
@@ -16840,6 +17630,549 @@
         "summary": "List findings",
         "tags": [
           "operation-admin"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/goals/availability": {
+      "get": {
+        "operationId": "availability_api_v1_admin_operation_goals_availability_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalAvailability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Availability",
+        "tags": [
+          "operation-goals"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/goals/topics/{topic_id}": {
+      "get": {
+        "operationId": "list_goals_api_v1_admin_operation_goals_topics__topic_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperationGoal"
+                  },
+                  "title": "Response List Goals Api V1 Admin Operation Goals Topics  Topic Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Goals",
+        "tags": [
+          "operation-goals"
+        ]
+      },
+      "post": {
+        "operationId": "create_goal_api_v1_admin_operation_goals_topics__topic_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationGoal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Goal",
+        "tags": [
+          "operation-goals"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/goals/{goal_id}": {
+      "get": {
+        "operationId": "detail_api_v1_admin_operation_goals__goal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "title": "Goal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationGoal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detail",
+        "tags": [
+          "operation-goals"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/goals/{goal_id}/commands": {
+      "post": {
+        "operationId": "control_api_v1_admin_operation_goals__goal_id__commands_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "title": "Goal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationGoal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control",
+        "tags": [
+          "operation-goals"
         ]
       }
     },

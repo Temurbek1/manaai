@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -34,6 +36,7 @@ from app.mana_operation_ai.application.auth_ports import TelegramOtpSender
 from app.mana_operation_ai.application.auth_service import AdminAuthService
 from app.mana_operation_ai.application.capabilities import CapabilityRegistry
 from app.mana_operation_ai.application.chat_service import OperationChatService
+from app.mana_operation_ai.application.goal_service import GoalWorker, OperationGoalService
 from app.mana_operation_ai.application.growth.agent import GrowthAgent
 from app.mana_operation_ai.application.growth.funnel import GrowthFunnelCapabilityHandler
 from app.mana_operation_ai.application.maintenance import OperationMaintenanceService
@@ -49,16 +52,34 @@ from app.mana_operation_ai.application.ports import (
 from app.mana_operation_ai.application.read_budget import FirestoreReadLimits
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
 from app.mana_operation_ai.application.retention.agent import RetentionAgent
+from app.mana_operation_ai.application.retention.assessment_cache import RetentionAssessmentCache
 from app.mana_operation_ai.application.retention.engagement import (
     RetentionEngagementCapabilityHandler,
 )
+from app.mana_operation_ai.application.retention.parent_ports import ParentSummaryPort
+from app.mana_operation_ai.application.retention.parents import ParentSummaryCapabilityHandler
 from app.mana_operation_ai.application.runtime import SystemClock, UuidGenerator
+from app.mana_operation_ai.application.shared_data import SharedDataReader
+from app.mana_operation_ai.application.shared_sources import (
+    SharedBackendActivity,
+    SharedMobileActivity,
+)
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
 from app.mana_operation_ai.domain.chat import ChatAvailability
+from app.mana_operation_ai.domain.cost_control import (
+    CostAttribution,
+    CostLimits,
+    DataRateCard,
+    ProductScope,
+    ResourceUsage,
+)
+from app.mana_operation_ai.domain.goals import GoalAvailability
+from app.mana_operation_ai.domain.shared_data import SourceBinding
 from app.mana_operation_ai.infrastructure.ads.fake_meta import FakeMetaAdsAdapter
 from app.mana_operation_ai.infrastructure.ads.meta import MetaAdsAdapter
 from app.mana_operation_ai.infrastructure.chat_model import OpenAIConversationModel
+from app.mana_operation_ai.infrastructure.goal_model import OpenAIGoalModel
 from app.mana_operation_ai.infrastructure.google_auth import (
     GoogleServiceAccountTokenProvider,
 )
@@ -68,8 +89,12 @@ from app.mana_operation_ai.infrastructure.growth.fake import (
     FakeExperimentAdapter,
     FakeProductAnalyticsAdapter,
 )
+from app.mana_operation_ai.infrastructure.metered_http import MeteredReadHttp
 from app.mana_operation_ai.infrastructure.notifications.logging import (
     StructuredLogNotificationAdapter,
+)
+from app.mana_operation_ai.infrastructure.persistence.assessment_store import (
+    SqlAlchemyEngagementAssessmentStore,
 )
 from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
     SqlAlchemyAdminAuthRepository,
@@ -77,24 +102,29 @@ from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
 from app.mana_operation_ai.infrastructure.persistence.chat_repository import (
     SqlAlchemyChatRepository,
 )
+from app.mana_operation_ai.infrastructure.persistence.cost_ledger import SqlAlchemyCostLedger
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
+from app.mana_operation_ai.infrastructure.persistence.goal_repository import (
+    SqlAlchemyGoalRepository,
+)
 from app.mana_operation_ai.infrastructure.persistence.repository import (
     SqlAlchemyOperationRepository,
+)
+from app.mana_operation_ai.infrastructure.persistence.shared_data_store import (
+    SqlAlchemySharedDataStore,
 )
 from app.mana_operation_ai.infrastructure.retention.fake import (
     FakeBackendActivityAdapter,
     FakeMobileActivityAdapter,
     FakeOperationalTelemetryAdapter,
 )
-from app.mana_operation_ai.infrastructure.retention.firestore import (
-    FirestoreMobileActivityAdapter,
-)
-from app.mana_operation_ai.infrastructure.retention.firestore_operational import (
-    FirestoreOperationalTelemetryAdapter,
-)
 from app.mana_operation_ai.infrastructure.retention.ga4 import Ga4MobileActivityAdapter
 from app.mana_operation_ai.infrastructure.retention.manakids import (
     ManakidsAdminActivityAdapter,
+)
+from app.mana_operation_ai.infrastructure.retention.parents import (
+    ManakidsParentSummaryAdapter,
+    UnavailableParentSummaryAdapter,
 )
 from app.mana_operation_ai.infrastructure.retention.unavailable import (
     UnavailableMobileActivityAdapter,
@@ -135,6 +165,56 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     auth_repository = SqlAlchemyAdminAuthRepository(operation_database)
     clock = SystemClock()
     ids = UuidGenerator()
+    cost_ledger = SqlAlchemyCostLedger(
+        operation_database,
+        clock=clock,
+        limits=CostLimits(
+            daily=ResourceUsage.model_validate(
+                settings.effective_operation_cost_limits(monthly=False), strict=True
+            ),
+            monthly=ResourceUsage.model_validate(
+                settings.effective_operation_cost_limits(monthly=True), strict=True
+            ),
+        ),
+    )
+
+    def read_meter(
+        source: str,
+        *,
+        firestore: bool = False,
+        parent: bool = False,
+        maximum_response_bytes: int | None = None,
+    ) -> MeteredReadHttp:
+        return MeteredReadHttp(
+            ledger=cost_ledger,
+            attribution=CostAttribution(
+                product=ProductScope.MANA
+                if parent
+                else ProductScope(settings.operation_data_product_scope),
+                source=source,
+                agent_id="retention-agent",
+                capability_key="retention.parents.analyze"
+                if parent
+                else "retention.engagement.analyze",
+            ),
+            maximum_response_bytes=(
+                min(
+                    settings.operation_data_max_response_bytes,
+                    maximum_response_bytes if maximum_response_bytes is not None else 1_048_576,
+                )
+                if parent or maximum_response_bytes is not None
+                else settings.operation_data_max_response_bytes
+            ),
+            rates=DataRateCard(
+                document_usd_per_100k=(
+                    settings.operation_firestore_document_usd_per_100k if firestore else 0
+                ),
+                response_usd_per_gib=(
+                    settings.operation_firestore_response_usd_per_gib if firestore else 0
+                ),
+            ),
+        )
+
     first_party_http_clients: list[httpx.AsyncClient] = []
     backend_activity: BackendActivityPort
     mobile_activity: MobileActivityPort
@@ -153,41 +233,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             max_retries=settings.manakids_max_retries,
             retry_backoff_seconds=settings.manakids_retry_backoff_seconds,
             max_pages=settings.manakids_max_pages,
+            metered_http=read_meter("manakids_admin_api"),
         )
         if settings.operation_product_activity_provider == "manakids":
             mobile_activity = UnavailableMobileActivityAdapter(clock=clock)
         elif settings.operation_product_activity_provider == "manakids_firebase":
-            if (
-                settings.firebase_project_id is None
-                or settings.firebase_service_account_file is None
-            ):
-                raise RuntimeError("Live Firestore activity settings are incomplete")
-            firestore_token_provider = GoogleServiceAccountTokenProvider(
-                str(settings.firebase_service_account_file),
-                scopes=["https://www.googleapis.com/auth/datastore"],
-            )
-            firestore_http = httpx.AsyncClient(timeout=settings.firebase_request_timeout_seconds)
-            first_party_http_clients.append(firestore_http)
-            mobile_activity = FirestoreMobileActivityAdapter(
-                client=firestore_http,
-                project_id=settings.firebase_project_id,
-                database_id=settings.firebase_database_id,
-                collection_id=settings.firebase_activity_collection,
-                token_provider=firestore_token_provider,
+            mobile_activity = UnavailableMobileActivityAdapter(
                 clock=clock,
-                max_documents=settings.firebase_max_activity_documents,
-                max_retries=settings.firebase_max_retries,
-                retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+                reason="Firestore historical reads disabled: no verified change/deletion contract.",
             )
         else:
             if settings.ga4_property_id is None or settings.ga4_service_account_file is None:
                 raise RuntimeError("Live GA4 activity settings are incomplete")
+            ga4_http = httpx.AsyncClient(timeout=settings.ga4_request_timeout_seconds)
+            first_party_http_clients.append(ga4_http)
             ga4_token_provider = GoogleServiceAccountTokenProvider(
                 str(settings.ga4_service_account_file),
                 scopes=["https://www.googleapis.com/auth/analytics.readonly"],
+                client=ga4_http,
+                metered_http=read_meter("google_oauth", maximum_response_bytes=65_536),
+                clock=clock,
             )
-            ga4_http = httpx.AsyncClient(timeout=settings.ga4_request_timeout_seconds)
-            first_party_http_clients.append(ga4_http)
             mobile_activity = Ga4MobileActivityAdapter(
                 client=ga4_http,
                 property_id=settings.ga4_property_id,
@@ -198,38 +264,74 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 max_concurrency=settings.ga4_max_concurrency,
                 max_retries=settings.ga4_max_retries,
                 retry_backoff_seconds=settings.ga4_retry_backoff_seconds,
-            )
-        if settings.firebase_operational_telemetry_enabled:
-            if settings.firebase_project_id is None:
-                raise RuntimeError("Live Firestore operational settings are incomplete")
-            operational_token_provider = (
-                GoogleServiceAccountTokenProvider(
-                    str(settings.firebase_service_account_file),
-                    scopes=["https://www.googleapis.com/auth/datastore"],
-                )
-                if settings.firebase_service_account_file is not None
-                else None
-            )
-            operational_http = httpx.AsyncClient(
-                timeout=settings.firebase_request_timeout_seconds,
-            )
-            first_party_http_clients.append(operational_http)
-            operational_telemetry = FirestoreOperationalTelemetryAdapter(
-                client=operational_http,
-                project_id=settings.firebase_project_id,
-                database_id=settings.firebase_database_id,
-                token_provider=operational_token_provider,
-                clock=clock,
-                max_documents_per_collection=(
-                    settings.firebase_operational_max_documents_per_collection
-                ),
-                max_retries=settings.firebase_max_retries,
-                retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+                metered_http=read_meter("google_analytics_4"),
+                stream_ids=tuple(settings.ga4_product_stream_ids),
             )
     else:
         backend_activity = FakeBackendActivityAdapter(clock=clock)
         mobile_activity = FakeMobileActivityAdapter(clock=clock)
         operational_telemetry = FakeOperationalTelemetryAdapter(clock=clock)
+    source_product: ProductScope | None = None
+    source_limitations: tuple[str, ...] = ()
+    shared_data_reader = SharedDataReader(
+        SqlAlchemySharedDataStore(operation_database, clock=clock)
+    )
+    if settings.operation_product_activity_provider != "fake":
+        source_product = (
+            ProductScope(settings.operation_data_product_scope)
+            if settings.operation_data_binding_revision != "unverified"
+            else ProductScope.UNVERIFIED
+        )
+        if (
+            source_product is not ProductScope.UNVERIFIED
+            and settings.operation_product_activity_provider == "manakids_ga4"
+            and not settings.ga4_product_stream_ids
+        ):
+            raise RuntimeError("Verified GA4 activity requires approved product stream IDs")
+        # Local contract evidence does not prove a change cursor or tombstones.
+        # Never silently substitute recurring historical/prefix scans for deltas.
+        if settings.firebase_operational_telemetry_enabled:
+            source_limitations = (
+                "Firestore operational telemetry is unavailable: reliable current-state "
+                "updates/deletions are not established; automatic prefix scans are disabled.",
+            )
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {
+                    "revision": settings.operation_data_binding_revision,
+                    "backend": settings.manakids_api_base_url,
+                    "provider": settings.operation_product_activity_provider,
+                    "property": settings.ga4_property_id,
+                    "streams": sorted(settings.ga4_product_stream_ids),
+                    "schema": "shared-engagement-v1",
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        backend_activity = SharedBackendActivity(
+            backend_activity,
+            shared_data_reader,
+            SourceBinding(
+                product=source_product,
+                source=backend_activity.integration_id,
+                fingerprint=fingerprint,
+            ),
+            clock,
+        )
+        mobile_activity = SharedMobileActivity(
+            mobile_activity,
+            shared_data_reader,
+            SourceBinding(
+                product=source_product,
+                source=mobile_activity.integration_id,
+                fingerprint=fingerprint,
+            ),
+            clock,
+            scope_filter_verified=(
+                settings.operation_product_activity_provider != "manakids_ga4"
+                or bool(settings.ga4_product_stream_ids)
+            ),
+        )
     otp_sender: TelegramOtpSender
     if settings.mana_auth_test_mode:
         if settings.mana_auth_test_otp_sink_path is None:
@@ -346,9 +448,45 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 pages=settings.firebase_max_pages_per_run,
                 requests=settings.firebase_max_requests_per_run,
             ),
+            source_product=source_product,
+            source_limitations=source_limitations,
+            assessment_cache=RetentionAssessmentCache(
+                SqlAlchemyEngagementAssessmentStore(operation_database), clock=clock
+            ),
         ),
     )
     agent_registry = AgentRegistry()
+    parent_source: ParentSummaryPort = UnavailableParentSummaryAdapter()
+    if settings.manakids_parent_source_enabled:
+        assert settings.manakids_api_username and settings.manakids_api_password
+        parent_http = httpx.AsyncClient(timeout=settings.manakids_request_timeout_seconds)
+        first_party_http_clients.append(parent_http)
+        parent_reader = ManakidsAdminActivityAdapter(
+            client=parent_http,
+            base_url=settings.manakids_api_base_url,
+            username=settings.manakids_api_username,
+            password=settings.manakids_api_password.get_secret_value(),
+            clock=clock,
+            max_retries=0,
+            retry_backoff_seconds=0.5,
+            max_pages=1,
+            max_response_bytes=1_048_576,
+            metered_http=read_meter("manakids_parent_api", parent=True),
+        )
+        parent_source = ManakidsParentSummaryAdapter(
+            parent_reader,
+            clock,
+            settings.manakids_parent_sample_limit,
+        )
+    retention_capability_registry.register(
+        ParentSummaryCapabilityHandler(
+            source=parent_source,
+            repository=operation_repository,
+            clock=clock,
+            ids=ids,
+            minimum_interval_seconds=settings.manakids_parent_min_interval_seconds,
+        )
+    )
     agent_registry.register(
         GrowthAgent(
             capabilities=growth_capability_registry,
@@ -443,6 +581,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.operation_ads_platforms = ads_platforms
     app.state.operation_experiment_platform = experiment_platform
     app.state.operation_backend_activity = backend_activity
+    app.state.operation_parent_source = parent_source
     app.state.operation_mobile_activity = mobile_activity
     app.state.operation_agent_service = agent_service
     app.state.operation_action_lifecycle = action_lifecycle
@@ -453,18 +592,57 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         daily_limit=settings.operation_chat_daily_limit,
     )
     await chat_repository.initialize()
-    chat_model = OpenAIConversationModel(settings)
+    chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
+    app.state.operation_cost_ledger = cost_ledger
+    app.state.operation_shared_data_reader = shared_data_reader
     app.state.operation_chat_service = OperationChatService(
         repository=chat_repository,
         model=chat_model,
         admin=operation_admin_service,
+        max_context_bytes=settings.operation_chat_max_context_bytes,
+        parent_minimum_interval_seconds=settings.manakids_parent_min_interval_seconds,
+        clock=clock,
         availability=ChatAvailability(
             enabled=settings.operation_chat_enabled and settings.is_openai_configured,
             hourly_limit=settings.operation_chat_hourly_limit,
             daily_limit=settings.operation_chat_daily_limit,
+            parent_summary_enabled=settings.manakids_parent_source_enabled,
+            model_selection_enabled=settings.operation_model_selection_enabled,
         ),
     )
     app.state.operation_maintenance_service = maintenance_service
+    goal_model = OpenAIGoalModel(settings, cost_ledger)
+    goal_service = OperationGoalService(
+        auth=auth_repository if settings.mana_telegram_auth_enabled else None,
+        repository=SqlAlchemyGoalRepository(operation_database, clock),
+        chats=chat_repository,
+        model=goal_model,
+        admin=operation_admin_service,
+        clock=clock,
+        max_context_bytes=settings.operation_goals_max_context_bytes,
+        global_kill_switch_default=settings.operation_global_kill_switch,
+        availability=GoalAvailability(
+            enabled=settings.operation_goals_enabled and settings.is_openai_configured,
+            model=settings.operation_goals_model,
+            max_steps=settings.operation_goals_max_steps,
+            budget_microusd=settings.operation_goals_budget_microusd,
+            read_capabilities=(
+                ["retention.engagement.analyze"]
+                if source_product in (ProductScope.MANA, ProductScope.REC360)
+                else []
+            ),
+            read_product="mana"
+            if source_product == ProductScope.MANA
+            else "360rec"
+            if source_product == ProductScope.REC360
+            else None,
+            model_selection_enabled=settings.operation_model_selection_enabled,
+        ),
+    )
+    app.state.operation_goal_service = goal_service
+    goal_worker = GoalWorker(goal_service)
+    if settings.operation_goals_worker_enabled and settings.operation_goals_enabled:
+        goal_worker.start()
     app.state.operation_scheduler = operation_scheduler
     if settings.operation_scheduler_enabled:
         operation_scheduler.start()
@@ -472,6 +650,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await goal_worker.stop()
+        await goal_model.close()
         await chat_model.close()
         await audio_moderation_runtime.stop()
         await operation_scheduler.stop()

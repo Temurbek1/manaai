@@ -10,6 +10,7 @@ from app.mana_operation_ai.application.agent_service import (
 )
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.chat_service import OperationChatService
+from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABILITY_KEY
 from app.mana_operation_ai.domain.chat import (
     AnalysisRequest,
     ChatAnalysisState,
@@ -47,7 +48,11 @@ async def request_analysis(
             background_tasks.add_task(
                 admin.run_in_background,
                 agent_id=topic.agent_id,
-                capability_key=admin.default_capability_key(topic.agent_id),
+                capability_key=(
+                    PARENTS_CAPABILITY_KEY
+                    if payload.kind == "mana_parents"
+                    else admin.default_capability_key(topic.agent_id)
+                ),
                 job_type="analysis",
                 actor=actor,
                 correlation_id=turn.turn_id,

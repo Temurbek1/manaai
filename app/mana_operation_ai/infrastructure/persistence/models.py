@@ -19,6 +19,59 @@ class Base(DeclarativeBase):
     """Declarative base for operation-platform persistence rows."""
 
 
+class CostPeriodRow(Base):
+    __tablename__ = "operation_cost_periods"
+
+    period_key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    usage: Mapped[dict[str, object]] = mapped_column(JSON)
+    limits: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class CostReservationRow(Base):
+    __tablename__ = "operation_cost_reservations"
+
+    reservation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    reserved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    period_keys: Mapped[list[str]] = mapped_column(JSON)
+    usage: Mapped[dict[str, object]] = mapped_column(JSON)
+    actual: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    attribution: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class SharedSourceGateRow(Base):
+    __tablename__ = "operation_shared_source_gates"
+
+    binding_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    product: Mapped[str] = mapped_column(String(16))
+    source: Mapped[str] = mapped_column(String(80))
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    lease_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SharedAggregateRow(Base):
+    __tablename__ = "operation_shared_aggregates"
+
+    query_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    binding_key: Mapped[str] = mapped_column(
+        ForeignKey("operation_shared_source_gates.binding_key"),
+        index=True,
+    )
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    fresh_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class EngagementAssessmentRow(Base):
+    __tablename__ = "operation_engagement_assessments"
+
+    assessment_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    product: Mapped[str] = mapped_column(String(16))
+    valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
 class ChatBudgetRow(Base):
     __tablename__ = "operation_chat_budget"
 
@@ -45,6 +98,31 @@ class ChatTurnRow(Base):
     request_id: Mapped[str] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(16), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    context_metadata: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+
+
+class GoalRow(Base):
+    __tablename__ = "operation_goals"
+    __table_args__ = (UniqueConstraint("owner", "request_id", name="uq_goal_request"),)
+
+    goal_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"), index=True)
+    owner: Mapped[str] = mapped_column(String(128), index=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class GoalCommandRow(Base):
+    __tablename__ = "operation_goal_commands"
+    __table_args__ = (UniqueConstraint("goal_id", "request_id", name="uq_goal_command"),)
+
+    command_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    goal_id: Mapped[str] = mapped_column(ForeignKey("operation_goals.goal_id"), index=True)
+    request_id: Mapped[str] = mapped_column(String(36))
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
 
 

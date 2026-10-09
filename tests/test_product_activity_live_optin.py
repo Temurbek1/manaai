@@ -1,6 +1,8 @@
 import asyncio
 import os
+from collections.abc import AsyncIterator, Callable
 from datetime import timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -8,8 +10,18 @@ import pytest
 from app.core.config import get_settings
 from app.mana_operation_ai.application.ports import MobileActivityPort, OperationalTelemetryPort
 from app.mana_operation_ai.application.runtime import SystemClock
+from app.mana_operation_ai.domain.cost_control import (
+    CostAttribution,
+    CostLimits,
+    DataRateCard,
+    ProductScope,
+    ResourceUsage,
+)
 from app.mana_operation_ai.domain.enums import IntegrationStatus
 from app.mana_operation_ai.infrastructure.google_auth import GoogleServiceAccountTokenProvider
+from app.mana_operation_ai.infrastructure.metered_http import MeteredReadHttp
+from app.mana_operation_ai.infrastructure.persistence.cost_ledger import SqlAlchemyCostLedger
+from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.retention.firestore import (
     FirestoreMobileActivityAdapter,
 )
@@ -33,7 +45,59 @@ pytestmark = [
 ]
 
 
-async def test_live_first_party_sources_are_readable_and_return_aggregate_facts() -> None:
+@pytest.fixture
+async def read_meter(tmp_path: Path) -> AsyncIterator[Callable[[str], MeteredReadHttp]]:
+    """Bound this separately approved diagnostic; never reset a runtime ledger."""
+    get_settings.cache_clear()
+    settings = get_settings()
+    assert settings.operation_data_product_scope != "unverified"
+    assert settings.operation_data_binding_revision != "unverified"
+    db = OperationDatabase(f"sqlite+aiosqlite:///{tmp_path / 'live-diagnostic-budget.db'}")
+    await db.create_schema()
+    ledger = SqlAlchemyCostLedger(
+        db,
+        clock=SystemClock(),
+        limits=CostLimits(
+            daily=ResourceUsage.model_validate(settings.operation_cost_daily_limits, strict=True),
+            monthly=ResourceUsage.model_validate(
+                settings.operation_cost_monthly_limits, strict=True
+            ),
+        ),
+    )
+
+    def make_meter(source: str) -> MeteredReadHttp:
+        firestore = source.startswith("firestore")
+        return MeteredReadHttp(
+            ledger=ledger,
+            attribution=CostAttribution(
+                product=ProductScope(settings.operation_data_product_scope),
+                source=source,
+                agent_id="retention-agent",
+                capability_key="retention.engagement.analyze",
+            ),
+            maximum_response_bytes=min(
+                settings.operation_data_max_response_bytes,
+                65_536 if source == "google_oauth" else settings.operation_data_max_response_bytes,
+            ),
+            rates=DataRateCard(
+                document_usd_per_100k=(
+                    settings.operation_firestore_document_usd_per_100k if firestore else 0
+                ),
+                response_usd_per_gib=(
+                    settings.operation_firestore_response_usd_per_gib if firestore else 0
+                ),
+            ),
+        )
+
+    try:
+        yield make_meter
+    finally:
+        await db.dispose()
+
+
+async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
+    read_meter: Callable[[str], MeteredReadHttp],
+) -> None:
     get_settings.cache_clear()
     settings = get_settings()
     assert settings.operation_product_activity_provider in {
@@ -64,6 +128,7 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
             max_retries=settings.manakids_max_retries,
             retry_backoff_seconds=settings.manakids_retry_backoff_seconds,
             max_pages=min(settings.manakids_max_pages, 20),
+            metered_http=read_meter("manakids_admin_api"),
         )
         mobile: MobileActivityPort
         if settings.operation_product_activity_provider == "manakids":
@@ -79,11 +144,15 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
                 token_provider=GoogleServiceAccountTokenProvider(
                     str(settings.firebase_service_account_file),
                     scopes=["https://www.googleapis.com/auth/datastore"],
+                    client=mobile_http,
+                    metered_http=read_meter("google_oauth"),
+                    clock=clock,
                 ),
                 clock=clock,
                 max_documents=min(settings.firebase_max_activity_documents, 5_000),
                 max_retries=settings.firebase_max_retries,
                 retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+                metered_http=read_meter("firestore_mobile"),
             )
         else:
             assert settings.ga4_property_id is not None
@@ -94,6 +163,9 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
                 token_provider=GoogleServiceAccountTokenProvider(
                     str(settings.ga4_service_account_file),
                     scopes=["https://www.googleapis.com/auth/analytics.readonly"],
+                    client=mobile_http,
+                    metered_http=read_meter("google_oauth"),
+                    clock=clock,
                 ),
                 clock=clock,
                 api_base_url=settings.ga4_api_base_url,
@@ -101,6 +173,8 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
                 max_concurrency=settings.ga4_max_concurrency,
                 max_retries=settings.ga4_max_retries,
                 retry_backoff_seconds=settings.ga4_retry_backoff_seconds,
+                metered_http=read_meter("google_analytics_4"),
+                stream_ids=tuple(settings.ga4_product_stream_ids),
             )
 
         operational: OperationalTelemetryPort | None = None
@@ -110,6 +184,9 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
                 GoogleServiceAccountTokenProvider(
                     str(settings.firebase_service_account_file),
                     scopes=["https://www.googleapis.com/auth/datastore"],
+                    client=operational_http,
+                    metered_http=read_meter("google_oauth"),
+                    clock=clock,
                 )
                 if settings.firebase_service_account_file is not None
                 else None
@@ -126,6 +203,7 @@ async def test_live_first_party_sources_are_readable_and_return_aggregate_facts(
                 ),
                 max_retries=settings.firebase_max_retries,
                 retry_backoff_seconds=settings.firebase_retry_backoff_seconds,
+                metered_http=read_meter("firestore_operational"),
             )
 
         health_checks = [backend.health(), mobile.health()]

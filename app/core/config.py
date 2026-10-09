@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        hide_input_in_errors=True,
     )
 
     app_env: Literal["local", "development", "staging", "production"] = "local"
@@ -67,8 +69,83 @@ class Settings(BaseSettings):
     openai_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] = "none"
     openai_verbosity: Literal["low", "medium", "high"] = "low"
     operation_chat_enabled: bool = True
+    operation_model_selection_enabled: bool = False
+    operation_ai_token_limits_enabled: bool = True
+    operation_chat_max_output_tokens: int = Field(default=8192, ge=2048, le=16384)
+    # Standard text-only, short-context USD/M rates, verified 2026-10-09.
+    # Explicitly overridable without accepting arbitrary client-supplied rates.
+    operation_inference_rate_cards: dict[str, dict[str, str]] = Field(
+        default_factory=lambda: {
+            "gpt-5.4-mini": {
+                "input_usd_per_million": "0.75",
+                "cached_input_usd_per_million": "0.075",
+                "cache_write_usd_per_million": "0.75",
+                "output_usd_per_million": "4.50",
+            },
+            "gpt-6.1-sol": {
+                "input_usd_per_million": "2",
+                "cached_input_usd_per_million": "0.10",
+                "cache_write_usd_per_million": "2.50",
+                "output_usd_per_million": "10",
+            },
+            "gpt-6-astra": {
+                "input_usd_per_million": "10",
+                "cached_input_usd_per_million": "1",
+                "cache_write_usd_per_million": "12.50",
+                "output_usd_per_million": "50",
+            },
+        }
+    )
+    operation_chat_model: str | None = Field(
+        default=None, max_length=200, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    )
+    operation_chat_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"] | None = None
     operation_chat_hourly_limit: int = Field(default=20, ge=1, le=100)
     operation_chat_daily_limit: int = Field(default=200, ge=1, le=2000)
+    operation_chat_max_input_tokens: int = Field(default=64_000, ge=4_096, le=200_000)
+    operation_chat_max_context_bytes: int = Field(default=24_000, ge=8_192, le=96_000)
+    operation_chat_rate_model: str = "gpt-5.4-nano"
+    operation_chat_input_usd_per_million: Decimal = Field(default=Decimal("0.20"), ge=0)
+    operation_chat_cached_input_usd_per_million: Decimal = Field(default=Decimal("0.02"), ge=0)
+    operation_chat_cache_write_usd_per_million: Decimal = Field(default=Decimal("0.20"), ge=0)
+    operation_chat_output_usd_per_million: Decimal = Field(default=Decimal("1.25"), ge=0)
+    operation_goals_enabled: bool = True
+    operation_goals_worker_enabled: bool = True
+    operation_goals_model: str = "gpt-6.1-sol"
+    operation_goals_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = "medium"
+    operation_goals_max_steps: int = Field(default=6, ge=3, le=12)
+    operation_goals_budget_microusd: int = Field(default=500_000, ge=50_000, le=10_000_000)
+    operation_goals_max_context_bytes: int = Field(default=64_000, ge=8192, le=96_000)
+    operation_goals_max_output_tokens: int = Field(default=4096, ge=1024, le=16384)
+    operation_goals_rate_model: str = "gpt-6.1-sol"
+    operation_goals_input_usd_per_million: Decimal = Field(default=Decimal("2"), ge=0)
+    operation_goals_cached_input_usd_per_million: Decimal = Field(default=Decimal("0.10"), ge=0)
+    operation_goals_cache_write_usd_per_million: Decimal = Field(default=Decimal("2.50"), ge=0)
+    operation_goals_output_usd_per_million: Decimal = Field(default=Decimal("10"), ge=0)
+    operation_cost_daily_limits: dict[str, int] = Field(
+        default_factory=lambda: {
+            "document_reads": 50_000,
+            "response_bytes": 314_572_800,
+            "provider_requests": 2_000,
+            "llm_calls": 60,
+            "input_tokens": 1_000_000,
+            "output_tokens": 150_000,
+            "data_microusd": 100_000,
+            "llm_microusd": 3_000_000,
+        }
+    )
+    operation_cost_monthly_limits: dict[str, int] = Field(
+        default_factory=lambda: {
+            "document_reads": 1_500_000,
+            "response_bytes": 9_663_676_416,
+            "provider_requests": 60_000,
+            "llm_calls": 1_800,
+            "input_tokens": 30_000_000,
+            "output_tokens": 4_500_000,
+            "data_microusd": 2_000_000,
+            "llm_microusd": 88_000_000,
+        }
+    )
 
     audio_moderation_enabled: bool = False
     ai_audio_moderation_auth_token: SecretStr | None = None
@@ -127,6 +204,14 @@ class Settings(BaseSettings):
         "manakids_firebase",
         "manakids_ga4",
     ] = "fake"
+    operation_data_product_scope: Literal["mana", "360rec", "unverified"] = "unverified"
+    operation_data_binding_revision: str = Field(
+        default="unverified", min_length=1, max_length=80, pattern=r"^[a-z0-9_.-]+$"
+    )
+    operation_data_max_response_bytes: int = Field(default=1_048_576, ge=1024, le=16_777_216)
+    operation_firestore_document_usd_per_100k: Decimal = Field(default=Decimal("0.06"), ge=0)
+    operation_firestore_response_usd_per_gib: Decimal = Field(default=Decimal("0.12"), ge=0)
+    ga4_product_stream_ids: list[str] = Field(default_factory=list)
     operation_viewer_api_key: SecretStr | None = None
     operation_operator_api_key: SecretStr | None = None
     operation_approver_api_key: SecretStr | None = None
@@ -138,6 +223,9 @@ class Settings(BaseSettings):
     manakids_max_retries: int = Field(default=3, ge=0, le=8)
     manakids_retry_backoff_seconds: float = Field(default=0.5, gt=0, le=10)
     manakids_max_pages: int = Field(default=20, ge=1, le=500)
+    manakids_parent_source_enabled: bool = False
+    manakids_parent_sample_limit: int = Field(default=10, ge=1, le=100)
+    manakids_parent_min_interval_seconds: int = Field(default=21600, ge=21600, le=86400)
     firebase_project_id: str | None = Field(
         default=None,
         pattern=r"^[a-z][a-z0-9-]{3,62}$",
@@ -363,6 +451,53 @@ class Settings(BaseSettings):
         default_factory=lambda: ["1d_click", "7d_click"],
     )
 
+    def effective_operation_cost_limits(self, *, monthly: bool) -> dict[str, int]:
+        limits = dict(
+            self.operation_cost_monthly_limits if monthly else self.operation_cost_daily_limits
+        )
+        if not self.operation_ai_token_limits_enabled:
+            # Remove aggregate token admission ceilings, not per-call context/output
+            # bounds, dollar accounting, unknown holds or any source-read protection.
+            limits.update(input_tokens=2**63 - 1, output_tokens=2**63 - 1)
+        return limits
+
+    def require_operation_chat_rate_card(self) -> None:
+        if self.operation_chat_model is None:
+            return
+        if self.operation_chat_model != self.operation_chat_rate_model:
+            raise ValueError("OPERATION_CHAT_MODEL must match OPERATION_CHAT_RATE_MODEL")
+        required = {
+            "operation_chat_rate_model",
+            "operation_chat_input_usd_per_million",
+            "operation_chat_cached_input_usd_per_million",
+            "operation_chat_cache_write_usd_per_million",
+            "operation_chat_output_usd_per_million",
+        }
+        if not required.issubset(self.model_fields_set):
+            raise ValueError(
+                "OPERATION_CHAT_MODEL requires an explicit complete operational rate card"
+            )
+
+    @model_validator(mode="after")
+    def validate_operation_chat_configuration(self) -> "Settings":
+        self.require_operation_chat_rate_card()
+        self.require_operation_goals_rate_card()
+        return self
+
+    def require_operation_goals_rate_card(self) -> None:
+        if self.operation_goals_model != self.operation_goals_rate_model:
+            raise ValueError("Goals model must match its explicit rate card")
+        if self.operation_goals_model != "gpt-6.1-sol":
+            required = {
+                "operation_goals_rate_model",
+                "operation_goals_input_usd_per_million",
+                "operation_goals_cached_input_usd_per_million",
+                "operation_goals_cache_write_usd_per_million",
+                "operation_goals_output_usd_per_million",
+            }
+            if not required.issubset(self.model_fields_set):
+                raise ValueError("Goals model overrides require all rate-card fields")
+
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
         if self.app_env == "production" and "*" in self.cors_origins:
@@ -379,7 +514,7 @@ class Settings(BaseSettings):
                 "OPERATION_WORKER_HEARTBEAT_MAX_AGE_SECONDS must be greater than twice "
                 "OPERATION_WORKER_HEARTBEAT_INTERVAL_SECONDS",
             )
-        if self.operation_product_activity_provider in {
+        if self.manakids_parent_source_enabled or self.operation_product_activity_provider in {
             "manakids",
             "manakids_firebase",
             "manakids_ga4",
@@ -485,6 +620,8 @@ class Settings(BaseSettings):
         "mana_telegram_bot_username",
         "ai_audio_moderation_auth_token",
         "audio_moderation_model",
+        "operation_chat_model",
+        "operation_chat_reasoning_effort",
         "manakids_api_username",
         "manakids_api_password",
         "firebase_project_id",
@@ -499,6 +636,15 @@ class Settings(BaseSettings):
         pattern as an empty string."""
         if isinstance(value, str) and not value.strip():
             return None
+        return value
+
+    @field_validator("ga4_product_stream_ids")
+    @classmethod
+    def validate_ga4_product_stream_ids(cls, value: list[str]) -> list[str]:
+        if len(value) > 20 or any(re.fullmatch(r"[0-9]{1,20}", item) is None for item in value):
+            raise ValueError("GA4 product streams must be at most 20 numeric stream IDs")
+        if len(value) != len(set(value)):
+            raise ValueError("GA4 product stream IDs must be distinct")
         return value
 
     @field_validator(
@@ -601,6 +747,18 @@ class Settings(BaseSettings):
     @property
     def is_openai_configured(self) -> bool:
         return bool(self.openai_api_key.get_secret_value())
+
+    @property
+    def effective_operation_chat_model(self) -> str:
+        return self.operation_chat_model or self.openai_model
+
+    @property
+    def effective_operation_chat_reasoning_effort(
+        self,
+    ) -> Literal["none", "low", "medium", "high", "xhigh"]:
+        if self.operation_chat_reasoning_effort is not None:
+            return self.operation_chat_reasoning_effort
+        return self.openai_reasoning_effort
 
     @property
     def effective_audio_moderation_model(self) -> str:

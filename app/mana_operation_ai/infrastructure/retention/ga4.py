@@ -22,6 +22,7 @@ from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationSta
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import MobileActivityFacts
 from app.mana_operation_ai.infrastructure.google_auth import GoogleAccessTokenProvider
+from app.mana_operation_ai.infrastructure.metered_http import MeteredReadHttp
 
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 logger = logging.getLogger(__name__)
@@ -55,6 +56,8 @@ class Ga4MobileActivityAdapter:
         max_concurrency: int,
         max_retries: int,
         retry_backoff_seconds: float,
+        metered_http: MeteredReadHttp | None = None,
+        stream_ids: tuple[str, ...] = (),
     ) -> None:
         self._client = client
         self._property_id = property_id
@@ -65,6 +68,8 @@ class Ga4MobileActivityAdapter:
         self._request_semaphore = asyncio.Semaphore(max_concurrency)
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
+        self._metered_http = metered_http
+        self._stream_ids = stream_ids
         self._run_report_url = f"{self._api_base_url}/properties/{self._property_id}:runReport"
 
     async def collect_activity(
@@ -255,6 +260,13 @@ class Ga4MobileActivityAdapter:
             "keepEmptyRows": False,
             "returnPropertyQuota": True,
         }
+        if self._stream_ids:
+            body["dimensionFilter"] = {
+                "filter": {
+                    "fieldName": "streamId",
+                    "inListFilter": {"values": list(self._stream_ids), "caseSensitive": True},
+                }
+            }
         if dimensions:
             body["dimensions"] = [{"name": item} for item in dimensions]
         if limit is not None:
@@ -283,11 +295,20 @@ class Ga4MobileActivityAdapter:
                     started = time.monotonic()
                     status: int | None = None
                     try:
-                        response = await self._client.post(
-                            self._run_report_url,
-                            headers={"Authorization": f"Bearer {token}"},
-                            json=body,
-                        )
+                        if self._metered_http is None:
+                            response = await self._client.post(
+                                self._run_report_url,
+                                headers={"Authorization": f"Bearer {token}"},
+                                json=body,
+                            )
+                        else:
+                            response = await self._metered_http.request(
+                                self._client,
+                                "POST",
+                                self._run_report_url,
+                                headers={"Authorization": f"Bearer {token}"},
+                                json=body,
+                            )
                         status = response.status_code
                     finally:
                         logger.info(

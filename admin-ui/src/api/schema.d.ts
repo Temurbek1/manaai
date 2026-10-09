@@ -528,6 +528,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/goals/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Availability */
+        get: operations["availability_api_v1_admin_operation_goals_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/goals/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Goals */
+        get: operations["list_goals_api_v1_admin_operation_goals_topics__topic_id__get"];
+        put?: never;
+        /** Create Goal */
+        post: operations["create_goal_api_v1_admin_operation_goals_topics__topic_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["detail_api_v1_admin_operation_goals__goal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/goals/{goal_id}/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Control */
+        post: operations["control_api_v1_admin_operation_goals__goal_id__commands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/integrations/{provider}/health": {
         parameters: {
             query?: never;
@@ -2499,6 +2568,12 @@ export interface components {
              */
             confirmed: true;
             /**
+             * Kind
+             * @default default
+             * @enum {string}
+             */
+            kind: "default" | "mana_parents";
+            /**
              * Request Id
              * Format: uuid
              */
@@ -3026,6 +3101,57 @@ export interface components {
             enabled: boolean;
             /** Hourly Limit */
             hourly_limit: number;
+            /**
+             * Model Selection Enabled
+             * @default false
+             */
+            model_selection_enabled: boolean;
+            /**
+             * Parent Summary Enabled
+             * @default false
+             */
+            parent_summary_enabled: boolean;
+        };
+        /**
+         * ChatReadConfirmation
+         * @description Server-owned read conditions, not model-issued consent or an admission receipt.
+         */
+        ChatReadConfirmation: {
+            /**
+             * Admission Checks
+             * @default [
+             *       "access",
+             *       "product_scope",
+             *       "cooldown",
+             *       "budget"
+             *     ]
+             */
+            admission_checks: [
+                "access",
+                "product_scope",
+                "cooldown",
+                "budget"
+            ];
+            /** Capability Key */
+            capability_key: string;
+            /**
+             * Confirmation Required
+             * @default true
+             * @constant
+             */
+            confirmation_required: true;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "default" | "mana_parents";
+            /** Minimum Interval Seconds */
+            minimum_interval_seconds?: number | null;
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
         };
         /** ChatRequest */
         ChatRequest: {
@@ -3046,11 +3172,23 @@ export interface components {
         };
         /** ChatSource */
         ChatSource: {
+            /** Collected At */
+            collected_at?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Fresh Until */
+            fresh_until?: string | null;
+            /** Product */
+            product?: ("mana" | "360rec") | null;
+            /**
+             * Refresh Status
+             * @default unknown
+             * @enum {string}
+             */
+            refresh_status: "live" | "cached" | "stale" | "unknown";
             /** Report Id */
             report_id: string;
             /** Run Id */
@@ -3058,9 +3196,8 @@ export interface components {
             /**
              * Scope Verified
              * @default false
-             * @constant
              */
-            scope_verified: false;
+            scope_verified: boolean;
             /** Title */
             title: string;
         };
@@ -3094,6 +3231,12 @@ export interface components {
         /** ChatTurn */
         ChatTurn: {
             /**
+             * Analysis Kind
+             * @default default
+             * @enum {string}
+             */
+            analysis_kind: "default" | "mana_parents";
+            /**
              * Analysis Requested
              * @default false
              */
@@ -3115,15 +3258,28 @@ export interface components {
             /** Model */
             model?: string | null;
             /**
+             * Model Choice
+             * @default auto
+             * @enum {string}
+             */
+            model_choice: "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
+            /**
              * Next Action
              * @default none
              * @enum {string}
              */
-            next_action: "none" | "analyze" | "approvals";
+            next_action: "none" | "analyze" | "approvals" | "mana_parents";
             /** Output Tokens */
             output_tokens?: number | null;
             /** Plan */
             plan?: string[];
+            read_confirmation?: components["schemas"]["ChatReadConfirmation"] | null;
+            /**
+             * Reasoning
+             * @default auto
+             * @enum {string}
+             */
+            reasoning: "auto" | "low" | "medium" | "high";
             /**
              * Request Id
              * Format: uuid
@@ -3856,6 +4012,143 @@ export interface components {
             radius_meters: number;
             /** Rationale */
             rationale: string;
+        };
+        /** GoalAvailability */
+        GoalAvailability: {
+            /** Budget Microusd */
+            budget_microusd: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Max Steps */
+            max_steps: number;
+            /** Model */
+            model: string;
+            /**
+             * Model Selection Enabled
+             * @default false
+             */
+            model_selection_enabled: boolean;
+            /** Read Capabilities */
+            read_capabilities: ("retention.engagement.analyze" | "growth.funnel.analyze")[];
+            /** Read Product */
+            read_product?: ("mana" | "360rec") | null;
+        };
+        /** GoalCommand */
+        GoalCommand: {
+            /**
+             * Command
+             * @enum {string}
+             */
+            command: "pause" | "resume" | "cancel" | "steer" | "approve_read";
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** GoalCreate */
+        GoalCreate: {
+            /**
+             * Budget Microusd
+             * @default 500000
+             */
+            budget_microusd: number;
+            /**
+             * Constraints
+             * @default Не изменять данные и не связываться с клиентами.
+             */
+            constraints: string;
+            /**
+             * Max Steps
+             * @default 6
+             */
+            max_steps: number;
+            /**
+             * Model Choice
+             * @default auto
+             * @enum {string}
+             */
+            model_choice: "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
+            /** Objective */
+            objective: string;
+            /**
+             * Reasoning
+             * @default auto
+             * @enum {string}
+             */
+            reasoning: "auto" | "low" | "medium" | "high";
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Success Criteria
+             * @default Подготовить проверенный анализ и план следующих шагов.
+             */
+            success_criteria: string;
+        };
+        /** GoalEvent */
+        GoalEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "created" | "progress" | "control" | "waiting" | "result" | "recovery";
+            /** Message */
+            message: string;
+        };
+        /** GoalEvidence */
+        GoalEvidence: {
+            /** Capability Key */
+            capability_key: string;
+            /** Collected At */
+            collected_at: string | null;
+            /** Fresh Until */
+            fresh_until: string | null;
+            /** Limitations */
+            limitations?: string[];
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
+            /**
+             * Refresh Status
+             * @enum {string}
+             */
+            refresh_status: "live" | "cached" | "stale" | "unknown";
+            /** Report Id */
+            report_id: string;
+            /**
+             * Shortened
+             * @default false
+             */
+            shortened: boolean;
+            /** Summary */
+            summary: string;
+        };
+        /** GoalTask */
+        GoalTask: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "active" | "done" | "blocked";
+            /** Title */
+            title: string;
         };
         /**
          * GrowthActionType
@@ -4593,6 +4886,18 @@ export interface components {
             /** Message */
             message: string;
             /**
+             * Model Choice
+             * @default auto
+             * @enum {string}
+             */
+            model_choice: "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
+            /**
+             * Reasoning
+             * @default auto
+             * @enum {string}
+             */
+            reasoning: "auto" | "low" | "medium" | "high";
+            /**
              * Request Id
              * Format: uuid
              */
@@ -4864,6 +5169,89 @@ export interface components {
             message: string;
             urgency: components["schemas"]["RiskLevel"];
         };
+        /** OperationGoal */
+        OperationGoal: {
+            /**
+             * Accounted Microusd
+             * @default 0
+             */
+            accounted_microusd: number;
+            /** Agent Id */
+            agent_id: string;
+            /** Approved Capability */
+            approved_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze") | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Events */
+            events?: components["schemas"]["GoalEvent"][];
+            /** Evidence */
+            evidence?: components["schemas"]["GoalEvidence"][];
+            /** Goal Id */
+            goal_id: string;
+            /** Instructions */
+            instructions?: string[];
+            /** Lease Until */
+            lease_until?: string | null;
+            /** Model */
+            model?: string | null;
+            /**
+             * Phase
+             * @default plan
+             * @enum {string}
+             */
+            phase: "plan" | "investigate" | "review";
+            /** Plan */
+            plan?: components["schemas"]["GoalTask"][];
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
+            /**
+             * Read Attempted
+             * @default false
+             */
+            read_attempted: boolean;
+            request: components["schemas"]["GoalCreate"];
+            /** Requested Capability */
+            requested_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze") | null;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /**
+             * Status
+             * @default queued
+             * @enum {string}
+             */
+            status: "queued" | "running" | "paused" | "waiting" | "completed" | "cancelled";
+            /**
+             * Steps Used
+             * @default 0
+             */
+            steps_used: number;
+            /** Topic Id */
+            topic_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Waiting Reason
+             * @default
+             */
+            waiting_reason: string;
+        };
         /**
          * OperationalTelemetryFacts
          * @description Privacy-minimized aggregates from operational mobile Firestore collections.
@@ -4882,6 +5270,8 @@ export interface components {
             completeness: string;
             /** Documents Scanned */
             documents_scanned: number;
+            /** Fresh Until */
+            fresh_until?: string | null;
             /** Internet Records */
             internet_records: number;
             /** Limitations */
@@ -4894,6 +5284,14 @@ export interface components {
             monitoring_enabled: number;
             /** Moving Devices */
             moving_devices: number;
+            /** @default unverified */
+            product_scope: components["schemas"]["ProductScope"];
+            /**
+             * Refresh Status
+             * @default live
+             * @enum {string}
+             */
+            refresh_status: "live" | "cached" | "stale";
             /** Screen Command Counts */
             screen_command_counts?: {
                 [key: string]: number;
@@ -5221,6 +5619,11 @@ export interface components {
              */
             raw_input_returned: false;
         };
+        /**
+         * ProductScope
+         * @enum {string}
+         */
+        ProductScope: "mana" | "360rec" | "unverified";
         /** ProposedFamilyRule */
         ProposedFamilyRule: {
             /** Description */
@@ -5670,6 +6073,8 @@ export interface components {
             completeness: string;
             /** Evidence Refs */
             evidence_refs: components["schemas"]["EvidenceRef"][];
+            /** Fresh Until */
+            fresh_until?: string | null;
             /** Limitations */
             limitations?: string[];
             /** Mobile Active Subjects */
@@ -5698,6 +6103,12 @@ export interface components {
              * @default 0
              */
             mobile_new_users: number;
+            /**
+             * Mobile Population
+             * @default unknown
+             * @enum {string}
+             */
+            mobile_population: "parents" | "unknown";
             /** Mobile Screen Time Seconds */
             mobile_screen_time_seconds: number;
             /** Mobile Sequence Counts */
@@ -5719,6 +6130,14 @@ export interface components {
              * Format: date-time
              */
             period_start: string;
+            /** @default unverified */
+            product_scope: components["schemas"]["ProductScope"];
+            /**
+             * Refresh Status
+             * @default live
+             * @enum {string}
+             */
+            refresh_status: "live" | "cached" | "stale";
             /**
              * Schema Version
              * @default retention-engagement-v2
@@ -7618,6 +8037,192 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_Finding_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    availability_api_v1_admin_operation_goals_availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_goals_api_v1_admin_operation_goals_topics__topic_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationGoal"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_goal_api_v1_admin_operation_goals_topics__topic_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationGoal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detail_api_v1_admin_operation_goals__goal_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationGoal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    control_api_v1_admin_operation_goals__goal_id__commands_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationGoal"];
                 };
             };
             /** @description Validation Error */

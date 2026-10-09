@@ -4,7 +4,7 @@ import json
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import cast
+from typing import Literal, cast
 
 from pydantic import JsonValue
 
@@ -18,11 +18,14 @@ from app.mana_operation_ai.application.ports import (
     OperationRepository,
 )
 from app.mana_operation_ai.application.read_budget import FirestoreReadBudget, FirestoreReadLimits
+from app.mana_operation_ai.application.retention.assessment_cache import RetentionAssessmentCache
 from app.mana_operation_ai.application.retention.constants import (
     ENGAGEMENT_CAPABILITY_KEY,
     RETENTION_AGENT_ID,
 )
 from app.mana_operation_ai.application.scheduling import next_cron_occurrence
+from app.mana_operation_ai.application.shared_data import SharedDataUnavailable
+from app.mana_operation_ai.domain.cost_control import ProductScope
 from app.mana_operation_ai.domain.enums import (
     ActivityEventType,
     AgentRunStage,
@@ -71,6 +74,9 @@ class RetentionEngagementCapabilityHandler:
         clock: Clock,
         ids: IdGenerator,
         firestore_read_limits: FirestoreReadLimits | None = None,
+        source_product: ProductScope | None = None,
+        source_limitations: tuple[str, ...] = (),
+        assessment_cache: RetentionAssessmentCache | None = None,
     ) -> None:
         self._backend_activity = backend_activity
         self._mobile_activity = mobile_activity
@@ -79,6 +85,9 @@ class RetentionEngagementCapabilityHandler:
         self._clock = clock
         self._ids = ids
         self._firestore_read_limits = firestore_read_limits or FirestoreReadLimits()
+        self._source_product = source_product
+        self._source_limitations = source_limitations
+        self._assessment_cache = assessment_cache
         self._definition = CapabilityDefinition(
             key=ENGAGEMENT_CAPABILITY_KEY,
             agent_id=RETENTION_AGENT_ID,
@@ -114,7 +123,9 @@ class RetentionEngagementCapabilityHandler:
     def default_configuration(self) -> dict[str, JsonValue]:
         return cast(
             dict[str, JsonValue],
-            RetentionEngagementConfiguration().model_dump(mode="json"),
+            RetentionEngagementConfiguration(
+                product=self._source_product or ProductScope.UNVERIFIED
+            ).model_dump(mode="json"),
         )
 
     def default_schedules(self, agent_id: str) -> list[AgentSchedule]:
@@ -163,19 +174,35 @@ class RetentionEngagementCapabilityHandler:
         stop_reason = "cancelled"
         try:
             run = await self._transition(run, AgentRunStatus.COLLECTING, AgentRunStage.COLLECT)
+            if self._source_product is not None and (
+                self._source_product is ProductScope.UNVERIFIED
+                or typed_configuration.product is not self._source_product
+            ):
+                raise SharedDataUnavailable(
+                    "Engagement needs approved source ownership matching the requested application"
+                )
             period_end = self._clock.now()
             period_start = period_end - timedelta(days=typed_configuration.lookback_days)
             backend_task = self._backend_activity.collect_activity(
                 period_start=period_start,
                 period_end=period_end,
             )
+            if self._source_product is not None:
+                # Live authentication failure must not start other paid sources.
+                backend = await backend_task
             mobile_task = self._mobile_activity.collect_activity(
                 period_start=period_start,
                 period_end=period_end,
                 read_budget=read_budget,
             )
             operational: OperationalTelemetryFacts | None = None
-            if self._operational_telemetry is None:
+            if self._source_product is not None:
+                mobile = await mobile_task
+                if self._operational_telemetry is not None:
+                    operational = await self._operational_telemetry.collect_telemetry(
+                        read_budget=read_budget
+                    )
+            elif self._operational_telemetry is None:
                 backend, mobile = await gather_or_cancel(backend_task, mobile_task)
             else:
                 backend, mobile, operational = await gather_or_cancel(
@@ -190,6 +217,7 @@ class RetentionEngagementCapabilityHandler:
                 AgentRunStage.NORMALIZE,
             )
             normalized = _normalize(backend, mobile, operational, self._clock.now())
+            normalized.limitations.extend(self._source_limitations)
             snapshot = self._snapshot(
                 run,
                 normalized,
@@ -202,12 +230,49 @@ class RetentionEngagementCapabilityHandler:
             await self._repository.save_snapshot(snapshot)
 
             run = await self._transition(run, AgentRunStatus.ANALYZING, AgentRunStage.ANALYZE)
-            analysis, findings = self._analyze(
-                run=run,
-                snapshot=snapshot,
-                normalized=normalized,
-                configuration=typed_configuration,
-            )
+
+            def calculate() -> tuple[Analysis, list[Finding]]:
+                return self._analyze(
+                    run=run,
+                    snapshot=snapshot,
+                    normalized=normalized,
+                    configuration=typed_configuration,
+                )
+
+            reused = False
+            if self._assessment_cache is None:
+                analysis, findings = calculate()
+            else:
+                analysis, findings, reused = await self._assessment_cache.assess(
+                    snapshot=normalized,
+                    configuration=typed_configuration,
+                    configuration_version=configuration.version,
+                    calculate=calculate,
+                )
+            if reused:
+                # Preserve original calculated_at; attach new audit identities and
+                # the current equivalent snapshot, not the cached run's records.
+                analysis = analysis.model_copy(
+                    update={
+                        "analysis_id": self._ids.new(),
+                        "run_id": run.run_id,
+                        "snapshot_id": snapshot.snapshot_id,
+                    },
+                    deep=True,
+                )
+                findings = [
+                    finding.model_copy(
+                        update={
+                            "finding_id": self._ids.new(),
+                            "run_id": run.run_id,
+                            "analysis_id": analysis.analysis_id,
+                            "source_snapshot_id": snapshot.snapshot_id,
+                            "created_at": self._clock.now(),
+                        },
+                        deep=True,
+                    )
+                    for finding in findings
+                ]
             await self._repository.save_analysis(analysis)
             await self._repository.save_findings(findings)
 
@@ -218,7 +283,13 @@ class RetentionEngagementCapabilityHandler:
                 AgentRunStatus.POLICY_CHECK,
                 AgentRunStage.POLICY_CHECK,
             )
-            result = await self._finish(run=run, snapshot=normalized, findings=findings)
+            result = await self._finish(
+                run=run,
+                snapshot=normalized,
+                findings=findings,
+                analysis_reused=reused,
+                analysis_calculated_at=analysis.calculated_at,
+            )
             stop_reason = "success"
             return result
         except Exception as exc:
@@ -303,6 +374,20 @@ class RetentionEngagementCapabilityHandler:
                 for window, count in normalized.mobile_active_users_by_window.items()
             },
         )
+        mobile_available = _mobile_available(normalized)
+        if not mobile_available:
+            metrics = {
+                key: MetricValue(
+                    value=None,
+                    unit=metric.unit,
+                    availability=DataAvailability.UNAVAILABLE,
+                    reason="Mobile analytics is unavailable; "
+                    "zero placeholders are not observations.",
+                )
+                if key.startswith("mobile_")
+                else metric
+                for key, metric in metrics.items()
+            }
         analysis = Analysis(
             analysis_id=self._ids.new(),
             run_id=run.run_id,
@@ -421,8 +506,11 @@ class RetentionEngagementCapabilityHandler:
         run: AgentRun,
         snapshot: RetentionEngagementSnapshot,
         findings: list[Finding],
+        analysis_reused: bool = False,
+        analysis_calculated_at: datetime | None = None,
     ) -> AgentRunResult:
         run = await self._transition(run, AgentRunStatus.REPORTING, AgentRunStage.REPORT)
+        event_counts = {key.value: value for key, value in snapshot.mobile_event_counts.items()}
         report = AgentReport(
             report_id=self._ids.new(),
             agent_id=run.agent_id,
@@ -432,9 +520,21 @@ class RetentionEngagementCapabilityHandler:
             period_start=snapshot.period_start,
             period_end=snapshot.period_end,
             structured={
+                "product": snapshot.product_scope.value,
+                "scope_verified": snapshot.product_scope is not ProductScope.UNVERIFIED,
+                "scope_basis": "approved_source_binding",
+                "collected_at": snapshot.collected_at.isoformat(),
+                "fresh_until": snapshot.fresh_until.isoformat() if snapshot.fresh_until else None,
+                "refresh_status": snapshot.refresh_status,
+                "analysis_reused": analysis_reused,
+                "analysis_calculated_at": (
+                    analysis_calculated_at.isoformat() if analysis_calculated_at else None
+                ),
+                "mobile_analytics_available": _mobile_available(snapshot),
                 "total_children": snapshot.total_children,
                 "backend_active_children": snapshot.backend_active_children,
                 "mobile_active_subjects": snapshot.mobile_active_subjects,
+                "mobile_population": snapshot.mobile_population,
                 "mobile_active_users_by_window": snapshot.mobile_active_users_by_window,
                 "mobile_sessions": snapshot.mobile_sessions,
                 "mobile_engaged_sessions": snapshot.mobile_engaged_sessions,
@@ -457,8 +557,18 @@ class RetentionEngagementCapabilityHandler:
             },
             human_readable=(
                 f"Engagement analyzed for {snapshot.total_children} children: "
-                f"{snapshot.backend_active_children} had backend activity and "
-                f"{snapshot.mobile_active_subjects} appeared in mobile telemetry."
+                f"{snapshot.backend_active_children} had backend activity. "
+                + (
+                    f"{snapshot.mobile_active_subjects} active {snapshot.mobile_population} "
+                    "in mobile telemetry (separate from child inventory). "
+                    f"Sessions: {snapshot.mobile_sessions}; active users by window: "
+                    f"{snapshot.mobile_active_users_by_window}. "
+                    "Event counts: "
+                    f"{event_counts}. "
+                    f"Dimensions (activity, NOT orders/sales): {snapshot.mobile_dimension_counts}."
+                    if _mobile_available(snapshot)
+                    else "Mobile telemetry is unavailable."
+                )
             ),
             data_quality_notes=snapshot.limitations,
             created_at=self._clock.now(),
@@ -569,6 +679,26 @@ def _normalize(
         *mobile.limitations,
         *(operational.limitations if operational is not None else []),
     ]
+    sources = [backend, mobile, *([operational] if operational is not None else [])]
+    scopes = {source.product_scope for source in sources}
+    if len(scopes) > 1:
+        raise SharedDataUnavailable("Cannot combine facts from different application scopes")
+    source_times = [source.collected_at for source in sources]
+    # Rebuilding a report must not make an old cache appear freshly collected.
+    original_collection = min(source_times)
+    expiries = [source.fresh_until for source in sources if source.fresh_until is not None]
+    refresh_status = (
+        "stale"
+        if any(source.refresh_status == "stale" for source in sources)
+        else "cached"
+        if any(source.refresh_status == "cached" for source in sources)
+        else "live"
+    )
+    if (backend.period_start, backend.period_end) != (mobile.period_start, mobile.period_end):
+        limitations.append(
+            "Source windows differ; each evidence reference retains its original period. "
+            "The report period is their envelope, not a synchronized observation window."
+        )
     completeness_values = [backend.completeness, mobile.completeness]
     if operational is not None:
         completeness_values.append(operational.completeness)
@@ -590,20 +720,32 @@ def _normalize(
         if backend.total_children
         else raw_backend_active
     )
+    mobile_population: Literal["parents", "unknown"] = (
+        "parents" if mobile.product_scope is ProductScope.MANA else "unknown"
+    )
+    if mobile_population == "parents":
+        limitations.append(
+            "MANA behavioral telemetry describes parents only (owner confirmed 2026-10-09). "
+            "Parent activity must not be divided by child inventory or used as sales/order data."
+        )
     if backend_active and mobile.active_subjects:
         limitations.append(
             "Backend and mobile-analytics subject populations cannot yet be safely deduplicated; "
             "they are reported separately.",
         )
     return RetentionEngagementSnapshot(
-        period_start=max(backend.period_start, mobile.period_start),
-        period_end=min(backend.period_end, mobile.period_end),
-        collected_at=collected_at,
+        period_start=min(backend.period_start, mobile.period_start),
+        period_end=max(backend.period_end, mobile.period_end),
+        collected_at=original_collection,
+        product_scope=backend.product_scope,
+        refresh_status=refresh_status,
+        fresh_until=min(expiries) if expiries else None,
         parent_accounts_joined=backend.parent_accounts_joined,
         child_accounts_joined=backend.child_accounts_joined,
         total_children=backend.total_children,
         backend_active_children=backend_active,
         mobile_active_subjects=mobile.active_subjects,
+        mobile_population=mobile_population,
         mobile_active_users_by_window=mobile.active_users_by_window,
         mobile_sessions=mobile.sessions,
         mobile_engaged_sessions=mobile.engaged_sessions,
@@ -640,7 +782,7 @@ def _evidence_ref(
     facts: BackendActivityFacts | MobileActivityFacts,
     collected_at: datetime,
 ) -> EvidenceRef:
-    payload = facts.model_dump(mode="json")
+    payload = facts.model_dump(mode="json", exclude={"refresh_status"})
     checksum = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(),
     ).hexdigest()
@@ -664,7 +806,7 @@ def _operational_evidence_ref(
     period_end: datetime,
     collected_at: datetime,
 ) -> EvidenceRef:
-    payload = facts.model_dump(mode="json")
+    payload = facts.model_dump(mode="json", exclude={"refresh_status"})
     checksum = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(),
     ).hexdigest()
@@ -686,6 +828,15 @@ def _count_metric(value: int, *, unit: str = "count") -> MetricValue:
         value=Decimal(value),
         unit=unit,
         availability=DataAvailability.AVAILABLE,
+    )
+
+
+def _mobile_available(snapshot: RetentionEngagementSnapshot) -> bool:
+    return any(
+        reference.source
+        in {"google_analytics_4", "firebase_app_activity", "fake_firestore_activity"}
+        and reference.completeness > 0
+        for reference in snapshot.evidence_refs
     )
 
 

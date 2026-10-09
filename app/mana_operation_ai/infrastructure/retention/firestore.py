@@ -21,6 +21,7 @@ from app.mana_operation_ai.domain.enums import ActivityEventType, IntegrationSta
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import MobileActivityFacts
 from app.mana_operation_ai.infrastructure.google_auth import GoogleAccessTokenProvider
+from app.mana_operation_ai.infrastructure.metered_http import MeteredReadHttp
 
 _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 _TAXONOMY_PATTERN = r"^[a-z][a-z0-9_.-]{0,63}$"
@@ -62,6 +63,7 @@ class FirestoreMobileActivityAdapter:
         max_documents: int,
         max_retries: int,
         retry_backoff_seconds: float,
+        metered_http: MeteredReadHttp | None = None,
     ) -> None:
         self._client = client
         self._project_id = project_id
@@ -72,6 +74,7 @@ class FirestoreMobileActivityAdapter:
         self._max_documents = max_documents
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
+        self._metered_http = metered_http
         encoded_project = quote(project_id, safe="")
         encoded_database = quote(database_id, safe="")
         self._database_path = f"projects/{encoded_project}/databases/{encoded_database}"
@@ -276,7 +279,19 @@ class FirestoreMobileActivityAdapter:
                     document_limit=document_limit,
                     retry=attempt > 0,
                 ) as metric:
-                    response = await self._client.request(method, url, headers=headers, **kwargs)
+                    if self._metered_http is None:
+                        response = await self._client.request(
+                            method, url, headers=headers, **kwargs
+                        )
+                    else:
+                        response = await self._metered_http.request(
+                            self._client,
+                            method,
+                            url,
+                            document_limit=document_limit,
+                            headers=headers,
+                            **kwargs,
+                        )
                     metric.status_code = response.status_code
             except httpx.RequestError as exc:
                 if attempt >= self._max_retries:

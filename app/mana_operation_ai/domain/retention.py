@@ -5,14 +5,17 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from app.mana_operation_ai.domain.cost_control import ProductScope
 from app.mana_operation_ai.domain.enums import ActivityEventType
 from app.mana_operation_ai.domain.models import (
     AgentReport,
     AgentRun,
+    Analysis,
     DomainModel,
     EvidenceRef,
     Finding,
 )
+from app.mana_operation_ai.domain.shared_data import CollectedAggregate
 
 _TAXONOMY = r"[a-z][a-z0-9_.-]{0,63}"
 _DIMENSION_CATEGORIES = {
@@ -37,6 +40,7 @@ _SEARCH_DIMENSIONS = {"with_query", "with_filters", "with_sort"}
 
 
 class RetentionEngagementConfiguration(DomainModel):
+    product: ProductScope = ProductScope.UNVERIFIED
     schedule: str = "20 */6 * * *"
     timezone: str = "UTC"
     lookback_days: int = Field(default=7, ge=1, le=30)
@@ -52,13 +56,12 @@ class RetentionEngagementConfiguration(DomainModel):
     )
 
 
-class BackendActivityFacts(DomainModel):
+class BackendActivityFacts(CollectedAggregate):
     """PII-free aggregate facts translated from the Manakids Admin API."""
 
     source: str
     period_start: datetime
     period_end: datetime
-    collected_at: datetime
     parent_accounts_joined: int = Field(ge=0)
     child_accounts_joined: int = Field(ge=0)
     total_children: int = Field(ge=0)
@@ -66,7 +69,6 @@ class BackendActivityFacts(DomainModel):
     children_with_realtime_feature_usage: int = Field(ge=0)
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
     source_request_ids: list[str] = Field(default_factory=list)
-    limitations: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_period(self) -> "BackendActivityFacts":
@@ -75,13 +77,12 @@ class BackendActivityFacts(DomainModel):
         return self
 
 
-class MobileActivityFacts(DomainModel):
+class MobileActivityFacts(CollectedAggregate):
     """Aggregates mobile events in memory; raw user and session identifiers are discarded."""
 
     source: str
     period_start: datetime
     period_end: datetime
-    collected_at: datetime
     event_counts: dict[ActivityEventType, int]
     dimension_counts: dict[str, dict[str, int]] = Field(default_factory=dict)
     sequence_counts: dict[str, int] = Field(default_factory=dict)
@@ -97,7 +98,6 @@ class MobileActivityFacts(DomainModel):
     invalid_documents: int = Field(ge=0)
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
     source_request_ids: list[str] = Field(default_factory=list)
-    limitations: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_facts(self) -> "MobileActivityFacts":
@@ -133,11 +133,10 @@ class MobileActivityFacts(DomainModel):
         return self
 
 
-class OperationalTelemetryFacts(DomainModel):
+class OperationalTelemetryFacts(CollectedAggregate):
     """Privacy-minimized aggregates from operational mobile Firestore collections."""
 
     source: str
-    collected_at: datetime
     battery_devices: int = Field(ge=0)
     battery_percent_available: int = Field(ge=0)
     silent_devices: int = Field(ge=0)
@@ -150,7 +149,6 @@ class OperationalTelemetryFacts(DomainModel):
     documents_scanned: int = Field(ge=0)
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
     source_request_ids: list[str] = Field(default_factory=list)
-    limitations: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_aggregates(self) -> "OperationalTelemetryFacts":
@@ -166,11 +164,15 @@ class RetentionEngagementSnapshot(DomainModel):
     period_start: datetime
     period_end: datetime
     collected_at: datetime
+    product_scope: ProductScope = ProductScope.UNVERIFIED
+    refresh_status: Literal["live", "cached", "stale"] = "live"
+    fresh_until: datetime | None = None
     parent_accounts_joined: int = Field(ge=0)
     child_accounts_joined: int = Field(ge=0)
     total_children: int = Field(ge=0)
     backend_active_children: int = Field(ge=0)
     mobile_active_subjects: int = Field(ge=0)
+    mobile_population: Literal["parents", "unknown"] = "unknown"
     mobile_active_users_by_window: dict[Literal["1d", "7d", "30d"], int] = Field(
         default_factory=dict,
     )
@@ -185,6 +187,15 @@ class RetentionEngagementSnapshot(DomainModel):
     completeness: Decimal = Field(ge=Decimal("0"), le=Decimal("1"))
     evidence_refs: list[EvidenceRef]
     limitations: list[str] = Field(default_factory=list)
+
+
+class EngagementAssessment(DomainModel):
+    """A minimized result with its original calculation and evidence lineage."""
+
+    product: ProductScope
+    valid_until: datetime
+    analysis: Analysis
+    findings: list[Finding]
 
 
 class RetentionOverview(DomainModel):

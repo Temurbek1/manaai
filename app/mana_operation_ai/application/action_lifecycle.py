@@ -11,6 +11,7 @@ from app.mana_operation_ai.application.action_executors import (
     ActionTargetState,
 )
 from app.mana_operation_ai.application.action_policies import ActionPolicyRegistry
+from app.mana_operation_ai.application.evidence_freshness import evidence_freshness_failure
 from app.mana_operation_ai.application.ports import (
     Clock,
     IdGenerator,
@@ -94,6 +95,7 @@ class ActionLifecycleService:
         lock_timeout_seconds: int,
         verification_attempts: int = 4,
         verification_delay_seconds: float = 1.0,
+        evidence_max_age_seconds: int = 21_600,
     ) -> None:
         self._repository = repository
         self._executors = executors
@@ -106,6 +108,7 @@ class ActionLifecycleService:
         self._lock_timeout_seconds = lock_timeout_seconds
         self._verification_attempts = verification_attempts
         self._verification_delay_seconds = verification_delay_seconds
+        self._evidence_max_age_seconds = evidence_max_age_seconds
 
     async def create_proposal(
         self,
@@ -126,6 +129,7 @@ class ActionLifecycleService:
         }:
             return None
         executor = self._executors.get(recommendation.action_family, provider_name)
+        await self._require_fresh_evidence(run_id)
         current = await executor.state_for_recommendation(recommendation)
         policy = await self._policies.get(recommendation.action_family).evaluate(
             agent_id=agent_id,
@@ -650,6 +654,7 @@ class ActionLifecycleService:
         )
 
     async def _require_safety(self, proposal: ActionProposal) -> None:
+        await self._require_fresh_evidence(proposal.run_id)
         if await self._repository.get_control(
             "global_kill_switch",
             default=self._global_kill_switch_default,
@@ -695,6 +700,15 @@ class ActionLifecycleService:
         )
         if current_policy.decision is PolicyDecision.DENY:
             raise ActionSafetyError(" ".join(current_policy.reasons))
+
+    async def _require_fresh_evidence(self, run_id: str) -> None:
+        reason = evidence_freshness_failure(
+            await self._repository.list_snapshots(run_id),
+            now=self._clock.now(),
+            maximum_age_seconds=self._evidence_max_age_seconds,
+        )
+        if reason is not None:
+            raise ActionSafetyError(reason)
 
     async def _required_proposal(self, proposal_id: str) -> ActionProposal:
         proposal = await self._repository.get_proposal(proposal_id)

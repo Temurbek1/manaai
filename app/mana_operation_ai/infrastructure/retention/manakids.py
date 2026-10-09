@@ -20,6 +20,7 @@ from app.mana_operation_ai.application.ports import (
 from app.mana_operation_ai.domain.enums import IntegrationStatus
 from app.mana_operation_ai.domain.models import IntegrationHealth
 from app.mana_operation_ai.domain.retention import BackendActivityFacts
+from app.mana_operation_ai.infrastructure.metered_http import MeteredReadHttp
 
 _AUTH_PATH = "/api/v1/admin-panel-auth/login/"
 _ACCOUNT_PATH = "/api/v1/admin-panel-common/account/"
@@ -112,6 +113,8 @@ class ManakidsAdminActivityAdapter:
         max_retries: int,
         retry_backoff_seconds: float,
         max_pages: int,
+        max_response_bytes: int | None = None,
+        metered_http: MeteredReadHttp | None = None,
     ) -> None:
         self._client = client
         self._base_url = base_url.rstrip("/")
@@ -121,10 +124,22 @@ class ManakidsAdminActivityAdapter:
         self._max_retries = max_retries
         self._retry_backoff_seconds = retry_backoff_seconds
         self._max_pages = max_pages
+        self._max_response_bytes = max_response_bytes
+        self._metered_http = metered_http
         self._access_token: str | None = None
         self._token_generation = 0
         self._auth_failure: ProviderOperationError | None = None
         self._auth_lock = asyncio.Lock()
+
+    async def read_parent_page(self, *, limit: int) -> tuple[Any, str | None]:
+        """Exactly one fixed MANA endpoint; never follow provider pagination URLs."""
+        if not 1 <= limit <= 100:
+            raise ValueError("Parent sample limit must be between 1 and 100")
+        return await self._authorized_json(
+            "/api/v1/admin-panel-parent/parent-list/",
+            params={"limit": limit, "offset": 0},
+            refresh_forbidden=False,
+        )
 
     async def collect_activity(
         self,
@@ -319,6 +334,7 @@ class ManakidsAdminActivityAdapter:
         path: str,
         *,
         params: Mapping[str, str | int],
+        refresh_forbidden: bool = True,
     ) -> tuple[Any, str | None]:
         token, generation = await self._token()
         response = await self._request(
@@ -327,7 +343,7 @@ class ManakidsAdminActivityAdapter:
             params=params,
             headers={"Authorization": f"Bearer {token}"},
         )
-        if response.status_code in {401, 403}:
+        if response.status_code == 401 or (refresh_forbidden and response.status_code == 403):
             token = await self._refresh_rejected_token(generation)
             response = await self._request(
                 "GET",
@@ -399,7 +415,14 @@ class ManakidsAdminActivityAdapter:
             status: int | None = None
             try:
                 try:
-                    response = await self._client.request(method, url, **kwargs)
+                    if self._metered_http is not None:
+                        response = await self._metered_http.request(
+                            self._client, method, url, **kwargs
+                        )
+                    elif self._max_response_bytes is None:
+                        response = await self._client.request(method, url, **kwargs)
+                    else:
+                        response = await self._bounded_request(method, url, **kwargs)
                     status = response.status_code
                 finally:
                     logger.info(
@@ -424,6 +447,26 @@ class ManakidsAdminActivityAdapter:
                 return response
             await asyncio.sleep(self._retry_backoff_seconds * (2**attempt))
         raise ProviderTransientError("Admin API retry budget was exhausted")
+
+    async def _bounded_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        assert self._max_response_bytes is not None
+        async with self._client.stream(method, url, follow_redirects=False, **kwargs) as response:
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                if len(body) + len(chunk) > self._max_response_bytes:
+                    raise ProviderPermanentError("Admin API response exceeded the byte limit")
+                body.extend(chunk)
+            return httpx.Response(
+                response.status_code,
+                # aiter_bytes has already decoded the content encoding.
+                headers={
+                    key: value
+                    for key, value in response.headers.items()
+                    if key.lower() not in {"content-encoding", "content-length"}
+                },
+                content=bytes(body),
+                request=response.request,
+            )
 
 
 def _page_count(page: _PageEnvelope) -> int:
