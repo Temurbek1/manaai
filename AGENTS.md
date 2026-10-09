@@ -36,6 +36,10 @@
   `retention.parents.analyze` is a separate manual-only, MANA-only minimized Parent API summary;
   opt-in source, one bounded page, shared six-hour read cooldown, no default schedule. Do not
   treat current tariffs as paid subscriptions or mix these reports into 360REC chat context.
+- Owner-confirmed MANA behavioral events (screens, button clicks, sessions and navigation)
+  describe parents only. Keep backend child inventories separate; never use child counts as
+  the denominator for parent activity/retention. User/event geography and profile cities are
+  not payment-confirmed order geography or evidence of regional sales.
 - Keep capability configuration, schedules, run locks, audit, and kill switches independently
   scoped by `agent_id` plus `capability_key`. New actions use domain-specific action enums and the
   typed executor/policy registries; do not expand advertising `ActionType` across domains.
