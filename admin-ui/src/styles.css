@@ -446,6 +446,11 @@
   font-size: 12px;
   margin-top: 10px;
 }
+.chat-message .chat-evidence-warning {
+  margin-top: 10px;
+  color: #79541f;
+  font-size: 12px;
+}
 .chat-message-details > summary,
 .chat-result-details > summary {
   width: fit-content;
@@ -2220,4 +2225,156 @@ input[type="checkbox"] {
     animation: none !important;
     transition: none !important;
   }
+}
+/* Durable Goals keep the main chat minimal; audit detail stays collapsed. */
+.composer-mode {
+  display: flex;
+  gap: 4px;
+}
+.composer-mode button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 18px;
+  color: inherit;
+  background: transparent;
+}
+.composer-mode button[aria-pressed="true"] {
+  background: #e9edf3;
+}
+.goal-workspace {
+  width: 100%;
+  max-width: 780px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #e1e6ee;
+  border-radius: 18px;
+  overflow-wrap: anywhere;
+}
+.goal-heading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: #596579;
+}
+.goal-workspace h2 {
+  font-size: 18px;
+  line-height: 1.5;
+  margin: 12px 0;
+}
+.goal-plan {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+}
+.goal-plan li {
+  margin: 8px 0;
+  font-size: 14px;
+}
+.goal-plan li[data-status="done"] {
+  color: #35604c;
+}
+.goal-update {
+  font-size: 13px;
+  color: #596579;
+}
+.goal-waiting {
+  padding: 12px;
+  background: #fff6dc;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.goal-result {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.goal-result h3 {
+  font-size: 15px;
+  margin: 18px 0 8px;
+}
+.goal-result ul,
+.goal-result ol {
+  padding-left: 22px;
+  white-space: normal;
+}
+.goal-result code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.goal-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0;
+}
+.goal-controls button,
+.goal-steer button,
+.goal-details button {
+  padding: 8px 12px;
+  border: 1px solid #d4dce8;
+  border-radius: 10px;
+  background: white;
+  color: inherit;
+}
+.goal-read {
+  flex-basis: 100%;
+  font-size: 13px;
+}
+.goal-steer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.goal-steer input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #d4dce8;
+  border-radius: 10px;
+}
+.goal-details {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #596579;
+}
+.goal-details summary {
+  cursor: pointer;
+}
+.goal-details ol,
+.goal-details ul {
+  padding-left: 20px;
+}
+.goal-details li {
+  margin: 8px 0;
+}
+@media (max-width: 480px) {
+  .goal-workspace {
+    padding: 14px;
+  }
+}
+.composer-inference {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.composer-inference select {
+  width: auto;
+  max-width: 160px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #526079);
+  font-size: 12px;
+}
+
+.composer-inference select:focus-visible {
+  outline: 2px solid #526079;
+  border-radius: 4px;
 }

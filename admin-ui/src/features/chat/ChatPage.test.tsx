@@ -64,6 +64,150 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it.each(["chat", "goal"])(
+    "sends manual model and reasoning choices in %s mode",
+    async (mode) => {
+      const posts: { url: string; body: Record<string, unknown> }[] = [];
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") {
+          posts.push({ url, body: JSON.parse(String(init.body)) });
+          return response({ goal_id: "goal-1" });
+        }
+        if (url.endsWith("/availability"))
+          return response({
+            enabled: true,
+            model_selection_enabled: true,
+            max_steps: 6,
+            budget_microusd: 1000000,
+          });
+        if (url.includes("/goals/topics/")) return response([]);
+        if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+        return response([]);
+      });
+      renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+      fireEvent.change(
+        await screen.findByRole("combobox", { name: "Модель AI" }),
+        {
+          target: { value: "gpt-6-astra" },
+        },
+      );
+      fireEvent.change(
+        screen.getByRole("combobox", { name: "Глубина анализа" }),
+        {
+          target: { value: "high" },
+        },
+      );
+      if (mode === "goal")
+        fireEvent.click(screen.getByRole("button", { name: "Цель" }));
+      fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+        target: { value: "Сравни географию заказов по областям" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: mode === "goal" ? "Поставить цель" : "Отправить сообщение",
+        }),
+      );
+      await waitFor(() => expect(posts).toHaveLength(1));
+      expect(posts[0]!.body).toMatchObject({
+        model_choice: "gpt-6-astra",
+        reasoning: "high",
+      });
+    },
+  );
+
+  it("creates a durable goal instead of a chat turn from the same composer", async () => {
+    const posts: { url: string; body: Record<string, unknown> }[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push({ url, body: JSON.parse(String(init.body)) });
+        return response({ goal_id: "goal-1" });
+      }
+      if (url.includes("/goals/availability"))
+        return response({
+          enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.endsWith("/availability")) return response({ enabled: true });
+      if (url.includes("/goals/topics/")) return response([]);
+      if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Цель" }));
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Проанализируй удержание пользователей MANA" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Поставить цель" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.url).toContain("/goals/topics/topic-1");
+    expect(posts[0]!.body).toMatchObject({
+      objective: "Проанализируй удержание пользователей MANA",
+      max_steps: 6,
+      budget_microusd: 500000,
+    });
+    expect(posts[0]!.body["request_id"]).toBeTruthy();
+  });
+
+  it("steers a saved goal through the only composer, without creating another goal or model turn", async () => {
+    const posts: { url: string; body: Record<string, unknown> }[] = [];
+    const savedGoal = {
+      goal_id: "goal-1",
+      topic_id: "topic-1",
+      agent_id: "growth-agent",
+      product: "mana",
+      status: "waiting",
+      revision: 9,
+      plan: [],
+      events: [],
+      evidence: [],
+      request: {
+        objective: "Сохранённая цель",
+        max_steps: 6,
+        budget_microusd: 500000,
+      },
+      created_at: "2026-10-08T00:00:00Z",
+      updated_at: "2026-10-08T00:00:00Z",
+      waiting_reason: "Уточните период",
+      steps_used: 1,
+      accounted_microusd: 1000,
+    };
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push({ url, body: JSON.parse(String(init.body)) });
+        return response(savedGoal);
+      }
+      if (url.includes("/goals/availability"))
+        return response({
+          enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.endsWith("/availability")) return response({ enabled: true });
+      if (url.includes("/goals/topics/")) return response([savedGoal]);
+      if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    const input = await screen.findByLabelText("Уточнение цели");
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(
+      screen.queryByText("Тема создана. Напишите первое сообщение."),
+    ).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "7 дней" } });
+    fireEvent.click(screen.getByRole("button", { name: "Уточнить цель" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.url).toContain("/goals/goal-1/commands");
+    expect(posts[0]!.body).toMatchObject({
+      command: "steer",
+      message: "7 дней",
+      expected_revision: 9,
+    });
+  });
+
   it.each(["mana", "360rec"])(
     "offers the parent source only in MANA Retention topics (%s)",
     async (product) => {
@@ -74,7 +218,25 @@ describe("ChatPage", () => {
         if (url.endsWith("/topic-1"))
           return response({
             topic: { ...topic, agent_id: "retention-agent", product },
-            turns: [{ ...turn, next_action: "mana_parents" }],
+            turns: [
+              {
+                ...turn,
+                next_action: "mana_parents",
+                read_confirmation: {
+                  kind: "mana_parents",
+                  product: "mana",
+                  capability_key: "retention.parents.analyze",
+                  confirmation_required: true,
+                  admission_checks: [
+                    "access",
+                    "product_scope",
+                    "cooldown",
+                    "budget",
+                  ],
+                  minimum_interval_seconds: 86400,
+                },
+              },
+            ],
           });
         return response([]);
       });
@@ -88,6 +250,9 @@ describe("ChatPage", () => {
         expect(
           screen.getByRole("region", { name: "Предлагаемый следующий шаг" }),
         ).toHaveTextContent("Firebase не вызывается");
+        expect(
+          screen.getByRole("region", { name: "Предлагаемый следующий шаг" }),
+        ).toHaveTextContent("не чаще раза в 24 часа");
         expect(
           fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
         ).toHaveLength(0);
@@ -170,6 +335,48 @@ describe("ChatPage", () => {
     expect(
       screen.getByRole("button", { name: "Подтвердить сбор данных" }),
     ).toBeDisabled();
+    expect(
+      fetchMock.mock.calls.every(([, init]) => init?.method === "GET"),
+    ).toBe(true);
+  });
+
+  it("shows budget-fallback source warnings even when the model turn failed", async () => {
+    const fetchMock = jest.fn<typeof fetch>((input) =>
+      requestUrl(input).endsWith("/availability")
+        ? response({ enabled: true })
+        : response({
+            topic,
+            turns: [
+              {
+                ...turn,
+                status: "failed",
+                answer: "Лимит AI исчерпан. Последняя сохранённая сводка.",
+                sources: [
+                  {
+                    report_id: "historical",
+                    run_id: "saved-run",
+                    title: "Engagement",
+                    created_at: "2026-10-08T03:00:00Z",
+                    collected_at: "2026-10-07T00:00:00Z",
+                    fresh_until: "2026-10-07T06:00:00Z",
+                    refresh_status: "stale",
+                    scope_verified: true,
+                    product: "mana",
+                  },
+                ],
+              },
+            ],
+          }),
+    );
+    jest.spyOn(globalThis, "fetch").mockImplementation(fetchMock);
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    expect(await screen.findByRole("note")).toHaveTextContent(
+      "устаревшие данные",
+    );
+    expect(screen.getByRole("note")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Подтвердить сбор данных" }),
+    ).toBeNull();
     expect(
       fetchMock.mock.calls.every(([, init]) => init?.method === "GET"),
     ).toBe(true);

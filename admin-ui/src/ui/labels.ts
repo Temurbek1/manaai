@@ -28,6 +28,9 @@ const LABELS: Record<string, string> = {
   "growth.advertising": "Реклама",
   "growth.funnel.analyze": "Воронка продаж",
   "retention.engagement.analyze": "Вовлечённость пользователей",
+  "retention.parents.analyze": "Родители MANA — тарифы и подключения",
+  mana_parent_summary: "Сводка родителей MANA",
+  manakids_parent_api: "Parent API · только MANA",
   registered: "Зарегистрирован",
   enabled: "Включён",
   disabled: "Выключен",
@@ -128,6 +131,8 @@ const DESCRIPTIONS: Record<string, string> = {
     "Поиск потерь в воронке и тестовые эксперименты. Пока на демонстрационных данных.",
   "retention.engagement.analyze":
     "Активность пользователей и качество данных. Без отправки сообщений и изменения подписок.",
+  "retention.parents.analyze":
+    "Ручная ограниченная выборка родителей только MANA. Текущий тариф может быть бесплатным; это не история платежей и не оценка оттока.",
 };
 
 export function descriptionFor(value: string): string {

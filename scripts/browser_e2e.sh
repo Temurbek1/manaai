@@ -15,10 +15,10 @@ cleanup() {
   trap - EXIT INT TERM
   set +e
   if [[ $exit_status -ne 0 && -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
-    "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" screenshot "$AUDIT_SCREENSHOT_DIRECTORY/failure.png" --full >/dev/null 2>&1
-    "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" errors 2>/dev/null
+    "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" --auto-connect false --restore-save never screenshot "$AUDIT_SCREENSHOT_DIRECTORY/failure.png" --full >/dev/null 2>&1
+    "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" --auto-connect false --restore-save never errors 2>/dev/null
   fi
-  "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" close >/dev/null 2>&1
+  "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" --auto-connect false --restore-save never close >/dev/null 2>&1
   if [[ -n "$FRONTEND_PID" ]]; then kill "$FRONTEND_PID" >/dev/null 2>&1; fi
   if [[ -n "$BACKEND_PID" ]]; then kill "$BACKEND_PID" >/dev/null 2>&1; fi
   if [[ -n "$FRONTEND_PID" ]]; then wait "$FRONTEND_PID" >/dev/null 2>&1; fi
@@ -39,7 +39,16 @@ if [[ ! -x "$BROWSER_BIN" ]]; then
   exit 1
 fi
 
-"$BROWSER_BIN" install >/dev/null
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  mkdir -p -- "$AUDIT_SCREENSHOT_DIRECTORY"
+fi
+
+# Reuse a working installed browser; installation is only a missing-runtime fallback.
+# Probe a private blank session, never the user's logged-in Chrome session.
+if ! "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" --auto-connect false \
+  --restore-save never open about:blank >/dev/null 2>&1; then
+  "$BROWSER_BIN" install >/dev/null
+fi
 
 CORS_ORIGINS="[\"http://127.0.0.1:${AUDIT_UI_PORT}\"]" \
 APP_ENV=local \
@@ -56,10 +65,14 @@ MANA_AUTH_TEST_OTP_SINK_PATH="$AUDIT_TMP_DIR/otp-sink.jsonl" \
 OPERATION_ALLOW_INSECURE_DEV_HEADERS=false \
 OPERATION_ADS_PROVIDER=fake_meta \
 OPERATION_PRODUCT_ACTIVITY_PROVIDER=fake \
+MANAKIDS_PARENT_SOURCE_ENABLED=false \
+MANAKIDS_PARENT_MIN_INTERVAL_SECONDS="${AUDIT_PARENT_MIN_INTERVAL_SECONDS:-21600}" \
 AUDIO_MODERATION_ENABLED=false \
 OPERATION_DRY_RUN=false \
 OPERATION_ALLOW_SELF_APPROVAL=false \
 OPERATION_SCHEDULER_ENABLED=false \
+OPERATION_GOALS_WORKER_ENABLED=false \
+OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AUTO_CREATE_SCHEMA=true \
 OPERATION_DATABASE_URL="sqlite+aiosqlite:///$AUDIT_TMP_DIR/operation.db" \
 MARKETING_DATABASE_PATH="$AUDIT_TMP_DIR/legacy.db" \
@@ -84,7 +97,8 @@ curl --fail --silent "http://127.0.0.1:${AUDIT_API_PORT}/api/v1/health/live" >/d
 curl --fail --silent "http://127.0.0.1:${AUDIT_UI_PORT}/" >/dev/null
 
 browser() {
-  "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" "$@"
+  "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" --auto-connect false \
+    --restore-save never "$@"
 }
 
 assert_browser() {
@@ -133,7 +147,7 @@ assert_browser 'document.body.innerText.includes("Над чем поработа
 assert_browser 'document.querySelectorAll(".agent-nav-group").length === 4' 'four agent chats are missing'
 assert_browser '!document.querySelector(".task-grid") && !document.querySelector("a[href=\"/users\"]")' 'professional controls leaked into chat mode'
 assert_browser '!document.querySelector(".topic-options, .chat-starters, .chat-tools-links")' 'manual setup controls leaked into the simple chat'
-assert_browser 'document.querySelectorAll(".chat-page button").length === 1' 'new chat has extra action buttons'
+assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'
 assert_accessible
 if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
   browser set viewport 1440 1000 >/dev/null
@@ -279,6 +293,80 @@ if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
   browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/retention-desktop.png" --full >/dev/null
 fi
 
+browser set viewport 1440 1000 >/dev/null
+browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/retention-agent" >/dev/null
+browser wait --load networkidle >/dev/null
+browser find label "Сообщение агенту" fill 'Проверь родителей MANA' >/dev/null
+browser find role button click --name "Отправить сообщение" >/dev/null
+browser wait --fn 'document.body.innerText.includes("Это тестовый ответ")' >/dev/null
+assert_browser 'document.querySelector(".chat-action-suggestion")?.textContent.includes("Firebase не вызывается")' 'parent confirmation lost source limits'
+assert_browser 'document.querySelector(".chat-action-suggestion")?.textContent.includes("Подтверждение не гарантирует сбор")' 'parent confirmation implies a guaranteed read'
+assert_browser 'document.querySelector(".chat-action-suggestion")?.textContent.includes("соответствие источника приложению")' 'parent confirmation omits source ownership validation'
+browser eval "(async () => { const id = location.pathname.split('/').at(-1); const response = await fetch('/api/v1/admin/operation/chat/topics/' + id); const detail = await response.json(); const turn = detail.turns.at(-1); const policy = turn.read_confirmation; if (turn.analysis_requested || policy?.kind !== 'mana_parents' || policy.product !== 'mana' || policy.capability_key !== 'retention.parents.analyze' || policy.confirmation_required !== true || policy.minimum_interval_seconds !== ${AUDIT_PARENT_MIN_INTERVAL_SECONDS:-21600} || JSON.stringify(policy.admission_checks) !== JSON.stringify(['access','product_scope','cooldown','budget'])) throw new Error('Server read conditions are missing, wrong or treated as execution'); return 'Read conditions verified'; })()" >/dev/null
+assert_browser 'document.querySelector(".chat-evidence-warning")?.textContent.includes("устаревшие данные")' 'historical source warning is hidden or missing'
+assert_browser '!document.querySelector(".chat-evidence-warning")?.closest("details") && !document.querySelector(".chat-message-details[open]")' 'historical source warning requires expanding details'
+assert_browser '!document.querySelector("dialog[open]") && document.querySelectorAll(".chat-action-suggestion").length === 1' 'chat requires duplicate confirmation'
+assert_accessible
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/parent-consent-stale-desktop.png" --full >/dev/null
+fi
+browser set viewport 320 812 >/dev/null
+assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'evidence warning overflows on mobile'
+assert_accessible
+browser eval 'document.querySelector(".chat-action-suggestion button").scrollIntoView({block: "center", behavior: "instant"}); "scrolled"' >/dev/null
+assert_browser '(() => { const button = document.querySelector(".chat-action-suggestion button").getBoundingClientRect(); const transcript = document.querySelector(".chat-transcript").getBoundingClientRect(); return button.top >= transcript.top && button.bottom <= transcript.bottom; })()' 'mobile confirmation is obscured or cannot be reached'
+browser eval 'document.querySelector(".chat-evidence-warning").scrollIntoView({block: "center", behavior: "instant"}); "scrolled"' >/dev/null
+assert_browser '(() => { const warning = document.querySelector(".chat-evidence-warning").getBoundingClientRect(); const transcript = document.querySelector(".chat-transcript").getBoundingClientRect(); return warning.top >= transcript.top && warning.bottom <= transcript.bottom && !document.querySelector(".chat-message-details[open]"); })()' 'mobile source warning is obscured or requires expanding details'
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/parent-consent-stale-mobile.png" --full >/dev/null
+fi
+browser set viewport 1440 1000 >/dev/null
+browser find role button click --name "Подтвердить сбор данных" >/dev/null
+browser wait --fn 'document.body.innerText.includes("Только в этой выборке")' >/dev/null
+assert_browser '!document.querySelector(".chat-action-suggestion")' 'completed request left a stale action suggestion'
+assert_accessible
+browser reload >/dev/null
+browser wait --fn 'document.body.innerText.includes("Только в этой выборке")' >/dev/null
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/parents-mana-chat.png" --full >/dev/null
+fi
+browser set viewport 320 812 >/dev/null
+assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'parent chat overflows on mobile'
+assert_accessible
+browser set viewport 1440 1000 >/dev/null
+
+browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
+browser wait --load networkidle >/dev/null
+browser find role button click --name "Цель" --exact >/dev/null
+browser find label "Сообщение агенту" fill 'Проанализируй удержание пользователей MANA и подготовь проверенный план' >/dev/null
+browser find role button click --name "Поставить цель" >/dev/null
+browser wait --fn 'document.querySelector(".goal-workspace")?.textContent.includes("Уточните период анализа")' >/dev/null
+assert_browser 'document.querySelector(".goal-plan")?.textContent.includes("Проверить удержание")' 'goal has no durable public plan'
+assert_browser 'document.querySelector(".goal-result")?.textContent.includes("Тестовый анализ")' 'goal partial result was lost'
+assert_browser '!document.querySelector(".goal-details[open]")' 'goal audit detail is not collapsed by default'
+assert_accessible
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/goals-desktop.png" --full >/dev/null
+fi
+browser reload >/dev/null
+browser wait --fn 'document.querySelector(".goal-workspace")?.textContent.includes("Уточните период анализа")' >/dev/null
+assert_browser 'document.querySelector(".goal-workspace h2")?.textContent.includes("удержание пользователей MANA")' 'goal did not survive reload'
+browser set viewport 320 812 >/dev/null
+assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'goal workspace overflows on mobile'
+assert_accessible
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/goals-mobile.png" --full >/dev/null
+fi
+browser find label "Уточнение цели" fill 'За последние семь дней. Не объединяй родителей и детей.' >/dev/null
+browser find role button click --name "Уточнить цель" --exact >/dev/null
+browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("цель не закрыта")' >/dev/null
+assert_browser '!document.querySelector(".goal-workspace")?.textContent.includes("Анализ готов")' 'goal closed on stale evidence'
+browser eval 'document.querySelector(".goal-details summary").click(); "opened"' >/dev/null
+browser find role button click --name "Отменить цель" >/dev/null
+browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Отменена")' >/dev/null
+assert_browser '!document.querySelector(".goal-steer")' 'cancelled goal remained writable'
+browser set viewport 1440 1000 >/dev/null
+
 for route in agents users; do
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/${route}" >/dev/null
   browser wait --load networkidle >/dev/null
@@ -290,4 +378,4 @@ browser open "http://127.0.0.1:${AUDIT_UI_PORT}/runs" >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("Вход в MANA")' 'protected route did not return to login after logout'
 
-echo "Browser E2E passed: fake Telegram OTP -> HttpOnly session -> run -> separate-admin approval -> refresh -> logout"
+echo "Browser E2E passed: private chats, durable Goals, scope/freshness guards, mobile accessibility, approvals and logout"

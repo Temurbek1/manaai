@@ -11,17 +11,44 @@ import { labelFor } from "@/ui/labels";
 import { ChatApprovals } from "./ChatApprovals";
 
 type AnalysisState = components["schemas"]["ChatAnalysisState"];
+type ReadConfirmation = components["schemas"]["ChatReadConfirmation"];
+
+function parentInterval(confirmation?: ReadConfirmation | null): number {
+  const seconds = confirmation?.minimum_interval_seconds;
+  const checks = confirmation?.admission_checks;
+  if (
+    confirmation?.kind === "mana_parents" &&
+    confirmation.product === "mana" &&
+    confirmation.capability_key === "retention.parents.analyze" &&
+    confirmation.confirmation_required === true &&
+    Array.isArray(checks) &&
+    checks.length === 4 &&
+    ["access", "product_scope", "cooldown", "budget"].every((check) =>
+      checks.includes(check as (typeof checks)[number]),
+    ) &&
+    typeof seconds === "number" &&
+    Number.isInteger(seconds) &&
+    seconds >= 21600 &&
+    seconds <= 86400
+  ) {
+    return seconds;
+  }
+  // Older/malformed payloads cannot loosen the six-hour lower bound or imply admission.
+  return 21600;
+}
 
 export function AnalysisButton({
   topicId,
   disabled,
   onDone,
   kind = "default",
+  confirmation,
 }: {
   topicId: string;
   disabled: boolean;
   onDone: () => Promise<unknown>;
   kind?: "default" | "mana_parents";
+  confirmation?: ReadConfirmation | null;
 }): React.JSX.Element {
   const { session } = useSession();
   const [busy, setBusy] = useState(false);
@@ -29,6 +56,15 @@ export function AnalysisButton({
   const [error, setError] = useState<string | null>(null);
   const id = useRef<string | null>(null);
   const guard = useRef(false);
+  const intervalSeconds = parentInterval(confirmation);
+  const parentIntervalLabel =
+    intervalSeconds % 3600 === 0
+      ? new Intl.NumberFormat("ru-RU", {
+          style: "unit",
+          unit: "hour",
+          unitDisplay: "long",
+        }).format(intervalSeconds / 3600)
+      : `${intervalSeconds} с`;
   async function launch(): Promise<void> {
     if (guard.current || submitted || disabled || !hasRole(session, "operator"))
       return;
@@ -73,8 +109,10 @@ export function AnalysisButton({
       </strong>
       <p>
         {kind === "mana_parents"
-          ? "Одна ограниченная страница родителей MANA, не чаще раза в 6 часов. Firebase не вызывается, данные не изменяются. Тариф может быть бесплатным — это не отчёт о выручке."
-          : "Обращусь к настроенным источникам агента. Возможны платные чтения API/Firebase в пределах серверных лимитов. Выбор приложения в теме НЕ фильтрует источники. Изменений данных и сообщений клиентам не будет."}
+          ? `Одна ограниченная страница родителей MANA, не чаще раза в ${parentIntervalLabel}. Firebase не вызывается, данные не изменяются. Тариф может быть бесплатным — это не отчёт о выручке.`
+          : "Обращусь к настроенным источникам агента. Возможны платные чтения API/Firebase в пределах серверных лимитов. Выбор приложения в теме НЕ фильтрует источники. Изменений данных и сообщений клиентам не будет."}{" "}
+        Подтверждение не гарантирует сбор: доступ, соответствие источника
+        приложению, бюджет или интервал между чтениями могут остановить запрос.
       </p>
       <button
         type="button"

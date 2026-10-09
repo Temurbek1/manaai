@@ -6,7 +6,13 @@ import useSWR, { useSWRConfig } from "swr";
 import { apiGet, apiPost } from "@/api/client";
 import type { components } from "@/api/schema";
 import { QueryState } from "@/components/QueryState";
-import { useSession } from "@/auth/SessionContext";
+import { hasRole, useSession } from "@/auth/SessionContext";
+import {
+  GOALS_BASE,
+  GoalWorkspace,
+  type Goal,
+  type GoalsAvailability,
+} from "./GoalWorkspace";
 import { AnalysisButton, AnalysisResult } from "./ChatAnalysis";
 import { ChatApprovals } from "./ChatApprovals";
 import { ChatMessageDetails } from "./ChatMessageDetails";
@@ -17,6 +23,8 @@ import type {
 import { CHAT_AGENTS, CHAT_BASE, type ChatAgentId } from "./agents";
 
 type Topic = components["schemas"]["ChatTopic"];
+type ModelChoice = "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
+type ReasoningChoice = "auto" | "low" | "medium" | "high";
 const ACTIVE = ["reading", "thinking"];
 
 export function ChatPage({
@@ -49,16 +57,40 @@ export function ChatPage({
     }
   });
   const [sending, setSending] = useState(false);
+  const [modelChoice, setModelChoice] = useState<ModelChoice>("auto");
+  const [reasoning, setReasoning] = useState<ReasoningChoice>("auto");
+  const [selectedMode, setMode] = useState<"chat" | "goal">("chat");
   const [actionError, setActionError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<string | null>(null);
   const [optimisticId, setOptimisticId] = useState<string | null>(null);
   const [createdTopicId, setCreatedTopicId] = useState<string | null>(null);
   const currentTopicId = topicId ?? createdTopicId;
+  const { data: savedGoals, mutate: refreshGoals } = useSWR<Goal[]>(
+    currentTopicId ? `${GOALS_BASE}/topics/${currentTopicId}` : null,
+  );
+  const goals = Array.isArray(savedGoals) ? savedGoals : [];
+  const workingGoal = goals.find(
+    (goal) => !["completed", "cancelled"].includes(goal.status),
+  );
+  const mode = workingGoal ? "goal" : selectedMode;
+  const goalBusy = Boolean(
+    workingGoal &&
+    (["queued", "running"].includes(workingGoal.status) ||
+      workingGoal.lease_until),
+  );
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const guard = useRef(false);
   const requestId = useRef<string | null>(null);
   const requestController = useRef<AbortController | null>(null);
+  const { data: goalsAvailability } = useSWR<GoalsAvailability>(
+    `${GOALS_BASE}/availability`,
+  );
+  const goalsEnabled =
+    goalsAvailability?.enabled &&
+    Number.isFinite(goalsAvailability.budget_microusd) &&
+    hasRole(session, "operator") &&
+    agentId !== "technical-agent";
   const {
     data: availability,
     error: availabilityError,
@@ -83,7 +115,14 @@ export function ChatPage({
   const active = turns.find((turn) => ACTIVE.includes(turn.status));
   const scope = data?.topic.product ?? product;
   const wrongAgent = data && data.topic.agent_id !== agentId;
-  const busy = sending || Boolean(active);
+  const busy = sending || Boolean(active) || goalBusy;
+  const modelSelectionEnabled =
+    mode === "goal"
+      ? goalsAvailability?.model_selection_enabled
+      : availability?.model_selection_enabled;
+  const inference = modelSelectionEnabled
+    ? { model_choice: modelChoice, reasoning }
+    : {};
   const latestTurn = turns.at(-1);
 
   useEffect(() => {
@@ -107,7 +146,7 @@ export function ChatPage({
       !message ||
       guard.current ||
       busy ||
-      !availability?.enabled ||
+      !(mode === "goal" ? goalsEnabled : availability?.enabled) ||
       wrongAgent
     )
       return;
@@ -129,6 +168,37 @@ export function ChatPage({
         await mutate(`${CHAT_BASE}/topics`);
       }
       requestId.current ??= crypto.randomUUID();
+      if (mode === "goal") {
+        if (workingGoal) {
+          await apiPost(
+            `${GOALS_BASE}/${workingGoal.goal_id}/commands`,
+            {
+              request_id: requestId.current,
+              command: "steer",
+              message,
+              expected_revision: workingGoal.revision,
+            },
+            controller.signal,
+          );
+          await refreshGoals();
+        } else
+          await apiPost(
+            `${GOALS_BASE}/topics/${target}`,
+            {
+              request_id: requestId.current,
+              objective: message,
+              max_steps: goalsAvailability!.max_steps,
+              budget_microusd: goalsAvailability!.budget_microusd,
+              ...inference,
+            },
+            controller.signal,
+          );
+        await mutate(`${GOALS_BASE}/topics/${target}`);
+        updateDraft("");
+        setMode("chat");
+        if (!topicId) router.push(`/chat/${agentId}/topic/${target}`);
+        return;
+      }
       setOptimisticId(requestId.current);
       setOptimistic(message);
       await apiPost(
@@ -136,6 +206,7 @@ export function ChatPage({
         {
           request_id: requestId.current,
           message,
+          ...inference,
         },
         controller.signal,
       );
@@ -174,6 +245,24 @@ export function ChatPage({
   }
 
   async function stop(): Promise<void> {
+    if (workingGoal && goalBusy) {
+      try {
+        await apiPost(`${GOALS_BASE}/${workingGoal.goal_id}/commands`, {
+          request_id: crypto.randomUUID(),
+          command: "pause",
+          expected_revision: workingGoal.revision,
+        });
+        await refreshGoals();
+      } catch (caught) {
+        setActionError(
+          caught instanceof Error
+            ? caught.message
+            : "Не удалось приостановить цель.",
+        );
+        await refreshGoals().catch(() => undefined);
+      }
+      return;
+    }
     if (!active || !currentTopicId) return;
     try {
       await apiPost(
@@ -266,16 +355,27 @@ export function ChatPage({
             aria-live="polite"
             aria-relevant="additions text"
           >
+            {currentTopicId && !wrongAgent && (
+              <GoalWorkspace
+                key={currentTopicId}
+                topicId={currentTopicId}
+                inlineSteering={false}
+              />
+            )}
             {!currentTopicId && (
               <div className="chat-welcome">
                 <h2>Над чем поработаем?</h2>
               </div>
             )}
-            {topicId && !isLoading && !error && turns.length === 0 && (
-              <p className="chat-empty">
-                Тема создана. Напишите первое сообщение.
-              </p>
-            )}
+            {topicId &&
+              !isLoading &&
+              !error &&
+              turns.length === 0 &&
+              goals.length === 0 && (
+                <p className="chat-empty">
+                  Тема создана. Напишите первое сообщение.
+                </p>
+              )}
             {turns.map((turn) => (
               <div className="chat-turn" key={turn.turn_id}>
                 <article
@@ -336,6 +436,7 @@ export function ChatPage({
                               : "default"
                           }
                           topicId={currentTopicId}
+                          confirmation={turn.read_confirmation ?? null}
                           disabled={busy || Boolean(error)}
                           onDone={refresh}
                         />
@@ -344,7 +445,8 @@ export function ChatPage({
                       turn === latestTurn &&
                       turn.status === "completed" &&
                       agent.id === "growth-agent" && <ChatApprovals />}
-                    {turn.status === "completed" && (
+                    {(turn.status === "completed" ||
+                      turn.status === "failed") && (
                       <ChatMessageDetails turn={turn} />
                     )}
                   </div>
@@ -402,14 +504,20 @@ export function ChatPage({
               }}
             >
               <label className="sr-only" htmlFor="chat-message">
-                Сообщение агенту
+                {workingGoal ? "Уточнение цели" : "Сообщение агенту"}
               </label>
               <textarea
                 id="chat-message"
                 ref={input}
                 value={draft}
                 maxLength={6000}
-                placeholder="Опишите задачу…"
+                placeholder={
+                  workingGoal
+                    ? "Уточните цель или добавьте контекст…"
+                    : mode === "goal"
+                      ? "Опишите цель и ожидаемый результат…"
+                      : "Опишите задачу…"
+                }
                 rows={2}
                 onChange={(event) => updateDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -426,15 +534,82 @@ export function ChatPage({
                 aria-describedby="chat-composer-hint"
               />
               <div className="composer-toolbar">
-                <span>
-                  {draft.length > 5000 ? `${draft.length} / 6000` : ""}
-                </span>
-                {active ? (
+                {workingGoal ? (
+                  <span>Цель</span>
+                ) : goalsEnabled ? (
+                  <div
+                    className="composer-mode"
+                    role="group"
+                    aria-label="Режим работы"
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={mode === "chat"}
+                      disabled={busy}
+                      onClick={() => {
+                        setMode("chat");
+                        requestId.current = null;
+                      }}
+                    >
+                      Чат
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={mode === "goal"}
+                      disabled={busy}
+                      onClick={() => {
+                        setMode("goal");
+                        requestId.current = null;
+                      }}
+                    >
+                      Цель
+                    </button>
+                  </div>
+                ) : (
+                  <span>
+                    {draft.length > 5000 ? `${draft.length} / 6000` : ""}
+                  </span>
+                )}
+                {modelSelectionEnabled && !workingGoal && (
+                  <div className="composer-inference">
+                    <select
+                      aria-label="Модель AI"
+                      value={modelChoice}
+                      disabled={busy}
+                      onChange={(event) => {
+                        setModelChoice(event.target.value as ModelChoice);
+                        requestId.current = null;
+                      }}
+                    >
+                      <option value="auto">Авто</option>
+                      <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
+                      <option value="gpt-6.1-sol">GPT-6.1 Sol</option>
+                      <option value="gpt-6-astra">GPT-6 Astra</option>
+                    </select>
+                    <select
+                      aria-label="Глубина анализа"
+                      value={reasoning}
+                      disabled={busy}
+                      onChange={(event) => {
+                        setReasoning(event.target.value as ReasoningChoice);
+                        requestId.current = null;
+                      }}
+                    >
+                      <option value="auto">Размышление: авто</option>
+                      <option value="low">Быстро</option>
+                      <option value="medium">Обычное</option>
+                      <option value="high">Глубокое</option>
+                    </select>
+                  </div>
+                )}
+                {active || goalBusy ? (
                   <button
                     className="chat-send"
                     type="button"
                     onClick={() => void stop()}
-                    aria-label="Остановить ответ"
+                    aria-label={
+                      goalBusy ? "Поставить цель на паузу" : "Остановить ответ"
+                    }
                   >
                     ■
                   </button>
@@ -445,10 +620,21 @@ export function ChatPage({
                     disabled={
                       busy ||
                       !draft.trim() ||
-                      !availability?.enabled ||
+                      !(mode === "goal"
+                        ? goalsEnabled
+                        : availability?.enabled) ||
+                      (mode === "goal" &&
+                        !workingGoal &&
+                        draft.trim().length < 10) ||
                       Boolean(error)
                     }
-                    aria-label="Отправить сообщение"
+                    aria-label={
+                      workingGoal
+                        ? "Уточнить цель"
+                        : mode === "goal"
+                          ? "Поставить цель"
+                          : "Отправить сообщение"
+                    }
                   >
                     ↑
                   </button>
@@ -460,6 +646,12 @@ export function ChatPage({
               сборы и изменения требуют подтверждения. Enter — отправить,
               Shift+Enter — новая строка.
             </p>
+            {mode === "goal" && !workingGoal && (
+              <p className="goal-update">
+                Агент продолжит работу в фоне. Новое чтение данных — только с
+                подтверждением.
+              </p>
+            )}
           </div>
         </>
       )}

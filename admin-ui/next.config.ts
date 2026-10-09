@@ -39,7 +39,7 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
-  experimental: { proxyTimeout: 120_000 },
+  experimental: { proxyTimeout: 180_000 },
   agentRules: false,
   output: "standalone",
   poweredByHeader: false,
@@ -62,6 +62,10 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      {
+        source: "/api/v1/admin/operation/goals/:path*",
+        destination: `${chatBaseUrl}/api/v1/admin/operation/goals/:path*`,
+      },
       {
         source: "/api/v1/admin/operation/chat/:path*",
         destination: `${chatBaseUrl}/api/v1/admin/operation/chat/:path*`,

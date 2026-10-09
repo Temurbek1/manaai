@@ -129,10 +129,17 @@ export function RetentionPage(): React.JSX.Element {
               процент удержания платящих клиентов, выручку или вероятность ухода
               конкретного человека.
             </p>
-            <p className="notice notice-warning">
-              Разделение MANA и 360REC в этом снимке не подтверждено. Не
-              используйте эти агрегаты как показатели отдельного приложения.
-            </p>
+            {snapshot.product_scope === "mana" ? (
+              <p>
+                Только MANA. Поведение в приложении — активность родителей, не
+                детей и не заказы.
+              </p>
+            ) : (
+              <p className="notice notice-warning">
+                Разделение MANA и 360REC в этом снимке не подтверждено. Не
+                используйте эти агрегаты как показатели отдельного приложения.
+              </p>
+            )}
             {!mobileAvailable ? (
               <p className="notice notice-warning">
                 <strong>Мобильная аналитика в снимке недоступна.</strong> Сеансы
@@ -148,7 +155,7 @@ export function RetentionPage(): React.JSX.Element {
               detail="Количество по данным backend, не число платящих родителей"
             />
             <MetricCard
-              label="Аккаунты с активностью"
+              label="Дети с активностью в backend"
               value={snapshot.backend_active_children}
               detail="По собранным данным приложения; учитывайте полноту выборки"
               accent="blue"
@@ -168,6 +175,13 @@ export function RetentionPage(): React.JSX.Element {
               }
               accent="amber"
             />
+            {mobileAvailable && snapshot.mobile_population === "parents" && (
+              <MetricCard
+                label="Активные родители"
+                value={snapshot.mobile_active_subjects}
+                detail="За период мобильного отчёта; не доля от детских аккаунтов"
+              />
+            )}
           </section>
           <section className="panel">
             <p className="eyebrow">Выводы и следующие шаги</p>
