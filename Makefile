@@ -6,7 +6,7 @@ ALEMBIC := .venv/bin/alembic
 REPORT_DELIVERER ?= scripts/deliver_portable_artifact.py
 ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 
-.PHONY: install run up down mana-ai-run mana-ai-docker mana-ai-live-eval admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify product-activity-live-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
+.PHONY: install run up down mana-ai-run mana-ai-docker mana-ai-live-eval admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify product-activity-live-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-workspace-compat audit-verify
 
 install:
 	$(PYTHON) -m pip install -e ".[operation,dev]"
@@ -179,5 +179,8 @@ audit-browser:
 
 audit-postgres:
 	scripts/postgres_audit.sh
+
+audit-workspace-compat:
+	bash scripts/operation_workspace_compatibility_audit.sh
 
 audit-verify: verify audit-focused audit-security audit-schema audit-migrations audit-postgres audit-dependencies audit-browser admin-no-vite admin-bundle-scan admin-production-smoke admin-docker

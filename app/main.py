@@ -64,6 +64,7 @@ from app.mana_operation_ai.application.shared_sources import (
     SharedBackendActivity,
     SharedMobileActivity,
 )
+from app.mana_operation_ai.application.workspace_service import OperationWorkspaceService
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
 from app.mana_operation_ai.domain.chat import ChatAvailability
@@ -608,6 +609,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             daily_limit=settings.operation_chat_daily_limit,
             parent_summary_enabled=settings.manakids_parent_source_enabled,
             model_selection_enabled=settings.operation_model_selection_enabled,
+            agent_workspace_enabled=(
+                settings.operation_agent_workspace_enabled and settings.operation_goals_enabled
+            ),
         ),
     )
     app.state.operation_maintenance_service = maintenance_service
@@ -637,9 +641,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             if source_product == ProductScope.REC360
             else None,
             model_selection_enabled=settings.operation_model_selection_enabled,
+            agent_workspace_enabled=(
+                settings.operation_agent_workspace_enabled and settings.operation_chat_enabled
+            ),
+            read_products=(
+                {"retention.parents.analyze": "mana"}
+                if settings.manakids_parent_source_enabled
+                else {}
+            ),
         ),
     )
+    if settings.manakids_parent_source_enabled and settings.operation_agent_workspace_enabled:
+        goal_service.availability.read_capabilities.append("retention.parents.analyze")
     app.state.operation_goal_service = goal_service
+    app.state.operation_workspace_service = OperationWorkspaceService(
+        app.state.operation_chat_service, goal_service
+    )
     goal_worker = GoalWorker(goal_service)
     if settings.operation_goals_worker_enabled and settings.operation_goals_enabled:
         goal_worker.start()

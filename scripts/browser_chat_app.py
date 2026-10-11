@@ -14,6 +14,7 @@ from app.mana_operation_ai.application.goal_ports import GoalModelOutput
 from app.mana_operation_ai.application.goal_service import GoalWorker
 from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABILITY_KEY
 from app.mana_operation_ai.application.runtime import SystemClock
+from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType
 from app.mana_operation_ai.domain.goals import GoalDecision, GoalTask
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
@@ -23,6 +24,7 @@ from app.mana_operation_ai.infrastructure.retention.parents import FakeParentSum
 class BrowserConversationFake:
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
         message = str(json.loads(context).get("message", ""))
+        agent_mode = "start_goal" in json.loads(context).get("allowed_next_actions", [])
         return ChatTurnOutput(
             "Это тестовый ответ. Сначала уточним цель, затем проверим сохранённые отчёты. "
             "Изменения не выполнялись. Привязка данных к приложению не подтверждена.",
@@ -30,7 +32,9 @@ class BrowserConversationFake:
             10,
             20,
             next_action=(
-                "mana_parents"
+                "start_goal"
+                if agent_mode
+                else "mana_parents"
                 if "Проверь родителей MANA" in message
                 else "approvals"
                 if "Покажи предложения" in message
@@ -47,7 +51,19 @@ class BrowserGoalFake:
 
     async def decide(self, *, context: str, owner: str) -> GoalModelOutput:
         goal = json.loads(context)["goal"]
+        agent_mode = goal["request"].get("execution_mode") == "agent"
         waiting = goal["phase"] == "investigate" and not goal["instructions"]
+        tool = None
+        if agent_mode and not goal["tools"]:
+            tool = AgentToolCall(name="inspect_sources")
+        elif agent_mode and len(goal["tools"]) == 1:
+            tool = AgentToolCall(name="read_saved_report", report_id="browser-workspace-report")
+        elif agent_mode and waiting:
+            tool = AgentToolCall(
+                name="ask_user",
+                question="Уточните период анализа",
+                options=["Последние 7 дней", "Последние 30 дней"],
+            )
         return GoalModelOutput(
             GoalDecision(
                 update="Проверяю источники и ограничения",
@@ -61,12 +77,13 @@ class BrowserGoalFake:
                 "по единой когорте не подтверждены. Данные пользователей не изменялись.",
                 evidence_ids=[item["report_id"] for item in goal["evidence"]],
                 disposition="waiting"
-                if waiting
+                if waiting and not agent_mode
                 else "accepted"
                 if goal["phase"] == "review"
                 else "continue",
                 missing_information="Уточните период анализа" if waiting else "",
                 requested_capability=None,
+                tool_call=tool,
             ),
             "browser-goal-fake",
             5000,
@@ -103,6 +120,47 @@ def create_app() -> FastAPI:
             now = SystemClock().now()
             observed = now - timedelta(hours=8)
             repository = application.state.operation_repository
+            if settings.operation_agent_workspace_enabled:
+                await repository.create_run(
+                    AgentRun(
+                        run_id="browser-workspace-run",
+                        agent_id="retention-agent",
+                        capability_key="retention.engagement.analyze",
+                        correlation_id="browser-workspace",
+                        trigger=TriggerType.API,
+                        initiated_by="browser-fixture",
+                        status=AgentRunStatus.COMPLETED,
+                        configuration_version=1,
+                        idempotency_key="browser-workspace",
+                        started_at=now,
+                        updated_at=now,
+                        completed_at=now,
+                    )
+                )
+                await repository.save_report(
+                    AgentReport(
+                        report_id="browser-workspace-report",
+                        run_id="browser-workspace-run",
+                        agent_id="retention-agent",
+                        capability_key="retention.engagement.analyze",
+                        report_type="retention_engagement_analysis",
+                        created_at=now,
+                        period_start=now - timedelta(days=7),
+                        period_end=now,
+                        human_readable=(
+                            "Synthetic parents-only activity summary. Not production data."
+                        ),
+                        structured={
+                            "product": "mana",
+                            "scope_verified": True,
+                            "scope_basis": "approved_source_binding",
+                            "collected_at": now.isoformat(),
+                            "fresh_until": (now + timedelta(hours=6)).isoformat(),
+                            "refresh_status": "live",
+                        },
+                        data_quality_notes=["Browser fixture only; no Firebase/GA4 reads."],
+                    )
+                )
             await repository.create_run(
                 AgentRun(
                     run_id="browser-historical-parent-run",

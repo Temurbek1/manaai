@@ -16,6 +16,7 @@ RUN pip install --upgrade pip && pip install ".[operation]"
 COPY --chown=app:app alembic.ini ./
 COPY --chown=app:app migrations ./migrations
 COPY --chown=app:app scripts/start_api.sh ./scripts/start_api.sh
+COPY --chown=app:app scripts/operation_workspace_rollback.py ./scripts/operation_workspace_rollback.py
 
 USER app
 

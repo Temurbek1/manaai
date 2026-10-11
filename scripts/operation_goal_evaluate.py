@@ -3,16 +3,20 @@
 import argparse
 import asyncio
 import json
+import re
 import sys
 from datetime import timedelta
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import get_settings  # noqa: E402
 from app.mana_operation_ai.application.admin_service import OperationAdminService  # noqa: E402
+from app.mana_operation_ai.application.goal_ports import GoalModelOutput  # noqa: E402
 from app.mana_operation_ai.application.goal_service import OperationGoalService  # noqa: E402
 from app.mana_operation_ai.application.runtime import SystemClock  # noqa: E402
 from app.mana_operation_ai.domain.chat import TopicCreate  # noqa: E402
@@ -85,25 +89,57 @@ class SyntheticAdmin:
         raise AssertionError("The synthetic workflow must never read a product source")
 
 
-async def evaluate(directory: Path) -> None:
+class DiagnosticGoalModel(OpenAIGoalModel):
+    """Expose safe exception classification, never exception text or upstream bodies."""
+
+    diagnostics: dict[str, object] | None = None
+
+    async def decide(self, *, context: str, owner: str) -> GoalModelOutput:
+        try:
+            return await super().decide(context=context, owner=owner)
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            param = getattr(exc, "param", None)
+            self.diagnostics = {
+                "exception_type": type(exc).__name__,
+                "status": getattr(exc, "status_code", None),
+                "code": code
+                if isinstance(code, str) and re.fullmatch(r"[a-z_]{1,80}", code)
+                else None,
+                "param": param
+                if isinstance(param, str) and re.fullmatch(r"[a-zA-Z0-9_.\[\]]{1,120}", param)
+                else None,
+            }
+            if isinstance(exc, ValidationError):
+                self.diagnostics["validation_locations"] = [
+                    {"location": item["loc"], "type": item["type"]}
+                    for item in exc.errors(include_input=False, include_context=False)
+                ]
+            raise
+
+
+async def evaluate(directory: Path, *, agent: bool = False, budget: int = 490_000) -> None:
     # Refuse existing output rather than silently rerunning a paid party/unknown call.
     directory.mkdir(parents=True, exist_ok=False)
     settings = get_settings()
+    if agent:
+        # Only this local evaluation instance: never edit .env or production switches.
+        settings = settings.model_copy(update={"operation_agent_workspace_enabled": True})
     clock = SystemClock()
     database = OperationDatabase(f"sqlite+aiosqlite:///{directory.resolve() / 'budget.db'}")
     await database.create_schema()
     usage = ResourceUsage(
-        llm_calls=3,
-        provider_requests=3,
+        llm_calls=8 if agent else 3,
+        provider_requests=8 if agent else 3,
         input_tokens=250_000,
-        output_tokens=3 * settings.operation_goals_max_output_tokens,
-        response_bytes=786_432,
-        llm_microusd=490_000,
+        output_tokens=(8 if agent else 3) * settings.operation_goals_max_output_tokens,
+        response_bytes=(8 if agent else 3) * 262_144,
+        llm_microusd=budget,
     )
     ledger = SqlAlchemyCostLedger(
         database, clock=clock, limits=CostLimits(daily=usage, monthly=usage)
     )
-    model = OpenAIGoalModel(settings, ledger)
+    model = DiagnosticGoalModel(settings, ledger)
     chats = SqlAlchemyChatRepository(database, hourly_limit=3, daily_limit=3)
     await chats.initialize()
     service = OperationGoalService(
@@ -115,9 +151,10 @@ async def evaluate(directory: Path) -> None:
         availability=GoalAvailability(
             enabled=True,
             model=settings.operation_goals_model,
-            max_steps=6,
-            budget_microusd=490_000,
+            max_steps=8 if agent else 6,
+            budget_microusd=budget,
             read_capabilities=[],
+            agent_workspace_enabled=agent,
         ),
         max_context_bytes=settings.operation_goals_max_context_bytes,
     )
@@ -133,7 +170,9 @@ async def evaluate(directory: Path) -> None:
             topic.topic_id,
             GoalCreate(
                 request_id=uuid4(),
-                budget_microusd=490_000,
+                budget_microusd=budget,
+                max_steps=8 if agent else 6,
+                execution_mode="agent" if agent else "analysis",
                 objective="Проанализируй положение пользователей MANA для увеличения удержания: "
                 "что известно об активности, возвращаемости, отпадании и оплатах. "
                 "Используй только данные в сводке, подготовь полезный анализ "
@@ -146,7 +185,7 @@ async def evaluate(directory: Path) -> None:
                 "без оплаты/воронки, если ограничения указаны; это не полное исследование бизнеса.",
             ),
         )
-        for index in range(3):
+        for index in range(8 if agent else 3):
             await service.tick()
             goal = await service.repository.get("synthetic-goal-evaluation", goal.goal_id)
             (directory / f"step-{index + 1}.json").write_text(
@@ -158,9 +197,11 @@ async def evaluate(directory: Path) -> None:
         result = {
             "model": settings.operation_goals_model,
             "reasoning": settings.operation_goals_reasoning_effort,
+            "execution_mode": "agent" if agent else "analysis",
             "status": goal.status,
             "steps": goal.steps_used,
-            "budget_cap_microusd": 490_000,
+            "budget_cap_microusd": budget,
+            "failure_diagnostics": model.diagnostics,
             "accounting": periods,
             "manual_quality_review_required": True,
             "limitations": "One synthetic workflow, no production/user-source access; "
@@ -178,11 +219,15 @@ async def evaluate(directory: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--confirm-paid", action="store_true")
+    parser.add_argument("--agent", action="store_true")
+    parser.add_argument("--budget-microusd", type=int, default=490_000)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if not args.confirm_paid:
-        parser.error("Explicit --confirm-paid is required; at most three calls, $0.49 ledger cap")
-    asyncio.run(evaluate(args.output))
+        parser.error("Explicit --confirm-paid is required; three/eight calls, $0.49 ledger cap")
+    if not 50_000 <= args.budget_microusd <= 490_000:
+        parser.error("Budget must be between $0.05 and $0.49")
+    asyncio.run(evaluate(args.output, agent=args.agent, budget=args.budget_microusd))
 
 
 if __name__ == "__main__":

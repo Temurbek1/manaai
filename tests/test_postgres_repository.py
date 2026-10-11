@@ -9,6 +9,7 @@ import pytest
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.cost_control import CostBudgetExceeded
 from app.mana_operation_ai.application.ports import ConcurrentOperationError
+from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
 from app.mana_operation_ai.domain.chat import MessageCreate, TopicCreate
 from app.mana_operation_ai.domain.cost_control import CostLimits, ProductScope, ResourceUsage
 from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType
@@ -58,7 +59,9 @@ async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:
             ),
         )
         request = GoalCreate(
-            request_id=uuid4(), objective="Analyze retention using saved aggregate evidence."
+            request_id=uuid4(),
+            objective="Analyze retention using saved aggregate evidence.",
+            execution_mode="agent",
         )
         created = await asyncio.gather(
             *[repos[i % 2].create("postgres-goal-owner", topic, request) for i in range(12)]
@@ -73,6 +76,35 @@ async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:
             claimed,
             claimed.model_copy(update={"steps_used": 1, "accounted_microusd": 30_000}),
         )
+        held = await repos[1].get("postgres-goal-owner", claimed.goal_id)
+        steered = await repos[1].command(
+            "postgres-goal-owner",
+            held.goal_id,
+            GoalCommand(
+                request_id=uuid4(),
+                command="steer",
+                expected_revision=held.revision,
+                message="Only parent activity; keep payment records separate.",
+            ),
+        )
+        assert steered.status == "running" and steered.lease_until == held.lease_until
+        assert await repos[0].claim() is None
+        assert not await repos[0].save(
+            "postgres-goal-owner", held, held.model_copy(update={"result": "obsolete response"})
+        )
+        with_tool = steered.model_copy(
+            update={
+                "tools": [
+                    AgentToolRecord(
+                        call_id="pg-native-tool",
+                        call=AgentToolCall(name="inspect_sources"),
+                        status="started",
+                        started_at=clock.now(),
+                    )
+                ]
+            }
+        )
+        assert await repos[0].save("postgres-goal-owner", steered, with_tool)
         held = await repos[1].get("postgres-goal-owner", claimed.goal_id)
         pause = GoalCommand(request_id=uuid4(), command="pause", expected_revision=held.revision)
         paused = await repos[0].command("postgres-goal-owner", held.goal_id, pause)
@@ -89,6 +121,8 @@ async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:
         recovered = await repos[0].get("postgres-goal-owner", held.goal_id)
         assert recovered.status == "paused" and recovered.lease_until is None
         assert recovered.accounted_microusd == paused.accounted_microusd == 30_000
+        assert recovered.instructions == ["Only parent activity; keep payment records separate."]
+        assert recovered.tools[0].status == "unknown"
         resumed = await repos[1].command(
             "postgres-goal-owner",
             held.goal_id,

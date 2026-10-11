@@ -3,6 +3,25 @@ import { describe, expect, it } from "@jest/globals";
 import { GoalReport } from "./GoalReport";
 
 describe("GoalReport", () => {
+  it("renders cohort calculations as a semantic table without executing cell markup", () => {
+    const { container } = render(
+      <GoalReport
+        text={
+          "| Метрика | Результат |\n|---|---|\n| D1 родителей | **60%** |\n| Источник | `<img src=x>` |"
+        }
+      />,
+    );
+    expect(
+      screen.getByRole("table", { name: "Данные анализа" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+    expect(screen.getByRole("cell", { name: "60%" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Таблица анализа" }),
+    ).toHaveAttribute("tabindex", "0");
+    expect(container.querySelector("img, script, a")).toBeNull();
+  });
+
   it("renders readable headings, findings and citations without raw markdown", () => {
     render(
       <GoalReport

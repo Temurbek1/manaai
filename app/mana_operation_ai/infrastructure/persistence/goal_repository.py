@@ -1,19 +1,73 @@
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Literal, TypedDict
 from uuid import uuid4
 
-from sqlalchemy import func, select, update
+from pydantic import BaseModel, ConfigDict, ValidationError
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.chat import ChatTopic
-from app.mana_operation_ai.domain.goals import GoalCommand, GoalCreate, GoalEvent, OperationGoal
+from app.mana_operation_ai.domain.goals import (
+    GoalCommand,
+    GoalCreate,
+    GoalEvent,
+    GoalStatus,
+    OperationGoal,
+)
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import (
     ChatBudgetRow,
     GoalCommandRow,
     GoalRow,
 )
+
+
+class _WorkspaceCheckpoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1] = 1
+    goal: OperationGoal
+
+
+class _GoalStorage(TypedDict):
+    status: str
+    revision: int
+    updated_at: datetime
+    payload: dict[str, object]
+    workspace_status: str | None
+    workspace_payload: dict[str, object] | None
+
+
+@dataclass(frozen=True)
+class WorkspaceRollbackReport:
+    active_goals: int
+    live_leases: int
+    paused_goals: int = 0
+
+
+def _goal(row: GoalRow) -> OperationGoal:
+    if row.workspace_payload is None and row.workspace_status is None:
+        return OperationGoal.model_validate(row.payload)
+    try:
+        checkpoint = _WorkspaceCheckpoint.model_validate(row.workspace_payload)
+    except ValidationError as exc:
+        raise ChatError("Сохранённая цель требует совместимой версии рабочей среды.", 503) from exc
+    goal = checkpoint.goal
+    if row.workspace_status != goal.status or row.revision != goal.revision:
+        raise ChatError("Сохранённая цель требует проверки совместимости версии.", 503)
+    return goal
+
+
+def _states(*states: GoalStatus) -> ColumnElement[bool]:
+    # Legacy images only inspect `status`, and therefore cannot claim native Goals.
+    return or_(
+        and_(GoalRow.workspace_status.is_(None), GoalRow.status.in_(states)),
+        GoalRow.workspace_status.in_(states),
+    )
 
 
 class SqlAlchemyGoalRepository:
@@ -39,10 +93,53 @@ class SqlAlchemyGoalRepository:
         return row
 
     def _store(self, row: GoalRow, goal: OperationGoal) -> None:
-        row.status = goal.status
-        row.revision = goal.revision
-        row.updated_at = goal.updated_at
-        row.payload = goal.model_dump(mode="json")
+        for key, value in self._storage(goal).items():
+            setattr(row, key, value)
+
+    @staticmethod
+    def _payload(goal: OperationGoal) -> dict[str, object]:
+        payload: dict[str, object] = goal.model_dump(mode="json", exclude={"tools"})
+        payload["request"] = goal.request.model_dump(
+            mode="json", exclude={"execution_mode", "conversation_history", "older_turns_omitted"}
+        )
+        if SqlAlchemyGoalRepository._is_workspace(goal):
+            # Closed compatibility projection: old code can display history, but its
+            # command terminal-state check and worker claim both deny continuation.
+            payload.update(
+                status="completed" if goal.status == "completed" else "cancelled",
+                lease_until=None,
+                requested_capability=None,
+                approved_capability=None,
+                waiting_reason="Эта цель требует новой рабочей среды. В старой версии "
+                "она закрыта для выполнения; полная история сохранена отдельно.",
+            )
+        return payload
+
+    @staticmethod
+    def _is_workspace(goal: OperationGoal) -> bool:
+        return bool(
+            goal.request.execution_mode == "agent"
+            or goal.request.conversation_history
+            or goal.request.older_turns_omitted
+            or goal.tools
+            or "retention.parents.analyze" in (goal.requested_capability, goal.approved_capability)
+        )
+
+    @classmethod
+    def _storage(cls, goal: OperationGoal) -> _GoalStorage:
+        native = cls._is_workspace(goal)
+        return {
+            "status": ("completed" if goal.status == "completed" else "cancelled")
+            if native
+            else goal.status,
+            "revision": goal.revision,
+            "updated_at": goal.updated_at,
+            "payload": cls._payload(goal),
+            "workspace_status": goal.status if native else None,
+            "workspace_payload": _WorkspaceCheckpoint(goal=goal).model_dump(mode="json")
+            if native
+            else None,
+        }
 
     async def create(self, owner: str, topic: ChatTopic, request: GoalCreate) -> OperationGoal:
         async with self._sessions() as session, session.begin():
@@ -53,14 +150,14 @@ class SqlAlchemyGoalRepository:
                 )
             )
             if existing:
-                goal = OperationGoal.model_validate(existing.payload)
+                goal = _goal(existing)
                 if goal.topic_id != topic.topic_id or goal.request != request:
                     raise ChatError("Идентификатор уже используется другой целью.")
                 return goal
             count = await session.scalar(
                 select(func.count())
                 .select_from(GoalRow)
-                .where(GoalRow.owner == owner, GoalRow.status.not_in(("completed", "cancelled")))
+                .where(GoalRow.owner == owner, _states("queued", "running", "paused", "waiting"))
             )
             if (count or 0) >= 20:
                 raise ChatError("Достигнут лимит: 20 незавершённых целей на пользователя.", 429)
@@ -68,7 +165,7 @@ class SqlAlchemyGoalRepository:
                 select(GoalRow.goal_id)
                 .where(
                     GoalRow.topic_id == topic.topic_id,
-                    GoalRow.status.not_in(("completed", "cancelled")),
+                    _states("queued", "running", "paused", "waiting"),
                 )
                 .limit(1)
             )
@@ -103,19 +200,17 @@ class SqlAlchemyGoalRepository:
                 .order_by(GoalRow.updated_at.desc())
                 .limit(100)
             )
-            return [OperationGoal.model_validate(row.payload) for row in rows]
+            return [_goal(row) for row in rows]
 
     async def get(self, owner: str, goal_id: str) -> OperationGoal:
         async with self._sessions() as session:
-            return OperationGoal.model_validate(
-                (await self._owned(session, owner, goal_id)).payload
-            )
+            return _goal(await self._owned(session, owner, goal_id))
 
     async def command(self, owner: str, goal_id: str, payload: GoalCommand) -> OperationGoal:
         async with self._sessions() as session, session.begin():
             await self._lock(session)
             row = await self._owned(session, owner, goal_id)
-            goal = OperationGoal.model_validate(row.payload)
+            goal = _goal(row)
             prior = await session.scalar(
                 select(GoalCommandRow).where(
                     GoalCommandRow.goal_id == goal_id,
@@ -139,7 +234,7 @@ class SqlAlchemyGoalRepository:
                 raise ChatError("Цель закрыта. Для новой задачи создайте новую цель.")
             now = self._clock.now()
             if (
-                payload.command in ("resume", "steer", "approve_read")
+                payload.command in ("resume", "approve_read")
                 and goal.lease_until
                 and goal.lease_until > now
             ):
@@ -156,7 +251,8 @@ class SqlAlchemyGoalRepository:
                     raise ChatError("Добавьте уточнение; максимум 20 уточнений на цель.")
                 goal.instructions.append(payload.message)
                 goal.phase = "investigate" if goal.plan else "plan"
-                goal.status = "queued"
+                if not (goal.lease_until and goal.lease_until > now):
+                    goal.status = "queued"
                 message = payload.message
             elif payload.command == "approve_read":
                 if (
@@ -175,7 +271,7 @@ class SqlAlchemyGoalRepository:
                 goal.status = "queued"
                 message = "Продолжаем с сохранённого шага; предыдущие расходы и лимиты сохранены."
             goal.waiting_reason = ""
-            if payload.command not in ("pause", "cancel"):
+            if payload.command not in ("pause", "cancel", "steer"):
                 goal.lease_until = None
             goal.revision += 1
             goal.updated_at = now
@@ -196,12 +292,12 @@ class SqlAlchemyGoalRepository:
         # Empty queues cause no locking write and no upstream/source requests.
         async with self._sessions() as session:
             candidates = await session.scalars(
-                select(GoalRow).where(GoalRow.status.in_(("queued", "running", "paused")))
+                select(GoalRow).where(_states("queued", "running", "paused"))
             )
             now = self._clock.now()
             if not any(
-                row.status == "queued"
-                or (goal := OperationGoal.model_validate(row.payload)).lease_until is not None
+                (goal := _goal(row)).status == "queued"
+                or goal.lease_until is not None
                 and goal.lease_until <= now
                 for row in candidates
             ):
@@ -210,12 +306,14 @@ class SqlAlchemyGoalRepository:
             await self._lock(session)
             now = self._clock.now()
             # A lost in-flight call must not be blindly retried after restart.
-            running = await session.scalars(
-                select(GoalRow).where(GoalRow.status.in_(("running", "paused")))
-            )
+            running = await session.scalars(select(GoalRow).where(_states("running", "paused")))
             for row in running:
-                goal = OperationGoal.model_validate(row.payload)
+                goal = _goal(row)
                 if goal.lease_until and goal.lease_until <= now:
+                    for record in goal.tools:
+                        if record.status == "started":
+                            record.status = "unknown"
+                            record.result = "Шаг прерван. Исход неизвестен; повтор не запущен."
                     if goal.status == "running":
                         goal.status = "waiting"
                         goal.waiting_reason = "Шаг прерван. Исход запроса неизвестен; "
@@ -230,13 +328,13 @@ class SqlAlchemyGoalRepository:
             await session.flush()
             queued_row = await session.scalar(
                 select(GoalRow)
-                .where(GoalRow.status == "queued")
+                .where(_states("queued"))
                 .order_by(GoalRow.updated_at, GoalRow.goal_id)
                 .limit(1)
             )
             if queued_row is None:
                 return None
-            goal = OperationGoal.model_validate(queued_row.payload)
+            goal = _goal(queued_row)
             goal.status = "running"
             goal.lease_until = now + timedelta(minutes=5)
             goal.revision += 1
@@ -256,11 +354,56 @@ class SqlAlchemyGoalRepository:
                     GoalRow.owner == owner,
                     GoalRow.revision == before.revision,
                 )
-                .values(
-                    status=after.status,
-                    revision=after.revision,
-                    updated_at=after.updated_at,
-                    payload=after.model_dump(mode="json"),
-                )
+                .values(**self._storage(after))
             )
             return bool(result.rowcount)
+
+    async def workspace_rollback(self, *, apply_pause: bool = False) -> WorkspaceRollbackReport:
+        """Explicit release control; never called by the API, scheduler or worker.
+
+        Default is read-only. Before apply, operators must stop/drain the Goals worker.
+        A live lease rejects the entire transaction. Lost expired work is preserved as
+        unknown with its costs/read consumption, never retried or refunded.
+        """
+        async with self._sessions() as session, session.begin():
+            if apply_pause:
+                await self._lock(session)
+            rows = list(
+                await session.scalars(
+                    select(GoalRow).where(
+                        GoalRow.workspace_status.in_(("queued", "running", "paused", "waiting"))
+                    )
+                )
+            )
+            goals = [_goal(row) for row in rows]
+            now = self._clock.now()
+            leases = sum(bool(goal.lease_until and goal.lease_until > now) for goal in goals)
+            if not apply_pause:
+                return WorkspaceRollbackReport(active_goals=len(goals), live_leases=leases)
+            if leases:
+                raise ChatError("Откат не подготовлен: дождитесь окончания активных шагов.")
+            changed = 0
+            for row, goal in zip(rows, goals, strict=True):
+                if (
+                    goal.status == "paused"
+                    and goal.lease_until is None
+                    and goal.approved_capability is None
+                    and all(record.status != "started" for record in goal.tools)
+                ):
+                    continue
+                for record in goal.tools:
+                    if record.status == "started":
+                        record.status = "unknown"
+                        record.result = "Шаг прерван перед откатом. Исход неизвестен; повтора нет."
+                goal.status, goal.lease_until, goal.approved_capability = "paused", None, None
+                goal.waiting_reason = "Цель приостановлена перед откатом версии. "
+                "Продолжение только вручную в совместимой рабочей среде."
+                goal.events.append(GoalEvent(at=now, kind="control", message=goal.waiting_reason))
+                goal.events = goal.events[-100:]
+                goal.updated_at = now
+                goal.revision += 1
+                self._store(row, goal)
+                changed += 1
+            return WorkspaceRollbackReport(
+                active_goals=len(goals), live_leases=0, paused_goals=changed
+            )

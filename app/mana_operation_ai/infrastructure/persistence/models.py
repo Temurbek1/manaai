@@ -104,7 +104,10 @@ class ChatTurnRow(Base):
 
 class GoalRow(Base):
     __tablename__ = "operation_goals"
-    __table_args__ = (UniqueConstraint("owner", "request_id", name="uq_goal_request"),)
+    __table_args__ = (
+        UniqueConstraint("owner", "request_id", name="uq_goal_request"),
+        Index("idx_operation_goals_workspace_status_updated", "workspace_status", "updated_at"),
+    )
 
     goal_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"), index=True)
@@ -114,6 +117,10 @@ class GoalRow(Base):
     revision: Mapped[int] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    workspace_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    workspace_payload: Mapped[dict[str, object] | None] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )
 
 
 class GoalCommandRow(Base):

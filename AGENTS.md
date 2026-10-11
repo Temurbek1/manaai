@@ -26,6 +26,13 @@
   confirmed read-only delegation. It is not a fifth agent, a full Orchestrator implementation,
   or proof of business-outcome improvement. Keep unknown in-flight costs reserved and never
   automatically retry a lost source read. See `docs/operation-goals.md`.
+- The opt-in native agent workspace is an unreleased local checkpoint, default disabled via
+  `OPERATION_AGENT_WORKSPACE_ENABLED`. It adds conversational handoff, typed scoped evidence
+  tools and in-flight steering, not unrestricted SQL/shell or full Orchestrator handlers.
+  Read `docs/operation-agent-workspace.md` for the full acceptance scope and known release/rollback
+  gaps. Handle native function calls before parsing accompanying text; account verified raw
+  provider usage before validating structured content. Never equate a passing fake workflow
+  or a single synthetic model evaluation with production readiness or complete feature parity.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

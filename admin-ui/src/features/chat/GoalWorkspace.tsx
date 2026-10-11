@@ -8,7 +8,16 @@ import { hasRole, useSession } from "@/auth/SessionContext";
 import { GoalReport } from "./GoalReport";
 
 export const GOALS_BASE = "/api/v1/admin/operation/goals";
-export type Goal = components["schemas"]["OperationGoal"];
+type StoredGoal = components["schemas"]["OperationGoal"];
+export type Goal = Omit<StoredGoal, "request"> & {
+  request: Omit<
+    StoredGoal["request"],
+    "execution_mode" | "older_turns_omitted"
+  > &
+    Partial<
+      Pick<StoredGoal["request"], "execution_mode" | "older_turns_omitted">
+    >;
+};
 export type GoalsAvailability = components["schemas"]["GoalAvailability"];
 type Command = components["schemas"]["GoalCommand"]["command"];
 const LABELS: Record<Goal["status"], string> = {
@@ -18,6 +27,26 @@ const LABELS: Record<Goal["status"], string> = {
   waiting: "Нужны данные или уточнение",
   completed: "Анализ готов",
   cancelled: "Отменена",
+};
+const TOOL_LABELS: Record<
+  components["schemas"]["AgentToolCall"]["name"],
+  string
+> = {
+  inspect_sources: "Проверка источников",
+  read_saved_report: "Чтение сохранённого отчёта",
+  request_source_read: "Запрос нового чтения",
+  ask_user: "Уточнение задачи",
+};
+const TOOL_STATUS: Record<
+  components["schemas"]["AgentToolRecord"]["status"],
+  string
+> = {
+  started: "В работе",
+  completed: "Готово",
+  awaiting_approval: "Нужно подтверждение",
+  waiting_for_user: "Жду ответа",
+  denied: "Недоступно",
+  unknown: "Результат неизвестен",
 };
 
 export function GoalWorkspace({
@@ -57,11 +86,15 @@ export function GoalWorkspace({
   const plan = goal.plan ?? [];
   const events = goal.events ?? [];
   const evidence = goal.evidence ?? [];
+  const question = goal.tools?.at(-1);
   const terminal = ["completed", "cancelled"].includes(goal.status);
   const inFlight =
     goal.lease_until && new Date(goal.lease_until).getTime() > now;
 
-  async function control(command: Command): Promise<void> {
+  async function control(
+    command: Command,
+    clarification = message,
+  ): Promise<void> {
     if (guard.current) return;
     guard.current = true;
     setBusy(true);
@@ -69,7 +102,7 @@ export function GoalWorkspace({
     const payload = {
       request_id: crypto.randomUUID(),
       command,
-      message: command === "steer" ? message.trim() : "",
+      message: command === "steer" ? clarification.trim() : "",
       expected_revision: goal.revision,
     };
     const prior = pending.current?.payload as
@@ -138,17 +171,54 @@ export function GoalWorkspace({
           ))}
         </ol>
       )}
-      {goal.status === "running" && (
+      {["running", "queued"].includes(goal.status) && (
         <p className="goal-update">
           {events.filter((e) => e.kind === "progress").at(-1)?.message ??
-            "Составляю план и проверяю контекст…"}
+            (goal.status === "queued"
+              ? "Задача в очереди."
+              : "Готовлю следующий шаг…")}
         </p>
+      )}
+      {(goal.tools ?? []).length > 0 && (
+        <details className="goal-details">
+          <summary>Инструменты · {goal.tools!.length}</summary>
+          <ol>
+            {goal.tools!.map((tool) => (
+              <li key={tool.call_id}>
+                {TOOL_LABELS[tool.call.name]} · {TOOL_STATUS[tool.status]}
+                {tool.call.report_id && <span> · {tool.call.report_id}</span>}
+                {tool.result && (
+                  <details>
+                    <summary>Результат</summary>
+                    <pre>{tool.result}</pre>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
       {goal.waiting_reason && (
         <p className="goal-waiting" role="status">
           {goal.waiting_reason}
         </p>
       )}
+      {goal.status === "waiting" &&
+        canControl &&
+        question?.call.name === "ask_user" && (
+          <div className="goal-controls">
+            {(question.call.options ?? []).map((option) => (
+              <button
+                key={option}
+                type="button"
+                disabled={busy}
+                onClick={() => void control("steer", option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
       {evidence.some(
         (item) =>
           !item.fresh_until ||
@@ -189,7 +259,9 @@ export function GoalWorkspace({
                 Пауза
               </button>
             ) : null
-          ) : (
+          ) : goal.requested_capability ||
+            (goal.status === "waiting" &&
+              question?.call.name === "ask_user") ? null : (
             <button
               type="button"
               disabled={busy || Boolean(inFlight)}
@@ -233,23 +305,16 @@ export function GoalWorkspace({
           </label>
           <input
             id={`goal-steer-${goal.goal_id}`}
-            placeholder={
-              inFlight
-                ? "Сначала поставьте цель на паузу"
-                : "Уточните цель или добавьте контекст…"
-            }
+            placeholder="Уточните цель или добавьте контекст…"
             value={message}
             maxLength={6000}
-            disabled={busy || Boolean(inFlight)}
+            disabled={busy}
             onChange={(event) => {
               setMessage(event.target.value);
               pending.current = null;
             }}
           />
-          <button
-            type="submit"
-            disabled={busy || Boolean(inFlight) || !message.trim()}
-          >
+          <button type="submit" disabled={busy || !message.trim()}>
             Отправить
           </button>
         </form>

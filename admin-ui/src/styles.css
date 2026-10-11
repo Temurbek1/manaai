@@ -2303,6 +2303,21 @@ input[type="checkbox"] {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.goal-report-table {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: normal;
+}
+.goal-report-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.goal-report-table th,
+.goal-report-table td {
+  padding: 8px;
+  border-bottom: 1px solid #e1e6ee;
+  text-align: left;
+}
 .goal-controls {
   display: flex;
   align-items: center;
@@ -2350,6 +2365,11 @@ input[type="checkbox"] {
 .goal-details li {
   margin: 8px 0;
 }
+.goal-details pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
 @media (max-width: 480px) {
   .goal-workspace {
     padding: 14px;
@@ -2372,6 +2392,16 @@ input[type="checkbox"] {
   background: transparent;
   color: var(--text-muted, #526079);
   font-size: 12px;
+}
+@media (max-width: 480px) {
+  .composer-toolbar {
+    flex-wrap: wrap;
+  }
+  .composer-inference {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+  }
 }
 
 .composer-inference select:focus-visible {

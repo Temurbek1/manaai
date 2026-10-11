@@ -20,6 +20,50 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
     <>
       {text.split(/\n\s*\n/).map((block, index) => {
         const lines = block.split("\n");
+        if (lines.length >= 3 && /^\s*\|?\s*:?-+:?\s*\|/.test(lines[1]!)) {
+          const cells = lines.map((line) =>
+            line
+              .trim()
+              .replace(/^\||\|$/g, "")
+              .split("|")
+              .map((cell) => cell.trim()),
+          );
+          const headers = cells[0]!;
+          if (
+            headers.length <= 8 &&
+            cells.every((row) => row.length === headers.length)
+          )
+            return (
+              <div
+                key={index}
+                className="goal-report-table"
+                role="region"
+                aria-label="Таблица анализа"
+                tabIndex={0}
+              >
+                <table aria-label="Данные анализа">
+                  <thead>
+                    <tr>
+                      {headers.map((cell, column) => (
+                        <th key={column} scope="col">
+                          {inline(cell)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cells.slice(2).map((row, item) => (
+                      <tr key={item}>
+                        {row.map((cell, column) => (
+                          <td key={column}>{inline(cell)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+        }
         if (lines.length === 1 && /^#{1,3}\s/.test(block))
           return <h3 key={index}>{inline(block.replace(/^#{1,3}\s+/, ""))}</h3>;
         if (lines.every((line) => /^[-•]\s/.test(line)))

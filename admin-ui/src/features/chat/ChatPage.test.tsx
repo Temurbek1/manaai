@@ -64,6 +64,103 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it("uses the agent workspace by default without forcing an Orchestrator room switch", async () => {
+    const posts: { url: string; body: Record<string, unknown> }[] = [];
+    const workspaceTopic = { ...topic, agent_id: "operations-orchestrator" };
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push({ url, body: JSON.parse(String(init.body)) });
+        return response({ turn: { ...turn, next_action: "start_goal" } });
+      }
+      if (url.endsWith("/availability"))
+        return response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.includes("/goals/topics/")) return response([]);
+      if (url.endsWith("/topic-1"))
+        return response({ topic: workspaceTopic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(
+      <ChatPage agentId="operations-orchestrator" topicId="topic-1" />,
+    );
+    expect(
+      await screen.findByRole("combobox", { name: "Режим работы" }),
+    ).toHaveValue("auto");
+    expect(screen.queryByText(/Только планирование/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Как поднять конверсию? Изучи текущие данные." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    );
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.url).toBe(
+      "/api/v1/admin/operation/workspace/topics/topic-1/messages",
+    );
+    expect(posts[0]!.body).toMatchObject({ execution_mode: "agent" });
+    expect(posts.every((post) => !post.url.includes("/agents/"))).toBe(true);
+  });
+
+  it("accepts an in-flight goal clarification from the main composer and keeps stop available", async () => {
+    const posts: { url: string; body: Record<string, unknown> }[] = [];
+    const goal = {
+      goal_id: "goal-1",
+      status: "running",
+      revision: 9,
+      lease_until: "2099-01-01T00:00:00Z",
+      request: {
+        objective: "Проанализировать удержание",
+        max_steps: 6,
+        budget_microusd: 500000,
+      },
+      plan: [],
+      events: [],
+      evidence: [],
+      result: "",
+      waiting_reason: "",
+      steps_used: 1,
+      accounted_microusd: 10000,
+    };
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push({ url, body: JSON.parse(String(init.body)) });
+        return response({ ...goal, revision: 10 });
+      }
+      if (url.endsWith("/availability"))
+        return response({
+          enabled: true,
+          max_steps: 6,
+          budget_microusd: 500000,
+        });
+      if (url.includes("/goals/topics/")) return response([goal]);
+      if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    const composer = await screen.findByLabelText("Уточнение цели");
+    expect(composer).toBeEnabled();
+    fireEvent.change(composer, {
+      target: { value: "Только родительская активность MANA" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Поставить цель на паузу" }),
+    ).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Уточнить цель" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.url).toContain("/goals/goal-1/commands");
+    expect(posts[0]!.body).toMatchObject({
+      command: "steer",
+      expected_revision: 9,
+      message: "Только родительская активность MANA",
+    });
+  });
+
   it.each(["chat", "goal"])(
     "sends manual model and reasoning choices in %s mode",
     async (mode) => {

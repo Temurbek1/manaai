@@ -897,6 +897,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Message */
+        post: operations["send_message_api_v1_admin_operation_workspace_topics__topic_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -2543,6 +2560,50 @@ export interface components {
         AgentStatusRequest: {
             status: components["schemas"]["AgentStatus"];
         };
+        /** AgentToolCall */
+        AgentToolCall: {
+            /** Capability */
+            capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "inspect_sources" | "read_saved_report" | "request_source_read" | "ask_user";
+            /** Options */
+            options?: string[];
+            /** Question */
+            question?: string | null;
+            /** Report Id */
+            report_id?: string | null;
+        };
+        /** AgentToolRecord */
+        AgentToolRecord: {
+            call: components["schemas"]["AgentToolCall"];
+            /** Call Id */
+            call_id: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /**
+             * Result Shortened
+             * @default false
+             */
+            result_shortened: boolean;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "started" | "completed" | "awaiting_approval" | "waiting_for_user" | "denied" | "unknown";
+        };
         /**
          * AgreementMode
          * @enum {string}
@@ -3095,6 +3156,11 @@ export interface components {
         };
         /** ChatAvailability */
         ChatAvailability: {
+            /**
+             * Agent Workspace Enabled
+             * @default false
+             */
+            agent_workspace_enabled: boolean;
             /** Daily Limit */
             daily_limit: number;
             /** Enabled */
@@ -3251,6 +3317,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Execution Mode
+             * @default discussion
+             * @enum {string}
+             */
+            execution_mode: "discussion" | "agent";
             /** Input Tokens */
             input_tokens?: number | null;
             /** Message */
@@ -3268,7 +3340,7 @@ export interface components {
              * @default none
              * @enum {string}
              */
-            next_action: "none" | "analyze" | "approvals" | "mana_parents";
+            next_action: "none" | "analyze" | "approvals" | "mana_parents" | "start_goal";
             /** Output Tokens */
             output_tokens?: number | null;
             /** Plan */
@@ -4015,6 +4087,11 @@ export interface components {
         };
         /** GoalAvailability */
         GoalAvailability: {
+            /**
+             * Agent Workspace Enabled
+             * @default false
+             */
+            agent_workspace_enabled: boolean;
             /** Budget Microusd */
             budget_microusd: number;
             /** Enabled */
@@ -4029,9 +4106,13 @@ export interface components {
              */
             model_selection_enabled: boolean;
             /** Read Capabilities */
-            read_capabilities: ("retention.engagement.analyze" | "growth.funnel.analyze")[];
+            read_capabilities: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze")[];
             /** Read Product */
             read_product?: ("mana" | "360rec") | null;
+            /** Read Products */
+            read_products?: {
+                [key: string]: "mana" | "360rec";
+            };
         };
         /** GoalCommand */
         GoalCommand: {
@@ -4053,6 +4134,18 @@ export interface components {
              */
             request_id: string;
         };
+        /** GoalConversationTurn */
+        GoalConversationTurn: {
+            /** Assistant */
+            assistant: string;
+            /**
+             * Assistant Shortened
+             * @default false
+             */
+            assistant_shortened: boolean;
+            /** User */
+            user: string;
+        };
         /** GoalCreate */
         GoalCreate: {
             /**
@@ -4065,6 +4158,14 @@ export interface components {
              * @default Не изменять данные и не связываться с клиентами.
              */
             constraints: string;
+            /** Conversation History */
+            conversation_history?: components["schemas"]["GoalConversationTurn"][];
+            /**
+             * Execution Mode
+             * @default analysis
+             * @enum {string}
+             */
+            execution_mode: "analysis" | "agent";
             /**
              * Max Steps
              * @default 6
@@ -4078,6 +4179,11 @@ export interface components {
             model_choice: "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
             /** Objective */
             objective: string;
+            /**
+             * Older Turns Omitted
+             * @default 0
+             */
+            older_turns_omitted: number;
             /**
              * Reasoning
              * @default auto
@@ -4883,6 +4989,12 @@ export interface components {
         };
         /** MessageCreate */
         MessageCreate: {
+            /**
+             * Execution Mode
+             * @default discussion
+             * @enum {string}
+             */
+            execution_mode: "discussion" | "agent";
             /** Message */
             message: string;
             /**
@@ -5179,7 +5291,7 @@ export interface components {
             /** Agent Id */
             agent_id: string;
             /** Approved Capability */
-            approved_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze") | null;
+            approved_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
             /**
              * Created At
              * Format: date-time
@@ -5217,7 +5329,7 @@ export interface components {
             read_attempted: boolean;
             request: components["schemas"]["GoalCreate"];
             /** Requested Capability */
-            requested_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze") | null;
+            requested_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
             /**
              * Result
              * @default
@@ -5239,6 +5351,8 @@ export interface components {
              * @default 0
              */
             steps_used: number;
+            /** Tools */
+            tools?: components["schemas"]["AgentToolRecord"][];
             /** Topic Id */
             topic_id: string;
             /**
@@ -6908,6 +7022,11 @@ export interface components {
              * @constant
              */
             source: "website";
+        };
+        /** WorkspaceTurn */
+        WorkspaceTurn: {
+            goal?: components["schemas"]["OperationGoal"] | null;
+            turn: components["schemas"]["ChatTurn"];
         };
         /** WriteForbiddenDetail */
         WriteForbiddenDetail: {
@@ -8785,6 +8904,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_api_v1_admin_operation_workspace_topics__topic_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceTurn"];
                 };
             };
             /** @description Validation Error */

@@ -13,8 +13,9 @@ type Source = Omit<
 
 export type ChatViewTurn = Omit<
   components["schemas"]["ChatTurn"],
-  "sources" | "next_action" | "model_choice" | "reasoning"
+  "sources" | "next_action" | "model_choice" | "reasoning" | "execution_mode"
 > & {
+  execution_mode?: components["schemas"]["ChatTurn"]["execution_mode"];
   model_choice?: components["schemas"]["ChatTurn"]["model_choice"];
   reasoning?: components["schemas"]["ChatTurn"]["reasoning"];
   sources?: Source[];

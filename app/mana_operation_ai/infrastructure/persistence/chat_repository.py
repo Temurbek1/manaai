@@ -29,12 +29,20 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
     never a fabricated read grant. Migration does not rewrite historical rows.
     """
     payload = turn.model_dump(
-        mode="json", exclude={"read_confirmation", "analysis_kind", "model_choice", "reasoning"}
+        mode="json",
+        exclude={
+            "read_confirmation",
+            "analysis_kind",
+            "model_choice",
+            "reasoning",
+            "execution_mode",
+        },
     )
     metadata = {
         "analysis_kind": turn.analysis_kind,
         "model_choice": turn.model_choice,
         "reasoning": turn.reasoning,
+        "execution_mode": turn.execution_mode,
         "sources": payload["sources"],
         "next_action": turn.next_action,
     }
@@ -48,7 +56,7 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         }
         for source in turn.sources
     ]
-    if turn.next_action == "mana_parents":
+    if turn.next_action in ("mana_parents", "start_goal"):
         payload["next_action"] = "none"
     return {"payload": payload, "context_metadata": metadata}
 
@@ -178,6 +186,7 @@ class SqlAlchemyChatRepository:
                     turn.message != payload.message
                     or turn.model_choice != payload.model_choice
                     or turn.reasoning != payload.reasoning
+                    or turn.execution_mode != payload.execution_mode
                 ):
                     raise ChatError("Идентификатор запроса уже использован для другого сообщения.")
                 return turn, False
@@ -218,6 +227,7 @@ class SqlAlchemyChatRepository:
                 message=payload.message,
                 model_choice=payload.model_choice,
                 reasoning=payload.reasoning,
+                execution_mode=payload.execution_mode,
                 status="reading",
                 created_at=now,
             )

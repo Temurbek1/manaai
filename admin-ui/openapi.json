@@ -2130,6 +2130,136 @@
         "title": "AgentStatusRequest",
         "type": "object"
       },
+      "AgentToolCall": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "anyOf": [
+              {
+                "enum": [
+                  "retention.engagement.analyze",
+                  "growth.funnel.analyze",
+                  "retention.parents.analyze"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capability"
+          },
+          "name": {
+            "enum": [
+              "inspect_sources",
+              "read_saved_report",
+              "request_source_read",
+              "ask_user"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Options",
+            "type": "array"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Id"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AgentToolCall",
+        "type": "object"
+      },
+      "AgentToolRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "call": {
+            "$ref": "#/components/schemas/AgentToolCall"
+          },
+          "call_id": {
+            "title": "Call Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "result": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Result",
+            "type": "string"
+          },
+          "result_shortened": {
+            "default": false,
+            "title": "Result Shortened",
+            "type": "boolean"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "completed",
+              "awaiting_approval",
+              "waiting_for_user",
+              "denied",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "call_id",
+          "call",
+          "status",
+          "started_at"
+        ],
+        "title": "AgentToolRecord",
+        "type": "object"
+      },
       "AgreementMode": {
         "enum": [
           "draft",
@@ -3609,6 +3739,11 @@
       "ChatAvailability": {
         "additionalProperties": false,
         "properties": {
+          "agent_workspace_enabled": {
+            "default": false,
+            "title": "Agent Workspace Enabled",
+            "type": "boolean"
+          },
           "daily_limit": {
             "title": "Daily Limit",
             "type": "integer"
@@ -3938,6 +4073,15 @@
             "title": "Created At",
             "type": "string"
           },
+          "execution_mode": {
+            "default": "discussion",
+            "enum": [
+              "discussion",
+              "agent"
+            ],
+            "title": "Execution Mode",
+            "type": "string"
+          },
           "input_tokens": {
             "anyOf": [
               {
@@ -3981,7 +4125,8 @@
               "none",
               "analyze",
               "approvals",
-              "mana_parents"
+              "mana_parents",
+              "start_goal"
             ],
             "title": "Next Action",
             "type": "string"
@@ -6056,6 +6201,11 @@
       "GoalAvailability": {
         "additionalProperties": false,
         "properties": {
+          "agent_workspace_enabled": {
+            "default": false,
+            "title": "Agent Workspace Enabled",
+            "type": "boolean"
+          },
           "budget_microusd": {
             "title": "Budget Microusd",
             "type": "integer"
@@ -6081,7 +6231,8 @@
             "items": {
               "enum": [
                 "retention.engagement.analyze",
-                "growth.funnel.analyze"
+                "growth.funnel.analyze",
+                "retention.parents.analyze"
               ],
               "type": "string"
             },
@@ -6102,6 +6253,24 @@
               }
             ],
             "title": "Read Product"
+          },
+          "read_products": {
+            "additionalProperties": {
+              "enum": [
+                "mana",
+                "360rec"
+              ],
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "retention.engagement.analyze",
+                "growth.funnel.analyze",
+                "retention.parents.analyze"
+              ]
+            },
+            "title": "Read Products",
+            "type": "object"
           }
         },
         "required": [
@@ -6153,6 +6322,32 @@
         "title": "GoalCommand",
         "type": "object"
       },
+      "GoalConversationTurn": {
+        "additionalProperties": false,
+        "properties": {
+          "assistant": {
+            "maxLength": 1000,
+            "title": "Assistant",
+            "type": "string"
+          },
+          "assistant_shortened": {
+            "default": false,
+            "title": "Assistant Shortened",
+            "type": "boolean"
+          },
+          "user": {
+            "maxLength": 6000,
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user",
+          "assistant"
+        ],
+        "title": "GoalConversationTurn",
+        "type": "object"
+      },
       "GoalCreate": {
         "additionalProperties": false,
         "properties": {
@@ -6167,6 +6362,23 @@
             "default": "Не изменять данные и не связываться с клиентами.",
             "maxLength": 2000,
             "title": "Constraints",
+            "type": "string"
+          },
+          "conversation_history": {
+            "items": {
+              "$ref": "#/components/schemas/GoalConversationTurn"
+            },
+            "maxItems": 6,
+            "title": "Conversation History",
+            "type": "array"
+          },
+          "execution_mode": {
+            "default": "analysis",
+            "enum": [
+              "analysis",
+              "agent"
+            ],
+            "title": "Execution Mode",
             "type": "string"
           },
           "max_steps": {
@@ -6192,6 +6404,12 @@
             "minLength": 10,
             "title": "Objective",
             "type": "string"
+          },
+          "older_turns_omitted": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Older Turns Omitted",
+            "type": "integer"
           },
           "reasoning": {
             "default": "auto",
@@ -8596,6 +8814,15 @@
       "MessageCreate": {
         "additionalProperties": false,
         "properties": {
+          "execution_mode": {
+            "default": "discussion",
+            "enum": [
+              "discussion",
+              "agent"
+            ],
+            "title": "Execution Mode",
+            "type": "string"
+          },
           "message": {
             "maxLength": 6000,
             "minLength": 1,
@@ -9424,7 +9651,8 @@
               {
                 "enum": [
                   "retention.engagement.analyze",
-                  "growth.funnel.analyze"
+                  "growth.funnel.analyze",
+                  "retention.parents.analyze"
                 ],
                 "type": "string"
               },
@@ -9529,7 +9757,8 @@
               {
                 "enum": [
                   "retention.engagement.analyze",
-                  "growth.funnel.analyze"
+                  "growth.funnel.analyze",
+                  "retention.parents.analyze"
                 ],
                 "type": "string"
               },
@@ -9567,6 +9796,14 @@
             "default": 0,
             "title": "Steps Used",
             "type": "integer"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/AgentToolRecord"
+            },
+            "maxItems": 12,
+            "title": "Tools",
+            "type": "array"
           },
           "topic_id": {
             "title": "Topic Id",
@@ -14093,6 +14330,29 @@
           "category"
         ],
         "title": "WebsiteActivitySignal",
+        "type": "object"
+      },
+      "WorkspaceTurn": {
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationGoal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn": {
+            "$ref": "#/components/schemas/ChatTurn"
+          }
+        },
+        "required": [
+          "turn"
+        ],
+        "title": "WorkspaceTurn",
         "type": "object"
       },
       "WriteForbiddenDetail": {
@@ -19998,6 +20258,122 @@
         "summary": "Resolve the authenticated operation actor",
         "tags": [
           "operation-admin"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages": {
+      "post": {
+        "operationId": "send_message_api_v1_admin_operation_workspace_topics__topic_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceTurn"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Message",
+        "tags": [
+          "operation-workspace"
         ]
       }
     },

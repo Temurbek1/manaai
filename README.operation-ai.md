@@ -13,6 +13,14 @@ and background progress, pause/resume, clarify, and retrieve the reviewed result
 reads need separate confirmation. This is not arbitrary business-action execution and does not
 implement the full Orchestrator or Technical agent. See [Goals](docs/operation-goals.md).
 
+The opt-in **agent workspace** (`OPERATION_AGENT_WORKSPACE_ENABLED=true`, default false)
+adds automatic conversation-to-task handoff, native model-selected scoped evidence tools,
+in-flight steering and inline questions/approvals. This checkpoint is local, not yet released
+to production. See [scope and acceptance evidence](docs/operation-agent-workspace.md).
+Native checkpoint migration `c75f0a6e812b` is additive; application rollback retains it and
+explicitly pauses native Goals. See the [bounded release/rollback checklist](docs/operation-agent-workspace-release.md)
+and `make audit-workspace-compat` (local old image, synthetic DB, no provider network).
+
 The default administrator UI is a private conversation workspace: exactly four agent rooms,
 with separate server-persisted topics and an explicit MANA/360REC conversation context.
 The existing dense operational screens are available through **Professional mode** (`/overview`).
@@ -24,8 +32,10 @@ without enabling new scheduled reads, Firebase access or customer actions. Local
 and live one-row verification are complete; production activation is a separate release.
 
 Growth and Retention chats can explain saved evidence and offer a confirmation card for the
-existing analysis workflow. Orchestrator and Technical chats are advisory planning interfaces,
-not implementations of those future operational agents. No new action family is enabled.
+existing analysis workflow. With the workspace flag disabled, Orchestrator and Technical chats
+are advisory planning interfaces. The opt-in shared workspace supports read-only investigation
+from the Orchestrator room; it is not a full Orchestrator implementation. Technical remains
+discussion-only. No new action family is enabled.
 
 ## What this platform is
 

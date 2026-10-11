@@ -59,7 +59,7 @@ export function ChatPage({
   const [sending, setSending] = useState(false);
   const [modelChoice, setModelChoice] = useState<ModelChoice>("auto");
   const [reasoning, setReasoning] = useState<ReasoningChoice>("auto");
-  const [selectedMode, setMode] = useState<"chat" | "goal">("chat");
+  const [selectedMode, setMode] = useState<"auto" | "chat" | "goal">("auto");
   const [actionError, setActionError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<string | null>(null);
   const [optimisticId, setOptimisticId] = useState<string | null>(null);
@@ -72,7 +72,6 @@ export function ChatPage({
   const workingGoal = goals.find(
     (goal) => !["completed", "cancelled"].includes(goal.status),
   );
-  const mode = workingGoal ? "goal" : selectedMode;
   const goalBusy = Boolean(
     workingGoal &&
     (["queued", "running"].includes(workingGoal.status) ||
@@ -112,10 +111,22 @@ export function ChatPage({
     },
   );
   const turns = data?.turns ?? [];
+  const workspaceEnabled = Boolean(
+    goalsEnabled &&
+    goalsAvailability?.agent_workspace_enabled &&
+    availability?.agent_workspace_enabled,
+  );
+  const mode = workingGoal
+    ? "goal"
+    : selectedMode === "auto"
+      ? workspaceEnabled
+        ? "agent"
+        : "chat"
+      : selectedMode;
   const active = turns.find((turn) => ACTIVE.includes(turn.status));
   const scope = data?.topic.product ?? product;
   const wrongAgent = data && data.topic.agent_id !== agentId;
-  const busy = sending || Boolean(active) || goalBusy;
+  const busy = sending || Boolean(active);
   const modelSelectionEnabled =
     mode === "goal"
       ? goalsAvailability?.model_selection_enabled
@@ -129,6 +140,13 @@ export function ChatPage({
     if (sending || active)
       end.current?.scrollIntoView?.({ block: "end", behavior: "instant" });
   }, [turns.length, sending, active]);
+
+  const waitingRevision =
+    workingGoal?.status === "waiting" ? workingGoal.revision : null;
+  useEffect(() => {
+    if (waitingRevision !== null)
+      end.current?.scrollIntoView?.({ block: "end", behavior: "instant" });
+  }, [waitingRevision]);
 
   function updateDraft(value: string): void {
     setDraft(value);
@@ -195,21 +213,23 @@ export function ChatPage({
           );
         await mutate(`${GOALS_BASE}/topics/${target}`);
         updateDraft("");
-        setMode("chat");
+        setMode("auto");
         if (!topicId) router.push(`/chat/${agentId}/topic/${target}`);
         return;
       }
       setOptimisticId(requestId.current);
       setOptimistic(message);
       await apiPost(
-        `${CHAT_BASE}/topics/${target}/messages`,
+        `${mode === "agent" ? "/api/v1/admin/operation/workspace" : CHAT_BASE}/topics/${target}/messages`,
         {
           request_id: requestId.current,
           message,
+          ...(mode === "agent" ? { execution_mode: "agent" } : {}),
           ...inference,
         },
         controller.signal,
       );
+      if (mode === "agent") await mutate(`${GOALS_BASE}/topics/${target}`);
       const saved = await apiGet<Detail>(`${CHAT_BASE}/topics/${target}`);
       await mutate(`${CHAT_BASE}/topics/${target}`, saved, false);
       updateDraft("");
@@ -299,10 +319,10 @@ export function ChatPage({
           </span>
           <div>
             <h1>{agent.name}</h1>
-            {(currentTopicId || agent.planned) && (
+            {(currentTopicId || (agent.planned && !workspaceEnabled)) && (
               <p>
                 {currentTopicId ? (data?.topic.title ?? "Загружаем тему…") : ""}
-                {agent.planned
+                {agent.planned && !workspaceEnabled
                   ? `${currentTopicId ? " · " : ""}Только планирование`
                   : ""}
               </p>
@@ -355,13 +375,6 @@ export function ChatPage({
             aria-live="polite"
             aria-relevant="additions text"
           >
-            {currentTopicId && !wrongAgent && (
-              <GoalWorkspace
-                key={currentTopicId}
-                topicId={currentTopicId}
-                inlineSteering={false}
-              />
-            )}
             {!currentTopicId && (
               <div className="chat-welcome">
                 <h2>Над чем поработаем?</h2>
@@ -467,6 +480,13 @@ export function ChatPage({
                   </p>
                 </div>
               )}
+            {currentTopicId && !wrongAgent && (
+              <GoalWorkspace
+                key={currentTopicId}
+                topicId={currentTopicId}
+                inlineSteering={false}
+              />
+            )}
             <div ref={end} />
           </div>
           <div className="chat-compose-area">
@@ -536,6 +556,20 @@ export function ChatPage({
               <div className="composer-toolbar">
                 {workingGoal ? (
                   <span>Цель</span>
+                ) : workspaceEnabled ? (
+                  <select
+                    aria-label="Режим работы"
+                    value={selectedMode}
+                    disabled={busy}
+                    onChange={(event) => {
+                      setMode(event.target.value as "auto" | "chat" | "goal");
+                      requestId.current = null;
+                    }}
+                  >
+                    <option value="auto">Агент</option>
+                    <option value="chat">Обсудить</option>
+                    <option value="goal">Цель</option>
+                  </select>
                 ) : goalsEnabled ? (
                   <div
                     className="composer-mode"
@@ -602,10 +636,11 @@ export function ChatPage({
                     </select>
                   </div>
                 )}
-                {active || goalBusy ? (
+                {(active || goalBusy) && (
                   <button
                     className="chat-send"
                     type="button"
+                    disabled={sending}
                     onClick={() => void stop()}
                     aria-label={
                       goalBusy ? "Поставить цель на паузу" : "Остановить ответ"
@@ -613,7 +648,8 @@ export function ChatPage({
                   >
                     ■
                   </button>
-                ) : (
+                )}
+                {!active && (!goalBusy || draft.trim()) && (
                   <button
                     className="chat-send"
                     type="submit"

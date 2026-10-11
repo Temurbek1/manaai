@@ -73,6 +73,7 @@ OPERATION_ALLOW_SELF_APPROVAL=false \
 OPERATION_SCHEDULER_ENABLED=false \
 OPERATION_GOALS_WORKER_ENABLED=false \
 OPERATION_MODEL_SELECTION_ENABLED=true \
+OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_AUTO_CREATE_SCHEMA=true \
 OPERATION_DATABASE_URL="sqlite+aiosqlite:///$AUDIT_TMP_DIR/operation.db" \
 MARKETING_DATABASE_PATH="$AUDIT_TMP_DIR/legacy.db" \
@@ -147,6 +148,44 @@ assert_browser 'document.body.innerText.includes("Над чем поработа
 assert_browser 'document.querySelectorAll(".agent-nav-group").length === 4' 'four agent chats are missing'
 assert_browser '!document.querySelector(".task-grid") && !document.querySelector("a[href=\"/users\"]")' 'professional controls leaked into chat mode'
 assert_browser '!document.querySelector(".topic-options, .chat-starters, .chat-tools-links")' 'manual setup controls leaked into the simple chat'
+if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
+  assert_browser 'document.querySelector("select[aria-label=\"Режим работы\"]")?.value === "auto" && document.querySelectorAll(".chat-page button").length === 1' 'unified agent mode has extra controls or is not the default'
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
+  browser wait --load networkidle >/dev/null
+  browser find label "Сообщение агенту" fill 'Проанализируй текущие данные MANA и подготовь план удержания' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
+  assert_browser 'location.pathname.includes("/operations-orchestrator/topic/")' 'agent redirected analysis out of the Orchestrator room'
+  assert_browser 'document.querySelector(".goal-plan")?.textContent.includes("Проверить удержание") && document.querySelectorAll(".goal-details ol li").length >= 3' 'agent did not persist its plan and selected tool loop'
+  assert_browser '!document.querySelector(".goal-details[open]")' 'agent exposes audit details by default'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/agent-workspace-desktop.png" --full >/dev/null
+  fi
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
+  browser set viewport 320 812 >/dev/null
+  assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'agent workspace overflows at 320 CSS pixels'
+  assert_accessible
+  browser eval '([...document.querySelectorAll(".goal-controls button")].find(button => button.textContent.trim() === "Последние 7 дней")).scrollIntoView({block:"center", behavior:"instant"}); "scrolled"' >/dev/null
+  assert_browser '(() => { const button = [...document.querySelectorAll(".goal-controls button")].find(button => button.textContent.trim() === "Последние 7 дней").getBoundingClientRect(); const transcript = document.querySelector(".chat-transcript").getBoundingClientRect(); return button.top >= transcript.top && button.bottom <= transcript.bottom; })()' 'clarification choices are obscured by the composer'
+  browser find role button click --name "Последние 7 дней" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  assert_browser 'document.querySelector(".goal-result")?.textContent.includes("Тестовый анализ")' 'reviewed agent result did not render'
+  assert_browser 'document.querySelector(".goal-workspace")?.textContent.includes("browser-workspace-report")' 'result lost its saved evidence reference'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/agent-workspace-mobile.png" --full >/dev/null
+  fi
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
+  login_browser 51456737
+  assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
+  echo "Agent workspace browser E2E passed: automatic handoff, scoped saved tools, inline question, reviewed result, reload, owner isolation and accessibility"
+  exit 0
+fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'
 assert_accessible
 if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then

@@ -155,8 +155,10 @@ async def test_goals_selection_uses_matching_admission_and_settlement_rates(
         ),
         model_dump_json=lambda **kwargs: "{}",
     )
-    parse = AsyncMock(return_value=response)
-    monkeypatch.setattr(model._client.responses, "parse", parse)
+    from tests.test_operation_goal_model import fake_raw_goal_response
+
+    parse = AsyncMock(return_value=fake_raw_goal_response(response))
+    monkeypatch.setattr(model._client.responses.with_raw_response, "parse", parse)
     try:
         result = await model.decide(context=context, owner="owner")
         expected = inference_rate_cards(settings)[model_name].actual_microusd(

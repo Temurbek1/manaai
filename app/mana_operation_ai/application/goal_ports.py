@@ -16,6 +16,14 @@ class GoalModelOutput:
         self.actual_microusd = actual_microusd
 
 
+class GoalModelResponseError(RuntimeError):
+    """Controlled output failure after verified provider usage was accounted."""
+
+    def __init__(self, reason: str, actual_microusd: int) -> None:
+        super().__init__(reason)
+        self.actual_microusd = actual_microusd
+
+
 class GoalModel(Protocol):
     def reservation(self, context: str) -> int: ...
 

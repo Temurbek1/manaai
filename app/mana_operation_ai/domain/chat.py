@@ -11,7 +11,7 @@ from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 ChatAgent = Literal["operations-orchestrator", "growth-agent", "retention-agent", "technical-agent"]
 ProductScope = Literal["mana", "360rec"]
 TurnStatus = Literal["reading", "thinking", "completed", "failed", "cancelled"]
-ChatNextAction = Literal["none", "analyze", "approvals", "mana_parents"]
+ChatNextAction = Literal["none", "analyze", "approvals", "mana_parents", "start_goal"]
 
 
 class ChatModel(BaseModel):
@@ -35,6 +35,7 @@ class MessageCreate(ChatModel):
     message: str = Field(min_length=1, max_length=6000)
     model_choice: ModelChoice = "auto"
     reasoning: ReasoningChoice = "auto"
+    execution_mode: Literal["discussion", "agent"] = "discussion"
 
 
 class ChatSource(ChatModel):
@@ -74,6 +75,7 @@ class ChatTurn(ChatModel):
     model: str | None = None
     model_choice: ModelChoice = "auto"
     reasoning: ReasoningChoice = "auto"
+    execution_mode: Literal["discussion", "agent"] = "discussion"
     input_tokens: int | None = None
     output_tokens: int | None = None
     analysis_requested: bool = False
@@ -100,6 +102,7 @@ class ChatAvailability(ChatModel):
     daily_limit: int
     parent_summary_enabled: bool = False
     model_selection_enabled: bool = False
+    agent_workspace_enabled: bool = False
 
 
 class AnalysisRequest(ChatModel):

@@ -1,0 +1,188 @@
+# Agent workspace: Codex/Claude interaction model
+
+## Objective and evidence
+
+Owner request, 2026-10-11: implement the observable working experience of Codex and
+Claude agents for MANA administration and its own data. This is not a claim to
+reproduce proprietary prompts, identical model accuracy, branding or unrestricted
+coding tools. The acceptance target is real task execution through bounded domain
+tools, not a chat that merely describes a plan or redirects users between rooms.
+
+Primary sources inspected:
+
+- [Codex App Server](https://developers.openai.com/codex/app-server): threads,
+  turns/items, progress events, steering/interrupt, model controls and approvals.
+- [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling):
+  model tool requests, application execution/results, strict schemas.
+- [Claude agent loop](https://code.claude.com/docs/en/agent-sdk/agent-loop):
+  context → model → tool → result → next decision, rather than a fixed prompt chain.
+- [Claude sessions](https://code.claude.com/docs/en/agent-sdk/sessions) and
+  [user input](https://code.claude.com/docs/en/agent-sdk/user-input): continuation,
+  human questions and approvals inside a working session.
+
+The established FastAPI/application ports/SQL runtime is retained. A Vercel/eve
+rewrite, Codex shell process, Claude subscription login, unrestricted SQL,
+filesystem or provider credentials is not needed for the administrative story.
+
+## Full acceptance scope (not completed by documenting it)
+
+1. One conversation entry point: ordinary questions remain cheap conversation;
+   analytical requests start durable work without the user choosing a different
+   room or knowing the difference between a chat and Goals. Explicit discussion
+   and long-lived Goals remain available.
+2. A model-driven typed tool loop: discover sources, inspect saved evidence,
+   delegate supported source reads, ask a focused question, use results and
+   revise the approach. Missing/stale evidence must not produce fabricated facts.
+3. Visible, truthful progress/tool statuses and plans, independent review and
+   cited final output; no disclosure of private chain-of-thought.
+4. In-flight steering, stop/pause/resume/cancel, idempotent controls and retained
+   session context/checkpoints across page closure and process replacement.
+5. Human approvals inside the conversation. New provider reads and domain writes
+   remain separately confirmed; a natural-language "yes" grants no arbitrary
+   permission. Only an actual owning-domain executor may perform a mutation.
+6. Model/reasoning controls, cost/unknown-hold admission and source-wide cooldown;
+   no automatic reissue of a lost read or model call.
+7. Grounded MANA sources and measurable analysis. Parent behavior is separate
+   from children, tariffs are not payments, user cities are not order cities,
+   and 360REC does not receive MANA evidence.
+8. Tested browser → API → SQL → tool/provider boundary → model result flows,
+   fake/sandbox mutations and bounded opt-in live checks; release/rollback evidence.
+9. Durable context management for extended work, including explicit limits and
+   preserved user constraints, not silently truncated or invented agreements.
+
+These items define the objective throughout implementation; passing a narrow
+component test does not establish feature parity or close the overall goal.
+
+## Architecture
+
+Exactly four top-level rooms remain. The shared workspace is infrastructure,
+not a fifth agent or a claim that full Orchestrator/Technical handlers are built.
+It may delegate read-only work from the Orchestrator room without moving the user.
+Business/financial/contact/infrastructure mutations remain with their owning
+domain. Retention risk/action delivery precedes full Orchestrator, Technical last.
+
+Existing private SQL Goals supply queue claims, revision fences, checkpoints,
+budgets and recovery. Native model function calls select typed application tools;
+the trusted runtime rechecks ownership, product binding, permissions and admission.
+Provider payloads are minimized at adapters; tools expose no raw identifiers,
+contact lists, child content, GPS, credentials or arbitrary query/URL execution.
+
+Tool calls are persisted before execution. Local saved-data tools are repeatable
+but bounded; external reads consume a one-use approval before I/O. Unknown
+in-flight outcomes wait for reconciliation rather than being automatically rerun.
+Progress is public work evidence, not generated claims that a tool ran.
+
+## Implementation checkpoints
+
+Status must be updated from actual tests/flows, not intent:
+
+- Research and scope: official source comparison and current chat/Goals gap found.
+- Typed tools and adaptive durable loop: local implementation; native strict Responses
+  functions, scoped saved catalogs/evidence, separately confirmed single-use reads and
+  focused questions. No new arbitrary query or domain-write tool.
+- Unified conversation dispatch and in-flight steering: local implementation; private
+  workspace endpoint, UUID-derived idempotent handoff, preserved bounded user context,
+  concurrent steering fences the prior result without issuing a duplicate call.
+- Progress, questions/approvals and context continuity UI: local implementation; automatic
+  Agent mode, actual persisted tool statuses, inline question choices, unchanged read
+  approval, pause/resume/cancel and reload continuity. Progress currently uses SQL-backed
+  polling, not a streamed token/event protocol.
+- Version-safe checkpoint storage: local implementation; additive migration `c75f0a6e812b`,
+  versioned native checkpoints/queue status separate from strict legacy Goal JSON. Older
+  workers see only a closed projection; native controls/context remain in the new checkpoint.
+  Explicit rollback preparation pauses native work without refunding unknown costs or
+  repeating reads. No production migration was performed.
+- Full quality, source integration acceptance and production release: pending.
+
+### Local evidence, 2026-10-11 (not a production claim)
+
+- Initial `make verify`: 688 backend tests passed, 6 PostgreSQL tests skipped,
+  2 opt-in live tests excluded; 95 UI tests passed; build and dependency audit passed.
+  Later changes require a final rerun before handoff.
+- Second `make verify`: 692 backend and 95 UI tests, build, audit and type/lint gates passed.
+  PostgreSQL 17 audit: six tests passed, including native tool recovery and in-flight steering.
+  Legacy browser flow and the updated agent mobile flow passed. Later model transport fixes
+  still require a final regression run.
+- Final local checkpoint `make verify`: 698 backend tests passed, six PostgreSQL tests
+  skipped in the ordinary suite/two opt-in live tests excluded; 96 UI tests, build and
+  dependency audit passed. Separate PostgreSQL 17 migration/claim/recovery audit: six passed.
+  Contract sync, secret/quality-marker scans and `git diff --check` passed. The feature is
+  still unreleased, not a claim that every full acceptance item is satisfied.
+- Focused HTTP/SQL/tool/model tests cover automatic analysis from the Orchestrator room,
+  no paid calls for greetings/disabled execution, owner/RBAC isolation, no cross-app evidence,
+  retained constraints, in-flight steering/paused steering, strict native arguments and
+  actual usage accounting. Source/model boundaries are fakes, not quality proof for live LLMs.
+- `AUDIT_AGENT_WORKSPACE=true scripts/browser_e2e.sh` passed after fixing the harness's
+  initial room and revealing/reaching clarification choices on a narrow viewport:
+  automatic handoff → three model-selected saved-data/question tools → inline answer →
+  independent review → result → reload → owner isolation. Desktop/mobile WCAG checks passed.
+  Screenshots are ignored local artifacts in `output/agent-workspace-20261011/`.
+- No production, Firebase/GA4, IAM, SSH, audio or independent API configuration was changed.
+  The feature flag remains false by default.
+- Live synthetic evaluation initially exposed SDK JSON parsing before native function handling.
+  Three independently stopped diagnostics retain $0.210323 in unknown conservative holds;
+  they were not automatically retried/refunded. A fourth classified parse failure recorded
+  $0.002322 in verified usage after the raw HTTP accounting fix. A non-generating model lookup
+  confirmed access. No raw response text, keys or headers were exposed in diagnostics.
+- After separating native tools from structured decision bodies and handling functions before
+  commentary parsing, the real `gpt-6.1-sol` workflow completed in five steps: inspect sources →
+  read saved evidence → plan → investigate → review. Default 4096 output-token configuration,
+  no source reads, five model calls, 13528 input/4814 output tokens, verified usage $0.068985.
+  Manual output review confirmed D1=60%, D7=35%, previous D7=30%, +5 percentage points;
+  parents/children, tariffs/payments and cohort vs causality limitations were kept separate.
+  This is one synthetic workflow, not proof of production source completeness/model quality.
+- All nine generation attempts across diagnostics/evaluation: verified accounted usage
+  $0.071307 plus unknown holds $0.210323 = $0.281630 conservative total, not a billing invoice.
+  Day/month totals describe the same spend and must not be added together. No Firebase, GA4,
+  Manakids or production requests were issued. No further paid party is pending.
+
+### Native checkpoint/rollback evidence, 2026-10-12
+
+- Focused persistence tests verify all six Goal states, legacy/new queue isolation, capacity,
+  ownership/idempotency/revision fences, complete context/tool reconstruction after restart,
+  read-only rollback inspection, all-or-nothing refusal while a live lease remains and
+  retained consumed reads/unknown costs on explicit pause.
+- An isolated legacy-row migration test verifies that `c75f0a6e812b` does not rewrite
+  historical JSON. Schema downgrade is refused once any native history exists, including
+  completed Goals. New ordinary Goals keep nullable workspace fields empty.
+- `bash scripts/operation_workspace_compatibility_audit.sh` passed using the actual locally
+  installed `mana-ai-operation:2ea7b9a` image with `--network none` and a synthetic SQLite DB.
+  Its strict models read native compatibility projections, all five old control commands
+  are denied, old workers claim only ordinary Goals, and the new code reconstructs the
+  original context/approvals/tools/budget unchanged. Explicit pause then preserves history,
+  revokes unconsumed approvals and marks lost source work unknown; neither version retries it.
+- Supported application rollback retains the additive schema; do not invoke an old Alembic
+  migration or downgrade/drop the metadata columns. See the bounded
+  [release/rollback procedure](operation-agent-workspace-release.md).
+- Final `make verify` after metadata/recovery changes: 708 backend tests passed, six
+  PostgreSQL tests skipped in the ordinary suite/two opt-in live tests excluded; 96 UI tests,
+  build, formatting, lint, typecheck and dependency audit passed. Separate PostgreSQL 17
+  additive migration/concurrency/recovery round trip: six passed. Contract/security scans
+  and native/legacy browser E2E with the actual new SQL storage passed. Mobile native
+  screenshots were inspected; the normal legacy flow still covers sandbox approval/action
+  execution and manual Parent cooldown without live provider requests.
+- The new local `mana-ai-operation:workspace-local-20261012` image built successfully.
+  A two-image, networkless compatibility audit passed: old-image control/claim protection
+  plus new-image checkpoint reconstruction before/after explicit rollback preparation.
+  This is a local runtime check, not an image publication or production deployment.
+
+### Remaining full-goal work
+
+Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:
+
+- Repeat regression, PostgreSQL concurrency/recovery, contract/security and browser checks
+  after subsequent changes; the current local checkpoint's final gates passed as listed above.
+- Extend real-model quality coverage beyond the single synthetic evaluation, then separately
+  verify approved configured sources without a scan or new schedule.
+- Expand user-visible durable streaming/continuation and extended-context behavior with
+  explicit interruption/reconnection semantics; current SQL polling is not token streaming.
+  Completed Goal results are not yet incorporated into the next ordinary conversation's
+  memory; that continuation requires bounded, explicitly marked checkpoint context and
+  freshness checks without silently dropping user constraints.
+- Integrate supported action proposals/owning-domain execution into the conversational
+  work lifecycle without claiming unbuilt Retention/Orchestrator/Technical capabilities.
+- Produce a scoped sidecar/UI release and rollback, keep the independent main API/audio and
+  scheduler/source settings unchanged, and inspect the actual deployed browser/API behavior.
+- Repeat the scoped release/rollback checks against the actual deployment configuration;
+  the local older-image proof is not a production acceptance test or permission to downgrade
+  the schema. Confirm paused native Goals stay paused after rolling forward.

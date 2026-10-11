@@ -155,7 +155,7 @@ describe("GoalWorkspace", () => {
     },
   );
 
-  it("blocks steering while a paused provider call is still ending", async () => {
+  it("allows steering without resuming a paused in-flight provider call", async () => {
     jest
       .spyOn(globalThis, "fetch")
       .mockImplementation(() =>
@@ -168,7 +168,7 @@ describe("GoalWorkspace", () => {
       await screen.findByText("Заканчивается текущий запрос…"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Продолжить" })).toBeDisabled();
-    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("textbox")).toBeEnabled();
   });
 
   it("does not fabricate a workspace for an older backend", async () => {

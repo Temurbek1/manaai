@@ -6,12 +6,23 @@ from uuid import UUID
 
 from pydantic import Field
 
+from app.mana_operation_ai.domain.agent_tools import (
+    AgentToolCall,
+    AgentToolRecord,
+    SourceReadCapability,
+)
 from app.mana_operation_ai.domain.chat import ChatModel, ProductScope
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 
 GoalStatus = Literal["queued", "running", "paused", "waiting", "completed", "cancelled"]
 GoalPhase = Literal["plan", "investigate", "review"]
-GoalCapability = Literal["retention.engagement.analyze", "growth.funnel.analyze"]
+GoalCapability = SourceReadCapability
+
+
+class GoalConversationTurn(ChatModel):
+    user: str = Field(max_length=6000)
+    assistant: str = Field(max_length=1000)
+    assistant_shortened: bool = False
 
 
 class GoalCreate(ChatModel):
@@ -27,6 +38,9 @@ class GoalCreate(ChatModel):
     budget_microusd: int = Field(default=500_000, ge=50_000, le=10_000_000)
     model_choice: ModelChoice = "auto"
     reasoning: ReasoningChoice = "auto"
+    execution_mode: Literal["analysis", "agent"] = "analysis"
+    conversation_history: list[GoalConversationTurn] = Field(default_factory=list, max_length=6)
+    older_turns_omitted: int = Field(default=0, ge=0)
 
 
 class GoalCommand(ChatModel):
@@ -84,10 +98,11 @@ class OperationGoal(ChatModel):
     read_attempted: bool = False
     model: str | None = None
     lease_until: datetime | None = None
+    tools: list[AgentToolRecord] = Field(default_factory=list, max_length=12)
 
 
-class GoalDecision(ChatModel):
-    """Model proposals. Only the runtime decides state transitions and completion."""
+class GoalDecisionBody(ChatModel):
+    """Structured analysis, separate from native tool arguments."""
 
     update: str = Field(min_length=1, max_length=2000)
     plan: list[GoalTask] = Field(max_length=8)
@@ -98,6 +113,12 @@ class GoalDecision(ChatModel):
     requested_capability: GoalCapability | None
 
 
+class GoalDecision(GoalDecisionBody):
+    """Runtime decisions; only native tools may add an execution request."""
+
+    tool_call: AgentToolCall | None = None
+
+
 class GoalAvailability(ChatModel):
     enabled: bool
     model: str
@@ -106,3 +127,5 @@ class GoalAvailability(ChatModel):
     read_capabilities: list[GoalCapability]
     read_product: ProductScope | None = None
     model_selection_enabled: bool = False
+    agent_workspace_enabled: bool = False
+    read_products: dict[GoalCapability, ProductScope] = Field(default_factory=dict)
