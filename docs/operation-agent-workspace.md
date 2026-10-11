@@ -420,6 +420,65 @@ No permission, account or branch history was changed. Repository write access (o
 maintainer publishing the retained commits) and scoped production approval are still needed;
 do not claim that these local checkpoints were pushed or deployed.
 
+### Private saved-task recall checkpoint, 2026-10-12
+
+Local/unreleased. Official research revisited [Codex stored-thread paging](https://learn.chatgpt.com/docs/app-server#threads),
+[Responses compaction](https://developers.openai.com/api/docs/guides/compaction) and
+[Claude session resume](https://code.claude.com/docs/en/agent-sdk/sessions). Full persisted
+history and model-visible context are distinct. OpenAI compaction returns opaque state, not
+an auditable lossless replacement for our explicit user constraints; this checkpoint does
+not add that provider call or claim native compaction is complete. The established Python/SQL
+stack stays unchanged rather than installing a TypeScript AI SDK or rewriting it as eve.
+
+- Typed `find_saved_tasks` returns at most five closed task references, with literal objective
+  substring search, stable date/ID ordering and a bounded cursor. `read_saved_task` returns a
+  result page up to 4000 characters, with exact offset/next_offset, total length, shortening,
+  observation references and a historical-only marker. SQLite `instr`/PostgreSQL `strpos`
+  provide equivalent literal/case-sensitive substring semantics, including `%`/`_`/Unicode.
+- Both tools require the current owner/topic/product and a task closed before the current
+  Goal began; foreign/future/active references and cursors are refused. They read SQL only,
+  add no evidence/grant/cost history and never invoke a provider. Original saved reports may
+  now be looked up by exact ID beyond the first 20 catalog entries, with the same loaded
+  agent/product verification and freshness/completeness checks. Unverified fake Growth facts
+  remain inadmissible. History-only text cannot satisfy the evidence completion gate.
+- Full task-result pages remain in the durable journal/model context, not shortened like
+  obsolete catalogs. Exact cross-role text dedup removes redundant copies while retaining
+  every word and all `also_kinds` roles. The regression reconstructs 100 chat messages and
+  100 matching closed Goals: 500 role-labelled copies become 100 exact quotes, with every
+  objective/criterion/constraint/instruction label retained. No semantic discard, cap increase
+  or automatic forgetting is used; byte/400-unique-quote guards still fail before a paid call.
+- Extended task tools/role labels use checkpoint v5 with explicit frozen analysis scope.
+  Protocol/scope/alias mismatches fail closed; legacy JSON stays strict-compatible. The
+  actual old `2ea7b9a` and networkless new runtime rollback/pause probe passed, retaining
+  aliases, action history, original scope and unknown reservations. No migration is added.
+- Real Sol/medium local check used one already-minimized saved MANA Parent report and a
+  private local copy of the prior QA analysis, with four newer synthetic distractor tasks.
+  The model autonomously planned, searched, read offsets 0/4000, revalidated the original
+  report, investigated and reviewed: **seven settled calls, $0.079756**, zero unknown holds
+  under a $0.49 cap. Manual review confirmed exact task/report/date citations, sample limits,
+  no tariff/payment or child/parent conflation, and D7 described as a proposed measurement,
+  with undefined window boundaries explicitly retained. No source/production requests or
+  writes. This is one narrow quality example, not statistical/full-goal acceptance.
+- Real private-browser fake-model flow adds same-room historical task search/read/report
+  revalidation, completed result/reload, private-owner isolation and existing action/SSE/CSRF/
+  mobile accessibility checks. New tool names are accepted by the bounded SSE validator;
+  arguments/results remain out of the public stream. No extra default interface control.
+
+Final local gates: `make verify` passed with **767 backend tests**, eight isolated PostgreSQL
+skips here/two live suites excluded; **118 UI tests**, mypy 297 files, lint/format, TypeScript,
+Next production build and zero npm vulnerabilities. Separate PostgreSQL 17 round-trip/drift
+and **eight** cases passed, including actual JSON/literal search/cursor/scope queries. Native
+browser/API/SQL recall/reload and old/new image pause/rollback passed. Runtime startup and
+typed scoped SQL tool lookup passed in a networkless temporary-DB container; schema sync,
+secret scan and whitespace checks passed. Artifacts are ignored under `output/task-recall-20261012/`
+and `/tmp/manaai-history-*`; no image was published or production state changed.
+
+The 100-message per-topic cap was also found in the actual repository; paged transcript
+delivery, safe automatic compaction/retrieval for longer sessions and its exact-constraint
+contract remain required. This checkpoint does not close that gap or the full objective.
+No push/deployment was retried: the recorded GitHub write-access and scoped-release approval
+blockers remain. The independent API/audio, SSH, source settings/schedules and keys are untouched.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:

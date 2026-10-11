@@ -29,6 +29,12 @@ choose «Сохранённый срез» to analyze dated saved evidence witho
 Current-data analysis remains the default and keeps its freshness gate. Historical completion
 is not a current conversion/retention measurement. This addition is still local/unreleased.
 
+Native evidence tools also support private saved-task search/result paging. The model can
+recover an older analysis omitted from the three automatic excerpts, then independently
+revalidate its saved source report. SQL history is not a new collection, permission or current
+measurement. Exact cross-role text dedup preserves constraint/instruction labels in checkpoint
+v5; automatic semantic compaction and longer transcript delivery remain future work.
+
 Native chat also has an opt-in human action-review lane (`OPERATION_WORKSPACE_ACTIONS_ENABLED`),
 limited to explicitly synthetic MANA Growth sandbox experiment drafts. Decisions are scoped to
 the private topic/turn and immutable parameters, persisted before owning-domain dispatch, and

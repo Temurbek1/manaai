@@ -16,6 +16,7 @@ from app.mana_operation_ai.application.ports import ConcurrentOperationError
 from app.mana_operation_ai.application.workspace_actions import WorkspaceActionService
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
 from app.mana_operation_ai.domain.chat import MessageCreate, TopicCreate
+from app.mana_operation_ai.domain.chat import ProductScope as ChatProductScope
 from app.mana_operation_ai.domain.cost_control import CostLimits, ProductScope, ResourceUsage
 from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType, UserRole
 from app.mana_operation_ai.domain.goals import GoalCommand, GoalCreate
@@ -54,6 +55,74 @@ pytestmark = pytest.mark.skipif(
     POSTGRES_URL is None,
     reason="TEST_POSTGRES_URL is required for isolated PostgreSQL integration tests",
 )
+
+
+async def test_postgres_saved_task_paging_literal_search_and_scope() -> None:
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    clock = Clock()
+    chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
+    await chats.initialize()
+    repository = SqlAlchemyGoalRepository(database, clock)
+    try:
+        topic = await chats.create(
+            "postgres-history-owner",
+            TopicCreate(
+                agent_id="operations-orchestrator", product="mana", title="Private saved tasks"
+            ),
+        )
+        ids = []
+        for index in range(7):
+            goal = await repository.create(
+                "postgres-history-owner",
+                topic,
+                GoalCreate(
+                    request_id=uuid4(), objective=f"Историческая задача {index}: literal % _ text."
+                ),
+            )
+            assert await repository.save(
+                "postgres-history-owner", goal, goal.model_copy(update={"status": "completed"})
+            )
+            ids.append(goal.goal_id)
+        before = clock.now() + timedelta(seconds=1)
+        first = await repository.find_saved_tasks(
+            "postgres-history-owner",
+            topic.topic_id,
+            "mana",
+            before=before,
+            query="literal % _",
+            cursor=None,
+        )
+        assert len(first.goals) == 5 and first.next_cursor is not None
+        second = await repository.find_saved_tasks(
+            "postgres-history-owner",
+            topic.topic_id,
+            "mana",
+            before=before,
+            query="literal % _",
+            cursor=first.next_cursor,
+        )
+        assert len(second.goals) == 2 and second.next_cursor is None
+        assert {item.goal_id for item in first.goals + second.goals} == set(ids)
+        assert not (
+            await repository.find_saved_tasks(
+                "postgres-history-owner",
+                topic.topic_id,
+                "mana",
+                before=before,
+                query="ИСТОРИЧЕСКАЯ",
+                cursor=None,
+            )
+        ).goals
+        scopes: list[tuple[str, ChatProductScope]] = [
+            ("foreign-owner", "mana"),
+            ("postgres-history-owner", "360rec"),
+        ]
+        for owner, product in scopes:
+            with pytest.raises(ChatError):
+                await repository.saved_task(owner, topic.topic_id, product, ids[0], before=before)
+    finally:
+        await database.dispose()
 
 
 async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:

@@ -57,6 +57,17 @@ afterEach(() => {
 });
 
 describe("workspace stream protocol", () => {
+  it.each(["find_saved_tasks", "read_saved_task"] as const)(
+    "accepts public %s progress without exposing its arguments",
+    (name) => {
+      const data = {
+        ...event,
+        tools: [{ call_id: "history", name, status: "completed" as const }],
+      };
+      expect(parseWorkspaceFrame(frame(data), "private-topic")).toEqual(data);
+      expect(JSON.stringify(data)).not.toContain("query");
+    },
+  );
   it("validates typed public frames and Unicode without executing anything", () => {
     expect(parseWorkspaceFrame(frame(), "private-topic")).toEqual(event);
     expect(parseWorkspaceFrame(": heartbeat", "private-topic")).toBeNull();

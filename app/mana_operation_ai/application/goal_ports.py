@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from app.mana_operation_ai.domain.chat import ChatTopic
+from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
 from app.mana_operation_ai.domain.goals import (
     GoalCommand,
     GoalCreate,
@@ -16,6 +16,12 @@ from app.mana_operation_ai.domain.session import SessionMemory
 class GoalHistory:
     goals: list[OperationGoal]
     older_goals_omitted: int
+
+
+@dataclass(frozen=True)
+class SavedTaskPage:
+    goals: list[OperationGoal]
+    next_cursor: str | None
 
 
 class GoalModelOutput:
@@ -58,6 +64,27 @@ class GoalRepository(Protocol):
     ) -> GoalHistory: ...
 
     async def get(self, owner: str, goal_id: str) -> OperationGoal: ...
+
+    async def saved_task(
+        self,
+        owner: str,
+        topic_id: str,
+        product: ProductScope,
+        task_id: str,
+        *,
+        before: datetime,
+    ) -> OperationGoal: ...
+
+    async def find_saved_tasks(
+        self,
+        owner: str,
+        topic_id: str,
+        product: ProductScope,
+        *,
+        before: datetime,
+        query: str,
+        cursor: str | None,
+    ) -> SavedTaskPage: ...
 
     async def command(self, owner: str, goal_id: str, payload: GoalCommand) -> OperationGoal: ...
 

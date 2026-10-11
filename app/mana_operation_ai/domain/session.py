@@ -13,6 +13,15 @@ class SessionUserContext(DomainModel):
     kind: Literal["user_message", "prior_objective", "prior_criteria", "constraint", "instruction"]
     text: str = Field(max_length=6000)
     origin_id: str = Field(max_length=128)
+    also_kinds: list[
+        Literal["user_message", "prior_objective", "prior_criteria", "constraint", "instruction"]
+    ] = Field(default_factory=list, max_length=4)
+
+    @model_validator(mode="after")
+    def validate_context_roles(self) -> "SessionUserContext":
+        if self.kind in self.also_kinds or len(set(self.also_kinds)) != len(self.also_kinds):
+            raise ValueError("Additional context roles must be distinct from the primary role")
+        return self
 
 
 class SessionEvidenceReference(DomainModel):

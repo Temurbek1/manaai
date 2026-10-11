@@ -381,7 +381,17 @@ async def test_old_request_replay_bypasses_context_rebuild_beyond_history_page(
 
 @pytest.mark.parametrize(
     "corruption",
-    ["version", "topic", "product", "actions_in_v2", "empty_v3", "cross_product_action"],
+    [
+        "version",
+        "topic",
+        "product",
+        "actions_in_v2",
+        "empty_v3",
+        "cross_product_action",
+        "alias_in_v2",
+        "v5_without_extended",
+        "v5_scope_changed",
+    ],
 )
 async def test_corrupt_memory_protocol_or_scope_fails_closed(
     tmp_path: Path, corruption: str
@@ -409,6 +419,19 @@ async def test_corrupt_memory_protocol_or_scope_fails_closed(
             payload = json.loads(json.dumps(row.workspace_payload))
             if corruption == "version":
                 payload["version"] = 1
+            elif corruption == "v5_without_extended":
+                payload.update(version=5, analysis_scope="current")
+            elif corruption in ("alias_in_v2", "v5_scope_changed"):
+                payload["goal"]["session_memory"]["user_context"] = [
+                    {
+                        "kind": "user_message",
+                        "text": "Private exact constraint.",
+                        "origin_id": "private-origin",
+                        "also_kinds": ["constraint"],
+                    }
+                ]
+                if corruption == "v5_scope_changed":
+                    payload.update(version=5, analysis_scope="saved_snapshot")
             elif corruption == "empty_v3":
                 payload["version"] = 3
             elif corruption in ("actions_in_v2", "cross_product_action"):

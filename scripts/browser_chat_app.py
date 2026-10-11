@@ -89,8 +89,21 @@ class BrowserGoalFake:
         goal = json.loads(context)["goal"]
         agent_mode = goal["request"].get("execution_mode") == "agent"
         waiting = goal["phase"] == "investigate" and not goal["instructions"]
+        recall = "Прошлая рабочая цель" in goal["request"]["objective"]
+        if recall:
+            waiting = False
         tool = None
-        if agent_mode and not goal["tools"]:
+        if recall and not goal["tools"]:
+            tool = AgentToolCall(name="find_saved_tasks", query="", cursor=None)
+        elif recall and len(goal["tools"]) == 1:
+            tool = AgentToolCall(
+                name="read_saved_task",
+                task_id=goal["session_memory"]["checkpoints"][0]["goal_id"],
+                offset=0,
+            )
+        elif recall and len(goal["tools"]) == 2:
+            tool = AgentToolCall(name="read_saved_report", report_id="browser-workspace-report")
+        elif agent_mode and not goal["tools"]:
             tool = AgentToolCall(name="inspect_sources")
         elif agent_mode and len(goal["tools"]) == 1:
             tool = AgentToolCall(name="read_saved_report", report_id="browser-workspace-report")

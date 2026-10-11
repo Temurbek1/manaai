@@ -34,13 +34,17 @@ class OperationSessionContext:
         )
         history = await self._goals.closed_history(owner, topic_id, before=before)
         goals = [goal for goal in history.goals if goal.product == topic.product]
-        records: dict[tuple[str, str], SessionUserContext] = {}
+        records: dict[str, SessionUserContext] = {}
 
         def add(kind: str, text: str, origin: str) -> None:
             # Exact deduplication, not a model-invented summary or shortened constraints.
             if text:
                 record = SessionUserContext(kind=kind, text=text, origin_id=origin)
-                records.setdefault((kind, text), record)
+                prior = records.get(text)
+                if prior is None:
+                    records[text] = record
+                elif kind != prior.kind and kind not in prior.also_kinds:
+                    prior.also_kinds.append(record.kind)
             if len(records) > 400:
                 raise SessionContextTooLarge()
 
@@ -53,6 +57,8 @@ class OperationSessionContext:
                 if memory.topic_id == topic_id and memory.product == topic.product:
                     for record in memory.user_context:
                         add(record.kind, record.text, record.origin_id)
+                        for kind in record.also_kinds:
+                            add(kind, record.text, record.origin_id)
             add("prior_objective", goal.request.objective, goal.goal_id)
             add("prior_criteria", goal.request.success_criteria, goal.goal_id)
             add("constraint", goal.request.constraints, goal.goal_id)

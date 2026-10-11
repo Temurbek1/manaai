@@ -38,6 +38,8 @@ const TOOL_LABELS: Record<
 > = {
   inspect_sources: "Проверка источников",
   read_saved_report: "Чтение сохранённого отчёта",
+  find_saved_tasks: "Поиск прошлых задач",
+  read_saved_task: "Чтение прошлого результата",
   request_source_read: "Запрос нового чтения",
   ask_user: "Уточнение задачи",
 };

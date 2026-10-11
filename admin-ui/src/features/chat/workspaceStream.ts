@@ -75,6 +75,8 @@ export function parseWorkspaceFrame(
         ![
           "inspect_sources",
           "read_saved_report",
+          "find_saved_tasks",
+          "read_saved_task",
           "request_source_read",
           "ask_user",
         ].includes(tool.name) ||

@@ -51,6 +51,12 @@
   Persist that scope in checkpoint v4 and strip it from the closed legacy projection. The UI
   choice appears only in explicit Goal mode; a native availability failure must preserve it,
   not submit a different current-data objective. No source/schedule activation is implied.
+- Native Goals can find/page closed same-owner/topic/product tasks captured before the current
+  task started. Task prose is historical context only; original saved report IDs must pass current
+  agent/product/freshness checks separately. Exact cross-role user-text dedup retains all words
+  and `also_kinds` labels; it is not semantic compaction. Checkpoint v5 binds these extended
+  contexts to their immutable analysis scope. Do not claim automatic long-session compaction or
+  removal of the existing 100-message topic / 400-unique-context / byte limits.
 - Public progress is a private SQL event journal, atomically written with successful Goal
   changes. Its authenticated SSE transport observes only: reconnecting, disconnecting or
   losing a cursor must never restart/cancel a task or repeat a source read. Keep raw tool

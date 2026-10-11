@@ -2149,15 +2149,43 @@
             ],
             "title": "Capability"
           },
+          "cursor": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
           "name": {
             "enum": [
               "inspect_sources",
               "read_saved_report",
+              "find_saved_tasks",
+              "read_saved_task",
               "request_source_read",
               "ask_user"
             ],
             "title": "Name",
             "type": "string"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "maximum": 16000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset"
           },
           "options": {
             "items": {
@@ -2166,6 +2194,18 @@
             "maxItems": 3,
             "title": "Options",
             "type": "array"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
           },
           "question": {
             "anyOf": [
@@ -2192,6 +2232,19 @@
               }
             ],
             "title": "Report Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
           }
         },
         "required": [
@@ -13513,6 +13566,21 @@
       "SessionUserContext": {
         "additionalProperties": false,
         "properties": {
+          "also_kinds": {
+            "items": {
+              "enum": [
+                "user_message",
+                "prior_objective",
+                "prior_criteria",
+                "constraint",
+                "instruction"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Also Kinds",
+            "type": "array"
+          },
           "kind": {
             "enum": [
               "user_message",
@@ -15045,6 +15113,8 @@
             "enum": [
               "inspect_sources",
               "read_saved_report",
+              "find_saved_tasks",
+              "read_saved_task",
               "request_source_read",
               "ask_user"
             ],

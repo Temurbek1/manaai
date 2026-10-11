@@ -10,6 +10,14 @@ from app.mana_operation_ai.domain.agent_tools import AgentToolCall, SourceReadCa
 _PROPERTIES: dict[str, dict[str, object]] = {
     "inspect_sources": {},
     "read_saved_report": {"report_id": {"type": "string"}},
+    "find_saved_tasks": {
+        "query": {"type": "string"},
+        "cursor": {"type": ["string", "null"]},
+    },
+    "read_saved_task": {
+        "task_id": {"type": "string"},
+        "offset": {"type": "integer"},
+    },
     "request_source_read": {
         "capability": {"type": "string", "enum": list(get_args(SourceReadCapability))}
     },
@@ -23,6 +31,16 @@ _DESCRIPTIONS = {
         "List verified saved report references and permitted reads for this app. No provider call."
     ),
     "read_saved_report": "Read one scoped saved minimized report. No new source collection.",
+    "find_saved_tasks": (
+        "Find up to five closed tasks in this owner's same topic/app before this task began. "
+        "Query is an exact objective substring (empty lists all); cursor is a returned task ID "
+        "or null. SQL history only, never evidence or permission."
+    ),
+    "read_saved_task": (
+        "Read a bounded page of one prior task's public result, starting at offset 0. "
+        "Use returned next_offset for more text. Historical context only: original reports "
+        "must be revalidated separately; no new source/model/action call."
+    ),
     "request_source_read": (
         "Request separate human approval for one owning-agent source read. Does not execute it."
     ),

@@ -246,6 +246,15 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
     browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/workspace-historical-mobile.png" --full >/dev/null
   fi
+  browser select 'select[aria-label="Режим работы"]' goal >/dev/null
+  browser select 'select[aria-label="Область анализа"]' saved_snapshot >/dev/null
+  browser find label "Сообщение агенту" fill 'Прошлая рабочая цель: найди её и объясни сохранённый результат, проверив исходный отчёт' >/dev/null
+  browser find role button click --name "Поставить цель" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".goal-workspace h2")?.textContent.includes("Прошлая рабочая цель") && document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  browser eval '(async () => { const topic=location.pathname.split("/").at(-1); const goals=await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); const goal=goals[0]; if (goals.length!==3 || JSON.stringify(goal.tools.map(tool=>tool.call.name))!==JSON.stringify(["find_saved_tasks","read_saved_task","read_saved_report"]) || goal.read_attempted || goal.approved_capability || goal.evidence[0]?.report_id!=="browser-workspace-report") throw new Error("Private SQL recall did not revalidate source separately"); return "scoped saved-task recall verified"; })()' >/dev/null
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".goal-workspace h2")?.textContent.includes("Прошлая рабочая цель") && document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  assert_accessible
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737

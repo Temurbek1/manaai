@@ -348,6 +348,9 @@ class OperationAdminService:
         items.sort(key=lambda item: item.attempted_at, reverse=True)
         return items[offset : offset + limit], total
 
+    async def get_report(self, report_id: str) -> AgentReport | None:
+        return await self.repository.get_report(report_id)
+
     async def list_reports(
         self,
         *,

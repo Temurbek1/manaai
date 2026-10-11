@@ -95,6 +95,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                                 kind="constraint",
                                 text="Do not contact clients.",
                                 origin_id="synthetic",
+                                also_kinds=["instruction"],
                             )
                         ],
                     )

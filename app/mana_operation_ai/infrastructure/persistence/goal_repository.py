@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.mana_operation_ai.application.chat_ports import ChatError
-from app.mana_operation_ai.application.goal_ports import GoalHistory
+from app.mana_operation_ai.application.goal_ports import GoalHistory, SavedTaskPage
 from app.mana_operation_ai.application.ports import Clock
-from app.mana_operation_ai.domain.chat import ChatTopic
+from app.mana_operation_ai.domain.agent_tools import TASK_HISTORY_TOOLS
+from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
 from app.mana_operation_ai.domain.goals import (
     GoalCommand,
     GoalCreate,
@@ -32,7 +33,8 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4] = 1
+    version: Literal[1, 2, 3, 4, 5] = 1
+    analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
 
@@ -61,8 +63,15 @@ def _goal(row: GoalRow) -> OperationGoal:
         raise ChatError("Сохранённая цель требует совместимой версии рабочей среды.", 503) from exc
     goal = checkpoint.goal
     memory = goal.session_memory
+    extended_context = _extended_context(goal)
     if (
-        (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
+        (checkpoint.version == 5) != extended_context
+        or (checkpoint.version == 5 and checkpoint.analysis_scope != goal.request.analysis_scope)
+        or (checkpoint.version != 5 and checkpoint.analysis_scope is not None)
+        or (
+            checkpoint.version != 5
+            and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
+        )
         or (checkpoint.version == 1 and memory is not None)
         or (checkpoint.version == 2 and memory is None)
         or (checkpoint.version == 2 and memory is not None and bool(memory.actions))
@@ -76,6 +85,12 @@ def _goal(row: GoalRow) -> OperationGoal:
     if row.workspace_status != goal.status or row.revision != goal.revision:
         raise ChatError("Сохранённая цель требует проверки совместимости версии.", 503)
     return goal
+
+
+def _extended_context(goal: OperationGoal) -> bool:
+    return any(record.call.name in TASK_HISTORY_TOOLS for record in goal.tools) or bool(
+        goal.session_memory and any(item.also_kinds for item in goal.session_memory.user_context)
+    )
 
 
 def _states(*states: GoalStatus) -> ColumnElement[bool]:
@@ -95,6 +110,7 @@ class SqlAlchemyGoalRepository:
         self._sessions = database.session_factory
         self._clock = clock
         self._events_enabled = events_enabled
+        self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
         await session.execute(
@@ -159,6 +175,7 @@ class SqlAlchemyGoalRepository:
     @classmethod
     def _storage(cls, goal: OperationGoal) -> _GoalStorage:
         native = cls._is_workspace(goal)
+        extended_context = _extended_context(goal)
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -168,17 +185,21 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=4
+                version=5
+                if extended_context
+                else 4
                 if goal.request.analysis_scope == "saved_snapshot"
                 else 3
                 if goal.session_memory is not None and goal.session_memory.actions
                 else 2
                 if goal.session_memory is not None
                 else 1,
+                analysis_scope=goal.request.analysis_scope if extended_context else None,
                 goal=goal,
             ).model_dump(
                 mode="json",
                 exclude={
+                    **({"analysis_scope": True} if not extended_context else {}),
                     "goal": {
                         **({"session_memory": True} if goal.session_memory is None else {}),
                         **(
@@ -186,7 +207,7 @@ class SqlAlchemyGoalRepository:
                             if goal.request.analysis_scope == "current"
                             else {}
                         ),
-                    }
+                    },
                 },
             )
             if native
@@ -272,6 +293,90 @@ class SqlAlchemyGoalRepository:
                 select(GoalRow).where(GoalRow.owner == owner, GoalRow.request_id == request_id)
             )
             return _goal(row) if row is not None else None
+
+    async def saved_task(
+        self,
+        owner: str,
+        topic_id: str,
+        product: ProductScope,
+        task_id: str,
+        *,
+        before: datetime,
+    ) -> OperationGoal:
+        async with self._sessions() as session:
+            row = await session.scalar(
+                select(GoalRow).where(
+                    GoalRow.owner == owner,
+                    GoalRow.topic_id == topic_id,
+                    GoalRow.goal_id == task_id,
+                    _states("completed", "cancelled"),
+                    GoalRow.updated_at < before,
+                )
+            )
+            if row is None:
+                raise ChatError("Прошлая задача недоступна в этой теме приложения.", 404)
+            goal = _goal(row)
+            if (
+                goal.product != product
+                or goal.status not in ("completed", "cancelled")
+                or goal.updated_at.utcoffset() is None
+                or goal.updated_at >= before
+            ):
+                raise ChatError("Прошлая задача недоступна в этой теме приложения.", 404)
+            return goal
+
+    async def find_saved_tasks(
+        self,
+        owner: str,
+        topic_id: str,
+        product: ProductScope,
+        *,
+        before: datetime,
+        query: str,
+        cursor: str | None,
+    ) -> SavedTaskPage:
+        anchor = (
+            await self.saved_task(owner, topic_id, product, cursor, before=before)
+            if cursor
+            else None
+        )
+        conditions = [
+            GoalRow.owner == owner,
+            GoalRow.topic_id == topic_id,
+            _states("completed", "cancelled"),
+            GoalRow.updated_at < before,
+            GoalRow.payload["product"].as_string() == product,
+        ]
+        if query:
+            conditions.append(
+                self._substring(GoalRow.payload["request"]["objective"].as_string(), query) > 0
+            )
+        if anchor is not None:
+            conditions.append(
+                or_(
+                    GoalRow.updated_at < anchor.updated_at,
+                    and_(GoalRow.updated_at == anchor.updated_at, GoalRow.goal_id > anchor.goal_id),
+                )
+            )
+        async with self._sessions() as session:
+            rows = list(
+                await session.scalars(
+                    select(GoalRow)
+                    .where(*conditions)
+                    .order_by(GoalRow.updated_at.desc(), GoalRow.goal_id)
+                    .limit(6)
+                )
+            )
+        goals = [_goal(row) for row in rows[:5]]
+        if any(
+            goal.product != product
+            or goal.status not in ("completed", "cancelled")
+            or goal.updated_at.utcoffset() is None
+            or goal.updated_at >= before
+            for goal in goals
+        ):
+            raise ChatError("История требует проверки привязки к приложению.", 503)
+        return SavedTaskPage(goals=goals, next_cursor=goals[-1].goal_id if len(rows) > 5 else None)
 
     async def closed_history(self, owner: str, topic_id: str, *, before: datetime) -> GoalHistory:
         async with self._sessions() as session:

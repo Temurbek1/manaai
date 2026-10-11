@@ -88,6 +88,9 @@ class SyntheticAdmin:
     async def run_now(self, **kwargs: object) -> None:
         raise AssertionError("The synthetic workflow must never read a product source")
 
+    async def get_report(self, report_id: str) -> AgentReport | None:
+        return self.report if report_id == self.report.report_id else None
+
 
 class DiagnosticGoalModel(OpenAIGoalModel):
     """Expose safe exception classification, never exception text or upstream bodies."""

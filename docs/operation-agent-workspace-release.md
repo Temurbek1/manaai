@@ -26,6 +26,14 @@ Current-data Goals retain protocols 1–3/default current scope. V4/scope mismat
 historical Goals cannot obtain source-read approval or become current-data tasks through steering.
 The historical result may finish with dated full evidence, not as a current metric or outcome.
 
+Checkpoint v5 is required when new private task-history tools or nonempty `also_kinds` context
+labels are present. Its explicit `analysis_scope` must match the frozen Goal request. Older
+versions keep their prior scope/version rules; no stored history is rewritten or migrated.
+Task prose/role labels never grant reads/actions or populate fresh evidence. Closed legacy
+projections omit tools/session memory/new request fields, so the supported old `2ea7b9a` image
+can read them but cannot execute native work. Do not roll back to an arbitrary unreleased
+intermediate workspace image.
+
 `d86a1b9f023c` adds nullable `operation_chat_turns.workspace_metadata` without rewriting old
 conversations. Execution mode, native handoff and session memory are kept outside both the
 strict legacy chat JSON and its legacy-readable `context_metadata`. The supported old image

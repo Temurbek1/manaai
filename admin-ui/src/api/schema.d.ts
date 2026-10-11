@@ -2632,17 +2632,25 @@ export interface components {
         AgentToolCall: {
             /** Capability */
             capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
+            /** Cursor */
+            cursor?: string | null;
             /**
              * Name
              * @enum {string}
              */
-            name: "inspect_sources" | "read_saved_report" | "request_source_read" | "ask_user";
+            name: "inspect_sources" | "read_saved_report" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
+            /** Offset */
+            offset?: number | null;
             /** Options */
             options?: string[];
+            /** Query */
+            query?: string | null;
             /** Question */
             question?: string | null;
             /** Report Id */
             report_id?: string | null;
+            /** Task Id */
+            task_id?: string | null;
         };
         /** AgentToolRecord */
         AgentToolRecord: {
@@ -6793,6 +6801,8 @@ export interface components {
         };
         /** SessionUserContext */
         SessionUserContext: {
+            /** Also Kinds */
+            also_kinds?: ("user_message" | "prior_objective" | "prior_criteria" | "constraint" | "instruction")[];
             /**
              * Kind
              * @enum {string}
@@ -7423,7 +7433,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "inspect_sources" | "read_saved_report" | "request_source_read" | "ask_user";
+            name: "inspect_sources" | "read_saved_report" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
             /**
              * Status
              * @enum {string}
