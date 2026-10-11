@@ -249,12 +249,15 @@ class AdminAuthService:
                 now=now,
             )
 
-    async def authenticate_session(self, session_token: str | None) -> AuthenticatedIdentity | None:
+    async def authenticate_session(
+        self, session_token: str | None, *, record_activity: bool = True
+    ) -> AuthenticatedIdentity | None:
         if session_token is None or self._hmac_key is None:
             return None
         return await self._repository.get_identity_by_session_hmac(
             token_hmac=self._session_hmac(session_token),
             now=self._clock.now(),
+            record_activity=record_activity,
         )
 
     def validate_csrf(self, *, identity: AuthenticatedIdentity, csrf_token: str | None) -> bool:

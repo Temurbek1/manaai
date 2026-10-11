@@ -69,6 +69,36 @@ export async function apiGet<T>(path: string): Promise<T> {
   return apiRequest<T>(path, { method: "GET" });
 }
 
+export class ApiStreamProtocolError extends Error {}
+
+export async function apiOpenStream(
+  path: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    headers: { Accept: "text/event-stream" },
+    credentials: "same-origin",
+    cache: "no-store",
+    redirect: "error",
+    signal,
+  });
+  if (response.status === 401 && typeof window !== "undefined")
+    window.dispatchEvent(new Event("mana:unauthorized"));
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new ApiError(response.status, "Не удалось подключиться к прогрессу.");
+  }
+  if (
+    !response.headers.get("content-type")?.startsWith("text/event-stream") ||
+    !response.body
+  ) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new ApiStreamProtocolError("Invalid workspace stream response");
+  }
+  return response;
+}
+
 export async function apiPost<T>(
   path: string,
   body: unknown,

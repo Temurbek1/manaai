@@ -316,7 +316,7 @@ async def test_additive_migration_preserves_legacy_history_and_refuses_destructi
         async with db.session_factory() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "d86a1b9f023c"
+                == "e97b2c0a134d"
             )
     finally:
         await db.dispose()
@@ -359,7 +359,49 @@ async def test_chat_only_workspace_history_refuses_schema_downgrade(tmp_path: Pa
         async with db.session_factory() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "d86a1b9f023c"
+                == "e97b2c0a134d"
+            )
+    finally:
+        await db.dispose()
+
+
+async def test_ordinary_goal_journal_alone_refuses_destructive_downgrade(tmp_path: Path) -> None:
+    url = f"sqlite+aiosqlite:///{tmp_path / 'journal-migration.db'}"
+    env = {**os.environ, "OPERATION_DATABASE_URL": url, "OPENAI_API_KEY": "test-key"}
+
+    async def migrate(*arguments: str) -> tuple[int, str]:
+        process = await asyncio.create_subprocess_exec(
+            ".venv/bin/alembic",
+            *arguments,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        output, _ = await process.communicate()
+        return process.returncode or 0, output.decode()
+
+    assert (await migrate("upgrade", "head"))[0] == 0
+    db = OperationDatabase(url)
+    try:
+        await SqlAlchemyChatRepository(db, hourly_limit=20, daily_limit=200).initialize()
+        repository = SqlAlchemyGoalRepository(db, Clock(), events_enabled=True)
+        goal = await repository.create(
+            "owner", await topic(db), GoalCreate(request_id=uuid4(), objective="Ordinary analysis")
+        )
+        async with db.session_factory() as session:
+            assert (
+                await session.scalar(text("SELECT workspace_payload FROM operation_goals")) is None
+            )
+        code, output = await migrate("downgrade", "d86a1b9f023c")
+        assert code != 0 and "use application-only rollback" in output
+        assert await repository.get("owner", goal.goal_id) == goal
+        async with db.session_factory() as session:
+            assert (
+                await session.scalar(text("SELECT COUNT(*) FROM operation_workspace_events")) == 1
+            )
+            assert (
+                await session.scalar(text("SELECT version_num FROM alembic_version"))
+                == "e97b2c0a134d"
             )
     finally:
         await db.dispose()

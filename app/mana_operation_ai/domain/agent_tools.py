@@ -11,6 +11,9 @@ SourceReadCapability = Literal[
     "retention.engagement.analyze", "growth.funnel.analyze", "retention.parents.analyze"
 ]
 AgentToolName = Literal["inspect_sources", "read_saved_report", "request_source_read", "ask_user"]
+AgentToolStatus = Literal[
+    "started", "completed", "awaiting_approval", "waiting_for_user", "denied", "unknown"
+]
 
 
 class AgentToolCall(ChatModel):
@@ -43,9 +46,7 @@ class AgentToolCall(ChatModel):
 class AgentToolRecord(ChatModel):
     call_id: str
     call: AgentToolCall
-    status: Literal[
-        "started", "completed", "awaiting_approval", "waiting_for_user", "denied", "unknown"
-    ]
+    status: AgentToolStatus
     started_at: datetime
     completed_at: datetime | None = None
     # Bounded minimized results, never raw upstream bodies or hidden reasoning.

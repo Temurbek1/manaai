@@ -85,8 +85,9 @@ Status must be updated from actual tests/flows, not intent:
   concurrent steering fences the prior result without issuing a duplicate call.
 - Progress, questions/approvals and context continuity UI: local implementation; automatic
   Agent mode, actual persisted tool statuses, inline question choices, unchanged read
-  approval, pause/resume/cancel and reload continuity. Progress currently uses SQL-backed
-  polling, not a streamed token/event protocol.
+  approval, pause/resume/cancel and reload continuity. Public task/plan/tool progress now uses
+  a private SQL journal and authenticated SSE with cursor replay and REST reconciliation;
+  it does not stream model tokens or internal reasoning.
 - Version-safe checkpoint storage: local implementation; additive migration `c75f0a6e812b`,
   versioned native checkpoints/queue status separate from strict legacy Goal JSON. Older
   workers see only a closed projection; native controls/context remain in the new checkpoint.
@@ -211,6 +212,56 @@ Status must be updated from actual tests/flows, not intent:
   strict chat/Goal reads, old command/claim protection, complete current-memory reconstruction
   and explicit-pause recovery. No image was published or deployed.
 
+### Durable public progress checkpoint, 2026-10-12
+
+- Additive migration `e97b2c0a134d` journals successful Goal changes atomically. All Goal
+  create/claim/control/save/recovery writes share a transaction fence, so a later committed
+  event cannot move the cursor past an earlier uncommitted event. Rejected optimistic writes
+  and idempotent command/request replay do not publish duplicates. Pages contain at most 50
+  events; the global SQL cursor is an ordering token, not a product/user metric.
+- GET `/api/v1/admin/operation/workspace/topics/{topic_id}/events` and `/stream` verify
+  owner access before returning history. SSE rechecks existing authentication/role during
+  delivery. Periodic cookie-session checks use a read-only identity lookup, avoiding a
+  `last_seen_at` SQL write on every heartbeat; ordinary request/login behavior is unchanged.
+  Event payloads contain public status, phase, bounded plan/message and typed tool
+  names/statuses; no tool arguments/results, session memory, credentials, internal reasoning
+  or read/action grants. A bounded ASGI response also cancels blocked network sends.
+- Default stream lifetime is 45 seconds with 10-second heartbeats and one-second local SQL
+  polling. `OPERATION_WORKSPACE_EVENTS_ENABLED=true` is gated by the default-false native
+  workspace flag. Polling is configurable from 0.5–10 seconds, lifetime from 15–120 seconds,
+  and connections from 1–128 (default 32 per API process, maximum 3 per owner/process).
+  This is not a distributed global connection limit. The observer makes no provider calls.
+- Browser subscriptions are cleaned up on topic/owner navigation; cursors are scoped to both
+  in session storage. Only complete validated frames advance the cursor. Duplicate/cut frames,
+  revoked access, restored-database cursors and incompatible responses are handled explicitly.
+  A 25-second inactivity watchdog aborts only observation, with bounded jittered reconnect
+  delay. Controls still use current REST state/revision, not stream metadata. Executing Goals
+  reconcile every 15 seconds while connected, or 2 seconds on fallback; waiting/paused Goals
+  reconcile every 15 seconds. Terminal cards do not keep an idle subscription open.
+- Workspace routing now uses the same `OPERATION_CHAT_BASE_URL` as chat/Goals. Previously
+  this namespace fell through to the independent main API in split-backend deployments.
+  No production routing, source bindings, schedules, credentials or audio API were changed.
+- Local verification includes SQL paging/replay/atomic rollback, ownership/role checks,
+  connection expiry/backpressure, browser parser/reconnect/watchdog and distinct backend-target
+  routing. PostgreSQL 17 upgrade/downgrade/upgrade and drift checks plus six integration tests
+  passed; the Goal test now checks the actual shared event journal across two connections.
+  Native browser → API → SQL → authenticated stream → UI delivery/reconnection passed:
+  task ID/revision/tool IDs/cost/steps were unchanged across reconnection, followed by an
+  inline clarification, reviewed result, historical continuation, reload and owner isolation.
+- Final `make verify` passed: 731 backend tests, 104 UI tests, Python/TypeScript checks,
+  formatting/lint, production UI build and zero dependency-audit vulnerabilities. Six
+  PostgreSQL tests passed separately after the final auth changes. SQLite clean round trip,
+  populated-copy upgrade/drift, OpenAPI/client synchronization, secret/quality-marker scan
+  and compose configuration checks passed. Native and legacy real-browser flows were rerun
+  after the final read-only auth recheck and REST-fallback changes, including accessibility.
+- Final networkless source-overlay image `mana-ai-operation:stream-final-local-20261012`
+  (`c3a7508dc1ba`) uses the previous verified local runtime's installed dependencies and
+  the exact current application/migration/rollback-script source. The two-image compatibility
+  audit passed with the actual old `2ea7b9a` image and this candidate, retaining the event
+  journal and complete native context before/after explicit pause. No image was published,
+  production migration performed, source/schedule activated or paid provider request made.
+  This checkpoint does not establish production readiness or full Codex/Claude parity.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:
@@ -220,7 +271,7 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
 - Extend real-model quality coverage beyond the single synthetic evaluation, then separately
   verify approved configured sources without a scan or new schedule.
 - Expand user-visible durable streaming/continuation and extended-context behavior with
-  explicit interruption/reconnection semantics; current SQL polling is not token streaming.
+  explicit interruption/reconnection semantics; durable public progress is not token streaming.
   Completed results now enter ordinary conversation as bounded historical checkpoints, not
   fresh evidence. Very long user-context histories still fail closed at an explicit byte/count
   limit without calling the model; scalable retrieval/compaction of extended sessions remains.

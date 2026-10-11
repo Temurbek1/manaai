@@ -35,6 +35,9 @@ from app.mana_operation_ai.infrastructure.persistence.repository import (
 from app.mana_operation_ai.infrastructure.persistence.shared_data_store import (
     SqlAlchemySharedDataStore,
 )
+from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
+    SqlAlchemyWorkspaceEvents,
+)
 from tests.test_operation_cost_ledger import Clock, attribution
 
 POSTGRES_URL = os.getenv("TEST_POSTGRES_URL")
@@ -50,7 +53,7 @@ async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:
     clock = Clock()
     chats = SqlAlchemyChatRepository(databases[0], hourly_limit=20, daily_limit=200)
     await chats.initialize()
-    repos = [SqlAlchemyGoalRepository(db, clock) for db in databases]
+    repos = [SqlAlchemyGoalRepository(db, clock, events_enabled=True) for db in databases]
     try:
         topic = await chats.create(
             "postgres-goal-owner",
@@ -129,6 +132,18 @@ async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:
             GoalCommand(request_id=uuid4(), command="resume", expected_revision=recovered.revision),
         )
         assert resumed.status == "queued" and resumed.steps_used == 1
+        page = await SqlAlchemyWorkspaceEvents(databases[1]).page(
+            "postgres-goal-owner", topic.topic_id, 0
+        )
+        assert [event.revision for event in page.items] == list(range(resumed.revision + 1))
+        assert len({event.event_id for event in page.items}) == len(page.items)
+        assert page.items[-1].status == resumed.status
+        assert page.items[-1].tools[0].status == "unknown"
+        assert (
+            await SqlAlchemyWorkspaceEvents(databases[0]).page(
+                "postgres-goal-owner", topic.topic_id, page.next_cursor
+            )
+        ).items == []
     finally:
         for db in databases:
             await db.dispose()

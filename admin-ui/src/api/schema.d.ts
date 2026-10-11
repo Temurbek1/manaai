@@ -897,6 +897,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_v1_admin_operation_workspace_topics__topic_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/messages": {
         parameters: {
             query?: never;
@@ -908,6 +925,23 @@ export interface paths {
         put?: never;
         /** Send Message */
         post: operations["send_message_api_v1_admin_operation_workspace_topics__topic_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream */
+        get: operations["stream_api_v1_admin_operation_workspace_topics__topic_id__stream_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4097,6 +4131,11 @@ export interface components {
             budget_microusd: number;
             /** Enabled */
             enabled: boolean;
+            /**
+             * Event Stream Enabled
+             * @default false
+             */
+            event_stream_enabled: boolean;
             /** Max Steps */
             max_steps: number;
             /** Model */
@@ -7113,6 +7152,67 @@ export interface components {
              */
             source: "website";
         };
+        /** WorkspaceEvent */
+        WorkspaceEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Event Id */
+            event_id: number;
+            /** Goal Id */
+            goal_id: string;
+            /** Message */
+            message: string;
+            /**
+             * Message Shortened
+             * @default false
+             */
+            message_shortened: boolean;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "plan" | "investigate" | "review";
+            /** Plan */
+            plan?: components["schemas"]["GoalTask"][];
+            /** Revision */
+            revision: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "paused" | "waiting" | "completed" | "cancelled";
+            /** Tools */
+            tools?: components["schemas"]["WorkspaceToolState"][];
+            /** Topic Id */
+            topic_id: string;
+        };
+        /** WorkspaceEventPage */
+        WorkspaceEventPage: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items?: components["schemas"]["WorkspaceEvent"][];
+            /** Next Cursor */
+            next_cursor: number;
+        };
+        /** WorkspaceToolState */
+        WorkspaceToolState: {
+            /** Call Id */
+            call_id: string;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "inspect_sources" | "read_saved_report" | "request_source_read" | "ask_user";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "started" | "completed" | "awaiting_approval" | "waiting_for_user" | "denied" | "unknown";
+        };
         /** WorkspaceTurn */
         WorkspaceTurn: {
             goal?: components["schemas"]["OperationGoal"] | null;
@@ -9007,6 +9107,44 @@ export interface operations {
             };
         };
     };
+    events_api_v1_admin_operation_workspace_topics__topic_id__events_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceEventPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     send_message_api_v1_admin_operation_workspace_topics__topic_id__messages_post: {
         parameters: {
             query?: never;
@@ -9034,6 +9172,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceTurn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_api_v1_admin_operation_workspace_topics__topic_id__stream_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                "Last-Event-ID"?: string | null;
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SSE workspace events; typed frames match WorkspaceEvent in /events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
                 };
             };
             /** @description Validation Error */

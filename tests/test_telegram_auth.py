@@ -528,6 +528,44 @@ async def test_concurrent_verification_creates_one_session(tmp_path: Path) -> No
         await database.dispose()
 
 
+async def test_read_only_session_recheck_keeps_activity_and_honors_revocation(
+    tmp_path: Path,
+) -> None:
+    database, _, service, clock, sender = await auth_fixture(tmp_path / "read-only-session.db")
+    try:
+        await service.request_code(
+            telegram_id=BOOTSTRAP_TELEGRAM_ID, client_ip="192.0.2.24", user_agent=None
+        )
+        login = await service.verify_code(
+            telegram_id=BOOTSTRAP_TELEGRAM_ID,
+            code=sender.messages[-1][1],
+            client_ip="192.0.2.24",
+            user_agent=None,
+            old_session_token=None,
+        )
+        original = login.identity.session.last_seen_at
+        clock.advance(seconds=10)
+        checked = await service.authenticate_session(login.session_token, record_activity=False)
+        assert checked is not None and checked.session.last_seen_at == original
+        async with database.session_factory() as session:
+            row = await session.get(AdminSessionRow, login.identity.session.session_id)
+            assert row is not None
+            assert (
+                row.payload["last_seen_at"]
+                == login.identity.session.model_dump(mode="json")["last_seen_at"]
+            )
+        normal = await service.authenticate_session(login.session_token)
+        assert normal is not None and normal.session.last_seen_at == clock.now()
+        await service.logout(
+            identity=login.identity, session_token=login.session_token, request_ip="192.0.2.24"
+        )
+        assert (
+            await service.authenticate_session(login.session_token, record_activity=False) is None
+        )
+    finally:
+        await database.dispose()
+
+
 async def test_session_rotation_expiry_logout_and_delivery_failure(tmp_path: Path) -> None:
     database, repository, service, clock, sender = await auth_fixture(
         tmp_path / "sessions.db",

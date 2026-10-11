@@ -41,6 +41,37 @@ async def resolve_actor(
     supplied_role: Annotated[str | None, Header(alias="X-MANA-Role")] = None,
     supplied_csrf: Annotated[str | None, Header(alias=CSRF_HEADER_NAME)] = None,
 ) -> ActorContext:
+    return await _resolve_actor(
+        request,
+        supplied_api_key,
+        supplied_actor_id,
+        supplied_role,
+        supplied_csrf,
+        record_activity=True,
+    )
+
+
+async def recheck_actor(request: Request) -> ActorContext:
+    """Stream access checks retain authentication rules without a heartbeat SQL write."""
+    return await _resolve_actor(
+        request,
+        request.headers.get("X-API-Key"),
+        request.headers.get("X-MANA-Actor-ID"),
+        request.headers.get("X-MANA-Role"),
+        request.headers.get(CSRF_HEADER_NAME),
+        record_activity=False,
+    )
+
+
+async def _resolve_actor(
+    request: Request,
+    supplied_api_key: str | None,
+    supplied_actor_id: str | None,
+    supplied_role: str | None,
+    supplied_csrf: str | None,
+    *,
+    record_activity: bool,
+) -> ActorContext:
     settings = request.app.state.settings
     if not isinstance(settings, Settings):
         raise HTTPException(status_code=500, detail="Application settings are unavailable")
@@ -49,7 +80,9 @@ async def resolve_actor(
     if settings.mana_telegram_auth_enabled and session_token is not None:
         if not isinstance(auth_service, AdminAuthService):
             raise HTTPException(status_code=503, detail="Authentication service is unavailable")
-        identity = await auth_service.authenticate_session(session_token)
+        identity = await auth_service.authenticate_session(
+            session_token, record_activity=record_activity
+        )
         if identity is not None:
             if request.method not in {"GET", "HEAD", "OPTIONS"}:
                 require_csrf(request, identity, supplied_csrf)

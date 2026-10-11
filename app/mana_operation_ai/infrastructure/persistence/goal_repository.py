@@ -26,6 +26,7 @@ from app.mana_operation_ai.infrastructure.persistence.models import (
     GoalCommandRow,
     GoalRow,
 )
+from app.mana_operation_ai.infrastructure.persistence.workspace_events import append_goal_event
 
 
 class _WorkspaceCheckpoint(BaseModel):
@@ -85,9 +86,12 @@ def _states(*states: GoalStatus) -> ColumnElement[bool]:
 class SqlAlchemyGoalRepository:
     """SQL claims, optimistic fencing and durable controls across API/worker replicas."""
 
-    def __init__(self, database: OperationDatabase, clock: Clock) -> None:
+    def __init__(
+        self, database: OperationDatabase, clock: Clock, *, events_enabled: bool = False
+    ) -> None:
         self._sessions = database.session_factory
         self._clock = clock
+        self._events_enabled = events_enabled
 
     async def _lock(self, session: AsyncSession) -> None:
         await session.execute(
@@ -104,9 +108,11 @@ class SqlAlchemyGoalRepository:
             raise ChatError("Цель не найдена.", 404)
         return row
 
-    def _store(self, row: GoalRow, goal: OperationGoal) -> None:
+    def _store(self, session: AsyncSession, row: GoalRow, goal: OperationGoal) -> None:
         for key, value in self._storage(goal).items():
             setattr(row, key, value)
+        if self._events_enabled:
+            append_goal_event(session, row.owner, goal)
 
     @staticmethod
     def _payload(goal: OperationGoal) -> dict[str, object]:
@@ -216,7 +222,7 @@ class SqlAlchemyGoalRepository:
                 owner=owner,
                 request_id=str(request.request_id),
             )
-            self._store(row, goal)
+            self._store(session, row, goal)
             session.add(row)
             return goal
 
@@ -336,7 +342,7 @@ class SqlAlchemyGoalRepository:
             goal.updated_at = now
             goal.events.append(GoalEvent(at=now, kind="control", message=message))
             goal.events = goal.events[-100:]
-            self._store(row, goal)
+            self._store(session, row, goal)
             session.add(
                 GoalCommandRow(
                     command_id=str(uuid4()),
@@ -383,7 +389,7 @@ class SqlAlchemyGoalRepository:
                     goal.lease_until = None
                     goal.revision += 1
                     goal.updated_at = now
-                    self._store(row, goal)
+                    self._store(session, row, goal)
             await session.flush()
             queued_row = await session.scalar(
                 select(GoalRow)
@@ -398,7 +404,7 @@ class SqlAlchemyGoalRepository:
             goal.lease_until = now + timedelta(minutes=5)
             goal.revision += 1
             goal.updated_at = now
-            self._store(queued_row, goal)
+            self._store(session, queued_row, goal)
             return queued_row.owner, goal
 
     async def save(self, owner: str, before: OperationGoal, after: OperationGoal) -> bool:
@@ -406,6 +412,9 @@ class SqlAlchemyGoalRepository:
             update={"revision": before.revision + 1, "updated_at": self._clock.now()}
         )
         async with self._sessions() as session, session.begin():
+            # Share the controls/claims transaction fence. Journal sequence allocation
+            # must follow commit order, or a reconnect cursor could skip a late commit.
+            await self._lock(session)
             result = await session.execute(
                 update(GoalRow)
                 .where(
@@ -415,6 +424,8 @@ class SqlAlchemyGoalRepository:
                 )
                 .values(**self._storage(after))
             )
+            if result.rowcount and self._events_enabled:
+                append_goal_event(session, owner, after)
             return bool(result.rowcount)
 
     async def workspace_rollback(self, *, apply_pause: bool = False) -> WorkspaceRollbackReport:
@@ -461,7 +472,7 @@ class SqlAlchemyGoalRepository:
                 goal.events = goal.events[-100:]
                 goal.updated_at = now
                 goal.revision += 1
-                self._store(row, goal)
+                self._store(session, row, goal)
                 changed += 1
             return WorkspaceRollbackReport(
                 active_goals=len(goals), live_leases=0, paused_goals=changed

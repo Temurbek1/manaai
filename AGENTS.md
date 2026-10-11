@@ -39,6 +39,11 @@
   generation and preserve it on idempotent replay. Do not silently shorten user constraints.
   Keep new chat fields outside legacy-readable JSON; supported application rollback retains
   native chat/Goal metadata and never downgrades a populated workspace schema.
+- Public progress is a private SQL event journal, atomically written with successful Goal
+  changes. Its authenticated SSE transport observes only: reconnecting, disconnecting or
+  losing a cursor must never restart/cancel a task or repeat a source read. Keep raw tool
+  results, internal reasoning, credentials and action/read grants out of stream payloads.
+  REST state remains authoritative for controls; streams are not model token streaming.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

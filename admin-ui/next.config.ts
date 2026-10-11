@@ -63,6 +63,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/api/v1/admin/operation/workspace/:path*",
+        destination: `${chatBaseUrl}/api/v1/admin/operation/workspace/:path*`,
+      },
+      {
         source: "/api/v1/admin/operation/goals/:path*",
         destination: `${chatBaseUrl}/api/v1/admin/operation/goals/:path*`,
       },

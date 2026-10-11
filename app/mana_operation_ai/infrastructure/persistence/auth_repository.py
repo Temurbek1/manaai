@@ -409,6 +409,7 @@ class SqlAlchemyAdminAuthRepository:
         *,
         token_hmac: str,
         now: datetime,
+        record_activity: bool = True,
     ) -> AuthenticatedIdentity | None:
         async with self._database.session_factory.begin() as session:
             session_row = (
@@ -427,8 +428,10 @@ class SqlAlchemyAdminAuthRepository:
             user = AdminUser.model_validate(user_row.payload)
             if user.status is not AdminUserStatus.ACTIVE:
                 return None
-            touched = admin_session.model_copy(update={"last_seen_at": now})
-            _apply_session(session_row, touched)
+            touched = admin_session
+            if record_activity:
+                touched = admin_session.model_copy(update={"last_seen_at": now})
+                _apply_session(session_row, touched)
         return AuthenticatedIdentity(user=user, session=touched)
 
     async def revoke_session(

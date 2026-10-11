@@ -74,6 +74,8 @@ OPERATION_SCHEDULER_ENABLED=false \
 OPERATION_GOALS_WORKER_ENABLED=false \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
+OPERATION_WORKSPACE_EVENTS_ENABLED=true \
+OPERATION_WORKSPACE_STREAM_SECONDS=15 \
 OPERATION_AUTO_CREATE_SCHEMA=true \
 OPERATION_DATABASE_URL="sqlite+aiosqlite:///$AUDIT_TMP_DIR/operation.db" \
 MARKETING_DATABASE_PATH="$AUDIT_TMP_DIR/legacy.db" \
@@ -152,12 +154,21 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   assert_browser 'document.querySelector("select[aria-label=\"Режим работы\"]")?.value === "auto" && document.querySelectorAll(".chat-page button").length === 1' 'unified agent mode has extra controls or is not the default'
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
   browser wait --load networkidle >/dev/null
+  # Observe only local stream URLs/statuses; never record cookies or provider payloads.
+  browser eval '(() => { window.__workspaceStreams = []; const original = window.fetch.bind(window); window.fetch = async (...args) => { const response = await original(...args); if (String(args[0]).includes("/workspace/topics/") && String(args[0]).includes("/stream?")) window.__workspaceStreams.push({url:String(args[0]),status:response.status,type:response.headers.get("content-type")}); return response; }; return "stream observation installed"; })()' >/dev/null
   browser find label "Сообщение агенту" fill 'Проанализируй текущие данные MANA и подготовь план удержания' >/dev/null
   browser find role button click --name "Отправить сообщение" >/dev/null
   browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
   assert_browser 'location.pathname.includes("/operations-orchestrator/topic/")' 'agent redirected analysis out of the Orchestrator room'
   assert_browser 'document.querySelector(".goal-plan")?.textContent.includes("Проверить удержание") && document.querySelectorAll(".goal-details ol li").length >= 3' 'agent did not persist its plan and selected tool loop'
   assert_browser '!document.querySelector(".goal-details[open]")' 'agent exposes audit details by default'
+  browser wait --fn 'window.__workspaceStreams?.some(item => item.status === 200 && item.type?.startsWith("text/event-stream")) && [...Array(sessionStorage.length).keys()].some(index => sessionStorage.key(index).startsWith("mana:workspace-cursor:v1:") && Number(sessionStorage.getItem(sessionStorage.key(index))) > 0)' >/dev/null
+  browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const goals = await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if (goals.length !== 1 || goals[0].tools.length !== 3 || goals[0].status !== "waiting") throw new Error("Unexpected task before reconnection"); window.__progressBaseline = JSON.stringify({id:goals[0].goal_id,revision:goals[0].revision,tools:goals[0].tools.map(tool => tool.call_id),cost:goals[0].accounted_microusd,steps:goals[0].steps_used}); return "task checkpoint captured"; })()' >/dev/null
+  # Leave the question unanswered until the bounded stream rotates. This must only
+  # reconnect observation from the cursor, not repeat the question/tool/task.
+  browser wait --fn 'window.__workspaceStreams?.some(item => Number(new URL(item.url, location.origin).searchParams.get("after")) > 0)' >/dev/null
+  browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const goals = await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); const current = JSON.stringify({id:goals[0].goal_id,revision:goals[0].revision,tools:goals[0].tools.map(tool => tool.call_id),cost:goals[0].accounted_microusd,steps:goals[0].steps_used}); if (goals.length !== 1 || goals[0].status !== "waiting" || current !== window.__progressBaseline) throw new Error("Observation restarted or mutated the task"); return "reconnected without task execution"; })()' >/dev/null
+  assert_browser 'document.querySelectorAll(".goal-workspace").length === 1 && document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' 'stream reconnection lost the inline question'
   assert_accessible
   if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
     browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/agent-workspace-desktop.png" --full >/dev/null
@@ -190,7 +201,7 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: handoff, scoped tools, inline question, reviewed result, completed-analysis continuation, reload, owner isolation and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, completed-analysis continuation, reload, owner isolation and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'

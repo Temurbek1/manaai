@@ -21,6 +21,7 @@ import type {
   ChatViewDetail as Detail,
 } from "./contracts";
 import { CHAT_AGENTS, CHAT_BASE, type ChatAgentId } from "./agents";
+import { useWorkspaceStream } from "./useWorkspaceStream";
 
 type Topic = components["schemas"]["ChatTopic"];
 type ModelChoice = "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
@@ -135,6 +136,13 @@ export function ChatPage({
     ? { model_choice: modelChoice, reasoning }
     : {};
   const latestTurn = turns.at(-1);
+  const progressStream = useWorkspaceStream(
+    currentTopicId,
+    session.user.user_id,
+    Boolean(
+      goalsAvailability?.event_stream_enabled && (sending || workingGoal),
+    ),
+  );
 
   useEffect(() => {
     if (sending || active)
@@ -482,6 +490,7 @@ export function ChatPage({
               )}
             {currentTopicId && !wrongAgent && (
               <GoalWorkspace
+                progressStream={progressStream}
                 key={currentTopicId}
                 topicId={currentTopicId}
                 inlineSteering={false}

@@ -6,6 +6,7 @@ import { apiPost } from "@/api/client";
 import type { components } from "@/api/schema";
 import { hasRole, useSession } from "@/auth/SessionContext";
 import { GoalReport } from "./GoalReport";
+import type { WorkspaceStreamState } from "./useWorkspaceStream";
 
 export const GOALS_BASE = "/api/v1/admin/operation/goals";
 type StoredGoal = components["schemas"]["OperationGoal"];
@@ -52,22 +53,28 @@ const TOOL_STATUS: Record<
 export function GoalWorkspace({
   topicId,
   inlineSteering = true,
+  progressStream,
 }: {
   topicId: string;
   inlineSteering?: boolean;
+  progressStream?: WorkspaceStreamState;
 }): React.JSX.Element | null {
   const { session } = useSession();
   const canControl = hasRole(session, "operator");
   const { data, error, mutate } = useSWR<Goal[], Error>(
     `${GOALS_BASE}/topics/${topicId}`,
     {
-      refreshInterval: (goals) =>
-        Array.isArray(goals) &&
-        goals.some(
-          (g) => ["queued", "running"].includes(g.status) || g.lease_until,
+      refreshInterval: (goals) => {
+        if (
+          !Array.isArray(goals) ||
+          !goals.some((g) => !["completed", "cancelled"].includes(g.status))
         )
-          ? 2000
-          : 0,
+          return 0;
+        const executing = goals.some(
+          (g) => ["queued", "running"].includes(g.status) || g.lease_until,
+        );
+        return progressStream?.connected || !executing ? 15000 : 2000;
+      },
     },
   );
   const [message, setMessage] = useState("");
@@ -88,6 +95,11 @@ export function GoalWorkspace({
   const evidence = goal.evidence ?? [];
   const question = goal.tools?.at(-1);
   const terminal = ["completed", "cancelled"].includes(goal.status);
+  const liveUpdate =
+    progressStream?.event?.goal_id === goal.goal_id &&
+    progressStream.event.revision >= goal.revision
+      ? progressStream.event
+      : null;
   const inFlight =
     goal.lease_until && new Date(goal.lease_until).getTime() > now;
 
@@ -173,7 +185,8 @@ export function GoalWorkspace({
       )}
       {["running", "queued"].includes(goal.status) && (
         <p className="goal-update">
-          {events.filter((e) => e.kind === "progress").at(-1)?.message ??
+          {liveUpdate?.message ??
+            events.filter((e) => e.kind === "progress").at(-1)?.message ??
             (goal.status === "queued"
               ? "Задача в очереди."
               : "Готовлю следующий шаг…")}

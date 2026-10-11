@@ -130,4 +130,5 @@ class GoalAvailability(ChatModel):
     read_product: ProductScope | None = None
     model_selection_enabled: bool = False
     agent_workspace_enabled: bool = False
+    event_stream_enabled: bool = False
     read_products: dict[GoalCapability, ProductScope] = Field(default_factory=dict)

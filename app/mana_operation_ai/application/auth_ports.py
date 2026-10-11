@@ -116,6 +116,7 @@ class AdminAuthRepository(Protocol):
         *,
         token_hmac: str,
         now: datetime,
+        record_activity: bool = True,
     ) -> AuthenticatedIdentity | None: ...
 
     async def revoke_session(

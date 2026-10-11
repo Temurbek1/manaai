@@ -17,6 +17,9 @@ The opt-in **agent workspace** (`OPERATION_AGENT_WORKSPACE_ENABLED=true`, defaul
 adds automatic conversation-to-task handoff, native model-selected scoped evidence tools,
 in-flight steering and inline questions/approvals. This checkpoint is local, not yet released
 to production. See [scope and acceptance evidence](docs/operation-agent-workspace.md).
+Its public progress now uses an owner/topic-scoped SQL journal and authenticated SSE,
+with cursor replay and read-only reconnection. This streams task/plan/tool states, not model
+tokens or internal reasoning. Browser observation never starts another source read.
 Native checkpoint migration `c75f0a6e812b` is additive; application rollback retains it and
 explicitly pauses native Goals. See the [bounded release/rollback checklist](docs/operation-agent-workspace-release.md)
 and `make audit-workspace-compat` (local old image, synthetic DB, no provider network).

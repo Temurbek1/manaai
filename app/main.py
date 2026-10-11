@@ -65,6 +65,7 @@ from app.mana_operation_ai.application.shared_sources import (
     SharedBackendActivity,
     SharedMobileActivity,
 )
+from app.mana_operation_ai.application.workspace_events import WorkspaceEventService
 from app.mana_operation_ai.application.workspace_service import OperationWorkspaceService
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
@@ -114,6 +115,9 @@ from app.mana_operation_ai.infrastructure.persistence.repository import (
 )
 from app.mana_operation_ai.infrastructure.persistence.shared_data_store import (
     SqlAlchemySharedDataStore,
+)
+from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
+    SqlAlchemyWorkspaceEvents,
 )
 from app.mana_operation_ai.infrastructure.retention.fake import (
     FakeBackendActivityAdapter,
@@ -594,7 +598,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         daily_limit=settings.operation_chat_daily_limit,
     )
     await chat_repository.initialize()
-    goal_repository = SqlAlchemyGoalRepository(operation_database, clock)
+    events_enabled = (
+        settings.operation_agent_workspace_enabled and settings.operation_workspace_events_enabled
+    )
+    goal_repository = SqlAlchemyGoalRepository(
+        operation_database, clock, events_enabled=events_enabled
+    )
+    app.state.operation_workspace_events = WorkspaceEventService(
+        SqlAlchemyWorkspaceEvents(operation_database),
+        enabled=events_enabled,
+        max_connections=settings.operation_workspace_stream_max_connections,
+    )
     session_context = OperationSessionContext(chat_repository, goal_repository)
     chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
     app.state.operation_cost_ledger = cost_ledger
@@ -649,6 +663,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             agent_workspace_enabled=(
                 settings.operation_agent_workspace_enabled and settings.operation_chat_enabled
             ),
+            event_stream_enabled=events_enabled,
             read_products=(
                 {"retention.parents.analyze": "mana"}
                 if settings.manakids_parent_source_enabled

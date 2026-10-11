@@ -105,6 +105,20 @@ class ChatTurnRow(Base):
     )
 
 
+class WorkspaceEventRow(Base):
+    __tablename__ = "operation_workspace_events"
+    __table_args__ = (
+        Index("idx_workspace_events_owner_topic_cursor", "owner", "topic_id", "event_id"),
+    )
+
+    event_id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+    )
+    owner: Mapped[str] = mapped_column(String(128))
+    topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"))
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
 class GoalRow(Base):
     __tablename__ = "operation_goals"
     __table_args__ = (

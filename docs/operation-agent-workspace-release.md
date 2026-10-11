@@ -27,6 +27,12 @@ reader restores the original handoff/memory. Schema downgrade refuses either nat
 Goal history before dropping any workspace column. Rollback targets the recorded production
 release, not every intermediate unreleased workspace protocol.
 
+`e97b2c0a134d` adds `operation_workspace_events`, an indexed owner/topic/cursor SQL journal.
+There is no backfill or rewrite of previous Goals/chat. New Goal state and its public event
+commit together under the shared controls/claims/save fence; cursor allocation follows commit
+order. Old images ignore the extra table. Downgrade refuses existing events or native history
+before dropping the journal, even when the events belong to ordinary non-native Goals.
+
 An older API may create an ordinary Goal in a topic whose native Goal it sees as closed.
 Therefore keep Goals creation/worker execution disabled during rollback. Do not serve a
 mixed-version writable Goals deployment. The local compatibility probe does not replace
@@ -46,6 +52,9 @@ these release controls.
    workspace flag false until both the API and single Goals worker have compatible code.
 5. Update only the operation sidecar/Goals worker and administrator UI. Do not replace the
    independent main API/audio, SSH authentication, Nginx routing or source/scheduler settings.
+   The UI must route `/api/v1/admin/operation/workspace/:path*`, including its stream, to
+   `OPERATION_CHAT_BASE_URL` alongside chat/Goals, not the independent main API. Build the
+   UI with the intended scoped target; inspect the actual stream MIME type/cursor delivery.
 6. Activate only after configured-source acceptance and the full scoped browser/API smoke
    checks are complete. Verify greeting vs analytical handoff, scope, approvals, controls,
    budget stops/reload and private-owner separation against the actual deployed version.
@@ -76,7 +85,7 @@ these release controls.
    work remains paused. A live lease rejects the whole transaction. Repeated apply is
    idempotent. The flag is operator attestation, not automatic proof of stopped processes.
 4. Restore the recorded operation API/UI images with Goals execution/admission disabled.
-   Retain schema `d86a1b9f023c` and all native metadata. **Do not run old `alembic upgrade head`,
+   Retain schema `e97b2c0a134d`, the event journal and all native metadata. **Do not run old `alembic upgrade head`,
    schema downgrade, a whole-stack restart or a database restore that would erase history.**
    Old API/worker startup must not run an incompatible migration tool.
 5. Verify health, login, old ordinary chat/history and the independent audio endpoint using

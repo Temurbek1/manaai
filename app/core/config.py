@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     operation_goals_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = "medium"
     operation_goals_max_steps: int = Field(default=6, ge=3, le=12)
     operation_agent_workspace_enabled: bool = False
+    operation_workspace_events_enabled: bool = True
+    operation_workspace_event_poll_seconds: float = Field(default=1.0, ge=0.5, le=10)
+    operation_workspace_stream_seconds: float = Field(default=45.0, ge=15, le=120)
+    operation_workspace_stream_max_connections: int = Field(default=32, ge=1, le=128)
     operation_goals_budget_microusd: int = Field(default=500_000, ge=50_000, le=10_000_000)
     operation_goals_max_context_bytes: int = Field(default=64_000, ge=8192, le=96_000)
     operation_goals_max_output_tokens: int = Field(default=4096, ge=1024, le=16384)

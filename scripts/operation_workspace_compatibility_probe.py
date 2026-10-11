@@ -36,7 +36,11 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
     database = OperationDatabase(f"sqlite+aiosqlite:///{path}")
     clock = SystemClock()
     chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
-    repository = SqlAlchemyGoalRepository(database, clock)
+    repository = (
+        SqlAlchemyGoalRepository(database, clock)
+        if stage == "legacy"
+        else SqlAlchemyGoalRepository(database, clock, events_enabled=True)
+    )
     try:
         if stage == "setup":
             from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
@@ -174,12 +178,22 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert claimed is None
             assert await repository.claim() is None
         else:
+            from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
+                SqlAlchemyWorkspaceEvents,
+            )
+
             for topic in topics:
                 goal = (await repository.list(OWNER, topic.topic_id))[0]
                 if topic.title == "Legacy":
                     assert goal.status == "cancelled"
                     continue
                 lost = topic.title == "Native lost"
+                journal = await SqlAlchemyWorkspaceEvents(database).page(OWNER, topic.topic_id, 0)
+                assert len(journal.items) == 2
+                assert [event.revision for event in journal.items] == [0, 1]
+                assert journal.items[-1].tools[0].status == (
+                    "started" if lost else "awaiting_approval"
+                )
                 turns = await chats.turns(OWNER, topic.topic_id)
                 assert len(turns) == 1
                 assert turns[0].next_action == "start_goal" and turns[0].execution_mode == "agent"
