@@ -163,6 +163,10 @@
   margin: 6px 0;
   resize: vertical;
 }
+.chat-proposal-card textarea,
+.chat-proposal-card button {
+  scroll-margin-block: 48px;
+}
 .chat-decision-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -367,6 +371,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scroll-padding-block: 24px;
   padding: 28px max(24px, calc((100% - 800px) / 2));
 }
 .chat-page-new .chat-transcript {

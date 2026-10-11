@@ -9,7 +9,8 @@ objective remains in [operation-agent-workspace.md](operation-agent-workspace.md
 `c75f0a6e812b` adds nullable `workspace_status` and `workspace_payload` columns plus an index
 to `operation_goals`; historical rows are not backfilled or rewritten. Ordinary analysis
 Goals without native context keep the prior JSON contract and queue. Native checkpoints store
-protocol version 1 without session memory, or version 2 with a frozen topic-owned memory snapshot,
+protocol version 1 without session memory, version 2 with analysis-only session memory,
+or version 3 when that memory includes scoped sandbox action history,
 the complete request/context/tool journal and actual status separately. Capacity/claim/control
 logic in the new repository uses that actual status and the same revision fence.
 
@@ -32,6 +33,19 @@ There is no backfill or rewrite of previous Goals/chat. New Goal state and its p
 commit together under the shared controls/claims/save fence; cursor allocation follows commit
 order. Old images ignore the extra table. Downgrade refuses existing events or native history
 before dropping the journal, even when the events belong to ordinary non-native Goals.
+
+`f08c3d1b245e` adds `operation_workspace_actions`: immutable owner/topic/turn/proposal-bound
+human intents admitted before the owning-domain executor is called. A unique proposal fence
+and owner/request fence prevent a second workspace dispatch across processes or topics. The
+receipt retains confirmed typed parameters and synthetic MANA scope; SQL domain execution and
+verification remain authoritative even if the receipt acknowledgement is lost. No old action,
+chat or Goal JSON is rewritten. Source-snapshot cleanup does not erase the settled action
+history. Downgrade refuses receipts, events or native context before dropping any table.
+`OPERATION_WORKSPACE_ACTIONS_ENABLED` is subordinate to the disabled-by-default native flag.
+Only `fake_experiments`/`growth_experiment`/`create_experiment` on explicitly fictional MANA
+parent funnel facts is supported. Historical unverified chat cards are read-only; the existing
+professional action queue is unchanged. This is not a live experiment rollout or a write tool
+for read-only Goals, and provider verification is not measured business improvement.
 
 An older API may create an ordinary Goal in a topic whose native Goal it sees as closed.
 Therefore keep Goals creation/worker execution disabled during rollback. Do not serve a
@@ -85,7 +99,8 @@ these release controls.
    work remains paused. A live lease rejects the whole transaction. Repeated apply is
    idempotent. The flag is operator attestation, not automatic proof of stopped processes.
 4. Restore the recorded operation API/UI images with Goals execution/admission disabled.
-   Retain schema `e97b2c0a134d`, the event journal and all native metadata. **Do not run old `alembic upgrade head`,
+   Retain schema `f08c3d1b245e`, the action receipts, event journal and all native metadata.
+   **Do not run old `alembic upgrade head`,
    schema downgrade, a whole-stack restart or a database restore that would erase history.**
    Old API/worker startup must not run an incompatible migration tool.
 5. Verify health, login, old ordinary chat/history and the independent audio endpoint using

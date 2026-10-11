@@ -8,6 +8,7 @@ from app.mana_operation_ai.application.ports import (
     ProviderPermanentError,
     ProviderWriteUncertainError,
 )
+from app.mana_operation_ai.domain.cost_control import ProductScope
 from app.mana_operation_ai.domain.enums import GrowthActionType, IntegrationStatus, ProviderMode
 from app.mana_operation_ai.domain.growth import (
     AttributionChannelFacts,
@@ -26,8 +27,9 @@ from app.mana_operation_ai.domain.models import (
 
 
 class FakeProductAnalyticsAdapter:
-    def __init__(self, *, clock: Clock) -> None:
+    def __init__(self, *, clock: Clock, product: ProductScope = ProductScope.UNVERIFIED) -> None:
         self._clock = clock
+        self._product = product
 
     async def collect_funnel(
         self,
@@ -36,6 +38,8 @@ class FakeProductAnalyticsAdapter:
         period_end: datetime,
     ) -> ProductAnalyticsFacts:
         return ProductAnalyticsFacts(
+            product=self._product,
+            synthetic=True,
             source="fake_product_analytics",
             period_start=period_start,
             period_end=period_end,
@@ -49,8 +53,9 @@ class FakeProductAnalyticsAdapter:
 
 
 class FakeBillingReadAdapter:
-    def __init__(self, *, clock: Clock) -> None:
+    def __init__(self, *, clock: Clock, product: ProductScope = ProductScope.UNVERIFIED) -> None:
         self._clock = clock
+        self._product = product
 
     async def collect_funnel(
         self,
@@ -59,6 +64,8 @@ class FakeBillingReadAdapter:
         period_end: datetime,
     ) -> BillingFunnelFacts:
         return BillingFunnelFacts(
+            product=self._product,
+            synthetic=True,
             source="fake_billing",
             period_start=period_start,
             period_end=period_end,
@@ -74,8 +81,9 @@ class FakeBillingReadAdapter:
 
 
 class FakeAttributionAdapter:
-    def __init__(self, *, clock: Clock) -> None:
+    def __init__(self, *, clock: Clock, product: ProductScope = ProductScope.UNVERIFIED) -> None:
         self._clock = clock
+        self._product = product
 
     async def collect_funnel(
         self,
@@ -84,6 +92,8 @@ class FakeAttributionAdapter:
         period_end: datetime,
     ) -> AttributionFacts:
         return AttributionFacts(
+            product=self._product,
+            synthetic=True,
             source="fake_attribution",
             period_start=period_start,
             period_end=period_end,

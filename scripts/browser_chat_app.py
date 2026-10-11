@@ -9,13 +9,14 @@ from fastapi import FastAPI
 
 from app.core.config import get_settings
 from app.main import create_app as create_real_app
+from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import ChatTurnOutput
 from app.mana_operation_ai.application.goal_ports import GoalModelOutput
 from app.mana_operation_ai.application.goal_service import GoalWorker
 from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABILITY_KEY
 from app.mana_operation_ai.application.runtime import SystemClock
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
-from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType
+from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
 from app.mana_operation_ai.domain.goals import GoalDecision, GoalTask
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
 from app.mana_operation_ai.infrastructure.retention.parents import FakeParentSummaryAdapter
@@ -26,6 +27,26 @@ class BrowserConversationFake:
         payload = json.loads(context)
         message = str(payload.get("message", ""))
         agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
+        if message == "Покажи предложения экспериментов":
+            assert "approvals" in payload["allowed_next_actions"]
+            return ChatTurnOutput(
+                "Показываю sandbox-предложения для согласования.",
+                "browser-fake",
+                10,
+                10,
+                next_action="approvals",
+            )
+        if message == "Что получилось после согласования эксперимента?":
+            memory = payload.get("session_memory")
+            assert memory and memory["actions"][0]["verification_status"] == "verified"
+            assert memory["actions"][0]["business_outcome"] == "not_measured"
+            return ChatTurnOutput(
+                "Sandbox-черновик создан и проверен. Конверсия не измерена.",
+                "browser-fake",
+                10,
+                10,
+                next_action="none",
+            )
         if message == "Объясни второй вывод завершённого анализа":
             memory = payload.get("session_memory")
             assert memory and memory["checkpoints"][0]["status"] == "completed"
@@ -136,6 +157,25 @@ def create_app() -> FastAPI:
             observed = now - timedelta(hours=8)
             repository = application.state.operation_repository
             if settings.operation_agent_workspace_enabled:
+                admin = application.state.operation_admin_service
+                configuration = await repository.latest_configuration(
+                    "growth-agent", "growth.funnel.analyze"
+                )
+                assert configuration is not None
+                await admin.create_configuration(
+                    agent_id="growth-agent",
+                    capability_key="growth.funnel.analyze",
+                    values={**configuration.values, "experiment_mode": "sandbox"},
+                    actor=ActorContext("browser-fixture", UserRole.ADMIN),
+                )
+                await admin.run_now(
+                    agent_id="growth-agent",
+                    capability_key="growth.funnel.analyze",
+                    job_type="analysis",
+                    correlation_id="browser-experiment",
+                    idempotency_key="browser-experiment",
+                    actor=ActorContext("browser-fixture", UserRole.ADMIN),
+                )
                 await repository.create_run(
                     AgentRun(
                         run_id="browser-workspace-run",

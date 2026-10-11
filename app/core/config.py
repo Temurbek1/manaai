@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     operation_goals_max_steps: int = Field(default=6, ge=3, le=12)
     operation_agent_workspace_enabled: bool = False
     operation_workspace_events_enabled: bool = True
+    operation_workspace_actions_enabled: bool = True
     operation_workspace_event_poll_seconds: float = Field(default=1.0, ge=0.5, le=10)
     operation_workspace_stream_seconds: float = Field(default=45.0, ge=15, le=120)
     operation_workspace_stream_max_connections: int = Field(default=32, ge=1, le=128)

@@ -45,8 +45,14 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
         if stage == "setup":
             from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
             from app.mana_operation_ai.domain.chat import MessageCreate
+            from app.mana_operation_ai.domain.enums import (
+                ActionStatus,
+                ExecutionStatus,
+                VerificationStatus,
+            )
             from app.mana_operation_ai.domain.goals import GoalConversationTurn
             from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
+            from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionHistory
 
             await database.create_schema()
             await chats.initialize()
@@ -71,6 +77,18 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                         topic_id=topic.topic_id,
                         product="mana",
                         captured_at=clock.now(),
+                        actions=[
+                            WorkspaceActionHistory(
+                                proposal_id="synthetic-private-proposal",
+                                at=clock.now(),
+                                status=ActionStatus.SUCCEEDED,
+                                execution_status=ExecutionStatus.SUCCEEDED,
+                                verification_status=VerificationStatus.VERIFIED,
+                                message="Sandbox only; no business outcome measured.",
+                            )
+                        ]
+                        if title == "Native queued"
+                        else [],
                         user_context=[
                             SessionUserContext(
                                 kind="constraint",
@@ -198,6 +216,8 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert len(turns) == 1
                 assert turns[0].next_action == "start_goal" and turns[0].execution_mode == "agent"
                 assert turns[0].session_memory is not None and goal.session_memory is not None
+                assert bool(goal.session_memory.actions) is (topic.title == "Native queued")
+                assert turns[0].session_memory.actions == goal.session_memory.actions
                 assert turns[0].session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.status == ("paused" if paused else "running" if lost else "queued")

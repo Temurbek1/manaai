@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import Field, JsonValue, model_validator
 
+from app.mana_operation_ai.domain.cost_control import ProductScope
 from app.mana_operation_ai.domain.models import DomainModel, EvidenceRef
 
 
@@ -28,6 +29,8 @@ class GrowthFunnelConfiguration(DomainModel):
 
 
 class ProductAnalyticsFacts(DomainModel):
+    product: ProductScope = ProductScope.UNVERIFIED
+    synthetic: bool = False
     source: str
     period_start: datetime
     period_end: datetime
@@ -46,6 +49,8 @@ class ProductAnalyticsFacts(DomainModel):
 
 
 class BillingFunnelFacts(DomainModel):
+    product: ProductScope = ProductScope.UNVERIFIED
+    synthetic: bool = False
     source: str
     period_start: datetime
     period_end: datetime
@@ -74,6 +79,8 @@ class AttributionChannelFacts(DomainModel):
 
 
 class AttributionFacts(DomainModel):
+    product: ProductScope = ProductScope.UNVERIFIED
+    synthetic: bool = False
     source: str
     period_start: datetime
     period_end: datetime

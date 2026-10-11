@@ -39,6 +39,12 @@
   generation and preserve it on idempotent replay. Do not silently shorten user constraints.
   Keep new chat fields outside legacy-readable JSON; supported application rollback retains
   native chat/Goal metadata and never downgrades a populated workspace schema.
+  The separate native human action-review lane currently delegates only scoped synthetic MANA
+  `growth_experiment` draft creation to the existing Growth lifecycle. Persist the exact typed
+  intent before dispatch; replay/unknown outcomes only observe SQL and never reissue a write.
+  Goal tools remain read-only. Keep receipt memory historical/minimized, checkpoint v3 for
+  action context, and business outcome `not_measured`; sandbox verification is not conversion
+  improvement. Unverified historical proposals are read-only in chat. See the release checklist.
 - Public progress is a private SQL event journal, atomically written with successful Goal
   changes. Its authenticated SSE transport observes only: reconnecting, disconnecting or
   losing a cursor must never restart/cancel a task or repeat a source read. Keep raw tool

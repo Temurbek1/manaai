@@ -3,9 +3,10 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.mana_operation_ai.domain.models import DomainModel
+from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionHistory
 
 
 class SessionUserContext(DomainModel):
@@ -40,4 +41,11 @@ class SessionMemory(DomainModel):
     captured_at: datetime
     user_context: list[SessionUserContext] = Field(default_factory=list, max_length=400)
     checkpoints: list[SessionCheckpoint] = Field(default_factory=list, max_length=3)
+    actions: list[WorkspaceActionHistory] = Field(default_factory=list, max_length=3)
     older_checkpoints_omitted: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_action_scope(self) -> "SessionMemory":
+        if self.actions and self.product != "mana":
+            raise ValueError("Sandbox MANA action history cannot enter another product context")
+        return self

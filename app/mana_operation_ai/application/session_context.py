@@ -7,6 +7,7 @@ from pydantic import JsonValue
 
 from app.mana_operation_ai.application.chat_ports import ChatRepository, SessionContextTooLarge
 from app.mana_operation_ai.application.goal_ports import GoalRepository
+from app.mana_operation_ai.application.workspace_action_ports import WorkspaceActionHistoryReader
 from app.mana_operation_ai.domain.session import (
     SessionCheckpoint,
     SessionEvidenceReference,
@@ -16,12 +17,21 @@ from app.mana_operation_ai.domain.session import (
 
 
 class OperationSessionContext:
-    def __init__(self, chats: ChatRepository, goals: GoalRepository) -> None:
+    def __init__(
+        self,
+        chats: ChatRepository,
+        goals: GoalRepository,
+        actions: WorkspaceActionHistoryReader | None = None,
+    ) -> None:
         self._chats = chats
         self._goals = goals
+        self._actions = actions
 
     async def read(self, owner: str, topic_id: str, *, before: datetime) -> SessionMemory | None:
         topic = await self._chats.topic(owner, topic_id)
+        actions = (
+            await self._actions.history(owner, topic_id, before=before) if self._actions else []
+        )
         history = await self._goals.closed_history(owner, topic_id, before=before)
         goals = [goal for goal in history.goals if goal.product == topic.product]
         records: dict[tuple[str, str], SessionUserContext] = {}
@@ -50,13 +60,14 @@ class OperationSessionContext:
                 add("instruction", instruction, goal.goal_id)
             for prior_turn in goal.request.conversation_history:
                 add("user_message", prior_turn.user, goal.goal_id)
-        if not records and not goals:
+        if not records and not goals and not actions:
             return None
         return SessionMemory(
             topic_id=topic_id,
             product=topic.product,
             captured_at=before,
             user_context=list(records.values()),
+            actions=actions,
             checkpoints=[
                 SessionCheckpoint(
                     goal_id=goal.goal_id,

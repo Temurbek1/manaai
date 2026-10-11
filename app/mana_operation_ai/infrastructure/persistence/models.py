@@ -105,6 +105,23 @@ class ChatTurnRow(Base):
     )
 
 
+class WorkspaceActionRow(Base):
+    __tablename__ = "operation_workspace_actions"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", name="uq_workspace_action_proposal"),
+        UniqueConstraint("owner", "request_id", name="uq_workspace_action_request"),
+        Index("idx_workspace_action_owner_topic_created", "owner", "topic_id", "created_at"),
+    )
+    receipt_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(128))
+    topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"))
+    turn_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_turns.turn_id"))
+    proposal_id: Mapped[str] = mapped_column(ForeignKey("operation_action_proposals.proposal_id"))
+    request_id: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
 class WorkspaceEventRow(Base):
     __tablename__ = "operation_workspace_events"
     __table_args__ = (

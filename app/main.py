@@ -65,6 +65,7 @@ from app.mana_operation_ai.application.shared_sources import (
     SharedBackendActivity,
     SharedMobileActivity,
 )
+from app.mana_operation_ai.application.workspace_actions import WorkspaceActionService
 from app.mana_operation_ai.application.workspace_events import WorkspaceEventService
 from app.mana_operation_ai.application.workspace_service import OperationWorkspaceService
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
@@ -115,6 +116,9 @@ from app.mana_operation_ai.infrastructure.persistence.repository import (
 )
 from app.mana_operation_ai.infrastructure.persistence.shared_data_store import (
     SqlAlchemySharedDataStore,
+)
+from app.mana_operation_ai.infrastructure.persistence.workspace_actions import (
+    SqlAlchemyWorkspaceActions,
 )
 from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
     SqlAlchemyWorkspaceEvents,
@@ -430,9 +434,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     growth_capability_registry.register(
         GrowthFunnelCapabilityHandler(
-            product_analytics=FakeProductAnalyticsAdapter(clock=clock),
-            billing=FakeBillingReadAdapter(clock=clock),
-            attribution=FakeAttributionAdapter(clock=clock),
+            # Fictional MANA parent scenario, never a live source-ownership assertion.
+            product_analytics=FakeProductAnalyticsAdapter(clock=clock, product=ProductScope.MANA),
+            billing=FakeBillingReadAdapter(clock=clock, product=ProductScope.MANA),
+            attribution=FakeAttributionAdapter(clock=clock, product=ProductScope.MANA),
             experiments=experiment_platform,
             actions=action_lifecycle,
             repository=operation_repository,
@@ -609,7 +614,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         enabled=events_enabled,
         max_connections=settings.operation_workspace_stream_max_connections,
     )
-    session_context = OperationSessionContext(chat_repository, goal_repository)
+    actions_enabled = (
+        settings.operation_agent_workspace_enabled
+        and settings.operation_workspace_actions_enabled
+        and settings.operation_chat_enabled
+        and settings.operation_goals_enabled
+    )
+    app.state.operation_workspace_actions = WorkspaceActionService(
+        admin=operation_admin_service,
+        chats=chat_repository,
+        store=SqlAlchemyWorkspaceActions(operation_database),
+        clock=clock,
+        enabled=actions_enabled,
+        allow_self_approval=settings.operation_allow_self_approval,
+    )
+    session_context = OperationSessionContext(
+        chat_repository, goal_repository, app.state.operation_workspace_actions
+    )
     chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
     app.state.operation_cost_ledger = cost_ledger
     app.state.operation_shared_data_reader = shared_data_reader
@@ -628,6 +649,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             daily_limit=settings.operation_chat_daily_limit,
             parent_summary_enabled=settings.manakids_parent_source_enabled,
             model_selection_enabled=settings.operation_model_selection_enabled,
+            action_reviews_enabled=actions_enabled,
             agent_workspace_enabled=(
                 settings.operation_agent_workspace_enabled and settings.operation_goals_enabled
             ),

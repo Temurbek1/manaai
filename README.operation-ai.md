@@ -24,6 +24,14 @@ Native checkpoint migration `c75f0a6e812b` is additive; application rollback ret
 explicitly pauses native Goals. See the [bounded release/rollback checklist](docs/operation-agent-workspace-release.md)
 and `make audit-workspace-compat` (local old image, synthetic DB, no provider network).
 
+Native chat also has an opt-in human action-review lane (`OPERATION_WORKSPACE_ACTIONS_ENABLED`),
+limited to explicitly synthetic MANA Growth sandbox experiment drafts. Decisions are scoped to
+the private topic/turn and immutable parameters, persisted before owning-domain dispatch, and
+never automatically resent after a lost reply. Reload and subsequent conversation restore the
+actual execution/verification, not a claim of improved conversion. Analysis Goals remain
+read-only; historical unverified chat proposals cannot be approved there. This is local and
+unreleased, not live writes or a full Orchestrator implementation.
+
 The default administrator UI is a private conversation workspace: exactly four agent rooms,
 with separate server-persisted topics and an explicit MANA/360REC conversation context.
 The existing dense operational screens are available through **Professional mode** (`/overview`).

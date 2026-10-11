@@ -197,11 +197,41 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser reload >/dev/null
   browser wait --fn 'document.body.innerText.includes("Продолжаю по сохранённому анализу")' >/dev/null
   assert_accessible
+  # Same-room explicit review uses the real owning Growth lifecycle on scoped fake facts.
+  browser set viewport 1440 1000 >/dev/null
+  browser find label "Сообщение агенту" fill 'Покажи предложения экспериментов' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.querySelector(".chat-approvals")?.textContent.includes("Тестовые эксперименты MANA") && Boolean(document.querySelector(".chat-proposal-card textarea"))' >/dev/null
+  assert_browser 'document.querySelector(".chat-approvals")?.textContent.includes("Реальные пользователи и платежи не меняются")' 'sandbox action scope is not explicit'
+  browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const detail = await (await fetch(`/api/v1/admin/operation/chat/topics/${topic}`)).json(); const turn = detail.turns.at(-1); window.__actionPath = `/api/v1/admin/operation/workspace/topics/${topic}/messages/${turn.turn_id}/actions`; const page = await (await fetch(window.__actionPath)).json(); const item = page.items[0]; if (item.receipt || item.product !== "mana" || !item.synthetic) throw new Error("Invalid action preview"); const rejected = await fetch(`${window.__actionPath}/${item.proposal_id}/decision`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({request_id:crypto.randomUUID(), confirmed:true,approve:true,reason:"CSRF test",fingerprint:item.fingerprint})}); if (rejected.status !== 403) throw new Error("Action bypassed CSRF"); window.__actionPosts = 0; const original = window.fetch.bind(window); window.fetch = async (...args) => { const isDecision = String(args[0]).startsWith(window.__actionPath) && String(args[0]).endsWith("/decision"); if (isDecision) window.__actionPosts++; const response = await original(...args); if (isDecision && response.ok) throw new Error("Synthetic lost browser reply after domain commit"); return response; }; return "preview and CSRF verified"; })()' >/dev/null
+  browser eval 'document.querySelector(".chat-proposal-card textarea").scrollIntoView({block:"center", behavior:"instant"}); "scrolled to decision"' >/dev/null
+  browser find label "Причина решения" fill 'Reviewed fictional parent scenario and draft parameters' >/dev/null
+  browser eval '([...document.querySelectorAll(".chat-proposal-card button")].find(button => button.textContent.trim() === "Создать в sandbox")).scrollIntoView({block:"center", behavior:"instant"}); "scrolled to confirmation"' >/dev/null
+  assert_browser '(() => { const button = [...document.querySelectorAll(".chat-proposal-card button")].find(button => button.textContent.trim() === "Создать в sandbox").getBoundingClientRect(); const transcript = document.querySelector(".chat-transcript").getBoundingClientRect(); return button.top >= transcript.top && button.bottom <= transcript.bottom; })()' 'sandbox decision is hidden under the composer after scrolling'
+  browser find role button click --name "Создать в sandbox" --exact >/dev/null
+  assert_browser 'document.querySelector("dialog[open]")?.contains(document.activeElement)' 'action dialog lost focus'
+  assert_accessible
+  browser find role button click --name "Подтвердить создание" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".chat-proposal-card")?.textContent.includes("Влияние на конверсию не измерено")' >/dev/null
+  browser eval '(async () => { const page = await (await fetch(window.__actionPath)).json(); const item = page.items[0]; if (window.__actionPosts !== 1 || item.execution_status !== "succeeded" || item.verification_status !== "verified" || item.receipt.state !== "resolved") throw new Error("Lost reply was retried or verification missing"); return "one verified execution observed"; })()' >/dev/null
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".chat-proposal-card")?.textContent.includes("Влияние на конверсию не измерено")' >/dev/null
+  assert_browser '!document.querySelector(".chat-proposal-card textarea")' 'reload re-enabled a consumed action'
+  browser find label "Сообщение агенту" fill 'Что получилось после согласования эксперимента?' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Sandbox-черновик создан и проверен. Конверсия не измерена.")' >/dev/null
+  assert_browser 'document.querySelectorAll(".goal-workspace").length === 1' 'action follow-up launched an unintended Goal'
+  browser set viewport 320 812 >/dev/null
+  assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'action receipt overflows on mobile'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/workspace-action-receipt-mobile.png" --full >/dev/null
+  fi
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, completed-analysis continuation, reload, owner isolation and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, owner isolation, CSRF and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'
@@ -279,7 +309,7 @@ browser find label "Сообщение агенту" fill 'Покажи пред
 browser find role button click --name "Отправить сообщение" >/dev/null
 browser wait --fn 'document.querySelector(".chat-proposal-card") !== null' >/dev/null
 assert_accessible
-assert_browser '[...document.querySelectorAll(".chat-decision-buttons > button")].every(button => button.disabled)' 'empty reason allows a chat approval'
+assert_browser 'document.querySelectorAll(".chat-decision-buttons > button").length === 0 && document.body.innerText.includes("Согласование в этом чате недоступно")' 'unverified historical proposals allow a chat decision'
 if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
   browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/chat-approvals.png" >/dev/null
 fi

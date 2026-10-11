@@ -316,7 +316,7 @@ async def test_additive_migration_preserves_legacy_history_and_refuses_destructi
         async with db.session_factory() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "e97b2c0a134d"
+                == "f08c3d1b245e"
             )
     finally:
         await db.dispose()
@@ -359,7 +359,7 @@ async def test_chat_only_workspace_history_refuses_schema_downgrade(tmp_path: Pa
         async with db.session_factory() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "e97b2c0a134d"
+                == "f08c3d1b245e"
             )
     finally:
         await db.dispose()
@@ -401,7 +401,7 @@ async def test_ordinary_goal_journal_alone_refuses_destructive_downgrade(tmp_pat
             )
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "e97b2c0a134d"
+                == "f08c3d1b245e"
             )
     finally:
         await db.dispose()

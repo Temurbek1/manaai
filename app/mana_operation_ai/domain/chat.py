@@ -105,6 +105,7 @@ class ChatAvailability(ChatModel):
     parent_summary_enabled: bool = False
     model_selection_enabled: bool = False
     agent_workspace_enabled: bool = False
+    action_reviews_enabled: bool = False
 
 
 class AnalysisRequest(ChatModel):

@@ -379,7 +379,10 @@ async def test_old_request_replay_bypasses_context_rebuild_beyond_history_page(
     get_settings.cache_clear()
 
 
-@pytest.mark.parametrize("corruption", ["version", "topic", "product"])
+@pytest.mark.parametrize(
+    "corruption",
+    ["version", "topic", "product", "actions_in_v2", "empty_v3", "cross_product_action"],
+)
 async def test_corrupt_memory_protocol_or_scope_fails_closed(
     tmp_path: Path, corruption: str
 ) -> None:
@@ -406,6 +409,20 @@ async def test_corrupt_memory_protocol_or_scope_fails_closed(
             payload = json.loads(json.dumps(row.workspace_payload))
             if corruption == "version":
                 payload["version"] = 1
+            elif corruption == "empty_v3":
+                payload["version"] = 3
+            elif corruption in ("actions_in_v2", "cross_product_action"):
+                payload["goal"]["session_memory"]["actions"] = [
+                    {
+                        "proposal_id": "private-sandbox",
+                        "at": clock.now().isoformat(),
+                        "status": "succeeded",
+                        "message": "Private outcome",
+                    }
+                ]
+                if corruption == "cross_product_action":
+                    payload["version"] = 3
+                    payload["goal"]["session_memory"]["product"] = "360rec"
             else:
                 payload["goal"]["session_memory"][
                     "topic_id" if corruption == "topic" else "product"

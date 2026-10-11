@@ -101,6 +101,25 @@ Status must be updated from actual tests/flows, not intent:
   `d86a1b9f023c` keeps the supported old chat reader compatible as well as the Goal reader.
 - Full quality, source integration acceptance and production release: pending.
 
+### Scoped human action review, 2026-10-12
+
+Local implementation, not released: native MANA Growth/Orchestrator conversation turns can
+request a bounded review of existing Growth sandbox experiment proposals. The shared lane
+delegates only to the owning Growth lifecycle; it does not register a full Orchestrator or
+add write tools to analysis Goals. Human role, topic ownership, typed parameters, exact
+fingerprint, expiry, fresh scoped synthetic evidence, self-approval, policy and kill switches
+are checked. A SQL intent is saved before dispatch; replay only observes the existing result.
+Lost provider/SQL/browser replies never automatically cause another workspace execution.
+
+The receipt and actual domain execution/verification remain visible after reload and enter
+the next turn's private minimized session memory. The next Goal inherits historical context,
+not approval authority. Checkpoint version 3 isolates action memory from old strict JSON.
+Sandbox drafts do not affect real users/payments; conversion impact remains `not_measured`.
+Unverified legacy proposals are read-only in chat; their professional queue remains separate.
+Live experiments, Retention actions, full domain Orchestrator and production activation remain
+outside this checkpoint. Synthetic payment funnel fixtures are never admitted as real Goal
+evidence. Fresh evidence admission and the retained unknown-cost/read protections are unchanged.
+
 ### Discussion-only screenshot and admission fix, 2026-10-12
 
 The owner supplied an Orchestrator response to "Как можно поднять конверсию. Изучи текущие
@@ -304,6 +323,33 @@ modified. These checks establish the local flow, not production activation or li
   production migration performed, source/schedule activated or paid provider request made.
   This checkpoint does not establish production readiness or full Codex/Claude parity.
 
+### Scoped action-review acceptance checkpoint, 2026-10-12
+
+- `make verify` passed after the final immutable target-object guard: **746 backend tests**,
+  seven PostgreSQL opt-in skips, two live-source opt-in exclusions; **113 UI tests**;
+  Ruff, mypy (295 files), TypeScript, production Next build and npm audit: zero vulnerabilities.
+- Separate isolated PostgreSQL 17 audit: upgrade/downgrade/upgrade/drift passed; seven tests
+  passed, including 12 concurrent confirmations through independent SQL connections with
+  exactly one sandbox provider dispatch. SQLite clean round-trip/populated-copy/drift passed.
+- Real private-browser native and legacy flows passed. Native flow checks the existing
+  typed Growth executor, human dialog, CSRF denial, actual SQL verification, injected lost
+  browser reply with one POST only, receipt reload and same-room historical continuation.
+  Keyboard/dialog focus, 320px layout and WCAG automated checks passed; decisions are scrolled
+  inside the transcript instead of clicked through the composer. Screenshots are ignored
+  local artifacts in `output/workspace-actions-final-20261012/`.
+- HTTP/SQL negative tests cover wrong owner/product/role, self-approval, stale or unverified
+  evidence, changed fingerprint/target, disabled lane, kill switch, concurrent replay,
+  lost domain reply and lost receipt acknowledgement. Settled action context survives normal
+  snapshot cleanup. Invalid v2/v3/action-product context fails closed without private contents.
+- Final networkless source-overlay image `mana-ai-operation:actions-final-local-20261012`
+  (`2bf355f298db`) built; its actual runtime startup and typed routes passed a networkless
+  temporary-SQL smoke check. Two-image rollback probe passed with the actual supported old
+  `mana-ai-operation:2ea7b9a` and this candidate, preserving native v3 memory, event journal,
+  pause state and unknown reservations. OpenAPI/client, secret/quality-marker and compose
+  checks passed. No image was published or production/source/schedule changed; no paid
+  model or Firebase/GA4 request was made in this checkpoint. Fake lifecycle coverage is not
+  evidence of live financial/customer-contact readiness or improved conversion.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:
@@ -317,8 +363,9 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
   Completed results now enter ordinary conversation as bounded historical checkpoints, not
   fresh evidence. Very long user-context histories still fail closed at an explicit byte/count
   limit without calling the model; scalable retrieval/compaction of extended sessions remains.
-- Integrate supported action proposals/owning-domain execution into the conversational
-  work lifecycle without claiming unbuilt Retention/Orchestrator/Technical capabilities.
+- Expand conversational owning-domain action coverage beyond the now-verified synthetic
+  Growth draft lane, following Retention-first delivery and explicit live authority. Do not
+  claim unbuilt Retention/Orchestrator/Technical handlers or real payment/conversion evidence.
 - Produce a scoped sidecar/UI release and rollback, keep the independent main API/audio and
   scheduler/source settings unchanged, and inspect the actual deployed browser/API behavior.
 - Repeat the scoped release/rollback checks against the actual deployment configuration;

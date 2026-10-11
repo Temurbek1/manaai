@@ -931,6 +931,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Actions */
+        get: operations["actions_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/actions/{proposal_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Action */
+        post: operations["decide_action_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__actions__proposal_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/stream": {
         parameters: {
             query?: never;
@@ -3190,6 +3224,11 @@ export interface components {
         };
         /** ChatAvailability */
         ChatAvailability: {
+            /**
+             * Action Reviews Enabled
+             * @default false
+             */
+            action_reviews_enabled: boolean;
             /**
              * Agent Workspace Enabled
              * @default false
@@ -6717,6 +6756,8 @@ export interface components {
         };
         /** SessionMemory */
         SessionMemory: {
+            /** Actions */
+            actions?: components["schemas"]["WorkspaceActionHistory"][];
             /**
              * Captured At
              * Format: date-time
@@ -7151,6 +7192,176 @@ export interface components {
              * @constant
              */
             source: "website";
+        };
+        /** WorkspaceActionDecision */
+        WorkspaceActionDecision: {
+            /** Approve */
+            approve: boolean;
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** WorkspaceActionHistory */
+        WorkspaceActionHistory: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Business Outcome
+             * @default not_measured
+             * @constant
+             */
+            business_outcome: "not_measured";
+            execution_status?: components["schemas"]["ExecutionStatus"] | null;
+            /** Message */
+            message: string;
+            /**
+             * Mode
+             * @default sandbox
+             * @constant
+             */
+            mode: "sandbox";
+            /**
+             * Operation
+             * @default create_experiment
+             * @constant
+             */
+            operation: "create_experiment";
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /** Proposal Id */
+            proposal_id: string;
+            status: components["schemas"]["ActionStatus"];
+            verification_status?: components["schemas"]["VerificationStatus"] | null;
+        };
+        /** WorkspaceActionPage */
+        WorkspaceActionPage: {
+            /**
+             * Catalog Bounded
+             * @default true
+             * @constant
+             */
+            catalog_bounded: true;
+            /** Items */
+            items?: components["schemas"]["WorkspaceActionView"][];
+            /**
+             * More Omitted
+             * @default false
+             */
+            more_omitted: boolean;
+        };
+        /** WorkspaceActionReceipt */
+        WorkspaceActionReceipt: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Message
+             * @default Решение принято в обработку.
+             */
+            message: string;
+            parameters: components["schemas"]["CreateExperimentActionParameters"];
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Provider
+             * @default fake_experiments
+             * @constant
+             */
+            provider: "fake_experiments";
+            /** Receipt Id */
+            receipt_id: string;
+            request: components["schemas"]["WorkspaceActionDecision"];
+            /**
+             * State
+             * @default dispatching
+             * @enum {string}
+             */
+            state: "dispatching" | "resolved" | "unknown" | "refused";
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+            /** Topic Id */
+            topic_id: string;
+            /** Turn Id */
+            turn_id: string;
+        };
+        /** WorkspaceActionView */
+        WorkspaceActionView: {
+            /**
+             * Business Outcome
+             * @default not_measured
+             * @constant
+             */
+            business_outcome: "not_measured";
+            execution_status?: components["schemas"]["ExecutionStatus"] | null;
+            /** Expected Effect */
+            expected_effect: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fingerprint */
+            fingerprint: string;
+            parameters: components["schemas"]["CreateExperimentActionParameters"];
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /** Proposal Id */
+            proposal_id: string;
+            /**
+             * Provider
+             * @default fake_experiments
+             * @constant
+             */
+            provider: "fake_experiments";
+            /** Reasoning */
+            reasoning: string;
+            receipt?: components["schemas"]["WorkspaceActionReceipt"] | null;
+            /** Risks */
+            risks: string[];
+            /** Self Approval Forbidden */
+            self_approval_forbidden: boolean;
+            status: components["schemas"]["ActionStatus"];
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+            verification_status?: components["schemas"]["VerificationStatus"] | null;
         };
         /** WorkspaceEvent */
         WorkspaceEvent: {
@@ -9172,6 +9383,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceTurn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    actions_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__actions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceActionPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_action_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__actions__proposal_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceActionDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceActionView"];
                 };
             };
             /** @description Validation Error */

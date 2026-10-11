@@ -3739,6 +3739,11 @@
       "ChatAvailability": {
         "additionalProperties": false,
         "properties": {
+          "action_reviews_enabled": {
+            "default": false,
+            "title": "Action Reviews Enabled",
+            "type": "boolean"
+          },
           "agent_workspace_enabled": {
             "default": false,
             "title": "Agent Workspace Enabled",
@@ -13425,6 +13430,14 @@
       "SessionMemory": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceActionHistory"
+            },
+            "maxItems": 3,
+            "title": "Actions",
+            "type": "array"
+          },
           "captured_at": {
             "format": "date-time",
             "title": "Captured At",
@@ -14565,6 +14578,336 @@
           "category"
         ],
         "title": "WebsiteActivitySignal",
+        "type": "object"
+      },
+      "WorkspaceActionDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "confirmed",
+          "approve",
+          "reason",
+          "fingerprint"
+        ],
+        "title": "WorkspaceActionDecision",
+        "type": "object"
+      },
+      "WorkspaceActionHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "business_outcome": {
+            "const": "not_measured",
+            "default": "not_measured",
+            "title": "Business Outcome",
+            "type": "string"
+          },
+          "execution_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "maxLength": 1000,
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "const": "sandbox",
+            "default": "sandbox",
+            "title": "Mode",
+            "type": "string"
+          },
+          "operation": {
+            "const": "create_experiment",
+            "default": "create_experiment",
+            "title": "Operation",
+            "type": "string"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "proposal_id": {
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActionStatus"
+          },
+          "verification_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerificationStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "proposal_id",
+          "at",
+          "status",
+          "message"
+        ],
+        "title": "WorkspaceActionHistory",
+        "type": "object"
+      },
+      "WorkspaceActionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog_bounded": {
+            "const": true,
+            "default": true,
+            "title": "Catalog Bounded",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceActionView"
+            },
+            "maxItems": 3,
+            "title": "Items",
+            "type": "array"
+          },
+          "more_omitted": {
+            "default": false,
+            "title": "More Omitted",
+            "type": "boolean"
+          }
+        },
+        "title": "WorkspaceActionPage",
+        "type": "object"
+      },
+      "WorkspaceActionReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "message": {
+            "default": "Решение принято в обработку.",
+            "maxLength": 1000,
+            "title": "Message",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/CreateExperimentActionParameters"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "proposal_id": {
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "fake_experiments",
+            "default": "fake_experiments",
+            "title": "Provider",
+            "type": "string"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/WorkspaceActionDecision"
+          },
+          "state": {
+            "default": "dispatching",
+            "enum": [
+              "dispatching",
+              "resolved",
+              "unknown",
+              "refused"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": true,
+            "default": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "topic_id",
+          "turn_id",
+          "proposal_id",
+          "parameters",
+          "request",
+          "created_at"
+        ],
+        "title": "WorkspaceActionReceipt",
+        "type": "object"
+      },
+      "WorkspaceActionView": {
+        "additionalProperties": false,
+        "properties": {
+          "business_outcome": {
+            "const": "not_measured",
+            "default": "not_measured",
+            "title": "Business Outcome",
+            "type": "string"
+          },
+          "execution_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_effect": {
+            "maxLength": 2000,
+            "title": "Expected Effect",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/CreateExperimentActionParameters"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "proposal_id": {
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "provider": {
+            "const": "fake_experiments",
+            "default": "fake_experiments",
+            "title": "Provider",
+            "type": "string"
+          },
+          "reasoning": {
+            "maxLength": 2000,
+            "title": "Reasoning",
+            "type": "string"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceActionReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risks": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Risks",
+            "type": "array"
+          },
+          "self_approval_forbidden": {
+            "title": "Self Approval Forbidden",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActionStatus"
+          },
+          "synthetic": {
+            "const": true,
+            "default": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "verification_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerificationStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "proposal_id",
+          "status",
+          "parameters",
+          "reasoning",
+          "expected_effect",
+          "risks",
+          "expires_at",
+          "fingerprint",
+          "self_approval_forbidden"
+        ],
+        "title": "WorkspaceActionView",
         "type": "object"
       },
       "WorkspaceEvent": {
@@ -20878,6 +21221,255 @@
           }
         },
         "summary": "Send Message",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/actions": {
+      "get": {
+        "operationId": "actions_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__actions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceActionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Actions",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/actions/{proposal_id}/decision": {
+      "post": {
+        "operationId": "decide_action_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__actions__proposal_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceActionDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceActionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Action",
         "tags": [
           "operation-workspace"
         ]

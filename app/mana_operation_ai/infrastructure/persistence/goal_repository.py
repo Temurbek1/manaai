@@ -32,7 +32,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2] = 1
+    version: Literal[1, 2, 3] = 1
     goal: OperationGoal
 
 
@@ -64,6 +64,8 @@ def _goal(row: GoalRow) -> OperationGoal:
     if (
         (checkpoint.version == 1 and memory is not None)
         or (checkpoint.version == 2 and memory is None)
+        or (checkpoint.version == 2 and memory is not None and bool(memory.actions))
+        or (checkpoint.version == 3 and (memory is None or not memory.actions))
         or (
             memory is not None
             and (memory.topic_id != goal.topic_id or memory.product != goal.product)
@@ -158,7 +160,12 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=2 if goal.session_memory is not None else 1, goal=goal
+                version=3
+                if goal.session_memory is not None and goal.session_memory.actions
+                else 2
+                if goal.session_memory is not None
+                else 1,
+                goal=goal,
             ).model_dump(
                 mode="json",
                 exclude={"goal": {"session_memory"}} if goal.session_memory is None else {},

@@ -15,6 +15,7 @@ import {
 } from "./GoalWorkspace";
 import { AnalysisButton, AnalysisResult } from "./ChatAnalysis";
 import { ChatApprovals } from "./ChatApprovals";
+import { WorkspaceActions } from "./WorkspaceActions";
 import { ChatMessageDetails } from "./ChatMessageDetails";
 import type {
   ChatViewAvailability as Availability,
@@ -153,6 +154,14 @@ export function ChatPage({
     ? { model_choice: modelChoice, reasoning }
     : {};
   const latestTurn = turns.at(-1);
+  const actionTurns = turns
+    .filter(
+      (turn) =>
+        turn.execution_mode === "agent" &&
+        turn.status === "completed" &&
+        turn.next_action === "approvals",
+    )
+    .slice(-3);
   const progressStream = useWorkspaceStream(
     currentTopicId,
     session.user.user_id,
@@ -478,9 +487,21 @@ export function ChatPage({
                         />
                       )}
                     {turn.next_action === "approvals" &&
-                      turn === latestTurn &&
                       turn.status === "completed" &&
-                      agent.id === "growth-agent" && <ChatApprovals />}
+                      (turn.execution_mode === "agent" &&
+                      currentTopicId &&
+                      availability?.action_reviews_enabled &&
+                      scope === "mana" &&
+                      actionTurns.includes(turn) ? (
+                        <WorkspaceActions
+                          topicId={currentTopicId}
+                          turnId={turn.turn_id}
+                        />
+                      ) : turn.execution_mode === "discussion" &&
+                        turn === latestTurn &&
+                        agent.id === "growth-agent" ? (
+                        <ChatApprovals />
+                      ) : null)}
                     {(turn.status === "completed" ||
                       turn.status === "failed") && (
                       <ChatMessageDetails turn={turn} />

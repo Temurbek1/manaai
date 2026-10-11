@@ -17,6 +17,7 @@ from app.mana_operation_ai.application.ports import (
     IdGenerator,
     OperationRepository,
     ProductAnalyticsPort,
+    ProviderPermanentError,
 )
 from app.mana_operation_ai.application.scheduling import next_cron_occurrence
 from app.mana_operation_ai.domain.enums import (
@@ -59,6 +60,7 @@ from app.mana_operation_ai.domain.models import (
     Recommendation,
 )
 from app.mana_operation_ai.domain.state_machine import RUN_TRANSITIONS, require_transition
+from app.mana_operation_ai.domain.workspace_actions import SANDBOX_MANA_FUNNEL_SCOPE
 
 from .constants import FUNNEL_CAPABILITY_KEY, GROWTH_AGENT_ID
 
@@ -585,10 +587,16 @@ def _normalize(
     attribution: AttributionFacts,
     collected_at: datetime,
 ) -> GrowthFunnelSnapshot:
+    if len({item.product for item in (product, billing, attribution)}) != 1:
+        raise ProviderPermanentError("Funnel sources have different application scopes")
+    if len({item.synthetic for item in (product, billing, attribution)}) != 1:
+        raise ProviderPermanentError("Synthetic and production funnel sources must not be mixed")
     period_start = max(product.period_start, billing.period_start, attribution.period_start)
     period_end = min(product.period_end, billing.period_end, attribution.period_end)
     activated_users = min(product.activated_users, billing.activated_users)
     limitations: list[str] = []
+    if product.synthetic:
+        limitations.append("Synthetic sandbox scenario, not production users or payments.")
     if product.activated_users != billing.activated_users:
         limitations.append(
             "Product and billing activation cohorts differ; the smaller aligned cohort was used.",
@@ -628,7 +636,9 @@ def _evidence_ref(
     ).hexdigest()
     return EvidenceRef(
         source=facts.source,
-        subject_scope="aggregated_account_cohort",
+        subject_scope=SANDBOX_MANA_FUNNEL_SCOPE
+        if facts.synthetic and facts.product.value == "mana"
+        else "aggregated_account_cohort",
         period_start=facts.period_start,
         period_end=facts.period_end,
         collected_at=facts.collected_at,

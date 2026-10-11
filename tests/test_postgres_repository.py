@@ -2,21 +2,27 @@ import asyncio
 import hashlib
 import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
+from pytest import MonkeyPatch
 
+from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.cost_control import CostBudgetExceeded
 from app.mana_operation_ai.application.ports import ConcurrentOperationError
+from app.mana_operation_ai.application.workspace_actions import WorkspaceActionService
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
 from app.mana_operation_ai.domain.chat import MessageCreate, TopicCreate
 from app.mana_operation_ai.domain.cost_control import CostLimits, ProductScope, ResourceUsage
-from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType
+from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType, UserRole
 from app.mana_operation_ai.domain.goals import GoalCommand, GoalCreate
 from app.mana_operation_ai.domain.models import AgentDefinition, AgentRun, AgentSchedule, Analysis
 from app.mana_operation_ai.domain.retention import EngagementAssessment
 from app.mana_operation_ai.domain.shared_data import SourceBinding
+from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionDecision
 from app.mana_operation_ai.infrastructure.persistence.assessment_store import (
     SqlAlchemyEngagementAssessmentStore,
 )
@@ -34,6 +40,9 @@ from app.mana_operation_ai.infrastructure.persistence.repository import (
 )
 from app.mana_operation_ai.infrastructure.persistence.shared_data_store import (
     SqlAlchemySharedDataStore,
+)
+from app.mana_operation_ai.infrastructure.persistence.workspace_actions import (
+    SqlAlchemyWorkspaceActions,
 )
 from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
     SqlAlchemyWorkspaceEvents,
@@ -382,3 +391,73 @@ async def test_postgres_distributed_claims_and_idempotent_run_creation() -> None
     )
     assert len({run.run_id for run in runs}) == 1
     await database.dispose()
+
+
+async def test_postgres_action_intent_fences_independent_connections(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.core.config import get_settings
+    from app.main import create_app
+    from tests.test_operation_agent_workspace import configure_workspace
+    from tests.test_workspace_actions import action_topic, decision, proposals
+
+    assert POSTGRES_URL is not None
+    configure_workspace(monkeypatch, tmp_path / "legacy-only.db")
+    monkeypatch.setenv("OPERATION_DATABASE_URL", POSTGRES_URL)
+    monkeypatch.setenv("OPERATION_DRY_RUN", "false")
+    get_settings.cache_clear()
+    app = create_app()
+    second = OperationDatabase(POSTGRES_URL)
+    try:
+        async with (
+            app.router.lifespan_context(app),
+            AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+        ):
+            await proposals(client)
+            topic, turn = await action_topic(app)
+            first = app.state.operation_workspace_actions
+            other = WorkspaceActionService(
+                admin=app.state.operation_admin_service,
+                chats=app.state.operation_chat_service.repository,
+                store=SqlAlchemyWorkspaceActions(second),
+                clock=first._clock,
+                enabled=True,
+                allow_self_approval=False,
+            )
+            page = await first.page("alice", topic, turn)
+            proposal = page.items[0]
+            payload = WorkspaceActionDecision.model_validate(decision(proposal.model_dump()))
+            outcomes = await asyncio.gather(
+                *[
+                    (first if index % 2 else other).decide(
+                        ActorContext("alice", UserRole.ADMIN),
+                        topic,
+                        turn,
+                        proposal.proposal_id,
+                        payload,
+                    )
+                    for index in range(12)
+                ],
+                return_exceptions=True,
+            )
+            assert any(not isinstance(item, BaseException) for item in outcomes)
+            assert all(
+                not isinstance(item, BaseException)
+                or isinstance(item, ChatError)
+                and item.status == 409
+                for item in outcomes
+            )
+            assert app.state.operation_experiment_platform.dispatch_count == 1
+            observed = await other.page("alice", topic, turn)
+            assert observed.items[0].verification_status == "verified"
+            assert observed.items[0].receipt is not None
+            assert observed.items[0].receipt.state == "resolved"
+            replay = await other.decide(
+                ActorContext("alice", UserRole.ADMIN), topic, turn, proposal.proposal_id, payload
+            )
+            assert replay.verification_status == "verified"
+            assert app.state.operation_experiment_platform.dispatch_count == 1
+    finally:
+        await second.dispose()
+        get_settings.cache_clear()

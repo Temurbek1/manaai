@@ -136,7 +136,7 @@ describe("MarketingPage", () => {
       await screen.findByText(/Best creative today: Family Video/),
     ).toBeInTheDocument();
     expect(screen.getByText("nightly")).toBeInTheDocument();
-    expect(await screen.findByText("partially applied")).toBeInTheDocument();
+    expect(await screen.findByText("Применено частично")).toBeInTheDocument();
     expect(screen.getByText("Ошибка")).toBeInTheDocument();
     expect(screen.getByText("Выполняется")).toBeInTheDocument();
   });
