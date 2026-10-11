@@ -36,6 +36,7 @@ from app.mana_operation_ai.domain.chat import (
     ProductScope,
     TopicCreate,
     TopicDetail,
+    TranscriptPage,
 )
 from app.mana_operation_ai.domain.models import AgentReport
 
@@ -354,9 +355,9 @@ class OperationChatService:
         return topic, turn, admitted
 
     async def analysis_state(self, owner: str, topic_id: str, turn_id: str) -> ChatAnalysisState:
-        detail = await self.detail(owner, topic_id)
-        turn = next((item for item in detail.turns if item.turn_id == turn_id), None)
-        if turn is None or not turn.analysis_requested:
+        topic = await self.repository.topic(owner, topic_id)
+        turn = await self.repository.turn(owner, topic_id, turn_id)
+        if not turn.analysis_requested:
             raise ChatError("Запрос анализа не найден.", 404)
         events, _ = await self._admin.repository.list_audit_events(
             correlation_id=turn.turn_id,
@@ -371,13 +372,12 @@ class OperationChatService:
                 "Не запускайте повторно вслепую; обновите состояние или проверьте журнал.",
             )
         recent_reports, _ = await self._admin.list_reports(
-            agent_id=detail.topic.agent_id, capability_key=run.capability_key, limit=10, offset=0
+            agent_id=topic.agent_id, capability_key=run.capability_key, limit=10, offset=0
         )
         reports = [
             report
             for report in recent_reports
-            if report.run_id == run.run_id
-            and _verified_report_product(report) == detail.topic.product
+            if report.run_id == run.run_id and _verified_report_product(report) == topic.product
         ]
         if run.status.value == "failed" and run.capability_key == PARENTS_CAPABILITY_KEY:
             return ChatAnalysisState(
@@ -401,6 +401,18 @@ class OperationChatService:
                 self._with_read_confirmation(topic, turn)
                 for turn in await self.repository.turns(owner, topic_id)
             ],
+        )
+
+    async def transcript(
+        self, owner: str, topic_id: str, *, before: str | None, limit: int = 20
+    ) -> TranscriptPage:
+        if not self.availability.transcript_pagination_enabled:
+            raise ChatError("Постраничная история пока отключена.", 503)
+        page = await self.repository.transcript_page(owner, topic_id, before=before, limit=limit)
+        return page.model_copy(
+            update={
+                "turns": [self._with_read_confirmation(page.topic, turn) for turn in page.turns]
+            }
         )
 
     def _with_read_confirmation(self, topic: ChatTopic, turn: ChatTurn) -> ChatTurn:
@@ -470,7 +482,9 @@ class OperationChatService:
                 )
                 if not await self.repository.update(turn):
                     return await self._read_turn(owner, topic_id, turn.turn_id)
-                history = await self.repository.turns(owner, topic_id)
+                history = await self.repository.recent_conversation(
+                    owner, topic_id, before=turn.created_at
+                )
                 allowed_actions = allowed_chat_next_actions(
                     agent_id=topic.agent_id,
                     product=topic.product,
@@ -507,7 +521,7 @@ class OperationChatService:
                             ),
                             "history": [
                                 {"user": item.message, "assistant": item.answer}
-                                for item in history
+                                for item in history.turns
                                 if item.status == "completed"
                             ][-6:],
                             "saved_reports": [
@@ -537,9 +551,7 @@ class OperationChatService:
                                 "model_choice": payload.model_choice,
                                 "reasoning": payload.reasoning,
                             },
-                            "older_turns_omitted": max(
-                                0, len([item for item in history if item.status == "completed"]) - 6
-                            ),
+                            "older_turns_omitted": history.older_turns_omitted,
                             "report_text_shortened": any(
                                 len(report.human_readable) > 4000
                                 or len(report.data_quality_notes) > 10
@@ -617,8 +629,9 @@ class OperationChatService:
         return await self._read_turn(owner, topic_id, turn.turn_id)
 
     async def _read_turn(self, owner: str, topic_id: str, turn_id: str) -> ChatTurn:
-        return next(
-            item for item in (await self.detail(owner, topic_id)).turns if item.turn_id == turn_id
+        topic = await self.repository.topic(owner, topic_id)
+        return self._with_read_confirmation(
+            topic, await self.repository.turn(owner, topic_id, turn_id)
         )
 
 

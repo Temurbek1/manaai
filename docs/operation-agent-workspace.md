@@ -479,6 +479,58 @@ contract remain required. This checkpoint does not close that gap or the full ob
 No push/deployment was retried: the recorded GitHub write-access and scoped-release approval
 blockers remain. The independent API/audio, SSH, source settings/schedules and keys are untouched.
 
+### Long-topic transcript checkpoint, 2026-10-12
+
+Native workspace history now uses owner/topic-bound cursor pages at
+`GET /workspace/topics/{topic_id}/messages` (default 20, maximum 30). Opening a
+page performs SQL reads only: no expiration rewrite, provider call, new Goal,
+source read, consent grant or cost settlement. Queries project public fields
+without loading repeated private `session_memory`; the compatibility detail
+window also projects only the latest 100 turns. An additive composite SQL index
+(`a36d9f7b802c`) supports owner/topic/time/UUID keyset ordering, including timestamp ties.
+The new UI requires the advertised paged API, rejects foreign-topic pages and
+does not silently switch to legacy history on a failed page. Older deployments
+without the advertisement keep their existing reader. Earlier messages load on
+upward scroll with position preservation; a small earlier-history control is
+available only when more messages exist. Reload starts at the latest 20 turns.
+Client cache keys include the authenticated owner, and cursor requests stay in
+the selected topic.
+
+`OPERATION_WORKSPACE_TRANSCRIPT_ENABLED=true` is gated by the still-opt-in
+`OPERATION_AGENT_WORKSPACE_ENABLED`. When both are enabled,
+`OPERATION_WORKSPACE_TOPIC_MESSAGE_LIMIT=1000` replaces the old 100-turn admission
+cap; allowed explicit capacity is 100–10000. Legacy/disabled-pagination paths
+retain 100, and shared hourly/daily/model/source budgets are unchanged. Addressed
+replay, stop, analysis status and action reviews use exact owned-turn lookup,
+not a search in a truncated display window. Recent dialogue is the last six
+completed turns with an exact older-turn count; original user messages stream
+from SQL into frozen context regardless of transcript pagination. Existing
+exact deduplication/400-unique-quote/byte guards still apply before a paid call.
+This is not semantic compaction, unlimited model context or permission to forget
+early user constraints. Native automatic compaction/retrieval remains unfinished.
+
+Final local gates: `make verify` passed with **772 backend tests** (nine PostgreSQL
+skips here, two live suites excluded), **122 UI tests**, mypy 299 files, Python/TS
+checks, lint/format, Next production build and zero npm vulnerabilities. PostgreSQL
+17 migration round-trip/drift and **nine** integration cases passed separately.
+Native private-browser verification covered all 110 synthetic turns, anchored
+upward paging, zero history POSTs, the 111th reply with the original condition,
+111 unique rendered turns after head refresh and latest-page reload; legacy
+browser/Goals/approvals and WCAG checks also passed. Networkless current runtime
+HTTP/SQL smoke, actual `2ea7b9a`/new-image rollback/pause, standalone UI smoke,
+bundle/secret scan, OpenAPI synchronization and whitespace checks passed.
+Earlier harness failures (incorrect bootstrap-owner fixture, repeated browser
+global declarations and shared-test active admission) were fixed and the full
+relevant checks repeated. No paid model or external data request was made: test
+provider/source cost **$0**. Logs live under `/tmp/manaai-transcript-*`, ignored
+screenshots under `output/transcript-20261012/`; runtime image
+`mana-ai-operation:transcript-local-20261012` is local/unpublished only.
+
+This checkpoint is local only. Production activation, GitHub publication,
+deployed private-browser acceptance and the other full-goal obligations remain
+open; no Firebase/GA4 reads, new schedules, independent API/audio changes, SSH
+changes or credential edits are part of it.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:

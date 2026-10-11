@@ -117,6 +117,8 @@ class Settings(BaseSettings):
     operation_agent_workspace_enabled: bool = False
     operation_workspace_events_enabled: bool = True
     operation_workspace_actions_enabled: bool = True
+    operation_workspace_transcript_enabled: bool = True
+    operation_workspace_topic_message_limit: int = Field(default=1000, ge=100, le=10000)
     operation_workspace_event_poll_seconds: float = Field(default=1.0, ge=0.5, le=10)
     operation_workspace_stream_seconds: float = Field(default=45.0, ge=15, le=120)
     operation_workspace_stream_max_connections: int = Field(default=32, ge=1, le=128)

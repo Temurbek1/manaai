@@ -38,11 +38,9 @@ class OperationWorkspaceService:
         if len(request.message) < 10:
             return WorkspaceTurn(turn=turn)
         # Capture the handoff's bounded context, not messages arriving after it.
-        history = [
-            item
-            for item in await self._chats.repository.turns(owner, topic_id)
-            if item.status == "completed" and item.created_at < turn.created_at
-        ]
+        history = await self._chats.repository.recent_conversation(
+            owner, topic_id, before=turn.created_at
+        )
         # A lost handoff response never causes a second model call or duplicate goal.
         goal = await self._goals.create(
             owner,
@@ -59,9 +57,9 @@ class OperationWorkspaceService:
                         assistant=item.answer[:1000],
                         assistant_shortened=len(item.answer) > 1000,
                     )
-                    for item in history[-6:]
+                    for item in history.turns
                 ],
-                older_turns_omitted=max(0, len(history) - 6),
+                older_turns_omitted=history.older_turns_omitted,
                 max_steps=self._goals.availability.max_steps,
                 budget_microusd=self._goals.availability.budget_microusd,
             ),

@@ -68,12 +68,7 @@ class WorkspaceActionService:
             "operations-orchestrator",
         ):
             raise ChatError("Для этой темы нет подключённых исполнителей.", 403)
-        turn = next(
-            (item for item in await self._chats.turns(owner, topic_id) if item.turn_id == turn_id),
-            None,
-        )
-        if turn is None:
-            raise ChatError("Сообщение не найдено.", 404)
+        turn = await self._chats.turn(owner, topic_id, turn_id)
         if (
             turn.execution_mode != "agent"
             or turn.status != "completed"

@@ -255,11 +255,33 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser reload >/dev/null
   browser wait --fn 'document.querySelector(".goal-workspace h2")?.textContent.includes("Прошлая рабочая цель") && document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
   assert_accessible
+  # Existing topics beyond the old 100-turn boundary remain readable and usable.
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator/topic/00000000-0000-4000-8000-000000000110" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Исторический ответ 110")' >/dev/null
+  assert_browser 'document.querySelectorAll(".chat-turn").length === 20' 'long topic loaded an unbounded transcript'
+  browser eval '(() => { window.__historyPosts = 0; const original = window.fetch.bind(window); window.fetch = (...args) => { if (args[1]?.method === "POST") window.__historyPosts++; return original(...args); }; const transcript = document.querySelector(".chat-transcript"); transcript.scrollTop = 0; transcript.dispatchEvent(new Event("scroll")); return "read earlier"; })()' >/dev/null
+  browser wait --fn 'document.querySelectorAll(".chat-turn").length === 40' >/dev/null
+  assert_browser '(() => { const transcript = document.querySelector(".chat-transcript"); return transcript.scrollTop > 0 && transcript.scrollHeight - transcript.clientHeight - transcript.scrollTop > 100; })()' 'older-page prepend jumped to the newest reply'
+  for _ in $(seq 1 4); do
+    browser eval '(() => { const transcript = document.querySelector(".chat-transcript"); transcript.scrollTop = 0; transcript.dispatchEvent(new Event("scroll")); return "earlier page"; })()' >/dev/null
+    browser wait --load networkidle >/dev/null
+  done
+  browser wait --fn 'document.body.innerText.includes("Исторический ответ 1")' >/dev/null
+  assert_browser 'document.querySelectorAll(".chat-turn").length === 110 && window.__historyPosts === 0' 'history omitted messages or initiated model/source work'
+  assert_accessible
+  browser find label "Сообщение агенту" fill 'Проверь первое условие длинной темы' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Первое условие сохранено полностью")' >/dev/null
+  assert_browser 'document.querySelectorAll(".chat-turn").length === 111' 'head refresh left a gap or duplicate across old-page boundaries'
+  browser reload >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Первое условие сохранено полностью")' >/dev/null
+  assert_browser 'document.querySelectorAll(".chat-turn").length === 20' 'reload lost the newest result or eagerly loaded the full transcript'
+  assert_accessible
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, owner isolation, CSRF and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, 110-turn history paging/position/frozen constraints/reload, owner isolation, CSRF and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'

@@ -601,6 +601,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         operation_database,
         hourly_limit=settings.operation_chat_hourly_limit,
         daily_limit=settings.operation_chat_daily_limit,
+        topic_message_limit=(
+            settings.operation_workspace_topic_message_limit
+            if settings.operation_agent_workspace_enabled
+            and settings.operation_workspace_transcript_enabled
+            else 100
+        ),
     )
     await chat_repository.initialize()
     events_enabled = (
@@ -650,6 +656,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             parent_summary_enabled=settings.manakids_parent_source_enabled,
             model_selection_enabled=settings.operation_model_selection_enabled,
             action_reviews_enabled=actions_enabled,
+            transcript_pagination_enabled=(
+                settings.operation_agent_workspace_enabled
+                and settings.operation_workspace_transcript_enabled
+            ),
             agent_workspace_enabled=(
                 settings.operation_agent_workspace_enabled and settings.operation_goals_enabled
             ),

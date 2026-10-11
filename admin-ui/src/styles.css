@@ -374,6 +374,24 @@
   scroll-padding-block: 24px;
   padding: 28px max(24px, calc((100% - 800px) / 2));
 }
+
+.chat-history-control {
+  margin: 0 auto 1rem;
+  text-align: center;
+}
+
+.chat-history-control button {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.5rem;
+}
+
+.chat-history-control button:disabled {
+  cursor: wait;
+}
 .chat-page-new .chat-transcript {
   display: flex;
   flex-direction: column;

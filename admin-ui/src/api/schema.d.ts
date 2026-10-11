@@ -921,7 +921,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Transcript */
+        get: operations["transcript_api_v1_admin_operation_workspace_topics__topic_id__messages_get"];
         put?: never;
         /** Send Message */
         post: operations["send_message_api_v1_admin_operation_workspace_topics__topic_id__messages_post"];
@@ -3258,6 +3259,11 @@ export interface components {
              * @default false
              */
             parent_summary_enabled: boolean;
+            /**
+             * Transcript Pagination Enabled
+             * @default false
+             */
+            transcript_pagination_enabled: boolean;
         };
         /**
          * ChatReadConfirmation
@@ -7101,6 +7107,16 @@ export interface components {
             /** Turns */
             turns: components["schemas"]["ChatTurn"][];
         };
+        /** TranscriptPage */
+        TranscriptPage: {
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor?: string | null;
+            topic: components["schemas"]["ChatTopic"];
+            /** Turns */
+            turns: components["schemas"]["ChatTurn"][];
+        };
         /**
          * TriggerType
          * @enum {string}
@@ -9359,6 +9375,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceEventPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transcript_api_v1_admin_operation_workspace_topics__topic_id__messages_get: {
+        parameters: {
+            query?: {
+                before?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptPage"];
                 };
             };
             /** @description Validation Error */

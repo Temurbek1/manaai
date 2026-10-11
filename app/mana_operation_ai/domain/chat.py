@@ -92,6 +92,18 @@ class TopicDetail(ChatModel):
     turns: list[ChatTurn]
 
 
+class TranscriptPage(ChatModel):
+    topic: ChatTopic
+    turns: list[ChatTurn] = Field(max_length=30)
+    next_cursor: str | None = None
+    has_more: bool
+
+
+class RecentConversation(ChatModel):
+    turns: list[ChatTurn] = Field(max_length=6)
+    older_turns_omitted: int = Field(ge=0)
+
+
 class ChatReply(ChatModel):
     answer: str
     plan: list[str]
@@ -106,6 +118,7 @@ class ChatAvailability(ChatModel):
     model_selection_enabled: bool = False
     agent_workspace_enabled: bool = False
     action_reviews_enabled: bool = False
+    transcript_pagination_enabled: bool = False
 
 
 class AnalysisRequest(ChatModel):

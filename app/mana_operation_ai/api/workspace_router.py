@@ -3,13 +3,14 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app.mana_operation_ai.api.chat_router import ChatDep
 from app.mana_operation_ai.api.security import ActorDep, require_role
 from app.mana_operation_ai.api.workspace_stream import workspace_stream_response
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.workspace_actions import WorkspaceActionService
 from app.mana_operation_ai.application.workspace_events import WorkspaceEventService
 from app.mana_operation_ai.application.workspace_service import OperationWorkspaceService
-from app.mana_operation_ai.domain.chat import MessageCreate
+from app.mana_operation_ai.domain.chat import MessageCreate, TranscriptPage
 from app.mana_operation_ai.domain.enums import UserRole
 from app.mana_operation_ai.domain.workspace import WorkspaceTurn
 from app.mana_operation_ai.domain.workspace_actions import (
@@ -26,6 +27,21 @@ def get_workspace(request: Request) -> OperationWorkspaceService:
 
 WorkspaceDep = Annotated[OperationWorkspaceService, Depends(get_workspace)]
 router = APIRouter()
+
+
+@router.get("/topics/{topic_id}/messages", response_model=TranscriptPage)
+async def transcript(
+    topic_id: str,
+    service: ChatDep,
+    actor: ActorDep,
+    before: Annotated[str | None, Query(min_length=1, max_length=36)] = None,
+    limit: Annotated[int, Query(ge=1, le=30)] = 20,
+) -> TranscriptPage:
+    require_role(actor, UserRole.VIEWER)
+    try:
+        return await service.transcript(actor.actor_id, topic_id, before=before, limit=limit)
+    except ChatError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
 
 
 def get_events(request: Request) -> WorkspaceEventService:

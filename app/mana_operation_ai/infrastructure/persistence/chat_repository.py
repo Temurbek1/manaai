@@ -1,12 +1,22 @@
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mana_operation_ai.application.chat_ports import ChatError
-from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn, MessageCreate, TopicCreate
+from app.mana_operation_ai.domain.chat import (
+    ChatTopic,
+    ChatTurn,
+    MessageCreate,
+    RecentConversation,
+    TopicCreate,
+    TranscriptPage,
+)
+from app.mana_operation_ai.domain.session import SessionUserContext
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import (
     ChatBudgetRow,
@@ -73,10 +83,20 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
 
 
 class SqlAlchemyChatRepository:
-    def __init__(self, database: OperationDatabase, *, hourly_limit: int, daily_limit: int) -> None:
+    def __init__(
+        self,
+        database: OperationDatabase,
+        *,
+        hourly_limit: int,
+        daily_limit: int,
+        topic_message_limit: int = 100,
+    ) -> None:
+        if not 100 <= topic_message_limit <= 10000:
+            raise ValueError("Topic message capacity must be between 100 and 10000")
         self._sessions = database.session_factory
         self._hourly_limit = hourly_limit
         self._daily_limit = daily_limit
+        self._topic_message_limit = topic_message_limit
 
     async def initialize(self) -> None:
         # Migration seeds production. This also supports isolated create_schema test databases.
@@ -139,13 +159,140 @@ class SqlAlchemyChatRepository:
         async with self._sessions() as session, session.begin():
             await self._owned(session, owner, topic_id)
             await self._expire(session)
-            rows = await session.scalars(
-                select(ChatTurnRow)
-                .where(ChatTurnRow.topic_id == topic_id, ChatTurnRow.owner == owner)
-                .order_by(ChatTurnRow.created_at, ChatTurnRow.turn_id)
-                .limit(100)
+            rows = (
+                await session.execute(
+                    select(*self._public_columns())
+                    .where(ChatTurnRow.topic_id == topic_id, ChatTurnRow.owner == owner)
+                    .order_by(ChatTurnRow.created_at.desc(), ChatTurnRow.turn_id.desc())
+                    .limit(100)
+                )
+            ).all()
+            return list(reversed([self._public_turn(row) for row in rows]))
+
+    async def turn(self, owner: str, topic_id: str, turn_id: str) -> ChatTurn:
+        async with self._sessions() as session:
+            await self._owned(session, owner, topic_id)
+            row = await session.scalar(
+                select(ChatTurnRow).where(
+                    ChatTurnRow.owner == owner,
+                    ChatTurnRow.topic_id == topic_id,
+                    ChatTurnRow.turn_id == turn_id,
+                )
             )
-            return [_turn(row) for row in rows]
+            if row is None:
+                raise ChatError("Сообщение не найдено.", 404)
+            return _turn(row)
+
+    @staticmethod
+    def _public_columns() -> tuple[Any, ...]:
+        # Do not fetch/decode repeated private session-memory blobs for a history page.
+        return (
+            ChatTurnRow.payload,
+            ChatTurnRow.context_metadata,
+            ChatTurnRow.workspace_metadata["execution_mode"].as_string(),
+            ChatTurnRow.workspace_metadata["next_action"].as_string(),
+        )
+
+    @staticmethod
+    def _public_turn(row: Any) -> ChatTurn:
+        payload, metadata, mode, action = row
+        return ChatTurn.model_validate(
+            {
+                **payload,
+                **(metadata or {}),
+                **({"execution_mode": mode} if mode is not None else {}),
+                **({"next_action": action} if action is not None else {}),
+                "session_memory": None,
+            }
+        )
+
+    async def transcript_page(
+        self, owner: str, topic_id: str, *, before: str | None, limit: int = 20
+    ) -> TranscriptPage:
+        if not 1 <= limit <= 30:
+            raise ChatError("Размер страницы должен быть от 1 до 30.", 422)
+        async with self._sessions() as session:
+            topic = ChatTopic.model_validate((await self._owned(session, owner, topic_id)).payload)
+            conditions = [ChatTurnRow.owner == owner, ChatTurnRow.topic_id == topic_id]
+            if before is not None:
+                anchor = await session.execute(
+                    select(ChatTurnRow.created_at, ChatTurnRow.turn_id).where(
+                        ChatTurnRow.owner == owner,
+                        ChatTurnRow.topic_id == topic_id,
+                        ChatTurnRow.turn_id == before,
+                    )
+                )
+                point = anchor.one_or_none()
+                if point is None:
+                    raise ChatError("Курсор истории недоступен в этой теме.", 404)
+                conditions.append(
+                    or_(
+                        ChatTurnRow.created_at < point[0],
+                        and_(ChatTurnRow.created_at == point[0], ChatTurnRow.turn_id < point[1]),
+                    )
+                )
+            rows = list(
+                (
+                    await session.execute(
+                        select(*self._public_columns())
+                        .where(*conditions)
+                        .order_by(ChatTurnRow.created_at.desc(), ChatTurnRow.turn_id.desc())
+                        .limit(limit + 1)
+                    )
+                ).all()
+            )
+            turns = list(reversed([self._public_turn(row) for row in rows[:limit]]))
+            return TranscriptPage(
+                topic=topic,
+                turns=turns,
+                has_more=len(rows) > limit,
+                next_cursor=turns[0].turn_id if len(rows) > limit else None,
+            )
+
+    async def recent_conversation(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> RecentConversation:
+        async with self._sessions() as session:
+            await self._owned(session, owner, topic_id)
+            conditions = [
+                ChatTurnRow.owner == owner,
+                ChatTurnRow.topic_id == topic_id,
+                ChatTurnRow.status == "completed",
+                ChatTurnRow.created_at < before,
+            ]
+            rows = (
+                await session.execute(
+                    select(*self._public_columns())
+                    .where(*conditions)
+                    .order_by(ChatTurnRow.created_at.desc(), ChatTurnRow.turn_id.desc())
+                    .limit(6)
+                )
+            ).all()
+            count = await session.scalar(
+                select(func.count()).select_from(ChatTurnRow).where(*conditions)
+            )
+            return RecentConversation(
+                turns=list(reversed([self._public_turn(row) for row in rows])),
+                older_turns_omitted=max(0, (count or 0) - 6),
+            )
+
+    async def user_context(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> AsyncGenerator[SessionUserContext, None]:
+        async with self._sessions() as session:
+            await self._owned(session, owner, topic_id)
+            stream = await session.stream(
+                select(ChatTurnRow.turn_id, ChatTurnRow.payload["message"].as_string())
+                .where(
+                    ChatTurnRow.owner == owner,
+                    ChatTurnRow.topic_id == topic_id,
+                    ChatTurnRow.created_at < before,
+                )
+                .order_by(ChatTurnRow.created_at, ChatTurnRow.turn_id)
+                .execution_options(yield_per=50)
+            )
+            async for row in stream:
+                yield SessionUserContext(kind="user_message", text=row[1], origin_id=row[0])
 
     async def _lock_budget(self, session: AsyncSession) -> None:
         # A real write serializes admission on PostgreSQL AND SQLite, across API processes.
@@ -229,8 +376,10 @@ class SqlAlchemyChatRepository:
                 .select_from(ChatTurnRow)
                 .where(ChatTurnRow.topic_id == topic_id)
             )
-            if (count or 0) >= 100:
-                raise ChatError("В теме уже 100 сообщений. Создайте новую тему.", 429)
+            if (count or 0) >= self._topic_message_limit:
+                raise ChatError(
+                    f"Достигнут лимит темы: {self._topic_message_limit} сообщений.", 429
+                )
             turn = ChatTurn(
                 turn_id=str(uuid4()),
                 topic_id=topic_id,
@@ -293,4 +442,4 @@ class SqlAlchemyChatRepository:
                 }
             )
             await self.update(turn)
-        return next(item for item in await self.turns(owner, topic_id) if item.turn_id == turn_id)
+        return await self.turn(owner, topic_id, turn_id)

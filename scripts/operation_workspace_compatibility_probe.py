@@ -217,10 +217,12 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 turns = await chats.turns(OWNER, topic.topic_id)
                 assert len(turns) == 1
                 assert turns[0].next_action == "start_goal" and turns[0].execution_mode == "agent"
-                assert turns[0].session_memory is not None and goal.session_memory is not None
+                assert turns[0].session_memory is None
+                original = await chats.turn(OWNER, topic.topic_id, turns[0].turn_id)
+                assert original.session_memory is not None and goal.session_memory is not None
                 assert bool(goal.session_memory.actions) is (topic.title == "Native queued")
-                assert turns[0].session_memory.actions == goal.session_memory.actions
-                assert turns[0].session_memory.user_context[0].text == "Do not contact clients."
+                assert original.session_memory.actions == goal.session_memory.actions
+                assert original.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.status == ("paused" if paused else "running" if lost else "queued")
                 assert goal.request.execution_mode == "agent"

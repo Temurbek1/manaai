@@ -4,8 +4,10 @@ import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import timedelta
+from uuid import uuid4
 
 from fastapi import FastAPI
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.main import create_app as create_real_app
@@ -16,10 +18,20 @@ from app.mana_operation_ai.application.goal_service import GoalWorker
 from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABILITY_KEY
 from app.mana_operation_ai.application.runtime import SystemClock
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
+from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
 from app.mana_operation_ai.domain.goals import GoalDecision, GoalTask
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
+from app.mana_operation_ai.infrastructure.persistence.chat_repository import _storage
+from app.mana_operation_ai.infrastructure.persistence.models import (
+    AdminUserRow,
+    ChatTopicRow,
+    ChatTurnRow,
+)
 from app.mana_operation_ai.infrastructure.retention.parents import FakeParentSummaryAdapter
+
+LONG_TOPIC = "00000000-0000-4000-8000-000000000110"
+LONG_CONSTRAINT = "Не смешивай родителей и детей; не запускай повторный сбор данных."
 
 
 class BrowserConversationFake:
@@ -27,6 +39,17 @@ class BrowserConversationFake:
         payload = json.loads(context)
         message = str(payload.get("message", ""))
         agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
+        if message == "Проверь первое условие длинной темы":
+            memory = payload.get("session_memory")
+            assert memory and memory["user_context"][0]["text"] == LONG_CONSTRAINT
+            assert payload["older_turns_omitted"] == 104
+            return ChatTurnOutput(
+                "Первое условие сохранено полностью: " + LONG_CONSTRAINT,
+                "browser-fake",
+                10,
+                20,
+                next_action="none",
+            )
         if message == "Покажи предложения экспериментов":
             assert "approvals" in payload["allowed_next_actions"]
             return ChatTurnOutput(
@@ -170,6 +193,53 @@ def create_app() -> FastAPI:
             observed = now - timedelta(hours=8)
             repository = application.state.operation_repository
             if settings.operation_agent_workspace_enabled:
+                database = application.state.operation_database
+                topic = ChatTopic(
+                    topic_id=LONG_TOPIC,
+                    agent_id="operations-orchestrator",
+                    product="mana",
+                    title="Длинная история",
+                    created_at=observed,
+                    updated_at=observed,
+                )
+                async with database.session_factory() as session, session.begin():
+                    owner = await session.scalar(
+                        select(AdminUserRow.user_id).where(AdminUserRow.telegram_id == 976835256)
+                    )
+                    assert owner is not None
+                    if await session.get(ChatTopicRow, LONG_TOPIC) is None:
+                        session.add(
+                            ChatTopicRow(
+                                topic_id=LONG_TOPIC,
+                                owner=owner,
+                                updated_at=observed,
+                                payload=topic.model_dump(mode="json"),
+                            )
+                        )
+                        await session.flush()
+                        for index in range(110):
+                            turn = ChatTurn(
+                                turn_id=str(uuid4()),
+                                topic_id=LONG_TOPIC,
+                                request_id=uuid4(),
+                                message=LONG_CONSTRAINT
+                                if index == 0
+                                else "Продолжай с исходными условиями.",
+                                answer=f"Исторический ответ {index + 1}",
+                                status="completed",
+                                created_at=observed + timedelta(seconds=index),
+                            )
+                            session.add(
+                                ChatTurnRow(
+                                    turn_id=turn.turn_id,
+                                    topic_id=LONG_TOPIC,
+                                    owner=owner,
+                                    request_id=str(turn.request_id),
+                                    status=turn.status,
+                                    created_at=turn.created_at,
+                                    **_storage(turn),
+                                )
+                            )
                 admin = application.state.operation_admin_service
                 configuration = await repository.latest_configuration(
                     "growth-agent", "growth.funnel.analyze"

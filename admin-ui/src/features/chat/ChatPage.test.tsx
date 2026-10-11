@@ -64,6 +64,117 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it("pages earlier history without model calls, duplicate turns or jumping to the end", async () => {
+    const gets: string[] = [];
+    const posts: string[] = [];
+    const scroll = jest.fn<() => void>();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    const savedTurn = (index: number) => ({
+      ...turn,
+      turn_id: `turn-${String(index).padStart(3, "0")}`,
+      message: `Saved question ${index}`,
+      answer: `Saved answer ${index}`,
+    });
+    try {
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") posts.push(url);
+        else gets.push(url);
+        if (url.endsWith("/availability"))
+          return response({
+            enabled: true,
+            transcript_pagination_enabled: true,
+          });
+        if (url.includes("/goals/topics/")) return response([]);
+        if (url.endsWith("/messages?limit=20"))
+          return response({
+            topic,
+            turns: Array.from({ length: 20 }, (_, index) =>
+              savedTurn(index + 91),
+            ),
+            has_more: true,
+            next_cursor: "turn-091",
+          });
+        if (url.endsWith("&before=turn-091"))
+          return response({
+            topic,
+            turns: Array.from({ length: 20 }, (_, index) =>
+              savedTurn(index + 71),
+            ),
+            has_more: false,
+            next_cursor: null,
+          });
+        return response([]);
+      });
+      renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+      expect(await screen.findByText("Saved answer 110")).toBeVisible();
+      await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+      fireEvent.click(screen.getByRole("button", { name: "Ранние сообщения" }));
+      expect(await screen.findByText("Saved answer 71")).toBeVisible();
+      expect(screen.getAllByLabelText("Ваше сообщение")).toHaveLength(40);
+      expect(screen.getAllByText("Saved answer 110")).toHaveLength(1);
+      expect(scroll).toHaveBeenCalledTimes(1);
+      expect(
+        screen.queryByRole("button", { name: "Ранние сообщения" }),
+      ).not.toBeInTheDocument();
+      expect(gets.some((url) => url.endsWith("/chat/topics/topic-1"))).toBe(
+        false,
+      );
+      expect(posts).toHaveLength(0);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+
+  it.each([403, 503])(
+    "does not silently fall back when the advertised history API returns %s",
+    async (status) => {
+      const urls: string[] = [];
+      jest.spyOn(globalThis, "fetch").mockImplementation((input) => {
+        const url = requestUrl(input);
+        urls.push(url);
+        if (url.endsWith("/availability"))
+          return response({
+            enabled: true,
+            transcript_pagination_enabled: true,
+          });
+        if (url.includes("/goals/topics/")) return response([]);
+        if (url.includes("/workspace/topics/"))
+          return response({ detail: "История пока недоступна" }, status);
+        return response({ topic, turns: [turn] });
+      });
+      renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+      expect(
+        await screen.findByText("Не удалось загрузить переписку."),
+      ).toBeVisible();
+      expect(screen.queryByText(turn.answer)).not.toBeInTheDocument();
+      expect(urls.some((url) => url.endsWith("/chat/topics/topic-1"))).toBe(
+        false,
+      );
+    },
+  );
+
+  it("rejects a history page from a different topic", async () => {
+    jest.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/availability"))
+        return response({ enabled: true, transcript_pagination_enabled: true });
+      if (url.includes("/goals/topics/")) return response([]);
+      return response({
+        topic: { ...topic, topic_id: "foreign" },
+        turns: [turn],
+        has_more: false,
+        next_cursor: null,
+      });
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    expect(
+      await screen.findByText("Не удалось загрузить переписку."),
+    ).toBeVisible();
+    expect(screen.queryByText(turn.answer)).not.toBeInTheDocument();
+  });
+
   it("opens saved history at the latest result without scrolling on every edit", async () => {
     const scroll = jest.fn<() => void>();
     const original = HTMLElement.prototype.scrollIntoView;

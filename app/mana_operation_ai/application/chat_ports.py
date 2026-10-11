@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Protocol
 
@@ -8,9 +9,11 @@ from app.mana_operation_ai.domain.chat import (
     ChatTopic,
     ChatTurn,
     MessageCreate,
+    RecentConversation,
     TopicCreate,
+    TranscriptPage,
 )
-from app.mana_operation_ai.domain.session import SessionMemory
+from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
 
 
 class ChatError(Exception):
@@ -42,6 +45,20 @@ class ChatRepository(Protocol):
     async def topic(self, owner: str, topic_id: str) -> ChatTopic: ...
 
     async def turns(self, owner: str, topic_id: str) -> list[ChatTurn]: ...
+
+    async def turn(self, owner: str, topic_id: str, turn_id: str) -> ChatTurn: ...
+
+    async def transcript_page(
+        self, owner: str, topic_id: str, *, before: str | None, limit: int = 20
+    ) -> TranscriptPage: ...
+
+    async def recent_conversation(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> RecentConversation: ...
+
+    def user_context(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> AsyncGenerator[SessionUserContext, None]: ...
 
     async def reserve(
         self, owner: str, topic_id: str, payload: MessageCreate

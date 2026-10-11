@@ -30,6 +30,10 @@ export type ChatViewDetail = Omit<
   turns: ChatViewTurn[];
 };
 
-export type ChatViewAvailability = components["schemas"]["ChatAvailability"] & {
+export type ChatViewAvailability = Omit<
+  components["schemas"]["ChatAvailability"],
+  "transcript_pagination_enabled"
+> & {
+  transcript_pagination_enabled?: boolean;
   parent_summary_enabled?: boolean;
 };

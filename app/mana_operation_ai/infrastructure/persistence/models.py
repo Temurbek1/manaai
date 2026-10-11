@@ -90,7 +90,10 @@ class ChatTopicRow(Base):
 
 class ChatTurnRow(Base):
     __tablename__ = "operation_chat_turns"
-    __table_args__ = (UniqueConstraint("topic_id", "request_id", name="uq_chat_request"),)
+    __table_args__ = (
+        UniqueConstraint("topic_id", "request_id", name="uq_chat_request"),
+        Index("idx_chat_transcript_owner_topic_time", "owner", "topic_id", "created_at", "turn_id"),
+    )
 
     turn_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"), index=True)

@@ -1,5 +1,6 @@
 """Reconstruct topic-owned continuation from SQL history, without source/provider reads."""
 
+from contextlib import aclosing
 from datetime import datetime
 from typing import cast
 
@@ -48,9 +49,11 @@ class OperationSessionContext:
             if len(records) > 400:
                 raise SessionContextTooLarge()
 
-        for turn in await self._chats.turns(owner, topic_id):
-            if turn.created_at < before:
-                add("user_message", turn.message, turn.turn_id)
+        async with aclosing(
+            self._chats.user_context(owner, topic_id, before=before)
+        ) as records_stream:
+            async for record in records_stream:
+                add(record.kind, record.text, record.origin_id)
         for goal in goals:
             if goal.session_memory is not None:
                 memory = goal.session_memory

@@ -57,6 +57,47 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+async def test_postgres_native_transcript_pages_and_frozen_constraints() -> None:
+    from datetime import UTC, datetime
+
+    from app.mana_operation_ai.application.chat_ports import ChatError
+    from tests.test_chat_transcript import FIRST, seed_transcript
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    chats = SqlAlchemyChatRepository(
+        database, hourly_limit=20, daily_limit=200, topic_message_limit=1000
+    )
+    await chats.initialize()
+    try:
+        topic = await chats.create(
+            "alice", TopicCreate(agent_id="operations-orchestrator", product="mana", title="Pages")
+        )
+        saved = await seed_transcript(database, topic)
+        observed: list[str] = []
+        cursor = None
+        while True:
+            page = await chats.transcript_page("alice", topic.topic_id, before=cursor, limit=17)
+            observed[0:0] = [turn.turn_id for turn in page.turns]
+            assert all(turn.session_memory is None for turn in page.turns)
+            cursor = page.next_cursor
+            if not page.has_more:
+                break
+        assert observed == [turn.turn_id for turn in saved]
+        cutoff = datetime(2021, 1, 1, tzinfo=UTC)
+        context = [
+            record async for record in chats.user_context("alice", topic.topic_id, before=cutoff)
+        ]
+        assert len(context) == 110 and context[0].text == FIRST
+        recent = await chats.recent_conversation("alice", topic.topic_id, before=cutoff)
+        assert len(recent.turns) == 6 and recent.older_turns_omitted == 104
+        with pytest.raises(ChatError):
+            await chats.transcript_page("foreign-owner", topic.topic_id, before=None)
+        assert (await chats.turn("alice", topic.topic_id, saved[0].turn_id)).message == FIRST
+    finally:
+        await database.dispose()
+
+
 async def test_postgres_saved_task_paging_literal_search_and_scope() -> None:
     assert POSTGRES_URL is not None
     database = OperationDatabase(POSTGRES_URL)

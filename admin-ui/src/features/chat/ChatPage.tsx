@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
-import { apiGet, apiPost } from "@/api/client";
+import { apiPost } from "@/api/client";
 import type { components } from "@/api/schema";
 import { QueryState } from "@/components/QueryState";
 import { hasRole, useSession } from "@/auth/SessionContext";
@@ -17,12 +17,10 @@ import { AnalysisButton, AnalysisResult } from "./ChatAnalysis";
 import { ChatApprovals } from "./ChatApprovals";
 import { WorkspaceActions } from "./WorkspaceActions";
 import { ChatMessageDetails } from "./ChatMessageDetails";
-import type {
-  ChatViewAvailability as Availability,
-  ChatViewDetail as Detail,
-} from "./contracts";
+import type { ChatViewAvailability as Availability } from "./contracts";
 import { CHAT_AGENTS, CHAT_BASE, type ChatAgentId } from "./agents";
 import { useWorkspaceStream } from "./useWorkspaceStream";
+import { useChatTranscript } from "./useChatTranscript";
 
 type Topic = components["schemas"]["ChatTopic"];
 type ModelChoice = "auto" | "gpt-5.4-mini" | "gpt-6.1-sol" | "gpt-6-astra";
@@ -88,6 +86,10 @@ export function ChatPage({
   );
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
+  const transcript = useRef<HTMLDivElement>(null);
+  const olderScroll = useRef<{ height: number; top: number } | null>(null);
+  const olderGuard = useRef(false);
+  const readingEarlier = useRef(false);
   const guard = useRef(false);
   const requestId = useRef<string | null>(null);
   const requestController = useRef<AbortController | null>(null);
@@ -112,15 +114,19 @@ export function ChatPage({
     error,
     isLoading,
     isValidating,
-    mutate: refresh,
-  } = useSWR<Detail, Error>(
-    currentTopicId ? `${CHAT_BASE}/topics/${currentTopicId}` : null,
-    {
-      refreshInterval: (current) =>
-        sending || current?.turns.some((turn) => ACTIVE.includes(turn.status))
-          ? 2000
-          : 0,
-    },
+    refresh,
+    hasMore,
+    loadingOlder,
+    loadOlder,
+  } = useChatTranscript(
+    currentTopicId,
+    session.user.user_id,
+    availability
+      ? Boolean(availability.transcript_pagination_enabled)
+      : availabilityError
+        ? false
+        : undefined,
+    sending,
   );
   const turns = data?.turns ?? [];
   const workspaceEnabled = Boolean(
@@ -143,7 +149,7 @@ export function ChatPage({
         ? "agent"
         : "chat"
       : selectedMode;
-  const executionReady = Boolean(
+  const providerReady = Boolean(
     mode === "goal"
       ? goalsEnabled &&
           !goalsAvailabilityError &&
@@ -153,6 +159,10 @@ export function ChatPage({
       : mode === "agent"
         ? workspaceEnabled && !goalsAvailabilityError && !availabilityError
         : availability?.enabled && !availabilityError,
+  );
+  const executionReady = Boolean(
+    providerReady &&
+    (!currentTopicId || (data && !error && data.topic.agent_id === agentId)),
   );
   const active = turns.find((turn) => ACTIVE.includes(turn.status));
   const scope = data?.topic.product ?? product;
@@ -166,6 +176,9 @@ export function ChatPage({
     ? { model_choice: modelChoice, reasoning }
     : {};
   const latestTurn = turns.at(-1);
+  const latestRevision = latestTurn
+    ? `${latestTurn.turn_id}:${latestTurn.status}:${latestTurn.answer}`
+    : null;
   const actionTurns = turns
     .filter(
       (turn) =>
@@ -183,9 +196,35 @@ export function ChatPage({
   );
 
   useEffect(() => {
-    if (sending || active)
+    if ((sending || active) && !olderGuard.current && !readingEarlier.current)
       end.current?.scrollIntoView?.({ block: "end", behavior: "instant" });
-  }, [turns.length, sending, active]);
+  }, [latestRevision, sending, active]);
+
+  useLayoutEffect(() => {
+    if (!loadingOlder && olderScroll.current && transcript.current) {
+      const before = olderScroll.current;
+      transcript.current.scrollTop =
+        before.top + transcript.current.scrollHeight - before.height;
+      olderScroll.current = null;
+    }
+  }, [turns.length, loadingOlder]);
+
+  async function earlier(): Promise<void> {
+    if (!hasMore || olderGuard.current || !transcript.current) return;
+    olderGuard.current = true;
+    readingEarlier.current = true;
+    olderScroll.current = {
+      height: transcript.current.scrollHeight,
+      top: transcript.current.scrollTop,
+    };
+    try {
+      await loadOlder();
+    } catch {
+      // The transcript query displays the read error, never resubmits a task.
+    } finally {
+      olderGuard.current = false;
+    }
+  }
 
   useEffect(() => {
     if (
@@ -230,6 +269,7 @@ export function ChatPage({
     if (!message || guard.current || busy || !executionReady || wrongAgent)
       return;
     guard.current = true;
+    readingEarlier.current = false;
     setSending(true);
     setActionError(null);
     let target = currentTopicId;
@@ -295,11 +335,9 @@ export function ChatPage({
         controller.signal,
       );
       if (mode === "agent") await mutate(`${GOALS_BASE}/topics/${target}`);
-      const saved = await apiGet<Detail>(`${CHAT_BASE}/topics/${target}`);
-      await mutate(`${CHAT_BASE}/topics/${target}`, saved, false);
+      await refresh();
       updateDraft("");
       if (!topicId) router.push(`/chat/${agentId}/topic/${target}`);
-      else await refresh();
     } catch (caught) {
       if (controller.signal.aborted) return;
       setActionError(
@@ -438,12 +476,34 @@ export function ChatPage({
       ) : (
         <>
           <div
+            ref={transcript}
             className="chat-transcript"
             role="log"
             aria-label="Переписка"
             aria-live="polite"
             aria-relevant="additions text"
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              readingEarlier.current =
+                element.scrollHeight -
+                  element.clientHeight -
+                  element.scrollTop >
+                100;
+              if (event.currentTarget.scrollTop < 48 && !error && !loadingOlder)
+                void earlier();
+            }}
           >
+            {hasMore && (
+              <div className="chat-history-control">
+                <button
+                  type="button"
+                  disabled={loadingOlder}
+                  onClick={() => void earlier()}
+                >
+                  {loadingOlder ? "Загружаем…" : "Ранние сообщения"}
+                </button>
+              </div>
+            )}
             {!currentTopicId && (
               <div className="chat-welcome">
                 <h2>Над чем поработаем?</h2>
@@ -577,7 +637,7 @@ export function ChatPage({
                 {actionError}
               </p>
             )}
-            {mode === "agent" && !executionReady && (
+            {mode === "agent" && !providerReady && (
               <p className="chat-notice" role="status">
                 {!goalsAvailabilityError &&
                 !availabilityError &&
@@ -601,7 +661,7 @@ export function ChatPage({
                 )}
               </p>
             )}
-            {mode === "goal" && !executionReady && (
+            {mode === "goal" && !providerReady && (
               <p className="chat-notice" role="status">
                 {!goalsAvailability && !goalsAvailabilityError ? (
                   "Проверяем работу с целями…"
