@@ -64,6 +64,78 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it("opens saved history at the latest result without scrolling on every edit", async () => {
+    const scroll = jest.fn<() => void>();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    const posts: string[] = [];
+    try {
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") posts.push(url);
+        if (url.endsWith("/availability")) return response({ enabled: true });
+        if (url.includes("/goals/topics/")) return response([]);
+        if (url.endsWith("/topic-1")) return response({ topic, turns: [turn] });
+        return response([]);
+      });
+      renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+      expect(await screen.findByText(turn.answer)).toBeVisible();
+      await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+      fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+        target: { value: "Я пока читаю историю" },
+      });
+      expect(scroll).toHaveBeenCalledTimes(1);
+      expect(posts).toHaveLength(0);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+
+  it("creates a historical Goal only after an explicit saved-snapshot choice", async () => {
+    const posts: { url: string; body: Record<string, unknown> }[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push({ url, body: JSON.parse(String(init.body)) });
+        return response({});
+      }
+      if (url.endsWith("/availability"))
+        return response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.includes("/goals/topics/")) return response([]);
+      if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    expect(screen.queryByLabelText("Область анализа")).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText("Режим работы"), {
+      target: { value: "goal" },
+    });
+    expect(await screen.findByLabelText("Область анализа")).toHaveValue(
+      "current",
+    );
+    fireEvent.change(screen.getByLabelText("Область анализа"), {
+      target: { value: "saved_snapshot" },
+    });
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Проанализируй сохранённую историческую сводку" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Поставить цель" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({
+      url: "/api/v1/admin/operation/goals/topics/topic-1",
+      body: {
+        analysis_scope: "saved_snapshot",
+        execution_mode: "agent",
+        objective: "Проанализируй сохранённую историческую сводку",
+      },
+    });
+  });
+
   it("uses the agent workspace by default without forcing an Orchestrator room switch", async () => {
     const posts: { url: string; body: Record<string, unknown> }[] = [];
     const workspaceTopic = { ...topic, agent_id: "operations-orchestrator" };

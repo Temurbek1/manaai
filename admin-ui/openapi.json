@@ -6371,6 +6371,15 @@
       "GoalCreate": {
         "additionalProperties": false,
         "properties": {
+          "analysis_scope": {
+            "default": "current",
+            "enum": [
+              "current",
+              "saved_snapshot"
+            ],
+            "title": "Analysis Scope",
+            "type": "string"
+          },
           "budget_microusd": {
             "default": 500000,
             "maximum": 10000000.0,

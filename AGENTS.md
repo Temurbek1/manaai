@@ -45,6 +45,12 @@
   Goal tools remain read-only. Keep receipt memory historical/minimized, checkpoint v3 for
   action context, and business outcome `not_measured`; sandbox verification is not conversion
   improvement. Unverified historical proposals are read-only in chat. See the release checklist.
+- Goals default to `analysis_scope=current`; never silently relax freshness to finish them.
+  Explicit native `saved_snapshot` Goals may complete a dated, full historical analysis after
+  review, but cannot request/approve a live source read or claim current/business measurements.
+  Persist that scope in checkpoint v4 and strip it from the closed legacy projection. The UI
+  choice appears only in explicit Goal mode; a native availability failure must preserve it,
+  not submit a different current-data objective. No source/schedule activation is implied.
 - Public progress is a private SQL event journal, atomically written with successful Goal
   changes. Its authenticated SSE transport observes only: reconnecting, disconnecting or
   losing a cursor must never restart/cancel a task or repeat a source read. Keep raw tool

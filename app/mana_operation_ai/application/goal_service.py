@@ -54,6 +54,12 @@ explain the missing source and propose conditional hypotheses and measurable nex
 do not invent a ranking, fabricate causes or mark a sales-data deliverable complete.
 Only evidence supplied in this request is available. Cite exact report IDs and observation dates.
 Fake, missing, stale or unknown-age data is not a current measurement and missing data is not zero.
+analysis_scope=current requires fresh evidence to complete a current-data analysis.
+analysis_scope=saved_snapshot is an explicitly chosen historical deliverable: analyze only the
+saved dated snapshots, cite observation dates, and do not present them as current measurements.
+It may complete with dated, unshortened historical evidence after independent review. It cannot
+request new source reads and cannot prove present retention, conversion or business improvement.
+Never silently narrow a current-data objective to a saved-snapshot deliverable.
 Tariffs and parent-child connections are NOT payments, inactivity or sessions. Aggregated stage
 counts without a common cohort cannot establish conversion/drop-off. Explain absent payment,
 cohort and retention observations explicitly; do not invent causes, revenue or user identities.
@@ -150,6 +156,10 @@ class OperationGoalService:
         await self._access(owner)
         if request.execution_mode == "agent" and not self.availability.agent_workspace_enabled:
             raise ChatError("Рабочий режим агента пока отключён.", 503)
+        if request.analysis_scope == "saved_snapshot" and not (
+            request.execution_mode == "agent" and self.availability.agent_workspace_enabled
+        ):
+            raise ChatError("Исторический анализ требует совместимой рабочей среды.", 422)
         if topic.agent_id == "technical-agent":
             raise ChatError(
                 "Технический агент ещё не реализован. Выберите оркестратор, рост или удержание."
@@ -195,7 +205,7 @@ class OperationGoalService:
         return await self.repository.command(owner, goal_id, payload)
 
     def _allowed_reads(self, goal: OperationGoal) -> list[str]:
-        if goal.read_attempted:
+        if goal.read_attempted or goal.request.analysis_scope == "saved_snapshot":
             return []
         return [
             key
@@ -579,23 +589,35 @@ class OperationGoalService:
             goal.phase, goal.status = "review", "queued"
         elif decision.disposition == "accepted":
             used = [item for item in goal.evidence if item.report_id in decision.evidence_ids]
-            fresh = all(
+            dated = all(
                 item.collected_at
-                and item.fresh_until
-                and item.collected_at <= self._clock.now() < item.fresh_until
-                and item.refresh_status in ("live", "cached")
+                and item.collected_at <= self._clock.now()
+                and item.product == goal.product
                 and not item.shortened
+                and bool(item.summary.strip())
                 for item in used
+            )
+            temporal_scope_valid = dated and (
+                goal.request.analysis_scope == "saved_snapshot"
+                or all(
+                    item.fresh_until
+                    and self._clock.now() < item.fresh_until
+                    and item.refresh_status in ("live", "cached")
+                    for item in used
+                )
             )
             if (
                 not used
-                or not fresh
+                or not temporal_scope_valid
                 or not goal.result.strip()
                 or not goal.plan
                 or any(item.status != "done" for item in goal.plan)
             ):
                 raise ChatError(
-                    "Результат сохранён, но цель не закрыта: нужны свежие "
+                    "Результат сохранён, но цель не закрыта: нужны полные датированные "
+                    "источники выбранного приложения и выполненный план."
+                    if goal.request.analysis_scope == "saved_snapshot"
+                    else "Результат сохранён, но цель не закрыта: нужны свежие "
                     "подтверждённые источники и выполненный план."
                 )
             goal.status = "completed"
@@ -603,8 +625,13 @@ class OperationGoalService:
                 GoalEvent(
                     at=self._clock.now(),
                     kind="result",
-                    message="Анализ завершён и проверен. "
-                    "Это не подтверждение роста бизнес-показателей.",
+                    message=(
+                        "Исторический анализ завершён и проверен. Это не измерение "
+                        "текущего состояния или роста бизнес-показателей."
+                        if goal.request.analysis_scope == "saved_snapshot"
+                        else "Анализ завершён и проверен. "
+                        "Это не подтверждение роста бизнес-показателей."
+                    ),
                 )
             )
         elif decision.disposition == "revise":

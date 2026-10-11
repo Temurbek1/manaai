@@ -24,6 +24,11 @@ Native checkpoint migration `c75f0a6e812b` is additive; application rollback ret
 explicitly pauses native Goals. See the [bounded release/rollback checklist](docs/operation-agent-workspace-release.md)
 and `make audit-workspace-compat` (local old image, synthetic DB, no provider network).
 
+Native Goals also support an explicit `saved_snapshot` historical deliverable. In Goal mode,
+choose «Сохранённый срез» to analyze dated saved evidence without requesting a new source read.
+Current-data analysis remains the default and keeps its freshness gate. Historical completion
+is not a current conversion/retention measurement. This addition is still local/unreleased.
+
 Native chat also has an opt-in human action-review lane (`OPERATION_WORKSPACE_ACTIONS_ENABLED`),
 limited to explicitly synthetic MANA Growth sandbox experiment drafts. Decisions are scoped to
 the private topic/turn and immutable parameters, persisted before owning-domain dispatch, and

@@ -350,14 +350,77 @@ modified. These checks establish the local flow, not production activation or li
   model or Firebase/GA4 request was made in this checkpoint. Fake lifecycle coverage is not
   evidence of live financial/customer-contact readiness or improved conversion.
 
+### Saved-data/model acceptance and historical scope, 2026-10-12
+
+Status: reviewed local progress, **not deployed**. Read-only production inspection confirmed
+operation sidecar/scheduler image `2ea7b9a`, UI `a871ddf` and schema `b64e9c2f703d`; main
+API/audio remains separate. The screenshot's discussion-only behavior is therefore still
+expected on that deployment. Existing SSH password authentication worked; no auth setting,
+source binding, schedule, permission, key or production data was changed.
+
+A transaction explicitly marked `READ ONLY` exported just the latest already-minimized,
+owner-confirmed MANA Parent summary. No user records or source provider were requested.
+The saved first-page sample contains 10 parents and is dated 2026-10-09; its freshness is
+unknown, not current. Existing engagement bindings/GA4 stream IDs remain unverified/empty.
+This confirms that one authorized saved source can be consumed, not that the full conversion,
+payment or mobile-analytics source plan is accepted.
+
+Real GPT-6.1 Sol/medium, native-tool checks used isolated local SQL and a saved-only adapter
+whose collection method refuses all calls. No scheduler/API lifespan was started for paid QA:
+
+| Check | Observed path and outcome | Calls | Metered estimate |
+| --- | --- | --- | --- |
+| Original current-conversion request | Inspect → saved Parent report → plan → investigation → review; useful partial output, `waiting` for cohort/payment evidence; no fabricated conversion or room redirect | 5 | $0.061109 |
+| Historical-sample request before explicit scope | Correct historical facts/limitations and completed review; current-only completion gate refused closure, exposing the scope gap | 5 | $0.064731 |
+| 360REC conversion | Scoped inspection found no eligible report; retained a conditional next step, `waiting`; no MANA evidence or claimed database emptiness | 4 | $0.045934 |
+| New explicit `saved_snapshot` request | Inspect → same dated saved report → plan → investigation → review; historical report `completed`, no claimed current retention/payments | 5 | $0.068500 |
+
+Total **19 settled OpenAI calls, $0.240274 estimated usage**, zero unknown holds and zero
+Firebase/GA4/Manakids/Meta requests or production mutations. Original party cap was $0.49;
+the separately guarded explicit-scope check cap was $0.20. The original party was neither
+resumed nor retried. Rates matched the inspected [standard short-context pricing](https://developers.openai.com/api/docs/pricing);
+this is not an invoice, accuracy statistic or proof of business improvement. Minimized outputs
+and persistent ledgers remain ignored local artifacts in `output/workspace-release-20261012/`.
+
+The correction adds typed `analysis_scope=current` (default) / `saved_snapshot` (explicit
+native Goal choice). Historical scope cannot request/approve a live read; current objectives
+never silently acquire that narrower contract. Both require same-product, nonempty, dated,
+unshortened cited evidence, a done plan and review. Future/undated/empty/cross-product facts
+are rejected. The UI reveals one selector only in explicit Goal mode, preserves the choice
+when native availability fails, and labels historical results after reload. This follows the
+React review's minimal conditional controls/accessibility and retained SWR/auth boundaries.
+
+Historical requests use checkpoint v4; default requests retain prior native versions and old
+strict request JSON. V4/scope mismatches fail controlled; supported old code sees only a closed
+projection. No new migration or rewriting of saved Goals is required. A networkless two-image
+rollback audit passed with actual `2ea7b9a` and the new local runtime, including retained action
+memory, explicit pause and unknown-read protection. Local real-browser flow now also creates,
+clarifies, finishes and reloads an explicitly historical Goal; 320px and accessibility passed.
+
+Final code checkpoint `make verify`: **757 backend tests**, seven PostgreSQL skips in that
+command/two live suites excluded; **116 UI tests**, lint/format, mypy 296 files, TypeScript,
+Next production build and zero npm audit vulnerabilities. Isolated PostgreSQL 17 migration
+round trip/drift and seven concurrency/recovery cases passed separately. Contract sync,
+secret scan and whitespace checks passed. Native browser audit passed with the new historical
+choice and existing action/SSE/owner/CSRF checks. Visual mobile review also found that reload
+left a closed result below the viewport; opening a topic now scrolls once after saved chat/Goals
+resolve, without moving the reader on typing/background updates or making a provider call.
+These are local acceptance results.
+
+Scoped production release approval has been requested; activation/backup/migration/public
+authenticated browser checks and actual-deployment rollback remain pending. Chrome's advertised
+local port returned 404 for CDP endpoints and could not attach; public frontend HTTP was 200.
+No production browser session was fabricated and no authenticated deployed-browser success
+is claimed. The production scheduler/main API/audio were not recreated.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:
 
 - Repeat regression, PostgreSQL concurrency/recovery, contract/security and browser checks
   after subsequent changes; the current local checkpoint's final gates passed as listed above.
-- Extend real-model quality coverage beyond the single synthetic evaluation, then separately
-  verify approved configured sources without a scan or new schedule.
+- Extend real-model quality coverage beyond the small reviewed synthetic/saved-data checks,
+  then separately verify any newly approved source bindings without a scan or new schedule.
 - Expand user-visible durable streaming/continuation and extended-context behavior with
   explicit interruption/reconnection semantics; durable public progress is not token streaming.
   Completed results now enter ordinary conversation as bounded historical checkpoints, not

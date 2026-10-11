@@ -66,6 +66,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                     request_id=uuid4(),
                     objective="Synthetic compatibility task; no customer data or provider I/O.",
                     execution_mode="agent" if native else "analysis",
+                    analysis_scope="saved_snapshot" if title == "Native queued" else "current",
                     conversation_history=[
                         GoalConversationTurn(user="Do not contact clients.", assistant="Confirmed.")
                     ]
@@ -222,6 +223,9 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert goal.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.status == ("paused" if paused else "running" if lost else "queued")
                 assert goal.request.execution_mode == "agent"
+                assert goal.request.analysis_scope == (
+                    "saved_snapshot" if topic.title == "Native queued" else "current"
+                )
                 assert goal.request.conversation_history[0].user == "Do not contact clients."
                 assert goal.steps_used == 1 and goal.accounted_microusd == 90_000
                 assert goal.read_attempted == lost

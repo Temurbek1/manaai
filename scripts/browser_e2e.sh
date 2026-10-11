@@ -227,11 +227,30 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
     browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/workspace-action-receipt-mobile.png" --full >/dev/null
   fi
+  # An explicit historical deliverable is not a silent fallback for current-data work.
+  browser select 'select[aria-label="Режим работы"]' goal >/dev/null
+  browser select 'select[aria-label="Область анализа"]' saved_snapshot >/dev/null
+  browser find label "Сообщение агенту" fill 'Проанализируй только сохранённый исторический срез MANA, не сегодняшнее удержание' >/dev/null
+  browser find role button click --name "Поставить цель" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".goal-workspace")?.textContent.includes("Исторический срез · не текущее состояние") && document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
+  assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'historical selector or task overflows on mobile'
+  assert_accessible
+  browser eval '([...document.querySelectorAll(".goal-controls button")].find(button => button.textContent.trim() === "Последние 7 дней")).scrollIntoView({block:"center", behavior:"instant"}); "scrolled"' >/dev/null
+  browser find role button click --name "Последние 7 дней" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const goals = await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if (goals.length !== 2 || goals[0].request.analysis_scope !== "saved_snapshot" || goals[0].status !== "completed" || goals[0].read_attempted || goals[0].approved_capability || goals[0].tools.some(tool => tool.call.name === "request_source_read")) throw new Error("Historical deliverable scope, completion or read safety failed"); return "explicit historical deliverable verified"; })()' >/dev/null
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".goal-workspace")?.textContent.includes("Исторический срез · не текущее состояние") && document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  assert_browser '(() => { const transcript = document.querySelector(".chat-transcript"); const result = document.querySelector(".goal-result").getBoundingClientRect(); const bounds = transcript.getBoundingClientRect(); return transcript.scrollTop > 0 && result.top < bounds.bottom && result.bottom > bounds.top; })()' 'reloaded conversation hid the latest result above or below the viewport'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/workspace-historical-mobile.png" --full >/dev/null
+  fi
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, owner isolation, CSRF and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, owner isolation, CSRF and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'

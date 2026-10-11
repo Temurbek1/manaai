@@ -32,7 +32,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3] = 1
+    version: Literal[1, 2, 3, 4] = 1
     goal: OperationGoal
 
 
@@ -62,7 +62,8 @@ def _goal(row: GoalRow) -> OperationGoal:
     goal = checkpoint.goal
     memory = goal.session_memory
     if (
-        (checkpoint.version == 1 and memory is not None)
+        (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
+        or (checkpoint.version == 1 and memory is not None)
         or (checkpoint.version == 2 and memory is None)
         or (checkpoint.version == 2 and memory is not None and bool(memory.actions))
         or (checkpoint.version == 3 and (memory is None or not memory.actions))
@@ -122,7 +123,13 @@ class SqlAlchemyGoalRepository:
             mode="json", exclude={"tools", "session_memory"}
         )
         payload["request"] = goal.request.model_dump(
-            mode="json", exclude={"execution_mode", "conversation_history", "older_turns_omitted"}
+            mode="json",
+            exclude={
+                "execution_mode",
+                "analysis_scope",
+                "conversation_history",
+                "older_turns_omitted",
+            },
         )
         if SqlAlchemyGoalRepository._is_workspace(goal):
             # Closed compatibility projection: old code can display history, but its
@@ -141,6 +148,7 @@ class SqlAlchemyGoalRepository:
     def _is_workspace(goal: OperationGoal) -> bool:
         return bool(
             goal.request.execution_mode == "agent"
+            or goal.request.analysis_scope == "saved_snapshot"
             or goal.request.conversation_history
             or goal.request.older_turns_omitted
             or goal.tools
@@ -160,7 +168,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=3
+                version=4
+                if goal.request.analysis_scope == "saved_snapshot"
+                else 3
                 if goal.session_memory is not None and goal.session_memory.actions
                 else 2
                 if goal.session_memory is not None
@@ -168,7 +178,16 @@ class SqlAlchemyGoalRepository:
                 goal=goal,
             ).model_dump(
                 mode="json",
-                exclude={"goal": {"session_memory"}} if goal.session_memory is None else {},
+                exclude={
+                    "goal": {
+                        **({"session_memory": True} if goal.session_memory is None else {}),
+                        **(
+                            {"request": {"analysis_scope"}}
+                            if goal.request.analysis_scope == "current"
+                            else {}
+                        ),
+                    }
+                },
             )
             if native
             else None,

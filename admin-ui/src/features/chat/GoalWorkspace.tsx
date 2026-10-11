@@ -13,10 +13,13 @@ type StoredGoal = components["schemas"]["OperationGoal"];
 export type Goal = Omit<StoredGoal, "request"> & {
   request: Omit<
     StoredGoal["request"],
-    "execution_mode" | "older_turns_omitted"
+    "execution_mode" | "analysis_scope" | "older_turns_omitted"
   > &
     Partial<
-      Pick<StoredGoal["request"], "execution_mode" | "older_turns_omitted">
+      Pick<
+        StoredGoal["request"],
+        "execution_mode" | "analysis_scope" | "older_turns_omitted"
+      >
     >;
 };
 export type GoalsAvailability = components["schemas"]["GoalAvailability"];
@@ -154,6 +157,9 @@ export function GoalWorkspace({
         <span role="status">{LABELS[goal.status]}</span>
       </div>
       <h2>{goal.request.objective}</h2>
+      {goal.request.analysis_scope === "saved_snapshot" && (
+        <p className="goal-update">Исторический срез · не текущее состояние</p>
+      )}
       {error && (
         <p role="alert">
           Не удалось обновить прогресс. Сохранённое состояние показано ниже.

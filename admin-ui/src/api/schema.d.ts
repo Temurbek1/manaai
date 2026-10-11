@@ -4228,6 +4228,12 @@ export interface components {
         /** GoalCreate */
         GoalCreate: {
             /**
+             * Analysis Scope
+             * @default current
+             * @enum {string}
+             */
+            analysis_scope: "current" | "saved_snapshot";
+            /**
              * Budget Microusd
              * @default 500000
              */

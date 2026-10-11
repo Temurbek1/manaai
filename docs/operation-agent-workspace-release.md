@@ -10,7 +10,8 @@ objective remains in [operation-agent-workspace.md](operation-agent-workspace.md
 to `operation_goals`; historical rows are not backfilled or rewritten. Ordinary analysis
 Goals without native context keep the prior JSON contract and queue. Native checkpoints store
 protocol version 1 without session memory, version 2 with analysis-only session memory,
-or version 3 when that memory includes scoped sandbox action history,
+version 3 when that memory includes scoped sandbox action history, or version 4 for
+an explicitly chosen historical `saved_snapshot` deliverable,
 the complete request/context/tool journal and actual status separately. Capacity/claim/control
 logic in the new repository uses that actual status and the same revision fence.
 
@@ -19,6 +20,11 @@ completed work remains completed; other native states appear closed/cancelled wi
 explanation that the compatible workspace is required. This is a compatibility view, not an
 actual user cancellation. Old workers cannot claim them and old command handlers reject them.
 New code reads the original state from the versioned checkpoint, not that projection.
+
+Historical scope remains private native state and never appears in strict legacy request JSON.
+Current-data Goals retain protocols 1–3/default current scope. V4/scope mismatches fail closed;
+historical Goals cannot obtain source-read approval or become current-data tasks through steering.
+The historical result may finish with dated full evidence, not as a current metric or outcome.
 
 `d86a1b9f023c` adds nullable `operation_chat_turns.workspace_metadata` without rewriting old
 conversations. Execution mode, native handoff and session memory are kept outside both the

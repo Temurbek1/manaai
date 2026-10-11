@@ -62,12 +62,19 @@ export function ChatPage({
   const [modelChoice, setModelChoice] = useState<ModelChoice>("auto");
   const [reasoning, setReasoning] = useState<ReasoningChoice>("auto");
   const [selectedMode, setMode] = useState<"auto" | "chat" | "goal">("auto");
+  const [analysisScope, setAnalysisScope] = useState<
+    "current" | "saved_snapshot"
+  >("current");
   const [actionError, setActionError] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<string | null>(null);
   const [optimisticId, setOptimisticId] = useState<string | null>(null);
   const [createdTopicId, setCreatedTopicId] = useState<string | null>(null);
   const currentTopicId = topicId ?? createdTopicId;
-  const { data: savedGoals, mutate: refreshGoals } = useSWR<Goal[]>(
+  const {
+    data: savedGoals,
+    error: savedGoalsError,
+    mutate: refreshGoals,
+  } = useSWR<Goal[], Error>(
     currentTopicId ? `${GOALS_BASE}/topics/${currentTopicId}` : null,
   );
   const goals = Array.isArray(savedGoals) ? savedGoals : [];
@@ -84,6 +91,7 @@ export function ChatPage({
   const guard = useRef(false);
   const requestId = useRef<string | null>(null);
   const requestController = useRef<AbortController | null>(null);
+  const openedTranscript = useRef<string | null>(null);
   const {
     data: goalsAvailability,
     error: goalsAvailabilityError,
@@ -137,7 +145,11 @@ export function ChatPage({
       : selectedMode;
   const executionReady = Boolean(
     mode === "goal"
-      ? goalsEnabled && !goalsAvailabilityError
+      ? goalsEnabled &&
+          !goalsAvailabilityError &&
+          (workingGoal ||
+            analysisScope === "current" ||
+            (workspaceEnabled && !availabilityError))
       : mode === "agent"
         ? workspaceEnabled && !goalsAvailabilityError && !availabilityError
         : availability?.enabled && !availabilityError,
@@ -174,6 +186,27 @@ export function ChatPage({
     if (sending || active)
       end.current?.scrollIntoView?.({ block: "end", behavior: "instant" });
   }, [turns.length, sending, active]);
+
+  useEffect(() => {
+    if (
+      !currentTopicId ||
+      !data ||
+      isLoading ||
+      wrongAgent ||
+      (savedGoals === undefined && !savedGoalsError) ||
+      openedTranscript.current === currentTopicId
+    )
+      return;
+    openedTranscript.current = currentTopicId;
+    end.current?.scrollIntoView?.({ block: "end", behavior: "instant" });
+  }, [
+    currentTopicId,
+    data,
+    isLoading,
+    wrongAgent,
+    savedGoals,
+    savedGoalsError,
+  ]);
 
   const waitingRevision =
     workingGoal?.status === "waiting" ? workingGoal.revision : null;
@@ -235,6 +268,9 @@ export function ChatPage({
               objective: message,
               max_steps: goalsAvailability!.max_steps,
               budget_microusd: goalsAvailability!.budget_microusd,
+              ...(workspaceEnabled && analysisScope === "saved_snapshot"
+                ? { analysis_scope: "saved_snapshot", execution_mode: "agent" }
+                : {}),
               ...inference,
             },
             controller.signal,
@@ -242,6 +278,7 @@ export function ChatPage({
         await mutate(`${GOALS_BASE}/topics/${target}`);
         updateDraft("");
         setMode("auto");
+        setAnalysisScope("current");
         if (!topicId) router.push(`/chat/${agentId}/topic/${target}`);
         return;
       }
@@ -574,7 +611,10 @@ export function ChatPage({
                     <button
                       type="button"
                       onClick={() =>
-                        void refreshGoalsAvailability().catch(() => undefined)
+                        void Promise.all([
+                          refreshGoalsAvailability(),
+                          refreshAvailability(),
+                        ]).catch(() => undefined)
                       }
                     >
                       Повторить проверку
@@ -695,6 +735,29 @@ export function ChatPage({
                     {draft.length > 5000 ? `${draft.length} / 6000` : ""}
                   </span>
                 )}
+                {mode === "goal" &&
+                  (workspaceEnabled || analysisScope === "saved_snapshot") &&
+                  !workingGoal && (
+                    <select
+                      aria-label="Область анализа"
+                      value={analysisScope}
+                      disabled={busy}
+                      onChange={(event) => {
+                        setAnalysisScope(
+                          event.target.value as "current" | "saved_snapshot",
+                        );
+                        requestId.current = null;
+                      }}
+                    >
+                      <option value="current">Текущее положение</option>
+                      <option
+                        value="saved_snapshot"
+                        disabled={!workspaceEnabled}
+                      >
+                        Сохранённый срез
+                      </option>
+                    </select>
+                  )}
                 {modelSelectionEnabled && !workingGoal && (
                   <div className="composer-inference">
                     <select

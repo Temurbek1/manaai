@@ -57,6 +57,31 @@ describe("GoalWorkspace", () => {
     jest.restoreAllMocks();
   });
 
+  it("labels a completed historical slice separately from current measurements", async () => {
+    jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+      response([
+        {
+          ...fixture,
+          status: "completed",
+          waiting_reason: "",
+          request: {
+            ...fixture.request,
+            execution_mode: "agent",
+            analysis_scope: "saved_snapshot",
+          },
+        },
+      ]),
+    );
+    renderWithSession(<GoalWorkspace topicId="topic-1" />);
+    expect(
+      await screen.findByText("Исторический срез · не текущее состояние"),
+    ).toBeVisible();
+    expect(screen.getByText("Анализ готов")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Разрешить чтение данных" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows durable plan and partial work, preserves constraints and resumes with version fencing", async () => {
     const posts: Record<string, unknown>[] = [];
     jest.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {

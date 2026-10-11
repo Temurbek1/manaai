@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.mana_operation_ai.domain.agent_tools import (
     AgentToolCall,
@@ -40,8 +40,15 @@ class GoalCreate(ChatModel):
     model_choice: ModelChoice = "auto"
     reasoning: ReasoningChoice = "auto"
     execution_mode: Literal["analysis", "agent"] = "analysis"
+    analysis_scope: Literal["current", "saved_snapshot"] = "current"
     conversation_history: list[GoalConversationTurn] = Field(default_factory=list, max_length=6)
     older_turns_omitted: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_analysis_scope(self) -> "GoalCreate":
+        if self.analysis_scope == "saved_snapshot" and self.execution_mode != "agent":
+            raise ValueError("Saved-snapshot analysis requires the native agent workspace")
+        return self
 
 
 class GoalCommand(ChatModel):

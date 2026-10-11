@@ -444,7 +444,8 @@ def test_unused_workspace_preserves_the_previous_ordinary_goal_json_contract() -
     payload = SqlAlchemyGoalRepository._payload(goal)
     assert "tools" not in payload
     assert payload["request"] == request.model_dump(
-        mode="json", exclude={"execution_mode", "conversation_history", "older_turns_omitted"}
+        mode="json",
+        exclude={"execution_mode", "analysis_scope", "conversation_history", "older_turns_omitted"},
     )
     assert OperationGoal.model_validate(payload) == goal
 
