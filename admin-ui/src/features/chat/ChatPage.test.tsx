@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { ChatPage } from "./ChatPage";
 import { renderWithSession as renderSession } from "@/test/render";
@@ -104,6 +104,230 @@ describe("ChatPage", () => {
     );
     expect(posts[0]!.body).toMatchObject({ execution_mode: "agent" });
     expect(posts.every((post) => !post.url.includes("/agents/"))).toBe(true);
+  });
+
+  it("waits for Goals availability instead of falling back to discussion during native admission", async () => {
+    const posts: string[] = [];
+    let resolveGoals!: (value: Response) => void;
+    const pendingGoals = new Promise<Response>((resolve) => {
+      resolveGoals = resolve;
+    });
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push(url);
+        return response({ turn });
+      }
+      if (url === "/api/v1/admin/operation/goals/availability")
+        return pendingGoals;
+      if (url.endsWith("/availability"))
+        return response({ enabled: true, agent_workspace_enabled: true });
+      if (url.includes("/goals/topics/")) return response([]);
+      return response({
+        topic: { ...topic, agent_id: "operations-orchestrator" },
+        turns: [],
+      });
+    });
+    renderWithSession(
+      <ChatPage agentId="operations-orchestrator" topicId="topic-1" />,
+    );
+    await screen.findByText("Проверяем рабочий режим…");
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Как можно поднять конверсию. Изучи текущие данные" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    ).toBeDisabled();
+    // Even an explicit DOM submit must not bypass the preflight guard.
+    fireEvent.submit(
+      screen.getByLabelText("Сообщение агенту").closest("form")!,
+    );
+    expect(posts).toEqual([]);
+    await act(async () => {
+      resolveGoals(
+        await response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        }),
+      );
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Отправить сообщение" }),
+      ).toBeEnabled(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    );
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toBe(
+      "/api/v1/admin/operation/workspace/topics/topic-1/messages",
+    );
+  });
+
+  it.each(["error", "disabled", "mismatched"])(
+    "never silently downgrades native execution when Goals is %s; discussion is explicit",
+    async (state) => {
+      const posts: { url: string; body: Record<string, unknown> }[] = [];
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") {
+          posts.push({ url, body: JSON.parse(String(init.body)) });
+          return response(turn);
+        }
+        if (url === "/api/v1/admin/operation/goals/availability")
+          return state === "error"
+            ? response({ detail: "Unavailable" }, 503)
+            : response({
+                enabled: state !== "disabled",
+                agent_workspace_enabled: state !== "mismatched",
+                budget_microusd: 500000,
+                max_steps: 6,
+              });
+        if (url.endsWith("/availability"))
+          return response({ enabled: true, agent_workspace_enabled: true });
+        if (url.includes("/goals/topics/")) return response([]);
+        return response({
+          topic: { ...topic, agent_id: "operations-orchestrator" },
+          turns: [],
+        });
+      });
+      renderWithSession(
+        <ChatPage agentId="operations-orchestrator" topicId="topic-1" />,
+      );
+      await screen.findByText("Рабочий режим недоступен. Запрос не отправлен.");
+      const composer = screen.getByLabelText("Сообщение агенту");
+      fireEvent.change(composer, { target: { value: "Изучи текущие данные" } });
+      fireEvent.submit(composer.closest("form")!);
+      expect(posts).toEqual([]);
+      expect(composer).toHaveValue("Изучи текущие данные");
+      fireEvent.change(screen.getByRole("combobox", { name: "Режим работы" }), {
+        target: { value: "chat" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Отправить сообщение" }),
+      );
+      await waitFor(() => expect(posts).toHaveLength(1));
+      expect(posts[0]!.url).toBe(
+        "/api/v1/admin/operation/chat/topics/topic-1/messages",
+      );
+      expect(posts[0]!.body.execution_mode).toBeUndefined();
+    },
+  );
+
+  it("rechecks a failed native preflight without sending the draft until explicit submission", async () => {
+    const posts: string[] = [];
+    let goalsChecks = 0;
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push(url);
+        return response({ turn });
+      }
+      if (url === "/api/v1/admin/operation/goals/availability") {
+        goalsChecks += 1;
+        return goalsChecks === 1
+          ? response({ detail: "Unavailable" }, 503)
+          : response({
+              enabled: true,
+              agent_workspace_enabled: true,
+              budget_microusd: 500000,
+              max_steps: 6,
+            });
+      }
+      if (url.endsWith("/availability"))
+        return response({ enabled: true, agent_workspace_enabled: true });
+      if (url.includes("/goals/topics/")) return response([]);
+      return response({ topic, turns: [] });
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    await screen.findByText("Рабочий режим недоступен. Запрос не отправлен.");
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Изучи текущие данные" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Повторить проверку" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Отправить сообщение" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.getByLabelText("Сообщение агенту")).toHaveValue(
+      "Изучи текущие данные",
+    );
+    expect(posts).toEqual([]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    );
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toContain("/operation/workspace/");
+  });
+
+  it("recovers a Goal after a lost handoff response through reads, without resending the message", async () => {
+    const posts: string[] = [];
+    let handedOff = false;
+    const goal = {
+      goal_id: "goal-lost-response",
+      status: "waiting",
+      phase: "investigate",
+      revision: 2,
+      request: {
+        objective: "Как можно поднять конверсию. Изучи текущие данные",
+        max_steps: 6,
+        budget_microusd: 500000,
+        execution_mode: "agent",
+      },
+      plan: [],
+      events: [],
+      evidence: [],
+      result: "",
+      waiting_reason: "Нужны подтверждённые оплаты.",
+      steps_used: 0,
+      accounted_microusd: 0,
+    };
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push(url);
+        handedOff = true;
+        return Promise.reject(new Error("Ответ на отправку потерян"));
+      }
+      if (url.endsWith("/availability"))
+        return response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.includes("/goals/topics/"))
+        return response(handedOff ? [goal] : []);
+      return response({
+        topic: { ...topic, agent_id: "operations-orchestrator" },
+        turns: [],
+      });
+    });
+    renderWithSession(
+      <ChatPage agentId="operations-orchestrator" topicId="topic-1" />,
+    );
+    await screen.findByRole("combobox", { name: "Режим работы" });
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: goal.request.objective },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    );
+    await screen.findByText("Нужны подтверждённые оплаты.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ответ на отправку потерян",
+    );
+    expect(screen.getByLabelText("Уточнение цели")).toHaveValue(
+      goal.request.objective,
+    );
+    expect(posts).toEqual([
+      "/api/v1/admin/operation/workspace/topics/topic-1/messages",
+    ]);
+    expect(screen.getByRole("button", { name: "Уточнить цель" })).toBeEnabled();
   });
 
   it("accepts an in-flight goal clarification from the main composer and keeps stop available", async () => {

@@ -620,6 +620,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         max_context_bytes=settings.operation_chat_max_context_bytes,
         parent_minimum_interval_seconds=settings.manakids_parent_min_interval_seconds,
         session_context=session_context,
+        shared_goals_enabled=settings.operation_goals_enabled and settings.is_openai_configured,
         clock=clock,
         availability=ChatAvailability(
             enabled=settings.operation_chat_enabled and settings.is_openai_configured,

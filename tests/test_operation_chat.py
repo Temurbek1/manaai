@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 from pytest import MonkeyPatch
 from sqlalchemy import update
@@ -47,6 +48,45 @@ class FakeConversation:
             plan=["Проверить отчёт"],
             next_action="analyze" if self.suggest_analysis else "none",
         )
+
+
+@pytest.mark.parametrize("goals_enabled", [False, True])
+async def test_discussion_identifies_same_room_goals_without_starting_work(
+    monkeypatch: MonkeyPatch, tmp_path: Path, goals_enabled: bool
+) -> None:
+    configure_operation_env(monkeypatch, tmp_path / "discussion-goals.db")
+    monkeypatch.setenv("OPERATION_CHAT_ENABLED", "true")
+    monkeypatch.setenv("OPERATION_GOALS_ENABLED", str(goals_enabled).lower())
+    monkeypatch.setenv("OPERATION_AGENT_WORKSPACE_ENABLED", "false")
+    get_settings.cache_clear()
+    app = create_app()
+    model = FakeConversation()
+    async with app.router.lifespan_context(app):
+        chats = app.state.operation_chat_service
+        chats._model = model
+        assert chats.availability.agent_workspace_enabled is False
+        for agent_id in ("operations-orchestrator", "technical-agent"):
+            topic = await chats.create(
+                "alice", TopicCreate(agent_id=agent_id, product="mana", title="Конверсия")
+            )
+            result = await chats.send(
+                "alice",
+                topic.topic_id,
+                MessageCreate(
+                    request_id=uuid4(),
+                    message="Как можно поднять конверсию. Изучи текущие данные",
+                ),
+            )
+            assert result.execution_mode == "discussion" and result.next_action == "none"
+            assert model.contexts[-1]["shared_goals_enabled"] is (
+                goals_enabled and agent_id != "technical-agent"
+            )
+            assert await app.state.operation_goal_service.list_goals("alice", topic.topic_id) == []
+        _, run_count = await app.state.operation_admin_service.list_runs(
+            agent_id=None, capability_key=None, status=None, limit=10, offset=0
+        )
+        assert run_count == 0
+    get_settings.cache_clear()
 
 
 async def test_conversation_provider_is_bounded_and_does_not_store_data(

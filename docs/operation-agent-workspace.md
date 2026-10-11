@@ -101,6 +101,48 @@ Status must be updated from actual tests/flows, not intent:
   `d86a1b9f023c` keeps the supported old chat reader compatible as well as the Goal reader.
 - Full quality, source integration acceptance and production release: pending.
 
+### Discussion-only screenshot and admission fix, 2026-10-12
+
+The owner supplied an Orchestrator response to "Как можно поднять конверсию. Изучи текущие
+данные": no saved reports in that chat, domain handlers planned, and a suggestion to move to
+Growth. This matches the legacy discussion instructions, not evidence that the native
+workspace inspected the database. The last recorded production release is still the separate
+discussion/Goals version; native workspace activation is not claimed by local commits.
+
+- Native availability is checked independently for chat and Goals. When either service
+  advertises the native workspace, auto mode never silently sends to discussion while the
+  other check is pending, failed, disabled or mismatched. The draft is preserved and no
+  message/admission POST is issued. A manual availability retry performs GETs only; sending
+  afterwards still requires an explicit submit. Users may explicitly select discussion.
+- Older deployments with no native flag retain normal chat compatibility. Technical rooms
+  and viewers do not gain native execution. No source settings or feature defaults change.
+- A lost handoff response triggers a scoped Goals GET, never a message retry. A task that
+  was already created becomes visible in the same topic and takes over the composer for
+  steering. The user's draft is retained; no second task/model/source request is inferred.
+- Legacy discussion receives an explicit server-owned indication that ordinary shared Goals
+  are configured. Its instructions distinguish planned Orchestrator domain mutations from
+  same-room read-only analysis: recommend selecting "Цель", not moving to Growth solely
+  because the initial conversation has no saved reports. Discussion itself starts no task.
+- The native path remains automatic and preserves the original request. Its existing HTTP
+  regression exercises the exact conversion request through scoped source discovery,
+  saved evidence, investigation, independent review and idempotent replay.
+
+Production activation, real-source acceptance, conversational action lifecycle and extended
+context acceptance remain separate unfinished parts of the full objective. This fix does not
+claim that paid conversion evidence exists or that an analysis improved conversion.
+
+Local checkpoint evidence: `make verify` passed with 733 backend tests, 110 UI tests,
+Python/TypeScript checks, lint/formatting, production UI build and zero dependency audit
+vulnerabilities. Six PostgreSQL tests remain separately opt-in and two live suites were
+excluded; no schema change was made in this fix. OpenAPI/client synchronization,
+secret/quality-marker scans and compose validation passed. Dedicated prompt-grounding and
+bounded-evaluation tests passed (125 tests); the discussion instructions remain within the
+existing 8192-byte ceiling and no evaluation budget was increased. Native and legacy browser
+flows passed with actual local HTTP/SQL persistence and fake models/providers, including
+same-room handoff, progress, inline clarification, reload, owner isolation and accessibility.
+No paid OpenAI or live Firebase/GA4/Manakids/Meta request was issued and production was not
+modified. These checks establish the local flow, not production activation or live model quality.
+
 ### Local evidence, 2026-10-11 (not a production claim)
 
 - Initial `make verify`: 688 backend tests passed, 6 PostgreSQL tests skipped,

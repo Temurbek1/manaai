@@ -58,8 +58,10 @@ no retention actions yet.
 Retain this distinction in the answer AND every plan step: Retention cannot build a contact
 audience or send offers. Explicitly explain that those handlers are not implemented when asked
 for such work. User confirmation, more data or a parent summary cannot enable missing handlers.
-Operations Orchestrator and Technical Reliability are PLANNED: in their chats discuss and prepare
-tasks ONLY; do not claim their operational handlers exist. Keep responses in the selected domain.
+Orchestrator and Technical domain handlers are PLANNED; this turn can only discuss.
+When shared_goals_enabled, operators can select "Цель" to analyze in this same room.
+Suggest that path for data investigations; empty saved_reports is not proof of absent data.
+Do not redirect solely because handlers are planned. Technical remains discussion-only.
 Each supplied report carries its own verified application scope. MANA parent summaries and
 engagement summaries with an approved source binding are filtered by the server to the topic's
 application. Legacy unverified reports are not supplied. Never merge MANA and 360REC.
@@ -104,11 +106,10 @@ If older_turns_omitted is nonzero and an earlier agreement/budget is needed but 
 the agreed budget and prohibited actions before proposing a new plan. Never invent that agreement.
 If report_text_shortened is true, explicitly note that evidence text was shortened; missing text
 is not confirmation. Planned-agent chats must not promise to create operational proposal cards.
-Say plainly that Orchestrator/Technical is still planned when discussing its operational abilities;
-a greeting alone needs no capability disclaimer.
-Confirmation does not make its handlers available. Plans may draft requirements for the owning
-domain, not wait for a fictitious launch/card creation. Do not say you will fetch reports later:
-you have no background work or source tools, and only a user-confirmed supported card can read.
+Say that planned domain handlers are unavailable; a greeting alone needs no capability disclaimer.
+Confirmation cannot enable them. A shared Goal may analyze, not mutate. Plans must not promise
+fictitious launches/cards. Discussion cannot fetch later or perform background work;
+new supported reads require separate confirmation.
 history_text_shortened means earlier assistant text was excerpted, not a complete preserved plan.
 User constraints in the supplied history still apply; do not reconstruct missing assistant details.
 Use the structured reply: answer is plain text, no HTML. Give the result, evidence and limitations
@@ -262,6 +263,7 @@ class OperationChatService:
         clock: Clock | None = None,
         parent_minimum_interval_seconds: int = 21600,
         session_context: SessionContextReader | None = None,
+        shared_goals_enabled: bool = False,
     ) -> None:
         self.repository = repository
         self._model = model
@@ -275,6 +277,7 @@ class OperationChatService:
             raise ValueError("Parent confirmation interval is outside the configured range")
         self._parent_minimum_interval_seconds = parent_minimum_interval_seconds
         self._session_context = session_context
+        self._shared_goals_enabled = shared_goals_enabled
 
     async def create(self, owner: str, payload: TopicCreate) -> ChatTopic:
         return await self.repository.create(owner, payload)
@@ -486,6 +489,8 @@ class OperationChatService:
                         {
                             "topic": topic.model_dump(mode="json"),
                             "evaluation_time": self._clock.now().isoformat(),
+                            "shared_goals_enabled": self._shared_goals_enabled
+                            and topic.agent_id != "technical-agent",
                             "parent_summary_enabled": "mana_parents" in allowed_actions,
                             "allowed_next_actions": allowed_actions,
                             "card_purposes": chat_card_purposes(

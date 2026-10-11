@@ -83,9 +83,11 @@ export function ChatPage({
   const guard = useRef(false);
   const requestId = useRef<string | null>(null);
   const requestController = useRef<AbortController | null>(null);
-  const { data: goalsAvailability } = useSWR<GoalsAvailability>(
-    `${GOALS_BASE}/availability`,
-  );
+  const {
+    data: goalsAvailability,
+    error: goalsAvailabilityError,
+    mutate: refreshGoalsAvailability,
+  } = useSWR<GoalsAvailability, Error>(`${GOALS_BASE}/availability`);
   const goalsEnabled =
     goalsAvailability?.enabled &&
     Number.isFinite(goalsAvailability.budget_microusd) &&
@@ -117,13 +119,28 @@ export function ChatPage({
     goalsAvailability?.agent_workspace_enabled &&
     availability?.agent_workspace_enabled,
   );
+  // A partially loaded or mismatched native deployment is not permission to
+  // silently send the same analytical request to the discussion-only API.
+  const workspaceOffered = Boolean(
+    hasRole(session, "operator") &&
+    agentId !== "technical-agent" &&
+    (availability?.agent_workspace_enabled ||
+      goalsAvailability?.agent_workspace_enabled),
+  );
   const mode = workingGoal
     ? "goal"
     : selectedMode === "auto"
-      ? workspaceEnabled
+      ? workspaceOffered
         ? "agent"
         : "chat"
       : selectedMode;
+  const executionReady = Boolean(
+    mode === "goal"
+      ? goalsEnabled && !goalsAvailabilityError
+      : mode === "agent"
+        ? workspaceEnabled && !goalsAvailabilityError && !availabilityError
+        : availability?.enabled && !availabilityError,
+  );
   const active = turns.find((turn) => ACTIVE.includes(turn.status));
   const scope = data?.topic.product ?? product;
   const wrongAgent = data && data.topic.agent_id !== agentId;
@@ -168,13 +185,7 @@ export function ChatPage({
 
   async function send(): Promise<void> {
     const message = draft.trim();
-    if (
-      !message ||
-      guard.current ||
-      busy ||
-      !(mode === "goal" ? goalsEnabled : availability?.enabled) ||
-      wrongAgent
-    )
+    if (!message || guard.current || busy || !executionReady || wrongAgent)
       return;
     guard.current = true;
     setSending(true);
@@ -250,6 +261,10 @@ export function ChatPage({
           ? caught.message
           : "Не удалось отправить сообщение. Черновик сохранён.",
       );
+      // A lost handoff response may still have created a durable Goal. Observe
+      // it without resubmitting the message or restarting the analysis.
+      if (target && mode === "agent")
+        await mutate(`${GOALS_BASE}/topics/${target}`).catch(() => undefined);
       if (target && !topicId) {
         // The server may already be processing the message. Open persisted history, never auto-resend.
         try {
@@ -327,10 +342,10 @@ export function ChatPage({
           </span>
           <div>
             <h1>{agent.name}</h1>
-            {(currentTopicId || (agent.planned && !workspaceEnabled)) && (
+            {(currentTopicId || (agent.planned && !workspaceOffered)) && (
               <p>
                 {currentTopicId ? (data?.topic.title ?? "Загружаем тему…") : ""}
-                {agent.planned && !workspaceEnabled
+                {agent.planned && !workspaceOffered
                   ? `${currentTopicId ? " · " : ""}Только планирование`
                   : ""}
               </p>
@@ -504,27 +519,71 @@ export function ChatPage({
                 {actionError}
               </p>
             )}
-            {!availability?.enabled && (
-              <p className="chat-notice">
-                {availabilityError ? (
+            {mode === "agent" && !executionReady && (
+              <p className="chat-notice" role="status">
+                {!goalsAvailabilityError &&
+                !availabilityError &&
+                (!goalsAvailability || !availability) ? (
+                  "Проверяем рабочий режим…"
+                ) : (
                   <>
-                    <span>Не удалось проверить доступность AI.</span>{" "}
+                    <span>Рабочий режим недоступен. Запрос не отправлен.</span>{" "}
                     <button
                       type="button"
                       onClick={() =>
-                        void refreshAvailability().catch(() => undefined)
+                        void Promise.all([
+                          refreshAvailability(),
+                          refreshGoalsAvailability(),
+                        ]).catch(() => undefined)
                       }
                     >
                       Повторить проверку
                     </button>
                   </>
-                ) : availability ? (
-                  "AI временно недоступен. Переписка сохранена."
-                ) : (
-                  "Проверяем доступность AI…"
                 )}
               </p>
             )}
+            {mode === "goal" && !executionReady && (
+              <p className="chat-notice" role="status">
+                {!goalsAvailability && !goalsAvailabilityError ? (
+                  "Проверяем работу с целями…"
+                ) : (
+                  <>
+                    <span>Работа с целями недоступна. Черновик сохранён.</span>{" "}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void refreshGoalsAvailability().catch(() => undefined)
+                      }
+                    >
+                      Повторить проверку
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+            {mode !== "agent" &&
+              (!availability?.enabled || availabilityError) && (
+                <p className="chat-notice">
+                  {availabilityError ? (
+                    <>
+                      <span>Не удалось проверить доступность AI.</span>{" "}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void refreshAvailability().catch(() => undefined)
+                        }
+                      >
+                        Повторить проверку
+                      </button>
+                    </>
+                  ) : availability ? (
+                    "AI временно недоступен. Переписка сохранена."
+                  ) : (
+                    "Проверяем доступность AI…"
+                  )}
+                </p>
+              )}
             <form
               className="chat-composer"
               onSubmit={(event) => {
@@ -565,7 +624,7 @@ export function ChatPage({
               <div className="composer-toolbar">
                 {workingGoal ? (
                   <span>Цель</span>
-                ) : workspaceEnabled ? (
+                ) : workspaceOffered ? (
                   <select
                     aria-label="Режим работы"
                     value={selectedMode}
@@ -577,7 +636,9 @@ export function ChatPage({
                   >
                     <option value="auto">Агент</option>
                     <option value="chat">Обсудить</option>
-                    <option value="goal">Цель</option>
+                    <option value="goal" disabled={!goalsEnabled}>
+                      Цель
+                    </option>
                   </select>
                 ) : goalsEnabled ? (
                   <div
@@ -665,9 +726,7 @@ export function ChatPage({
                     disabled={
                       busy ||
                       !draft.trim() ||
-                      !(mode === "goal"
-                        ? goalsEnabled
-                        : availability?.enabled) ||
+                      !executionReady ||
                       (mode === "goal" &&
                         !workingGoal &&
                         draft.trim().length < 10) ||
