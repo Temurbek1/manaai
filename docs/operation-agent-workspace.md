@@ -92,6 +92,12 @@ Status must be updated from actual tests/flows, not intent:
   workers see only a closed projection; native controls/context remain in the new checkpoint.
   Explicit rollback preparation pauses native work without refunding unknown costs or
   repeating reads. No production migration was performed.
+- Completed-analysis continuation: local implementation; frozen topic/owner/product-scoped
+  session memory is reconstructed from SQL before a turn starts. Prior user constraints remain
+  complete; up to three public result excerpts retain source IDs, dates and explicit shortening.
+  A follow-up explanation does not start another Goal or source read. The next task inherits
+  context, not prior evidence authority, costs or approvals. Additive chat metadata migration
+  `d86a1b9f023c` keeps the supported old chat reader compatible as well as the Goal reader.
 - Full quality, source integration acceptance and production release: pending.
 
 ### Local evidence, 2026-10-11 (not a production claim)
@@ -166,6 +172,45 @@ Status must be updated from actual tests/flows, not intent:
   plus new-image checkpoint reconstruction before/after explicit rollback preparation.
   This is a local runtime check, not an image publication or production deployment.
 
+### Completed-analysis continuation checkpoint, 2026-10-12
+
+- A completed/cancelled Goal's public result now enters the next conversation as historical
+  context. Its source IDs, collection/expiry dates, quality limitations and shortening flag
+  remain explicit. Source freshness is recalculated for each model request without mutating
+  the saved snapshot. Historical context never substitutes for current cited Goal evidence.
+- Memory is reconstructed only from SQL owned by the same user/topic/product and frozen
+  before generation. At most three result excerpts (2000 characters each), the newest 100
+  closed Goals and 400 exactly deduplicated user-context records are supported. Omitted older
+  checkpoints are counted; result excerpts may shorten further for the model with a marker.
+  User constraints are never abbreviated. Oversized context fails before a paid model call,
+  preserving the complete SQL messages/results. This is bounded continuation, not unlimited
+  context compaction or automatic recovery of arbitrarily old agreements.
+- Handoff copies the original chat snapshot, including an empty snapshot, rather than
+  reconstructing it after the turn. New tasks start with zero spent steps/cost and no inherited
+  evidence or source approvals. Idempotent lookup works beyond the 100-Goal history page;
+  replay does not generate another response or rebuild memory from later conversations.
+- A previously missing rollback check was found: the actual old chat reader merges legacy
+  `context_metadata`, so native fields in that column were incompatible. New additive migration
+  `d86a1b9f023c` isolates those fields. Goal memory uses checkpoint protocol 2; protocol/scope
+  mismatches fail closed. Both chat-only and Goal-only histories prevent destructive downgrade.
+- Local browser → real API/SQL → fake model flows passed: finish/review a Goal, explain its
+  result using the retained period/source, reload without a duplicate Goal, and keep other
+  administrators isolated. The legacy browser flow also passed; PostgreSQL 17 migration
+  upgrade/downgrade/upgrade, drift and six concurrency/recovery tests passed. No production
+  source, Firebase/GA4 or paid OpenAI call was used for this checkpoint.
+- Final `make verify`: 723 backend tests passed, six PostgreSQL tests skipped in the ordinary
+  suite/two live suites excluded; 96 UI tests passed, with successful formatting, lint,
+  Python/TypeScript checks, UI build and zero high-level dependency-audit findings. Separate
+  SQLite migration/drift, synchronized OpenAPI/client, secret/quality-marker and compose
+  configuration checks passed. The native browser continuation flow was repeated after the
+  final scope/quality guards; its cleanup was followed by a successful production UI build.
+- The standard local runtime build completed. A networkless source-overlay candidate,
+  `mana-ai-operation:session-final-local-20261012` (`a3da4e584703`), uses that image's installed
+  dependencies and the exact final application/migration/rollback-script sources. The two-image
+  compatibility audit passed against the actual old `2ea7b9a` image and this candidate, including
+  strict chat/Goal reads, old command/claim protection, complete current-memory reconstruction
+  and explicit-pause recovery. No image was published or deployed.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:
@@ -176,9 +221,9 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
   verify approved configured sources without a scan or new schedule.
 - Expand user-visible durable streaming/continuation and extended-context behavior with
   explicit interruption/reconnection semantics; current SQL polling is not token streaming.
-  Completed Goal results are not yet incorporated into the next ordinary conversation's
-  memory; that continuation requires bounded, explicitly marked checkpoint context and
-  freshness checks without silently dropping user constraints.
+  Completed results now enter ordinary conversation as bounded historical checkpoints, not
+  fresh evidence. Very long user-context histories still fail closed at an explicit byte/count
+  limit without calling the model; scalable retrieval/compaction of extended sessions remains.
 - Integrate supported action proposals/owning-domain execution into the conversational
   work lifecycle without claiming unbuilt Retention/Orchestrator/Technical capabilities.
 - Produce a scoped sidecar/UI release and rollback, keep the independent main API/audio and

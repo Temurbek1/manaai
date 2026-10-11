@@ -23,8 +23,23 @@ from app.mana_operation_ai.infrastructure.retention.parents import FakeParentSum
 
 class BrowserConversationFake:
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
-        message = str(json.loads(context).get("message", ""))
-        agent_mode = "start_goal" in json.loads(context).get("allowed_next_actions", [])
+        payload = json.loads(context)
+        message = str(payload.get("message", ""))
+        agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
+        if message == "Объясни второй вывод завершённого анализа":
+            memory = payload.get("session_memory")
+            assert memory and memory["checkpoints"][0]["status"] == "completed"
+            assert "Тестовый анализ" in memory["checkpoints"][0]["result"]
+            assert memory["checkpoints"][0]["sources"][0]["report_id"] == "browser-workspace-report"
+            assert any("Последние 7 дней" in item["text"] for item in memory["user_context"])
+            return ChatTurnOutput(
+                "Продолжаю по сохранённому анализу: период — последние 7 дней. "
+                "Повторный сбор данных не запускался.",
+                "browser-fake",
+                10,
+                20,
+                next_action="none",
+            )
         return ChatTurnOutput(
             "Это тестовый ответ. Сначала уточним цель, затем проверим сохранённые отчёты. "
             "Изменения не выполнялись. Привязка данных к приложению не подтверждена.",

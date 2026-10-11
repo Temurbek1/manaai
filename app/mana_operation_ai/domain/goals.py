@@ -13,6 +13,7 @@ from app.mana_operation_ai.domain.agent_tools import (
 )
 from app.mana_operation_ai.domain.chat import ChatModel, ProductScope
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
+from app.mana_operation_ai.domain.session import SessionMemory
 
 GoalStatus = Literal["queued", "running", "paused", "waiting", "completed", "cancelled"]
 GoalPhase = Literal["plan", "investigate", "review"]
@@ -99,6 +100,7 @@ class OperationGoal(ChatModel):
     model: str | None = None
     lease_until: datetime | None = None
     tools: list[AgentToolRecord] = Field(default_factory=list, max_length=12)
+    session_memory: SessionMemory | None = None
 
 
 class GoalDecisionBody(ChatModel):

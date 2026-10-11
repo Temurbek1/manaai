@@ -9,7 +9,7 @@ from sqlalchemy import select, text
 
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
-from app.mana_operation_ai.domain.chat import ChatTopic, TopicCreate
+from app.mana_operation_ai.domain.chat import ChatTopic, MessageCreate, TopicCreate
 from app.mana_operation_ai.domain.goals import (
     GoalCommand,
     GoalConversationTurn,
@@ -316,7 +316,50 @@ async def test_additive_migration_preserves_legacy_history_and_refuses_destructi
         async with db.session_factory() as session:
             assert (
                 await session.scalar(text("SELECT version_num FROM alembic_version"))
-                == "c75f0a6e812b"
+                == "d86a1b9f023c"
+            )
+    finally:
+        await db.dispose()
+
+
+async def test_chat_only_workspace_history_refuses_schema_downgrade(tmp_path: Path) -> None:
+    url = f"sqlite+aiosqlite:///{tmp_path / 'chat-migration.db'}"
+    env = {**os.environ, "OPERATION_DATABASE_URL": url, "OPENAI_API_KEY": "test-key"}
+
+    async def migrate(*arguments: str) -> tuple[int, str]:
+        process = await asyncio.create_subprocess_exec(
+            ".venv/bin/alembic",
+            *arguments,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        output, _ = await process.communicate()
+        return process.returncode or 0, output.decode()
+
+    assert (await migrate("upgrade", "head"))[0] == 0
+    db = OperationDatabase(url)
+    chats = SqlAlchemyChatRepository(db, hourly_limit=20, daily_limit=200)
+    try:
+        native_topic = await topic(db)
+        turn, _ = await chats.reserve(
+            "owner",
+            native_topic.topic_id,
+            MessageCreate(
+                request_id=uuid4(), message="A native conversation", execution_mode="agent"
+            ),
+        )
+        assert await chats.update(
+            turn.model_copy(update={"status": "completed", "next_action": "start_goal"})
+        )
+        before = await chats.turns("owner", native_topic.topic_id)
+        code, output = await migrate("downgrade", "c75f0a6e812b")
+        assert code != 0 and "use application-only rollback" in output
+        assert await chats.turns("owner", native_topic.topic_id) == before
+        async with db.session_factory() as session:
+            assert (
+                await session.scalar(text("SELECT version_num FROM alembic_version"))
+                == "d86a1b9f023c"
             )
     finally:
         await db.dispose()

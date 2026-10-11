@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from app.mana_operation_ai.domain.chat import (
@@ -9,12 +10,28 @@ from app.mana_operation_ai.domain.chat import (
     MessageCreate,
     TopicCreate,
 )
+from app.mana_operation_ai.domain.session import SessionMemory
 
 
 class ChatError(Exception):
     def __init__(self, message: str, status: int = 409) -> None:
         super().__init__(message)
         self.status = status
+
+
+class SessionContextTooLarge(ChatError):
+    def __init__(self) -> None:
+        super().__init__(
+            "История достигла лимита контекста. Ограничения не сокращались, запрос к AI "
+            "не отправлен. Создайте новую тему с нужными условиями; старая история сохранена.",
+            422,
+        )
+
+
+class SessionContextReader(Protocol):
+    async def read(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> SessionMemory | None: ...
 
 
 class ChatRepository(Protocol):

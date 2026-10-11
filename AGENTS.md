@@ -33,6 +33,12 @@
   gaps. Handle native function calls before parsing accompanying text; account verified raw
   provider usage before validating structured content. Never equate a passing fake workflow
   or a single synthetic model evaluation with production readiness or complete feature parity.
+- Topic-owned session memory preserves user constraints and bounded completed/cancelled Goal
+  result excerpts across chat/task continuation. It is private historical context, not fresh
+  evidence or permission; never inherit previous source approvals or budgets. Freeze it before
+  generation and preserve it on idempotent replay. Do not silently shorten user constraints.
+  Keep new chat fields outside legacy-readable JSON; supported application rollback retains
+  native chat/Goal metadata and never downgrades a populated workspace schema.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

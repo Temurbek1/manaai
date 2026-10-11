@@ -4175,6 +4175,16 @@
             "title": "Request Id",
             "type": "string"
           },
+          "session_memory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionMemory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sources": {
             "items": {
               "$ref": "#/components/schemas/ChatSource"
@@ -9779,6 +9789,16 @@
             "title": "Revision",
             "type": "integer"
           },
+          "session_memory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionMemory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "default": "queued",
             "enum": [
@@ -13271,6 +13291,183 @@
         "title": "ScheduleWindow",
         "type": "object"
       },
+      "SessionCheckpoint": {
+        "additionalProperties": false,
+        "properties": {
+          "goal_id": {
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "result": {
+            "maxLength": 2000,
+            "title": "Result",
+            "type": "string"
+          },
+          "result_shortened": {
+            "default": false,
+            "title": "Result Shortened",
+            "type": "boolean"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SessionEvidenceReference"
+            },
+            "maxItems": 4,
+            "title": "Sources",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal_id",
+          "status",
+          "updated_at",
+          "result"
+        ],
+        "title": "SessionCheckpoint",
+        "type": "object"
+      },
+      "SessionEvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_key": {
+            "title": "Capability Key",
+            "type": "string"
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
+          "fresh_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fresh Until"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "product": {
+            "enum": [
+              "mana",
+              "360rec"
+            ],
+            "title": "Product",
+            "type": "string"
+          },
+          "refresh_status": {
+            "enum": [
+              "live",
+              "cached",
+              "stale",
+              "unknown"
+            ],
+            "title": "Refresh Status",
+            "type": "string"
+          },
+          "report_id": {
+            "title": "Report Id",
+            "type": "string"
+          },
+          "shortened": {
+            "default": false,
+            "title": "Shortened",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "report_id",
+          "capability_key",
+          "product",
+          "collected_at",
+          "fresh_until",
+          "refresh_status"
+        ],
+        "title": "SessionEvidenceReference",
+        "type": "object"
+      },
+      "SessionMemory": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "checkpoints": {
+            "items": {
+              "$ref": "#/components/schemas/SessionCheckpoint"
+            },
+            "maxItems": 3,
+            "title": "Checkpoints",
+            "type": "array"
+          },
+          "older_checkpoints_omitted": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Older Checkpoints Omitted",
+            "type": "integer"
+          },
+          "product": {
+            "enum": [
+              "mana",
+              "360rec"
+            ],
+            "title": "Product",
+            "type": "string"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "user_context": {
+            "items": {
+              "$ref": "#/components/schemas/SessionUserContext"
+            },
+            "maxItems": 400,
+            "title": "User Context",
+            "type": "array"
+          }
+        },
+        "required": [
+          "topic_id",
+          "product",
+          "captured_at"
+        ],
+        "title": "SessionMemory",
+        "type": "object"
+      },
       "SessionRevocationResponse": {
         "additionalProperties": false,
         "properties": {
@@ -13284,6 +13481,39 @@
           "revoked_sessions"
         ],
         "title": "SessionRevocationResponse",
+        "type": "object"
+      },
+      "SessionUserContext": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "user_message",
+              "prior_objective",
+              "prior_criteria",
+              "constraint",
+              "instruction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "origin_id": {
+            "maxLength": 128,
+            "title": "Origin Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 6000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "origin_id"
+        ],
+        "title": "SessionUserContext",
         "type": "object"
       },
       "SessionUserResponse": {

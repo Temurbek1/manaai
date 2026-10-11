@@ -18,7 +18,9 @@ ACTIVE = ("reading", "thinking")
 
 
 def _turn(row: ChatTurnRow) -> ChatTurn:
-    return ChatTurn.model_validate({**row.payload, **(row.context_metadata or {})})
+    return ChatTurn.model_validate(
+        {**row.payload, **(row.context_metadata or {}), **(row.workspace_metadata or {})}
+    )
 
 
 def _storage(turn: ChatTurn) -> dict[str, object]:
@@ -36,15 +38,15 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
             "model_choice",
             "reasoning",
             "execution_mode",
+            "session_memory",
         },
     )
     metadata = {
         "analysis_kind": turn.analysis_kind,
         "model_choice": turn.model_choice,
         "reasoning": turn.reasoning,
-        "execution_mode": turn.execution_mode,
         "sources": payload["sources"],
-        "next_action": turn.next_action,
+        "next_action": "none" if turn.next_action == "start_goal" else turn.next_action,
     }
     payload["sources"] = [
         {
@@ -58,7 +60,16 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
     ]
     if turn.next_action in ("mana_parents", "start_goal"):
         payload["next_action"] = "none"
-    return {"payload": payload, "context_metadata": metadata}
+    workspace = None
+    if turn.execution_mode == "agent" or turn.next_action == "start_goal" or turn.session_memory:
+        workspace = {
+            "execution_mode": turn.execution_mode,
+            "next_action": turn.next_action,
+            "session_memory": turn.session_memory.model_dump(mode="json")
+            if turn.session_memory
+            else None,
+        }
+    return {"payload": payload, "context_metadata": metadata, "workspace_metadata": workspace}
 
 
 class SqlAlchemyChatRepository:

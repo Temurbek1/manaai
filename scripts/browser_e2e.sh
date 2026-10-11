@@ -179,11 +179,18 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   fi
   browser reload >/dev/null
   browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  browser find label "Сообщение агенту" fill 'Объясни второй вывод завершённого анализа' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Продолжаю по сохранённому анализу")' >/dev/null
+  assert_browser 'document.querySelectorAll(".goal-workspace").length === 1' 'follow-up started a duplicate analysis'
+  browser reload >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Продолжаю по сохранённому анализу")' >/dev/null
+  assert_accessible
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: automatic handoff, scoped saved tools, inline question, reviewed result, reload, owner isolation and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, scoped tools, inline question, reviewed result, completed-analysis continuation, reload, owner isolation and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'

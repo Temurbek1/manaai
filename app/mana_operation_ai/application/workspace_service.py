@@ -25,7 +25,7 @@ class OperationWorkspaceService:
         await self._goals._access(owner)
         goals = await self._goals.list_goals(owner, topic_id)
         request_id = uuid5(NAMESPACE_URL, f"mana-workspace:{topic_id}:{request.request_id}")
-        prior_goal = next((goal for goal in goals if goal.request.request_id == request_id), None)
+        prior_goal = await self._goals.repository.find_request(owner, str(request_id))
         if prior_goal is None and any(
             goal.status not in ("completed", "cancelled") for goal in goals
         ):
@@ -65,5 +65,7 @@ class OperationWorkspaceService:
                 max_steps=self._goals.availability.max_steps,
                 budget_microusd=self._goals.availability.budget_microusd,
             ),
+            session_memory=turn.session_memory,
+            capture_session_context=False,
         )
         return WorkspaceTurn(turn=turn, goal=goal)

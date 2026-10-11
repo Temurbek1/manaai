@@ -100,6 +100,9 @@ class ChatTurnRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
     context_metadata: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    workspace_metadata: Mapped[dict[str, object] | None] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )
 
 
 class GoalRow(Base):

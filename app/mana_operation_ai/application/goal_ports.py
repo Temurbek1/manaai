@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from app.mana_operation_ai.domain.chat import ChatTopic
@@ -7,6 +9,13 @@ from app.mana_operation_ai.domain.goals import (
     GoalDecision,
     OperationGoal,
 )
+from app.mana_operation_ai.domain.session import SessionMemory
+
+
+@dataclass(frozen=True)
+class GoalHistory:
+    goals: list[OperationGoal]
+    older_goals_omitted: int
 
 
 class GoalModelOutput:
@@ -31,9 +40,22 @@ class GoalModel(Protocol):
 
 
 class GoalRepository(Protocol):
-    async def create(self, owner: str, topic: ChatTopic, request: GoalCreate) -> OperationGoal: ...
+    async def create(
+        self,
+        owner: str,
+        topic: ChatTopic,
+        request: GoalCreate,
+        *,
+        session_memory: SessionMemory | None = None,
+    ) -> OperationGoal: ...
 
     async def list(self, owner: str, topic_id: str) -> list[OperationGoal]: ...
+
+    async def find_request(self, owner: str, request_id: str) -> OperationGoal | None: ...
+
+    async def closed_history(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> GoalHistory: ...
 
     async def get(self, owner: str, goal_id: str) -> OperationGoal: ...
 

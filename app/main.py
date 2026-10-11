@@ -59,6 +59,7 @@ from app.mana_operation_ai.application.retention.engagement import (
 from app.mana_operation_ai.application.retention.parent_ports import ParentSummaryPort
 from app.mana_operation_ai.application.retention.parents import ParentSummaryCapabilityHandler
 from app.mana_operation_ai.application.runtime import SystemClock, UuidGenerator
+from app.mana_operation_ai.application.session_context import OperationSessionContext
 from app.mana_operation_ai.application.shared_data import SharedDataReader
 from app.mana_operation_ai.application.shared_sources import (
     SharedBackendActivity,
@@ -593,6 +594,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         daily_limit=settings.operation_chat_daily_limit,
     )
     await chat_repository.initialize()
+    goal_repository = SqlAlchemyGoalRepository(operation_database, clock)
+    session_context = OperationSessionContext(chat_repository, goal_repository)
     chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
     app.state.operation_cost_ledger = cost_ledger
     app.state.operation_shared_data_reader = shared_data_reader
@@ -602,6 +605,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         admin=operation_admin_service,
         max_context_bytes=settings.operation_chat_max_context_bytes,
         parent_minimum_interval_seconds=settings.manakids_parent_min_interval_seconds,
+        session_context=session_context,
         clock=clock,
         availability=ChatAvailability(
             enabled=settings.operation_chat_enabled and settings.is_openai_configured,
@@ -618,13 +622,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     goal_model = OpenAIGoalModel(settings, cost_ledger)
     goal_service = OperationGoalService(
         auth=auth_repository if settings.mana_telegram_auth_enabled else None,
-        repository=SqlAlchemyGoalRepository(operation_database, clock),
+        repository=goal_repository,
         chats=chat_repository,
         model=goal_model,
         admin=operation_admin_service,
         clock=clock,
         max_context_bytes=settings.operation_goals_max_context_bytes,
         global_kill_switch_default=settings.operation_global_kill_switch,
+        session_context=session_context,
         availability=GoalAvailability(
             enabled=settings.operation_goals_enabled and settings.is_openai_configured,
             model=settings.operation_goals_model,

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.mana_operation_ai.application.chat_ports import ChatError
+from app.mana_operation_ai.application.goal_ports import GoalHistory
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.chat import ChatTopic
 from app.mana_operation_ai.domain.goals import (
@@ -18,6 +19,7 @@ from app.mana_operation_ai.domain.goals import (
     GoalStatus,
     OperationGoal,
 )
+from app.mana_operation_ai.domain.session import SessionMemory
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import (
     ChatBudgetRow,
@@ -29,7 +31,7 @@ from app.mana_operation_ai.infrastructure.persistence.models import (
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1] = 1
+    version: Literal[1, 2] = 1
     goal: OperationGoal
 
 
@@ -57,6 +59,16 @@ def _goal(row: GoalRow) -> OperationGoal:
     except ValidationError as exc:
         raise ChatError("Сохранённая цель требует совместимой версии рабочей среды.", 503) from exc
     goal = checkpoint.goal
+    memory = goal.session_memory
+    if (
+        (checkpoint.version == 1 and memory is not None)
+        or (checkpoint.version == 2 and memory is None)
+        or (
+            memory is not None
+            and (memory.topic_id != goal.topic_id or memory.product != goal.product)
+        )
+    ):
+        raise ChatError("Сохранённая цель требует проверки совместимости контекста.", 503)
     if row.workspace_status != goal.status or row.revision != goal.revision:
         raise ChatError("Сохранённая цель требует проверки совместимости версии.", 503)
     return goal
@@ -98,7 +110,9 @@ class SqlAlchemyGoalRepository:
 
     @staticmethod
     def _payload(goal: OperationGoal) -> dict[str, object]:
-        payload: dict[str, object] = goal.model_dump(mode="json", exclude={"tools"})
+        payload: dict[str, object] = goal.model_dump(
+            mode="json", exclude={"tools", "session_memory"}
+        )
         payload["request"] = goal.request.model_dump(
             mode="json", exclude={"execution_mode", "conversation_history", "older_turns_omitted"}
         )
@@ -122,6 +136,7 @@ class SqlAlchemyGoalRepository:
             or goal.request.conversation_history
             or goal.request.older_turns_omitted
             or goal.tools
+            or goal.session_memory is not None
             or "retention.parents.analyze" in (goal.requested_capability, goal.approved_capability)
         )
 
@@ -136,12 +151,24 @@ class SqlAlchemyGoalRepository:
             "updated_at": goal.updated_at,
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
-            "workspace_payload": _WorkspaceCheckpoint(goal=goal).model_dump(mode="json")
+            "workspace_payload": _WorkspaceCheckpoint(
+                version=2 if goal.session_memory is not None else 1, goal=goal
+            ).model_dump(
+                mode="json",
+                exclude={"goal": {"session_memory"}} if goal.session_memory is None else {},
+            )
             if native
             else None,
         }
 
-    async def create(self, owner: str, topic: ChatTopic, request: GoalCreate) -> OperationGoal:
+    async def create(
+        self,
+        owner: str,
+        topic: ChatTopic,
+        request: GoalCreate,
+        *,
+        session_memory: SessionMemory | None = None,
+    ) -> OperationGoal:
         async with self._sessions() as session, session.begin():
             await self._lock(session)
             existing = await session.scalar(
@@ -178,6 +205,7 @@ class SqlAlchemyGoalRepository:
                 agent_id=topic.agent_id,
                 product=topic.product,
                 request=request,
+                session_memory=session_memory,
                 created_at=now,
                 updated_at=now,
                 events=[GoalEvent(at=now, kind="created", message=request.objective)],
@@ -205,6 +233,37 @@ class SqlAlchemyGoalRepository:
     async def get(self, owner: str, goal_id: str) -> OperationGoal:
         async with self._sessions() as session:
             return _goal(await self._owned(session, owner, goal_id))
+
+    async def find_request(self, owner: str, request_id: str) -> OperationGoal | None:
+        async with self._sessions() as session:
+            row = await session.scalar(
+                select(GoalRow).where(GoalRow.owner == owner, GoalRow.request_id == request_id)
+            )
+            return _goal(row) if row is not None else None
+
+    async def closed_history(self, owner: str, topic_id: str, *, before: datetime) -> GoalHistory:
+        async with self._sessions() as session:
+            conditions = (
+                GoalRow.owner == owner,
+                GoalRow.topic_id == topic_id,
+                _states("completed", "cancelled"),
+                GoalRow.updated_at < before,
+            )
+            rows = list(
+                await session.scalars(
+                    select(GoalRow)
+                    .where(*conditions)
+                    .order_by(GoalRow.updated_at.desc(), GoalRow.goal_id)
+                    .limit(100)
+                )
+            )
+            total = await session.scalar(
+                select(func.count()).select_from(GoalRow).where(*conditions)
+            )
+            return GoalHistory(
+                goals=[_goal(row) for row in rows],
+                older_goals_omitted=max(0, (total or 0) - len(rows)),
+            )
 
     async def command(self, owner: str, goal_id: str, payload: GoalCommand) -> OperationGoal:
         async with self._sessions() as session, session.begin():

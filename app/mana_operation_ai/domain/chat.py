@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
+from app.mana_operation_ai.domain.session import SessionMemory
 
 ChatAgent = Literal["operations-orchestrator", "growth-agent", "retention-agent", "technical-agent"]
 ProductScope = Literal["mana", "360rec"]
@@ -83,6 +84,7 @@ class ChatTurn(ChatModel):
     plan: list[str] = Field(default_factory=list)
     next_action: ChatNextAction = "none"
     read_confirmation: ChatReadConfirmation | None = None
+    session_memory: SessionMemory | None = None
 
 
 class TopicDetail(ChatModel):

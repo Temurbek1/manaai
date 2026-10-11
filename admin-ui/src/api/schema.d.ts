@@ -3357,6 +3357,7 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+            session_memory?: components["schemas"]["SessionMemory"] | null;
             /** Sources */
             sources?: components["schemas"]["ChatSource"][];
             /**
@@ -5340,6 +5341,7 @@ export interface components {
              * @default 0
              */
             revision: number;
+            session_memory?: components["schemas"]["SessionMemory"] | null;
             /**
              * Status
              * @default queued
@@ -6622,10 +6624,98 @@ export interface components {
              */
             starts_at: string;
         };
+        /** SessionCheckpoint */
+        SessionCheckpoint: {
+            /** Goal Id */
+            goal_id: string;
+            /** Result */
+            result: string;
+            /**
+             * Result Shortened
+             * @default false
+             */
+            result_shortened: boolean;
+            /** Sources */
+            sources?: components["schemas"]["SessionEvidenceReference"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "completed" | "cancelled";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SessionEvidenceReference */
+        SessionEvidenceReference: {
+            /** Capability Key */
+            capability_key: string;
+            /** Collected At */
+            collected_at: string | null;
+            /** Fresh Until */
+            fresh_until: string | null;
+            /** Limitations */
+            limitations?: string[];
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
+            /**
+             * Refresh Status
+             * @enum {string}
+             */
+            refresh_status: "live" | "cached" | "stale" | "unknown";
+            /** Report Id */
+            report_id: string;
+            /**
+             * Shortened
+             * @default false
+             */
+            shortened: boolean;
+        };
+        /** SessionMemory */
+        SessionMemory: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Checkpoints */
+            checkpoints?: components["schemas"]["SessionCheckpoint"][];
+            /**
+             * Older Checkpoints Omitted
+             * @default 0
+             */
+            older_checkpoints_omitted: number;
+            /**
+             * Product
+             * @enum {string}
+             */
+            product: "mana" | "360rec";
+            /** Topic Id */
+            topic_id: string;
+            /** User Context */
+            user_context?: components["schemas"]["SessionUserContext"][];
+        };
         /** SessionRevocationResponse */
         SessionRevocationResponse: {
             /** Revoked Sessions */
             revoked_sessions: number;
+        };
+        /** SessionUserContext */
+        SessionUserContext: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "user_message" | "prior_objective" | "prior_criteria" | "constraint" | "instruction";
+            /** Origin Id */
+            origin_id: string;
+            /** Text */
+            text: string;
         };
         /** SessionUserResponse */
         SessionUserResponse: {

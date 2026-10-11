@@ -40,7 +40,9 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
     try:
         if stage == "setup":
             from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
+            from app.mana_operation_ai.domain.chat import MessageCreate
             from app.mana_operation_ai.domain.goals import GoalConversationTurn
+            from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
 
             await database.create_schema()
             await chats.initialize()
@@ -60,8 +62,44 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                     if native
                     else [],
                 )
-                goal = await repository.create(OWNER, topic, request)
+                memory = (
+                    SessionMemory(
+                        topic_id=topic.topic_id,
+                        product="mana",
+                        captured_at=clock.now(),
+                        user_context=[
+                            SessionUserContext(
+                                kind="constraint",
+                                text="Do not contact clients.",
+                                origin_id="synthetic",
+                            )
+                        ],
+                    )
+                    if native
+                    else None
+                )
+                goal = await repository.create(OWNER, topic, request, session_memory=memory)
                 if native:
+                    turn, created = await chats.reserve(
+                        OWNER,
+                        topic.topic_id,
+                        MessageCreate(
+                            request_id=uuid4(),
+                            message="Analyze synthetic evidence.",
+                            execution_mode="agent",
+                        ),
+                    )
+                    assert created
+                    assert await chats.update(
+                        turn.model_copy(
+                            update={
+                                "status": "completed",
+                                "next_action": "start_goal",
+                                "answer": "Synthetic task started.",
+                                "session_memory": memory,
+                            }
+                        ),
+                    )
                     lost = title == "Native lost"
                     updated = goal.model_copy(
                         update={
@@ -96,6 +134,9 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 goal = (await repository.list(OWNER, topic.topic_id))[0]
                 if topic.title == "Legacy":
                     continue
+                turns = await chats.turns(OWNER, topic.topic_id)
+                assert len(turns) == 1
+                assert turns[0].status == "completed" and turns[0].next_action == "none"
                 assert goal.status == "cancelled" and goal.lease_until is None
                 assert goal.accounted_microusd == 90_000
                 assert goal.requested_capability is None and goal.approved_capability is None
@@ -139,6 +180,12 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                     assert goal.status == "cancelled"
                     continue
                 lost = topic.title == "Native lost"
+                turns = await chats.turns(OWNER, topic.topic_id)
+                assert len(turns) == 1
+                assert turns[0].next_action == "start_goal" and turns[0].execution_mode == "agent"
+                assert turns[0].session_memory is not None and goal.session_memory is not None
+                assert turns[0].session_memory.user_context[0].text == "Do not contact clients."
+                assert goal.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.status == ("paused" if paused else "running" if lost else "queued")
                 assert goal.request.execution_mode == "agent"
                 assert goal.request.conversation_history[0].user == "Do not contact clients."
