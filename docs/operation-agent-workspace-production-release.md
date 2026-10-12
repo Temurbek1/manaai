@@ -92,6 +92,13 @@ restore only the old UI image. Keep schema `a36d9f7b802c` and all native history
 old Alembic head or a database downgrade. Resume paused work only through owner controls.
 The running production stack was not rolled back as a diagnostic.
 
+Final SSH synchronization of this report to `/etc/manaai/deploy/ACTIVE-RELEASE.md` was not
+confirmed: the copy/interactive connections stopped returning useful output after the
+successful deployment and scope checks. Public readiness still returned `ok`/audio `ready`.
+Do not use an older server release record to overwrite the new runtime; inspect Docker's
+actual Compose labels and consult this repository report. No SSH configuration/authentication
+change, whole-stack restart or further authentication loop was attempted to repair the copy.
+
 ## Remaining acceptance boundaries
 
 This completes the scoped application release, not unlimited Codex/Claude parity or all four
