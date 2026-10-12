@@ -72,6 +72,7 @@ OPERATION_DRY_RUN=false \
 OPERATION_ALLOW_SELF_APPROVAL=false \
 OPERATION_SCHEDULER_ENABLED=false \
 OPERATION_GOALS_WORKER_ENABLED=false \
+OPERATION_GOALS_MAX_STEPS=12 \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
@@ -307,11 +308,21 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser reload >/dev/null
   browser wait --fn 'document.querySelector(".goal-result")?.textContent.includes("Исходные условия из первой задачи сохранены")' >/dev/null
   browser eval '(async()=>{ const topic=location.pathname.split("/").at(-1); const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if(goals.length!==100 || goals[0].status!=="completed" || goals[0].read_attempted || goals[0].approved_capability || goals[0].evidence.length!==1) throw new Error("Archive continuation inherited authority or expanded public history"); return "all original conditions; only scoped saved evidence"; })()' >/dev/null
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
+  browser wait --load networkidle >/dev/null
+  browser find label "Сообщение агенту" fill 'Прочитай полный сохранённый отчёт вместе с концом' >/dev/null
+  browser find role button click --name "Отправить сообщение" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов") && document.querySelector(".goal-result")?.textContent.includes("EXACT PAGED FOOTER")' >/dev/null
+  browser eval '(async()=>{ const topic=location.pathname.split("/").at(-1); const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); const goal=goals[0]; if(goals.length!==1 || goal.status!=="completed" || goal.read_attempted || goal.approved_capability || goal.evidence[0].summary.length<=5000 || !goal.evidence[0].summary.endsWith("EXACT PAGED FOOTER") || goal.evidence[0].shortened || goal.evidence[0].report_read_progress!==null || goal.tools.filter(t=>t.call.name==="read_saved_report_page").length!==3) throw new Error("Paged source was clipped, partially accepted or exposed private receipts"); sessionStorage.setItem("paged-audit-baseline",JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd})); return "full source reaches review"; })()' >/dev/null
+  assert_accessible
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".goal-result")?.textContent.includes("EXACT PAGED FOOTER")' >/dev/null
+  browser eval '(async()=>{ const topic=location.pathname.split("/").at(-1); const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); const goal=goals[0]; if(JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd})!==sessionStorage.getItem("paged-audit-baseline")) throw new Error("Reload redispatched the paged task"); if(goal.evidence[0].shortened || !goal.evidence[0].summary.endsWith("EXACT PAGED FOOTER")) throw new Error("Reload lost complete evidence"); return "paged checkpoint restored"; })()' >/dev/null
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, 110-turn transcript paging, 105-Goal full-condition handoff/review/reload, owner isolation, CSRF and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, 110-turn transcript paging, 105-Goal full-condition handoff/review/reload, full paged report/review/reload, owner isolation, CSRF and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'

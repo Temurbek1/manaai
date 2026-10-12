@@ -795,6 +795,46 @@ runtime/105-Goal HTTP/SQL/model-port/replay/owner smoke and old/new v7 rollback 
 five backend source hashes matching the workspace and no `.env` in the image. These remain
 local engineering/quality evidence, not release permission or overall Goal completion.
 
+### Saved-report paging checkpoint, 2026-10-12
+
+Local implementation, not yet deployed. A source reader previously exposed only the first
+5000 characters of a saved report and correctly refused complete analysis when that text was
+shortened. There was no tool to retrieve a metric or limitation in the saved tail. The native
+`read_saved_report_page` tool now reads exact contiguous pages of at most 4000 characters
+from already minimized, app/agent-scoped SQL reports, with a 32000-character report limit.
+The model follows `next_offset`; the trusted runtime assembles complete text into evidence
+for investigation and independent review. No new source collection, schedule or permission
+is inferred. Reading all text does not prove that a prefix sample covers a whole population.
+
+Receipts bind the complete report metadata/text fingerprint, expected offset and exact
+loaded-text hash. Gaps, source changes, wrong app/agent, malformed offsets, incomplete
+quality notes and oversized reports fail closed. A small step budget preserves the original
+request and partial work, not an automatically narrower task or an unreviewed completion.
+Public Goal responses omit receipt hashes; SQL checkpoint v8 preserves them across restart.
+The old 5000-character reader remains available and unchanged for ordinary Goals.
+
+Local evidence: 17 dedicated fake-provider cases cover full tail/review/SQL restore,
+partial refusal, field/context corruption, quality/capacity and strict arguments. The native
+browser → API → SQL → model-port flow read three pages, reviewed the exact footer and
+retained its Goal ID/revision/steps/cost across reload; historical continuation, existing
+sandbox approvals, owner/CSRF isolation and accessibility still passed. Separate PostgreSQL
+17 migration/drift plus 14 cases passed, including v8 restart and concurrent control replay.
+The actual networkless `2ea7b9a` reader passed closed projection, queue/control refusal and
+explicit-pause retention of complete paged evidence, existing unknown holds and approvals.
+The current production `737b75d` reader is not a v8 compatibility target.
+
+No paid model, Firebase/GA4/Manakids/Meta read/write or production mutation was used for this
+checkpoint. The browser fixture uses the already deployed twelve-step admission setting;
+the real policy/defaults were not raised to make a test pass. Full source/business-action
+acceptance remains open; this change establishes bounded saved-text acquisition, not
+unlimited context or a statistical model-quality result.
+
+Final `make verify`: 817 backend tests, 14 PostgreSQL-only skips/two excluded live suites;
+127 UI tests, lint/format, Python/TypeScript checks, production UI build and zero npm audit
+vulnerabilities. Separate PostgreSQL audit covered all 14 cases. Source/API contracts are
+synchronized, secret/quality-marker scans passed, and the native paged-report browser flow
+was rerun with a persisted reload baseline rather than a reset in-memory assertion.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:

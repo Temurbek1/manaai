@@ -24,4 +24,11 @@ def continuation_scope_digest(owner: str, goal: OperationGoal) -> str:
 
 
 def public_goal(goal: OperationGoal) -> OperationGoal:
-    return goal.model_copy(update={"model_continuation": None})
+    return goal.model_copy(
+        update={
+            "model_continuation": None,
+            "evidence": [
+                item.model_copy(update={"report_read_progress": None}) for item in goal.evidence
+            ],
+        }
+    )

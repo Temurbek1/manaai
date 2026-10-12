@@ -405,6 +405,7 @@ async def test_native_function_request_is_strict_and_usage_is_accounted(
             assert {tool["name"] for tool in kwargs["tools"]} == {
                 "inspect_sources",
                 "read_saved_report",
+                "read_saved_report_page",
                 "find_saved_tasks",
                 "read_saved_task",
                 "request_source_read",

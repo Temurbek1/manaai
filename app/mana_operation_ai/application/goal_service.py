@@ -92,6 +92,11 @@ Do not make an accepted decision when evidence is shortened or a relevant prereq
 In agent execution mode, use the supplied native tools to investigate rather than assuming
 sources are absent. inspect_sources lists verified saved reports and available read capabilities;
 read_saved_report obtains minimized evidence. These local tools need no external-read approval.
+If its text is shortened, read_saved_report_page starts at offset 0 and then follows the exact
+next_offset until goal.evidence contains the full report. A partial page cannot complete an
+analysis; full text does not prove complete population/payment coverage or current freshness.
+The saved-report bound is 32000 characters; context/step/dollar limits still apply. Never drop
+the original objective or request a new provider read merely to retrieve an existing text tail.
 request_source_read only asks for separate human approval; it does not run a provider read.
 ask_user asks one focused question when the user must supply a choice or missing information.
 find_saved_tasks searches this private topic's closed tasks by literal objective substring and
@@ -633,17 +638,23 @@ class OperationGoalService:
         try:
             if call.name == "inspect_sources":
                 record.result = await self._tools.inspect(goal, self._allowed_reads(goal))
-            elif call.name == "read_saved_report":
+            elif call.name in {"read_saved_report", "read_saved_report_page"}:
                 assert call.report_id is not None
-                item = await self._tools.read(goal, call.report_id)
+                if call.name == "read_saved_report_page":
+                    assert call.offset is not None
+                    item, record.result = await self._tools.read_page(
+                        goal, call.report_id, call.offset
+                    )
+                else:
+                    item = await self._tools.read(goal, call.report_id)
+                    record.result = json.dumps(
+                        {"report_id": item.report_id, "loaded_into_evidence": True}
+                    )
                 evidence = [e for e in goal.evidence if e.report_id != item.report_id]
                 if len(evidence) >= 4:
                     raise ChatError("У цели уже четыре источника; уточните область анализа.")
                 goal.evidence = [*evidence, item]
                 goal.model_feedback = None
-                record.result = json.dumps(
-                    {"report_id": item.report_id, "loaded_into_evidence": True}
-                )
             elif call.name == "request_source_read":
                 if call.capability not in self._allowed_reads(goal):
                     raise ChatError("Чтение не разрешено для этого приложения/агента.")
@@ -683,6 +694,7 @@ class OperationGoalService:
                 message={
                     "inspect_sources": "Проверил доступные источники этого приложения.",
                     "read_saved_report": "Прочитал сохранённую сводку.",
+                    "read_saved_report_page": "Прочитал часть сохранённого отчёта.",
                     "find_saved_tasks": "Проверил прошлые задачи этой темы.",
                     "read_saved_task": "Прочитал сохранённый результат прошлой задачи.",
                     "request_source_read": "Запрошено подтверждение чтения; источник не читался.",

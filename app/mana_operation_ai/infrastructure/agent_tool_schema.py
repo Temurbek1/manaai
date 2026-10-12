@@ -10,6 +10,10 @@ from app.mana_operation_ai.domain.agent_tools import AgentToolCall, SourceReadCa
 _PROPERTIES: dict[str, dict[str, object]] = {
     "inspect_sources": {},
     "read_saved_report": {"report_id": {"type": "string"}},
+    "read_saved_report_page": {
+        "report_id": {"type": "string"},
+        "offset": {"type": "integer"},
+    },
     "find_saved_tasks": {
         "query": {"type": "string"},
         "cursor": {"type": ["string", "null"]},
@@ -31,6 +35,11 @@ _DESCRIPTIONS = {
         "List verified saved report references and permitted reads for this app. No provider call."
     ),
     "read_saved_report": "Read one scoped saved minimized report. No new source collection.",
+    "read_saved_report_page": (
+        "Read a contiguous page of a scoped minimized saved report, starting at offset 0. "
+        "Follow next_offset until the full text is loaded into goal.evidence. SQL only, "
+        "no new collection. Full text does not prove full population/payment coverage."
+    ),
     "find_saved_tasks": (
         "Find up to five closed tasks in this owner's same topic/app before this task began. "
         "Query is an exact objective substring (empty lists all); cursor is a returned task ID "

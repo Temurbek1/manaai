@@ -6,6 +6,7 @@ an isolated database and pins the legacy process to a local, networkless contain
 
 import argparse
 import asyncio
+import hashlib
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -50,7 +51,12 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 ExecutionStatus,
                 VerificationStatus,
             )
-            from app.mana_operation_ai.domain.goals import GoalConversationTurn, GoalModelFeedback
+            from app.mana_operation_ai.domain.goals import (
+                GoalConversationTurn,
+                GoalEvidence,
+                GoalModelFeedback,
+                ReportReadProgress,
+            )
             from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
             from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionHistory
 
@@ -194,6 +200,28 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                             ],
                         }
                     )
+                    if not lost:
+                        text = "Synthetic complete report: " + "x" * 5200 + " EXACT FOOTER"
+                        digest = hashlib.sha256(text.encode()).hexdigest()
+                        updated.evidence = [
+                            GoalEvidence(
+                                report_id="synthetic-paged-report",
+                                capability_key="retention.engagement.analyze",
+                                product="mana",
+                                collected_at=clock.now() - timedelta(days=1),
+                                fresh_until=None,
+                                refresh_status="unknown",
+                                summary=text,
+                                report_read_progress=ReportReadProgress(
+                                    source_fingerprint="b" * 64,
+                                    full_text_sha256=digest,
+                                    loaded_text_sha256=digest,
+                                    total_characters=len(text),
+                                    next_offset=len(text),
+                                    quality_notes_complete=True,
+                                ),
+                            )
+                        ]
                     assert await repository.save(OWNER, goal, updated)
             return
 
@@ -210,6 +238,9 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert turns[0].status == "completed" and turns[0].next_action == "none"
                 assert goal.status == "cancelled" and goal.lease_until is None
                 assert goal.accounted_microusd == 90_000
+                if topic.title == "Native queued":
+                    assert len(goal.evidence[0].summary) == 5000
+                    assert goal.evidence[0].shortened
                 assert goal.requested_capability is None and goal.approved_capability is None
                 for command in ("pause", "resume", "cancel", "steer", "approve_read"):
                     try:
@@ -284,6 +315,10 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert "test-compat-private-model-state" in goal.model_continuation.payload
                 assert goal.model_continuation.compactions == 1
                 if not lost:
+                    assert goal.evidence[0].summary.endswith("EXACT FOOTER")
+                    assert len(goal.evidence[0].summary) > 5000
+                    assert goal.evidence[0].report_read_progress is not None
+                    assert not goal.evidence[0].shortened
                     assert (
                         goal.model_feedback is not None
                         and goal.model_feedback.code == "invalid_decision"

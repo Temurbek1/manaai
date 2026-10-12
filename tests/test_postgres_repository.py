@@ -65,6 +65,80 @@ async def test_postgres_atomic_chat_stream_stop_recovery_and_bounds() -> None:
     await assert_stream_atomicity(POSTGRES_URL)
 
 
+async def test_postgres_paged_evidence_v8_restart_and_idempotent_control() -> None:
+    from app.mana_operation_ai.domain.goals import GoalEvidence, ReportReadProgress
+    from app.mana_operation_ai.infrastructure.persistence.models import GoalRow
+    from tests.legacy_goal_contract import LegacyGoal
+
+    assert POSTGRES_URL is not None
+    databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]
+    clock = Clock()
+    chats = SqlAlchemyChatRepository(databases[0], hourly_limit=100, daily_limit=1000)
+    repositories = [SqlAlchemyGoalRepository(db, clock, events_enabled=True) for db in databases]
+    owner = f"pages-{uuid4()}"
+    try:
+        await chats.initialize()
+        topic = await chats.create(
+            owner, TopicCreate(agent_id="operations-orchestrator", product="mana", title="Pages")
+        )
+        goal = await repositories[0].create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Read the complete saved report.",
+                execution_mode="agent",
+            ),
+        )
+        text = "Synthetic report " + "x" * 8100 + " EXACT FOOTER"
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        evidence = GoalEvidence(
+            report_id="synthetic-pg-report",
+            capability_key="retention.engagement.analyze",
+            product="mana",
+            collected_at=clock.now(),
+            fresh_until=clock.now() + timedelta(hours=1),
+            refresh_status="cached",
+            summary=text,
+            report_read_progress=ReportReadProgress(
+                source_fingerprint="b" * 64,
+                full_text_sha256=digest,
+                loaded_text_sha256=digest,
+                total_characters=len(text),
+                next_offset=len(text),
+                quality_notes_complete=True,
+            ),
+        )
+        assert await repositories[0].save(
+            owner,
+            goal,
+            goal.model_copy(update={"evidence": [evidence], "accounted_microusd": 90000}),
+        )
+        restored = await repositories[1].get(owner, goal.goal_id)
+        assert restored.evidence[0].summary == text
+        command = GoalCommand(
+            request_id=uuid4(), command="pause", expected_revision=restored.revision
+        )
+        results = await asyncio.gather(
+            *(repo.command(owner, goal.goal_id, command) for repo in repositories)
+        )
+        assert all(
+            result.status == "paused" and result.revision == restored.revision + 1
+            for result in results
+        )
+        assert all(result.accounted_microusd == 90000 for result in results)
+        async with databases[1].session_factory() as session:
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row is not None and row.workspace_payload is not None
+            assert row.workspace_payload["version"] == 8
+            projection = LegacyGoal.model_validate(row.payload)
+            assert projection.status == "cancelled"
+            assert projection.evidence[0].shortened and len(projection.evidence[0].summary) == 5000
+    finally:
+        for db in databases:
+            await db.dispose()
+
+
 async def test_postgres_chat_and_goal_share_event_commit_order() -> None:
     from app.mana_operation_ai.application.runtime import SystemClock
     from app.mana_operation_ai.domain.workspace_events import ChatTextEvent, WorkspaceEvent

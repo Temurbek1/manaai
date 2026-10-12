@@ -13,7 +13,7 @@ from app.mana_operation_ai.application.chat_ports import ChatError, SessionConte
 from app.mana_operation_ai.application.goal_ports import SavedTaskPage
 from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
 from app.mana_operation_ai.application.ports import Clock
-from app.mana_operation_ai.domain.agent_tools import TASK_HISTORY_TOOLS
+from app.mana_operation_ai.domain.agent_tools import REPORT_PAGE_TOOL, TASK_HISTORY_TOOLS
 from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
 from app.mana_operation_ai.domain.goals import (
     GoalCommand,
@@ -35,7 +35,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -70,26 +70,39 @@ def _goal(row: GoalRow) -> OperationGoal:
     format_feedback = (
         goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
     )
+    paged_reports = _paged_reports(goal)
     if (
-        (checkpoint.version == 5) != (extended_context and continuation is None)
-        or (checkpoint.version == 7) != format_feedback
-        or (checkpoint.version == 6) != (continuation is not None and not format_feedback)
+        (checkpoint.version == 8) != paged_reports
+        or (checkpoint.version == 5)
+        != (not paged_reports and extended_context and continuation is None)
+        or (checkpoint.version == 7) != (not paged_reports and format_feedback)
+        or (checkpoint.version == 6)
+        != (not paged_reports and continuation is not None and not format_feedback)
         or (
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7)
+            checkpoint.version in (5, 6, 7, 8)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
-        or (checkpoint.version not in (5, 6, 7) and checkpoint.analysis_scope is not None)
+        or (checkpoint.version not in (5, 6, 7, 8) and checkpoint.analysis_scope is not None)
         or (
-            checkpoint.version not in (5, 6, 7)
+            checkpoint.version not in (5, 6, 7, 8)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (checkpoint.version == 1 and memory is not None)
         or (checkpoint.version == 2 and memory is None)
         or (checkpoint.version == 2 and memory is not None and bool(memory.actions))
         or (checkpoint.version == 3 and (memory is None or not memory.actions))
+        or (paged_reports and goal.request.execution_mode != "agent")
+        or (
+            paged_reports
+            and any(
+                len(item.summary) > 5000 and item.report_read_progress is None
+                for item in goal.evidence
+            )
+        )
+        or (paged_reports and any(item.product != goal.product for item in goal.evidence))
         or (
             memory is not None
             and (memory.topic_id != goal.topic_id or memory.product != goal.product)
@@ -111,6 +124,12 @@ def _goal(row: GoalRow) -> OperationGoal:
 def _extended_context(goal: OperationGoal) -> bool:
     return any(record.call.name in TASK_HISTORY_TOOLS for record in goal.tools) or bool(
         goal.session_memory and any(item.also_kinds for item in goal.session_memory.user_context)
+    )
+
+
+def _paged_reports(goal: OperationGoal) -> bool:
+    return any(record.call.name == REPORT_PAGE_TOOL for record in goal.tools) or any(
+        item.report_read_progress is not None or len(item.summary) > 5000 for item in goal.evidence
     )
 
 
@@ -183,6 +202,14 @@ class SqlAlchemyGoalRepository:
                 "older_turns_omitted",
             },
         )
+        payload["evidence"] = [
+            {
+                **item.model_dump(mode="json", exclude={"report_read_progress"}),
+                "summary": item.summary[:5000],
+                "shortened": item.shortened or len(item.summary) > 5000,
+            }
+            for item in goal.evidence
+        ]
         if SqlAlchemyGoalRepository._is_workspace(goal):
             # Closed compatibility projection: old code can display history, but its
             # command terminal-state check and worker claim both deny continuation.
@@ -217,6 +244,7 @@ class SqlAlchemyGoalRepository:
         format_feedback = (
             goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
         )
+        paged_reports = _paged_reports(goal)
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -226,7 +254,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=7
+                version=8
+                if paged_reports
+                else 7
                 if format_feedback
                 else 6
                 if continuation
@@ -240,7 +270,7 @@ class SqlAlchemyGoalRepository:
                 if goal.session_memory is not None
                 else 1,
                 analysis_scope=goal.request.analysis_scope
-                if extended_context or continuation
+                if extended_context or continuation or paged_reports
                 else None,
                 goal=goal,
             ).model_dump(
@@ -248,7 +278,7 @@ class SqlAlchemyGoalRepository:
                 exclude={
                     **(
                         {"analysis_scope": True}
-                        if not extended_context and not continuation
+                        if not extended_context and not continuation and not paged_reports
                         else {}
                     ),
                     "goal": {
@@ -259,6 +289,11 @@ class SqlAlchemyGoalRepository:
                             else {}
                         ),
                         **({"session_memory": True} if goal.session_memory is None else {}),
+                        **(
+                            {"evidence": {"__all__": {"report_read_progress"}}}
+                            if not paged_reports
+                            else {}
+                        ),
                         **(
                             {"request": {"analysis_scope"}}
                             if goal.request.analysis_scope == "current"

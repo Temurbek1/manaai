@@ -1,7 +1,7 @@
 """Frozen persistence contracts from supported operation image 2ea7b9a.
 
 Keep the legacy fields explicit: inheriting the new Goal would miss JSON incompatibility.
-Task/event/evidence shapes and shared chat/inference types have not changed in this release.
+Keep the old evidence bound independent of the new paged-reader schema.
 """
 
 from datetime import datetime
@@ -11,7 +11,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.mana_operation_ai.domain.chat import ChatModel, ProductScope
-from app.mana_operation_ai.domain.goals import GoalEvent, GoalEvidence, GoalTask
+from app.mana_operation_ai.domain.goals import GoalEvent, GoalTask
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 
 
@@ -30,6 +30,18 @@ class LegacyGoalCreate(ChatModel):
     reasoning: ReasoningChoice = "auto"
 
 
+class LegacyGoalEvidence(ChatModel):
+    report_id: str
+    capability_key: str
+    product: ProductScope
+    collected_at: datetime | None
+    fresh_until: datetime | None
+    refresh_status: Literal["live", "cached", "stale", "unknown"]
+    summary: str = Field(max_length=5000)
+    limitations: list[str] = Field(default_factory=list, max_length=10)
+    shortened: bool = False
+
+
 class LegacyGoal(ChatModel):
     goal_id: str
     topic_id: str
@@ -45,7 +57,7 @@ class LegacyGoal(ChatModel):
     accounted_microusd: int = 0
     plan: list[GoalTask] = Field(default_factory=list, max_length=8)
     events: list[GoalEvent] = Field(default_factory=list, max_length=100)
-    evidence: list[GoalEvidence] = Field(default_factory=list, max_length=4)
+    evidence: list[LegacyGoalEvidence] = Field(default_factory=list, max_length=4)
     instructions: list[str] = Field(default_factory=list, max_length=20)
     result: str = Field(default="", max_length=16000)
     waiting_reason: str = Field(default="", max_length=2000)

@@ -78,6 +78,19 @@ these release controls.
 
 ## Before activation
 
+The local saved-report paging addition uses private checkpoint v8 whenever a page tool,
+page receipt or evidence longer than 5000 characters is present. It retains contiguous exact
+text, content/metadata fingerprints, quality-note completeness and immutable analysis scope.
+Non-paged v1–v7 checkpoints omit the new optional field and retain their contracts. Closed
+legacy projections omit receipts and explicitly shorten text to 5000 characters; full private
+text stays in SQL. No schema migration or provider read is needed for paging.
+
+The released `737b75d` reader cannot decode v8. The verified compatibility target remains
+the actual `2ea7b9a` pre-native image with Goals disabled, not an arbitrary native image.
+Do not overwrite the current production rollback record with `737b75d` for this addition
+or claim that all intermediate native readers are forward-compatible. Keep source/schedule/
+main API/audio configuration unchanged, and apply the stop/drain/pause procedure below.
+
 Pending known-priced format correction uses private Goal checkpoint v7. It is accepted only
 with the original scoped continuation, typed `invalid_decision` feedback and the existing
 shared two-recovery/step/cost bounds. Clear feedback returns to a v6 window; original history

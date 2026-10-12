@@ -2656,7 +2656,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "inspect_sources" | "read_saved_report" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
+            name: "inspect_sources" | "read_saved_report" | "read_saved_report_page" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
             /** Offset */
             offset?: number | null;
             /** Options */
@@ -4405,6 +4405,7 @@ export interface components {
             refresh_status: "live" | "cached" | "stale" | "unknown";
             /** Report Id */
             report_id: string;
+            report_read_progress?: components["schemas"]["ReportReadProgress"] | null;
             /**
              * Shortened
              * @default false
@@ -6311,6 +6312,24 @@ export interface components {
             run_id: string;
         };
         /**
+         * ReportReadProgress
+         * @description Runtime-owned contiguous receipt; it proves reading, not source completeness.
+         */
+        ReportReadProgress: {
+            /** Full Text Sha256 */
+            full_text_sha256: string;
+            /** Loaded Text Sha256 */
+            loaded_text_sha256: string;
+            /** Next Offset */
+            next_offset: number;
+            /** Quality Notes Complete */
+            quality_notes_complete: boolean;
+            /** Source Fingerprint */
+            source_fingerprint: string;
+            /** Total Characters */
+            total_characters: number;
+        };
+        /**
          * ReputationVerdict
          * @enum {string}
          */
@@ -7567,7 +7586,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "inspect_sources" | "read_saved_report" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
+            name: "inspect_sources" | "read_saved_report" | "read_saved_report_page" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
             /**
              * Status
              * @enum {string}

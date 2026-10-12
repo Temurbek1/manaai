@@ -1,5 +1,6 @@
 """Saved-evidence tools. Every lookup stays inside a verified application scope."""
 
+import hashlib
 import json
 
 from app.mana_operation_ai.application.admin_service import OperationAdminService
@@ -7,7 +8,7 @@ from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.chat_service import _report_source, _verified_report_product
 from app.mana_operation_ai.application.goal_ports import GoalRepository
 from app.mana_operation_ai.application.ports import Clock
-from app.mana_operation_ai.domain.goals import GoalEvidence, OperationGoal
+from app.mana_operation_ai.domain.goals import GoalEvidence, OperationGoal, ReportReadProgress
 from app.mana_operation_ai.domain.models import AgentReport
 
 
@@ -65,18 +66,7 @@ class GoalEvidenceTools:
         )
 
     async def read(self, goal: OperationGoal, report_id: str) -> GoalEvidence:
-        report = await self._admin.get_report(report_id)
-        allowed_agents = (
-            {"growth-agent", "marketing-agent", "retention-agent"}
-            if goal.agent_id == "operations-orchestrator"
-            else {goal.agent_id}
-        )
-        if (
-            report is None
-            or report.agent_id not in allowed_agents
-            or _verified_report_product(report) != goal.product
-        ):
-            raise ChatError("Отчёт недоступен в проверенной области этого приложения.")
+        report = await self._report(goal, report_id)
         source = _report_source(report, now=self._clock.now())
         shortened = (
             len(report.human_readable) > 5000
@@ -95,6 +85,91 @@ class GoalEvidenceTools:
             limitations=[note[:300] for note in report.data_quality_notes[:9]]
             + (["Evidence shortened; complete coverage cannot be assumed."] if shortened else []),
         )
+
+    async def _report(self, goal: OperationGoal, report_id: str) -> AgentReport:
+        report = await self._admin.get_report(report_id)
+        allowed_agents = (
+            {"growth-agent", "marketing-agent", "retention-agent"}
+            if goal.agent_id == "operations-orchestrator"
+            else {goal.agent_id}
+        )
+        if (
+            report is None
+            or report.agent_id not in allowed_agents
+            or _verified_report_product(report) != goal.product
+        ):
+            raise ChatError("Отчёт недоступен в проверенной области этого приложения.")
+        return report
+
+    async def read_page(
+        self, goal: OperationGoal, report_id: str, offset: int
+    ) -> tuple[GoalEvidence, str]:
+        if goal.request.execution_mode != "agent":
+            raise ChatError("Чтение отчёта частями требует рабочей среды агента.")
+        report = await self._report(goal, report_id)
+        text = report.human_readable
+        if len(text) > 32000:
+            raise ChatError("Отчёт превышает лимит чтения: 32 000 символов. Текст не обрезан.")
+        if offset > len(text):
+            raise ChatError("Смещение выходит за сохранённый отчёт.")
+        source = _report_source(report, now=self._clock.now())
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {
+                    "report": report.model_dump(mode="json"),
+                    "product": goal.product,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        prior = next((item for item in goal.evidence if item.report_id == report_id), None)
+        progress = prior.report_read_progress if prior is not None else None
+        if offset and (
+            progress is None
+            or progress.next_offset != offset
+            or progress.source_fingerprint != fingerprint
+        ):
+            raise ChatError("Продолжение отчёта не совпадает с сохранённой частью. Начните с нуля.")
+        page = text[offset : offset + 4000]
+        payload = {
+            "report_id": report_id,
+            "offset": offset,
+            "text": page,
+            "total_characters": len(text),
+            "next_offset": offset + len(page) if offset + len(page) < len(text) else None,
+            "loaded_into_evidence": True,
+            "reading_not_population_coverage": True,
+        }
+        while len(json.dumps(payload, ensure_ascii=False)) > 7800:
+            page = page[: len(page) // 2]
+            payload.update(text=page, next_offset=offset + len(page))
+        summary = (prior.summary if offset and prior is not None else "") + page
+        notes_complete = len(report.data_quality_notes) <= 9 and all(
+            len(note) <= 300 for note in report.data_quality_notes
+        )
+        shortened = len(summary) != len(text) or not notes_complete
+        item = GoalEvidence(
+            report_id=report.report_id,
+            capability_key=report.capability_key,
+            product=goal.product,
+            collected_at=source.collected_at,
+            fresh_until=source.fresh_until,
+            refresh_status=source.refresh_status,
+            shortened=shortened,
+            summary=summary,
+            limitations=[note[:300] for note in report.data_quality_notes[:9]]
+            + (["Evidence shortened; complete coverage cannot be assumed."] if shortened else []),
+            report_read_progress=ReportReadProgress(
+                source_fingerprint=fingerprint,
+                full_text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+                loaded_text_sha256=hashlib.sha256(summary.encode()).hexdigest(),
+                total_characters=len(text),
+                next_offset=len(summary),
+                quality_notes_complete=notes_complete,
+            ),
+        )
+        return item, json.dumps(payload, ensure_ascii=False)
 
     async def find_tasks(
         self,

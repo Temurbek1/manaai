@@ -227,6 +227,7 @@ class BrowserGoalFake:
         waiting = goal["phase"] == "investigate" and not goal["instructions"]
         recall = "Прошлая рабочая цель" in goal["request"]["objective"]
         archive = "первой архивной задачи" in goal["request"]["objective"]
+        paged = "Прочитай полный сохранённый отчёт вместе с концом" in goal["request"]["objective"]
         if archive:
             assert any(
                 item["text"] == ARCHIVE_CONSTRAINT
@@ -234,8 +235,25 @@ class BrowserGoalFake:
             )
         if recall:
             waiting = False
+        if paged:
+            waiting = False
         tool = None
-        if recall and not goal["tools"]:
+        if paged:
+            if not goal["tools"]:
+                tool = AgentToolCall(name="inspect_sources")
+            else:
+                item = goal["evidence"][0] if goal["evidence"] else None
+                progress = item.get("report_read_progress") if item else None
+                if progress is None or progress["next_offset"] < progress["total_characters"]:
+                    tool = AgentToolCall(
+                        name="read_saved_report_page",
+                        report_id="browser-paged-report",
+                        offset=progress["next_offset"] if progress else 0,
+                    )
+                elif goal["phase"] == "review":
+                    assert item is not None and item["summary"].endswith("EXACT PAGED FOOTER")
+                    assert not item["shortened"]
+        elif recall and not goal["tools"]:
             tool = AgentToolCall(name="find_saved_tasks", query="", cursor=None)
         elif recall and len(goal["tools"]) == 1:
             tool = AgentToolCall(
@@ -269,6 +287,7 @@ class BrowserGoalFake:
                     if archive
                     else ""
                 )
+                + ("EXACT PAGED FOOTER проверен. " if paged else "")
                 + "Тестовый анализ. Есть исторические агрегаты, но платежи и отток "
                 "по единой когорте не подтверждены. Данные пользователей не изменялись.",
                 evidence_ids=[item["report_id"] for item in goal["evidence"]],
@@ -466,6 +485,28 @@ def create_app() -> FastAPI:
                             "refresh_status": "live",
                         },
                         data_quality_notes=["Browser fixture only; no Firebase/GA4 reads."],
+                    )
+                )
+                base_run = await repository.get_run("browser-workspace-run")
+                base_report = await repository.get_report("browser-workspace-report")
+                assert base_run is not None and base_report is not None
+                await repository.create_run(
+                    base_run.model_copy(
+                        update={
+                            "run_id": "browser-paged-run",
+                            "idempotency_key": "browser-paged-run",
+                        }
+                    )
+                )
+                await repository.save_report(
+                    base_report.model_copy(
+                        update={
+                            "report_id": "browser-paged-report",
+                            "run_id": "browser-paged-run",
+                            "human_readable": "Synthetic minimized report. "
+                            + "р" * 8100
+                            + " EXACT PAGED FOOTER",
+                        }
                     )
                 )
             await repository.create_run(

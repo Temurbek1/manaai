@@ -2166,6 +2166,7 @@
             "enum": [
               "inspect_sources",
               "read_saved_report",
+              "read_saved_report_page",
               "find_saved_tasks",
               "read_saved_task",
               "request_source_read",
@@ -2177,7 +2178,7 @@
           "offset": {
             "anyOf": [
               {
-                "maximum": 16000.0,
+                "maximum": 32000.0,
                 "minimum": 0.0,
                 "type": "integer"
               },
@@ -6721,13 +6722,23 @@
             "title": "Report Id",
             "type": "string"
           },
+          "report_read_progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportReadProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "shortened": {
             "default": false,
             "title": "Shortened",
             "type": "boolean"
           },
           "summary": {
-            "maxLength": 5000,
+            "maxLength": 32000,
             "title": "Summary",
             "type": "string"
           }
@@ -12212,6 +12223,53 @@
         "title": "Recommendation",
         "type": "object"
       },
+      "ReportReadProgress": {
+        "additionalProperties": false,
+        "description": "Runtime-owned contiguous receipt; it proves reading, not source completeness.",
+        "properties": {
+          "full_text_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Full Text Sha256",
+            "type": "string"
+          },
+          "loaded_text_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Loaded Text Sha256",
+            "type": "string"
+          },
+          "next_offset": {
+            "maximum": 32000.0,
+            "minimum": 0.0,
+            "title": "Next Offset",
+            "type": "integer"
+          },
+          "quality_notes_complete": {
+            "title": "Quality Notes Complete",
+            "type": "boolean"
+          },
+          "source_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Fingerprint",
+            "type": "string"
+          },
+          "total_characters": {
+            "maximum": 32000.0,
+            "minimum": 0.0,
+            "title": "Total Characters",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_fingerprint",
+          "full_text_sha256",
+          "loaded_text_sha256",
+          "total_characters",
+          "next_offset",
+          "quality_notes_complete"
+        ],
+        "title": "ReportReadProgress",
+        "type": "object"
+      },
       "ReputationVerdict": {
         "enum": [
           "safe",
@@ -15410,6 +15468,7 @@
             "enum": [
               "inspect_sources",
               "read_saved_report",
+              "read_saved_report_page",
               "find_saved_tasks",
               "read_saved_task",
               "request_source_read",

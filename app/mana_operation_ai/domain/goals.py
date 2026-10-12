@@ -1,5 +1,6 @@
 """Durable, private administrative analysis goals; no provider write authority."""
 
+import hashlib
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -70,6 +71,17 @@ class GoalEvent(ChatModel):
     message: str = Field(max_length=16000)
 
 
+class ReportReadProgress(ChatModel):
+    """Runtime-owned contiguous receipt; it proves reading, not source completeness."""
+
+    source_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
+    full_text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    loaded_text_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    total_characters: int = Field(ge=0, le=32000)
+    next_offset: int = Field(ge=0, le=32000)
+    quality_notes_complete: bool
+
+
 class GoalEvidence(ChatModel):
     report_id: str
     capability_key: str
@@ -77,9 +89,27 @@ class GoalEvidence(ChatModel):
     collected_at: datetime | None
     fresh_until: datetime | None
     refresh_status: Literal["live", "cached", "stale", "unknown"]
-    summary: str = Field(max_length=5000)
+    summary: str = Field(max_length=32000)
     limitations: list[str] = Field(default_factory=list, max_length=10)
     shortened: bool = False
+    report_read_progress: ReportReadProgress | None = None
+
+    @model_validator(mode="after")
+    def validate_report_read_progress(self) -> "GoalEvidence":
+        progress = self.report_read_progress
+        if progress is None:
+            return self
+        digest = hashlib.sha256(self.summary.encode()).hexdigest()
+        complete = progress.next_offset == progress.total_characters
+        if (
+            progress.next_offset != len(self.summary)
+            or progress.next_offset > progress.total_characters
+            or digest != progress.loaded_text_sha256
+            or (complete and digest != progress.full_text_sha256)
+            or self.shortened != (not complete or not progress.quality_notes_complete)
+        ):
+            raise ValueError("Saved-report reading receipt does not match its exact text")
+        return self
 
 
 class GoalModelFeedback(ChatModel):
