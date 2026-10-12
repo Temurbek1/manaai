@@ -4417,9 +4417,9 @@ export interface components {
         GoalModelFeedback: {
             /**
              * Code
-             * @constant
+             * @enum {string}
              */
-            code: "unloaded_evidence";
+            code: "unloaded_evidence" | "invalid_decision";
             /** Message */
             message: string;
         };

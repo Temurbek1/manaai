@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
 from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
 from app.mana_operation_ai.domain.goals import (
@@ -44,11 +44,13 @@ class GoalModelResponseError(RuntimeError):
         *,
         provider_status: str | None = None,
         incomplete_reason: str | None = None,
+        output_failure: Literal["invalid_decision"] | None = None,
     ) -> None:
         super().__init__(reason)
         self.actual_microusd = actual_microusd
         self.provider_status = provider_status
         self.incomplete_reason = incomplete_reason
+        self.output_failure = output_failure
 
 
 class GoalModel(Protocol):

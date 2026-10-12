@@ -6748,7 +6748,10 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "const": "unloaded_evidence",
+            "enum": [
+              "unloaded_evidence",
+              "invalid_decision"
+            ],
             "title": "Code",
             "type": "string"
           },

@@ -310,6 +310,7 @@ class OpenAIGoalModel:
                 raise GoalModelResponseError(
                     "Формат ответа AI не прошёл проверку. Расходы учтены; повтор не запущен.",
                     actual.llm_microusd,
+                    output_failure="invalid_decision",
                 ) from None
         continuation = None
         if prepared:

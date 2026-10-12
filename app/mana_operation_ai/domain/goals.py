@@ -83,7 +83,7 @@ class GoalEvidence(ChatModel):
 
 
 class GoalModelFeedback(ChatModel):
-    code: Literal["unloaded_evidence"]
+    code: Literal["unloaded_evidence", "invalid_decision"]
     message: str = Field(max_length=1000)
 
 

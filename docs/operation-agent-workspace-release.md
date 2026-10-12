@@ -77,6 +77,16 @@ these release controls.
 
 ## Before activation
 
+Pending known-priced format correction uses private Goal checkpoint v7. It is accepted only
+with the original scoped continuation, typed `invalid_decision` feedback and the existing
+shared two-recovery/step/cost bounds. Clear feedback returns to a v6 window; original history
+and accounted costs remain. The supported old image reads only the closed compatibility
+projection, not this feedback/queue. Preserve it during explicit pause/application rollback;
+do not downgrade a populated schema or swap in an unreleased intermediate native reader.
+The real synthetic benchmark first failed one structured decision; its malformed body was
+not retained. Bounded fault-recovery evidence does not prove the exact original cause fixed
+or authorize retrying unknown provider/source outcomes.
+
 1. Verify/review the exact commit and contract; build the sidecar/worker and UI images.
    Run `make verify`, separate PostgreSQL migration/concurrency tests, native and legacy
    browser flows and `bash scripts/operation_workspace_compatibility_audit.sh`.

@@ -20,7 +20,7 @@ from app.mana_operation_ai.domain.chat import MessageCreate, TopicCreate
 from app.mana_operation_ai.domain.chat import ProductScope as ChatProductScope
 from app.mana_operation_ai.domain.cost_control import CostLimits, ProductScope, ResourceUsage
 from app.mana_operation_ai.domain.enums import AgentRunStatus, AgentStatus, TriggerType, UserRole
-from app.mana_operation_ai.domain.goals import GoalCommand, GoalCreate
+from app.mana_operation_ai.domain.goals import GoalCommand, GoalCreate, GoalModelFeedback
 from app.mana_operation_ai.domain.models import AgentDefinition, AgentRun, AgentSchedule, Analysis
 from app.mana_operation_ai.domain.retention import EngagementAssessment
 from app.mana_operation_ai.domain.shared_data import SourceBinding
@@ -357,11 +357,19 @@ async def test_postgres_private_continuation_checkpoint_and_scope() -> None:
             call=None,
             maximum_bytes=192000,
         )
-        changed = goal.model_copy(update={"model_continuation": state})
+        changed = goal.model_copy(
+            update={
+                "model_continuation": state,
+                "model_feedback": GoalModelFeedback(
+                    code="invalid_decision", message="Synthetic correction only."
+                ),
+                "model_recoveries": 1,
+            }
+        )
         assert await repository.save(owner, goal, changed)
         reopened = SqlAlchemyGoalRepository(database, clock)
         saved = await reopened.get(owner, goal.goal_id)
-        assert saved.model_continuation == state
+        assert saved.model_continuation == state and saved.model_feedback == changed.model_feedback
         paused = await reopened.command(
             owner,
             saved.goal_id,

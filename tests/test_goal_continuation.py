@@ -4,7 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -229,11 +229,97 @@ async def test_continuation_costs_unknown_holds_and_no_retry(
     get_settings.cache_clear()
 
 
-async def test_sdk_compaction_checkpoint_pause_restart_public_privacy_and_review(
-    monkeypatch: MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize("outcome", ["valid", "bounded_failure", "unknown"])
+async def test_priced_format_feedback_is_bounded_durable_and_never_retries_unknown_io(
+    monkeypatch: MonkeyPatch, tmp_path: Path, outcome: str
 ) -> None:
-    configure_workspace(monkeypatch, tmp_path / "continuation.db")
+    configure_workspace(monkeypatch, tmp_path / "format-feedback.db")
     monkeypatch.setenv("OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED", "true")
+    get_settings.cache_clear()
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        service = app.state.operation_goal_service
+        await seed(service)
+        topic = await service._chats.create(
+            "alice",
+            TopicCreate(
+                agent_id="operations-orchestrator", product="mana", title="Format feedback"
+            ),
+        )
+        goal = await service.create(
+            "alice",
+            topic.topic_id,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Inspect available MANA evidence without new source reads.",
+                execution_mode="agent",
+            ),
+        )
+        model = service._continuing_model
+        assert isinstance(model, OpenAIGoalModel)
+        malformed = raw_reply(decision())
+        malformed.parse = Mock(side_effect=ValueError("PRIVATE invalid schema details"))
+        good = raw_reply(
+            decision().model_copy(
+                update={"evidence_ids": [], "draft": "Planning only; no new data or actions."}
+            )
+        )
+        sequence: list[SimpleNamespace | BaseException] = [
+            raw_reply(decision(), tool=True),
+            malformed,
+        ]
+        if outcome == "valid":
+            sequence.append(good)
+        elif outcome == "bounded_failure":
+            sequence.extend([malformed, malformed])
+        else:
+            sequence[1] = TimeoutError("PRIVATE lost model reply")
+        parser = AsyncMock(side_effect=sequence)
+        monkeypatch.setattr(model._client.responses.with_raw_response, "parse", parser)
+        source = AsyncMock(side_effect=AssertionError("No source may run during output recovery"))
+        monkeypatch.setattr(service._admin, "run_now", source)
+        assert await service.tick()
+        before = await service.repository.get("alice", goal.goal_id)
+        assert before.model_continuation is not None
+        assert await service.tick()
+        changed = await service.repository.get("alice", goal.goal_id)
+        if outcome == "unknown":
+            assert changed.status == "waiting" and changed.model_recoveries == 0
+            assert changed.model_feedback is None
+            assert not await service.tick()
+            assert parser.call_count == 2
+        else:
+            assert changed.status == "queued" and changed.model_recoveries == 1
+            assert (
+                changed.model_feedback is not None
+                and changed.model_feedback.code == "invalid_decision"
+            )
+            assert (
+                changed.result == before.result
+                and changed.model_continuation == before.model_continuation
+            )
+            assert changed.evidence == before.evidence and not changed.read_attempted
+            async with app.state.operation_database.session_factory() as session:
+                row = await session.get(GoalRow, goal.goal_id)
+                assert row is not None and row.workspace_payload["version"] == 7
+            reopened = SqlAlchemyGoalRepository(app.state.operation_database, service._clock)
+            assert (
+                await reopened.get("alice", goal.goal_id)
+            ).model_feedback == changed.model_feedback
+            assert await service.tick()
+            latest = await reopened.get("alice", goal.goal_id)
+            if outcome == "valid":
+                assert latest.status == "queued" and latest.model_feedback is None
+                assert latest.model_recoveries == 1 and parser.call_count == 3
+                assert "Planning only" in latest.result
+            else:
+                assert latest.status == "queued" and latest.model_recoveries == 2
+                assert await service.tick()
+                latest = await reopened.get("alice", goal.goal_id)
+                assert latest.status == "waiting" and latest.model_recoveries == 2
+                assert not await service.tick() and parser.call_count == 4
+        source.assert_not_called()
+        assert all(call.kwargs["store"] is False for call in parser.call_args_list)
     get_settings.cache_clear()
 
 
@@ -277,6 +363,14 @@ async def test_known_bad_citation_is_bounded_feedback_not_evidence_or_source_ret
         assert parse.call_count == 3 and not await service.tick()
         assert stopped.result == "" and stopped.evidence == [] and not stopped.read_attempted
         assert "model_feedback" in str(parse.call_args_list[1].kwargs["input"])
+    get_settings.cache_clear()
+
+
+async def test_sdk_compaction_checkpoint_pause_restart_public_privacy_and_review(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    configure_workspace(monkeypatch, tmp_path / "continuation.db")
+    monkeypatch.setenv("OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED", "true")
     get_settings.cache_clear()
     app = create_app()
     async with (

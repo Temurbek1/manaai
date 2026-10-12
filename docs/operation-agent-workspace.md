@@ -720,6 +720,76 @@ five backend source hashes match the workspace and no `.env` is present. Contrac
 standalone UI, bundle, type/lint/format and secret gates passed. No paid API call was made.
 GitHub still reports `push=false`; scoped release approval remains outstanding.
 
+### Native workspace quality and priced-output correction, 2026-10-12
+
+The local opt-in `scripts/operation_workspace_evaluate.py` pins eight administrative cases:
+automatic conversion analysis, aggregate-vs-cohort retention, DAU/WAU, tariff/payment proof,
+activity/sales geography, unsupported customer contact, MANA/360REC isolation and the full
+retention/funnel/payment objective with missing evidence. Default CLI execution is offline;
+paid execution requires `--confirm-paid --output <fresh-directory>`, an exclusive attempt
+directory and one shared ledger capped at 16 calls/$0.49. It uses actual chat/handoff/Goals
+services, current strong-model settings, private SQL and synthetic minimized reports. No
+application factory, customer source, domain executor or production setting is activated.
+Protocol checks are separate from manual semantic review; no LLM judge or automatic quality
+score is billed. Expectations are fixed before results, following official
+[agent evaluation guidance](https://developers.openai.com/api/docs/guides/evaluation-best-practices#single-agent-architectures).
+
+Observed result, not an unconditional eight-case pass:
+
+- Seven initial conversation cases selected the correct route and passed manual grounding
+  review: 20%→15%, −5 pp/−25% without inferring no churn; DAU/WAU not D7; tariffs/sample
+  not population payments; activity cities not sales; no unbuilt contact execution; no
+  MANA evidence transferred to 360REC. The exact screenshot's analysis request created a
+  durable same-room Goal, cancelled locally after its route-only inspection.
+- The eighth actual Goal discovered/loaded the scoped report and initially stopped on a
+  completed, priced response that failed structured-output parsing. Its original malformed
+  content was not retained, so the exact cause remains unproven; do not claim a specific SDK
+  bug or hide this first-attempt failure. A separately marked one-call diagnostic on the
+  same ledger produced a valid partial investigation, and independent review correctly
+  waited for real behavioral/funnel/payment evidence rather than declaring the full objective
+  achieved. Synthetic D1=60%, D7=28%, previous D7=40%/−12 pp remained explicitly synthetic.
+- A subsequent two-call synthetic parse-fault injection tested the new real runtime recovery:
+  known usage settled, prior draft/evidence retained, scoped v7 corrective feedback queued,
+  next bounded review call completed, and the Goal again waited for missing real data.
+  This demonstrates priced-format recovery, not reproduction of the original malformed body.
+- Entire original batch, diagnostic, normal review and fault probe: **16 calls total**,
+  **$0.177108 by configured rate cards**, all settled, unknown holds zero. Day/month snapshots
+  are the same spend and must not be added. These are ledger estimates, not an invoice or
+  broad production quality score. Source requests and production changes were zero. The
+  attempt markers/ledger are exhausted; do not start another paid party to replace failures.
+
+Established native continuations now classify a verified-priced invalid structured decision
+as `invalid_decision` and may queue a corrective reasoning step. It shares the existing total
+two-recovery cap with unloaded citations, retains original objective/context/evidence/consent,
+and uses normal Goal step/global cost admission. No malformed decision is published or
+executed. Invalid output is not silently repaired. First-call failures without a confirmed
+continuation, unknown usage, timeouts, incomplete response or unsafe continuation still stop;
+no lost model/source read is automatically retried. A concurrent pause/steer fences recovery.
+
+Pending new format feedback is versioned as private checkpoint v7, bound to the immutable
+analysis scope and a valid continuation. Clearing it returns to the compatible v6 window;
+the recovery count/history remains. Legacy JSON stays closed/unchanged. Automated tests
+cover known-error→valid continuation, the two-step cap, unknown-I/O stop, SQL restart and
+cost-preserving control; PostgreSQL and supported old/new pause rollback retain the v7 state.
+
+Engineering artifacts: `output/workspace-quality-20261012/party/` (original eight-case files,
+`results.json`, diagnostic/review/fault markers and `final-accounting.json`). Manual review
+and synthetic fault evidence do not prove source completeness, real retention improvement,
+deployed quality or parity across every Codex/Claude task. Full release/source acceptance and
+extended context work remain open; GitHub still reports `push=false` and scoped release
+approval is outstanding. Production/audio/SSH/Firebase/GA4/schedules/keys were unchanged.
+
+Final local gates: `make verify` passed with 800 backend/127 UI tests, 13 PostgreSQL-only
+skips and two excluded live suites; separate PostgreSQL 17 migration/drift and 13 integration
+cases passed, including v7 feedback persistence/pause. Native browser/tool/question/review/
+scope/reload flow, API synchronization, standalone UI, bundle/secret/type/lint checks passed.
+The unpublished image `mana-ai-operation:quality-recovery-local-20261012` was rebuilt from
+the existing stable `2ea7b9a` dependency base after two local overlay exports reported missing
+Docker layers; no daemon restart, image deletion or project cleanup occurred. Actual networkless
+runtime/105-Goal HTTP/SQL/model-port/replay/owner smoke and old/new v7 rollback passed, with
+five backend source hashes matching the workspace and no `.env` in the image. These remain
+local engineering/quality evidence, not release permission or overall Goal completion.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:

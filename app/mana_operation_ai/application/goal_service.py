@@ -545,6 +545,36 @@ class OperationGoalService:
         except GoalModelResponseError as exc:
             if 0 <= exc.actual_microusd <= held_amount:
                 goal.accounted_microusd += exc.actual_microusd - held_amount
+                if (
+                    exc.output_failure == "invalid_decision"
+                    and goal.request.execution_mode == "agent"
+                    and self._continuing_model is not None
+                    and goal.model_continuation is not None
+                    and goal.model_recoveries < 2
+                ):
+                    # A priced invalid output is a bounded new reasoning step with
+                    # corrective feedback, never a retry of unknown model/source I/O.
+                    goal.model_recoveries += 1
+                    goal.model_feedback = GoalModelFeedback(
+                        code="invalid_decision",
+                        message="Предыдущий оплаченный ответ не прошёл проверку формата. "
+                        "Верни строгий GoalDecisionBody с корректными полями и ограничениями "
+                        "схемы. Сохрани исходную цель, ограничения, план и загруженные факты. "
+                        "Не объявляй работу завершённой при недостающих данных. "
+                        "Новые чтения и действия этим сообщением не разрешены.",
+                    )
+                    goal.status = "queued"
+                    goal.lease_until = None
+                    goal.events.append(
+                        GoalEvent(
+                            at=self._clock.now(),
+                            kind="progress",
+                            message="Проверяю формат ответа. Частичный результат сохранён; "
+                            "корректировка ограничена общим бюджетом и числом шагов.",
+                        )
+                    )
+                    await self.repository.save(owner, before, goal)
+                    return True
             await self._wait(owner, before, goal, str(exc))
         except CostBudgetExceeded:
             # Shared admission failed before I/O; this local hold is known unused.

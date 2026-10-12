@@ -35,7 +35,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -67,19 +67,23 @@ def _goal(row: GoalRow) -> OperationGoal:
     memory = goal.session_memory
     extended_context = _extended_context(goal)
     continuation = goal.model_continuation
+    format_feedback = (
+        goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
+    )
     if (
         (checkpoint.version == 5) != (extended_context and continuation is None)
-        or (checkpoint.version == 6) != (continuation is not None)
+        or (checkpoint.version == 7) != format_feedback
+        or (checkpoint.version == 6) != (continuation is not None and not format_feedback)
         or (
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6)
+            checkpoint.version in (5, 6, 7)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
-        or (checkpoint.version not in (5, 6) and checkpoint.analysis_scope is not None)
+        or (checkpoint.version not in (5, 6, 7) and checkpoint.analysis_scope is not None)
         or (
-            checkpoint.version not in (5, 6)
+            checkpoint.version not in (5, 6, 7)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (checkpoint.version == 1 and memory is not None)
@@ -210,6 +214,9 @@ class SqlAlchemyGoalRepository:
         native = cls._is_workspace(goal)
         extended_context = _extended_context(goal)
         continuation = goal.model_continuation is not None
+        format_feedback = (
+            goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
+        )
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -219,7 +226,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=6
+                version=7
+                if format_feedback
+                else 6
                 if continuation
                 else 5
                 if extended_context

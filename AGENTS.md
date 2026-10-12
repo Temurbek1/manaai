@@ -72,6 +72,12 @@
   the separate default-disabled ordinary-answer stream carries only display-only drafts.
   Final schema/usage validation and policy still gate handoffs/actions; lost receipts retain
   unknown cost holds, and reconnecting observation never redispatches generation.
+- Established native model continuations may take at most two shared recovery steps for
+  verified priced invalid decisions/unloaded citations, with typed corrective feedback,
+  unchanged objective/evidence/permissions, and existing step/global/Goal budgets. Unknown
+  usage, timeouts, incomplete receipts, unsafe continuations and lost source reads still stop.
+  Pending format feedback uses private checkpoint v7; the supported old image sees a closed
+  projection, never the new queue. See the quality checkpoint in operation-agent-workspace.md.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

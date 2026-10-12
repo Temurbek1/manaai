@@ -50,7 +50,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 ExecutionStatus,
                 VerificationStatus,
             )
-            from app.mana_operation_ai.domain.goals import GoalConversationTurn
+            from app.mana_operation_ai.domain.goals import GoalConversationTurn, GoalModelFeedback
             from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
             from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionHistory
 
@@ -172,6 +172,13 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                             "accounted_microusd": 90_000,
                             "read_attempted": lost,
                             "model_continuation": continuation,
+                            "model_feedback": GoalModelFeedback(
+                                code="invalid_decision",
+                                message="Synthetic known-output correction.",
+                            )
+                            if not lost
+                            else None,
+                            "model_recoveries": 1 if not lost else 0,
                             "requested_capability": None if lost else "retention.parents.analyze",
                             "approved_capability": None if lost else "retention.parents.analyze",
                             "tools": [
@@ -276,6 +283,12 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert goal.model_continuation is not None
                 assert "test-compat-private-model-state" in goal.model_continuation.payload
                 assert goal.model_continuation.compactions == 1
+                if not lost:
+                    assert (
+                        goal.model_feedback is not None
+                        and goal.model_feedback.code == "invalid_decision"
+                    )
+                    assert goal.model_recoveries == 1
                 assert goal.tools[0].status == (
                     "unknown" if lost and paused else "started" if lost else "awaiting_approval"
                 )
