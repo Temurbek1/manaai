@@ -3,7 +3,7 @@
 ## Objective and evidence
 
 Latest status: the scoped native workspace release is deployed, with bounded production
-checks recorded in [the release report](operation-agent-workspace-production-release.md).
+checks recorded in [the active release report](operation-agent-workspace-report-pages-release.md).
 Earlier checkpoints below are historical; they do not override that report or establish
 complete Codex/Claude parity, current-source coverage or unbuilt business actions.
 
@@ -849,6 +849,49 @@ the explicitly historical objective. Sample counts, tariff/payment and link/acti
 were retained; this is not current conversion or business-outcome evidence. The real report
 has 523 characters, so its multi-page/tail behavior is proved by the separate local/PG/browser
 fixtures, not this single-page real-model check. Never rerun the retained diagnostic marker.
+
+### Bounded local-tool replanning checkpoint, 2026-10-12
+
+Local implementation, not yet deployed. A regression reproduced a native Goal waiting for
+the user after requesting an incorrect saved-report page offset. The runtime now classifies
+only verified local paging input mistakes: an offset outside the saved text, a noncontiguous
+page, or a changed report fingerprint. The rejected tool receipt supplies the exact permitted
+next offset (zero for a changed snapshot); it grants no permission or evidence. A fresh bounded
+model decision selects the correction. No tool is directly redispatched by the runtime.
+
+The denied call and correction count persist in existing native checkpoints; no schema,
+public API or private protocol fields were added. Corrections share the **same two-step cap**
+with known priced invalid decisions/unloaded citations and the original step/monetary budgets.
+Previous evidence remains unchanged after rejection, and a changed report must explicitly be
+read again from zero before its new pages can be combined. A saved-task offset correction
+loads historical context only, never current evidence or old approvals. Independent review
+still gates completion. A configured continuation is required; legacy/disabled paths still stop.
+
+Product/owner/role/access denial, oversized text, SQL failure, unknown or incomplete model
+usage, provider failure and lost source I/O do not enter this lane. Pause/cancel revisions win
+in-flight results and retain unknown holds. Only a sanitized correction progress message enters
+the public journal; the private stream still omits tool arguments/results and provider state.
+
+This follows the [tool/result/next-decision loop](https://code.claude.com/docs/en/agent-sdk/agent-loop)
+and [evidence-driven bounded correction](https://developers.openai.com/cookbook/examples/codex/build_iterative_repair_loops_with_codex),
+adapted to typed MANA tools rather than unrestricted coding access. It is not blanket retry,
+new data availability, a statistical quality result or full Codex/Claude parity. Production
+still uses the recorded `9020b06` release until a separately verified scoped update.
+
+Local evidence: 19 dedicated SDK/SQL/fake-model cases cover exact receipt correction,
+independent review/restart, the shared page/format/citation cap, scope/capacity/unknown-I/O
+refusal, unchanged step/cost admission, pause/cancel races, changed/shorter snapshots and
+historical-only task paging. Initial regressions reproduced the old `waiting` behavior.
+Final `make verify` passed: **836 backend/127 UI tests**, lint/format, mypy (309 files),
+TypeScript, production UI build and zero npm audit vulnerabilities. Fifteen isolated
+PostgreSQL cases passed separately after migration round-trip/drift checks, including
+v8 correction receipts across connections and idempotent concurrent pause.
+The native browser audit injected a page gap, used its exact correction receipt, completed
+three actual saved pages/review and retained the task/revision/steps/cost on reload; existing
+stream/action/owner/CSRF/accessibility flows also passed. The actual supported `2ea7b9a` old
+reader/pause probe retained private state, costs and existing source work. API sync, secret
+and marker checks passed. Logs: `/tmp/manaai-tool-replanning-*`. No paid OpenAI call, new
+source request, production mutation or feature activation occurred in this checkpoint.
 
 ### Remaining full-goal work
 

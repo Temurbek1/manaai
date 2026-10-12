@@ -65,8 +65,15 @@ async def test_postgres_atomic_chat_stream_stop_recovery_and_bounds() -> None:
     await assert_stream_atomicity(POSTGRES_URL)
 
 
-async def test_postgres_paged_evidence_v8_restart_and_idempotent_control() -> None:
+@pytest.mark.parametrize("replanning", [False, True])
+async def test_postgres_paged_evidence_v8_restart_and_idempotent_control(replanning: bool) -> None:
+    import json
+
     from app.mana_operation_ai.domain.goals import GoalEvidence, ReportReadProgress
+    from app.mana_operation_ai.infrastructure.goal_continuation import (
+        finish_continuation,
+        prepare_continuation,
+    )
     from app.mana_operation_ai.infrastructure.persistence.models import GoalRow
     from tests.legacy_goal_contract import LegacyGoal
 
@@ -109,13 +116,60 @@ async def test_postgres_paged_evidence_v8_restart_and_idempotent_control() -> No
                 quality_notes_complete=True,
             ),
         )
-        assert await repositories[0].save(
-            owner,
-            goal,
-            goal.model_copy(update={"evidence": [evidence], "accounted_microusd": 90000}),
-        )
+        changed = goal.model_copy(update={"evidence": [evidence], "accounted_microusd": 90000})
+        if replanning:
+            prepared = prepare_continuation(
+                context=json.dumps({"goal": goal.model_dump(mode="json")}),
+                owner=owner,
+                state=None,
+                model="test-model",
+                maximum_bytes=192000,
+            )
+            call = AgentToolCall(
+                name="read_saved_report_page", report_id=evidence.report_id, offset=5000
+            )
+            changed.model_continuation = finish_continuation(
+                prepared,
+                [
+                    {
+                        "type": "function_call",
+                        "id": "pg-fc",
+                        "call_id": "pg-call",
+                        "name": call.name,
+                        "arguments": json.dumps({"report_id": evidence.report_id, "offset": 5000}),
+                    }
+                ],
+                model="test-model",
+                call=call,
+                maximum_bytes=192000,
+            )
+            changed.model_recoveries = 1
+            changed.tools = [
+                AgentToolRecord(
+                    call_id="pg-local-error",
+                    call=call,
+                    status="denied",
+                    started_at=clock.now(),
+                    completed_at=clock.now(),
+                    result=json.dumps({"code": "noncontiguous_page", "expected_offset": len(text)}),
+                )
+            ]
+        assert await repositories[0].save(owner, goal, changed)
         restored = await repositories[1].get(owner, goal.goal_id)
         assert restored.evidence[0].summary == text
+        assert restored.model_recoveries == int(replanning)
+        assert restored.model_continuation == changed.model_continuation
+        if replanning:
+            acknowledged = prepare_continuation(
+                context=json.dumps(
+                    {"goal": restored.model_dump(mode="json", exclude={"model_continuation"})}
+                ),
+                owner=owner,
+                state=restored.model_continuation,
+                model="test-model",
+                maximum_bytes=192000,
+            )
+            assert "noncontiguous_page" in str(acknowledged.items[-2])
         command = GoalCommand(
             request_id=uuid4(), command="pause", expected_revision=restored.revision
         )
@@ -127,6 +181,7 @@ async def test_postgres_paged_evidence_v8_restart_and_idempotent_control() -> No
             for result in results
         )
         assert all(result.accounted_microusd == 90000 for result in results)
+        assert all(result.model_recoveries == int(replanning) for result in results)
         async with databases[1].session_factory() as session:
             row = await session.get(GoalRow, goal.goal_id)
             assert row is not None and row.workspace_payload is not None

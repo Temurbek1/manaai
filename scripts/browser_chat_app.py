@@ -245,10 +245,23 @@ class BrowserGoalFake:
                 item = goal["evidence"][0] if goal["evidence"] else None
                 progress = item.get("report_read_progress") if item else None
                 if progress is None or progress["next_offset"] < progress["total_characters"]:
+                    offset = progress["next_offset"] if progress else 0
+                    if (
+                        "с ошибкой страницы" in goal["request"]["objective"]
+                        and len(goal["tools"]) == 2
+                    ):
+                        offset = 5000
+                    elif (
+                        "с ошибкой страницы" in goal["request"]["objective"]
+                        and len(goal["tools"]) == 3
+                    ):
+                        denied = goal["tools"][-1]
+                        assert denied["status"] == "denied" and goal["model_recoveries"] == 1
+                        offset = json.loads(denied["result"])["expected_offset"]
                     tool = AgentToolCall(
                         name="read_saved_report_page",
                         report_id="browser-paged-report",
-                        offset=progress["next_offset"] if progress else 0,
+                        offset=offset,
                     )
                 elif goal["phase"] == "review":
                     assert item is not None and item["summary"].endswith("EXACT PAGED FOOTER")

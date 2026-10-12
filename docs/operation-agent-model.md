@@ -127,9 +127,10 @@ Only loaded read-only capabilities may be delegated, under existing admission po
 business-outcome goals, customer actions and Technical tasks remain future work. Completing
 an analysis is not completing a retention-improvement outcome. See [operation-goals.md](operation-goals.md).
 
-An opt-in, unreleased local checkpoint adds automatic conversation-to-Goal handoff and
+The scoped production workspace adds automatic conversation-to-Goal handoff and
 model-selected scoped evidence tools without changing the four-agent delivery order. It is
-disabled by default, not a full Orchestrator implementation. See the current
+disabled by default outside the explicit production deployment, not a full Orchestrator
+implementation. See [the active release](operation-agent-workspace-report-pages-release.md), the current
 [workspace acceptance scope](operation-agent-workspace.md) and
 [application-only rollback contract](operation-agent-workspace-release.md).
 

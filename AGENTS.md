@@ -75,9 +75,13 @@
   Final schema/usage validation and policy still gate handoffs/actions; lost receipts retain
   unknown cost holds, and reconnecting observation never redispatches generation.
 - Established native model continuations may take at most two shared recovery steps for
-  verified priced invalid decisions/unloaded citations, with typed corrective feedback,
+  verified priced invalid decisions/unloaded citations and classified local saved-text
+  paging mistakes, with typed corrective feedback or exact durable tool receipts,
   unchanged objective/evidence/permissions, and existing step/global/Goal budgets. Unknown
   usage, timeouts, incomplete receipts, unsafe continuations and lost source reads still stop.
+  Paging corrections require a verified existing native continuation, keep the denied call
+  in SQL, and queue a new model decision, never redispatch a tool directly. Scope/access
+  denials, oversized sources and SQL/provider failures must not enter that correction lane.
   Pending format feedback uses private checkpoint v7; the supported old image sees a closed
   projection, never the new queue. See the quality checkpoint in operation-agent-workspace.md.
 - Native saved-report paging uses private checkpoint v8: contiguous, fingerprinted SQL reads,

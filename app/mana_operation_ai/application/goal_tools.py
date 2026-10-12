@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from typing import Literal
 
 from app.mana_operation_ai.application.admin_service import OperationAdminService
 from app.mana_operation_ai.application.chat_ports import ChatError
@@ -10,6 +11,40 @@ from app.mana_operation_ai.application.goal_ports import GoalRepository
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.goals import GoalEvidence, OperationGoal, ReportReadProgress
 from app.mana_operation_ai.domain.models import AgentReport
+
+
+class SavedToolInputError(ChatError):
+    """A verified local paging mistake, never a policy denial or uncertain I/O."""
+
+    def __init__(
+        self,
+        code: Literal["invalid_offset", "noncontiguous_page", "report_changed"],
+        *,
+        expected_offset: int,
+    ) -> None:
+        message = {
+            "invalid_offset": "Смещение выходит за сохранённый текст. Используйте expected_offset.",
+            "noncontiguous_page": (
+                "Часть отчёта не загружена по порядку. Используйте expected_offset."
+            ),
+            "report_changed": "Сохранённый отчёт изменился. Для нового снимка начните с нуля.",
+        }[code]
+        super().__init__(message)
+        self.code = code
+        self.expected_offset = expected_offset
+
+    def receipt(self) -> str:
+        return json.dumps(
+            {
+                "code": self.code,
+                "message": str(self),
+                "expected_offset": self.expected_offset,
+                "new_evidence_loaded": False,
+                "local_saved_text_only": True,
+                "permission_granted": False,
+            },
+            ensure_ascii=False,
+        )
 
 
 class GoalEvidenceTools:
@@ -110,8 +145,8 @@ class GoalEvidenceTools:
         text = report.human_readable
         if len(text) > 32000:
             raise ChatError("Отчёт превышает лимит чтения: 32 000 символов. Текст не обрезан.")
-        if offset > len(text):
-            raise ChatError("Смещение выходит за сохранённый отчёт.")
+        prior = next((item for item in goal.evidence if item.report_id == report_id), None)
+        progress = prior.report_read_progress if prior is not None else None
         source = _report_source(report, now=self._clock.now())
         fingerprint = hashlib.sha256(
             json.dumps(
@@ -123,14 +158,16 @@ class GoalEvidenceTools:
                 sort_keys=True,
             ).encode()
         ).hexdigest()
-        prior = next((item for item in goal.evidence if item.report_id == report_id), None)
-        progress = prior.report_read_progress if prior is not None else None
-        if offset and (
-            progress is None
-            or progress.next_offset != offset
-            or progress.source_fingerprint != fingerprint
-        ):
-            raise ChatError("Продолжение отчёта не совпадает с сохранённой частью. Начните с нуля.")
+        if offset and progress is not None and progress.source_fingerprint != fingerprint:
+            raise SavedToolInputError("report_changed", expected_offset=0)
+        if offset > len(text):
+            raise SavedToolInputError(
+                "invalid_offset", expected_offset=progress.next_offset if progress else 0
+            )
+        if offset and (progress is None or progress.next_offset != offset):
+            raise SavedToolInputError(
+                "noncontiguous_page", expected_offset=progress.next_offset if progress else 0
+            )
         page = text[offset : offset + 4000]
         payload = {
             "report_id": report_id,
@@ -218,7 +255,7 @@ class GoalEvidenceTools:
             before=goal.created_at,
         )
         if offset > len(past.result):
-            raise ChatError("Смещение выходит за сохранённый результат задачи.")
+            raise SavedToolInputError("invalid_offset", expected_offset=0)
         text = past.result[offset : offset + 4000]
         payload = {
             "task_id": past.goal_id,
