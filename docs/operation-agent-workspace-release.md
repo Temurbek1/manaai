@@ -78,7 +78,7 @@ these release controls.
 
 ## Before activation
 
-The local saved-report paging addition uses private checkpoint v8 whenever a page tool,
+The saved-report paging addition, released in `9020b06`, uses private checkpoint v8 whenever a page tool,
 page receipt or evidence longer than 5000 characters is present. It retains contiguous exact
 text, content/metadata fingerprints, quality-note completeness and immutable analysis scope.
 Non-paged v1–v7 checkpoints omit the new optional field and retain their contracts. Closed

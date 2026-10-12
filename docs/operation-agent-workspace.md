@@ -797,7 +797,8 @@ local engineering/quality evidence, not release permission or overall Goal compl
 
 ### Saved-report paging checkpoint, 2026-10-12
 
-Local implementation, not yet deployed. A source reader previously exposed only the first
+Released to the scoped operational API/UI as `9020b06`; production evidence is below.
+A source reader previously exposed only the first
 5000 characters of a saved report and correctly refused complete analysis when that text was
 shortened. There was no tool to retrieve a metric or limitation in the saved tail. The native
 `read_saved_report_page` tool now reads exact contiguous pages of at most 4000 characters
@@ -834,6 +835,20 @@ Final `make verify`: 817 backend tests, 14 PostgreSQL-only skips/two excluded li
 vulnerabilities. Separate PostgreSQL audit covered all 14 cases. Source/API contracts are
 synchronized, secret/quality-marker scans passed, and the native paged-report browser flow
 was rerun with a persisted reload baseline rather than a reset in-memory assertion.
+
+Production follow-up: exact backend/UI images were deployed after protected SQL backup and
+verified SHA256 transfer. The initial stalled SCP socket was inspected, explicitly stopped
+and resumed with append verification; no transfer was restarted merely from a polling timeout.
+The existing main API/audio, scheduler, credentials, source/schedule/control/budget policies
+and SSH/Nginx configuration remained unchanged. Schema stays `a36d9f7b802c`.
+One separate $0.30/eight-step production diagnostic used GPT-6.1 Sol/medium and the already
+saved MANA Parent report only. Five settled calls, $0.079515 estimated usage, zero unknown
+holds and zero new source requests. Native `read_saved_report_page` executed, private v8 was
+persisted and public receipt/model-state fields stayed absent; independent review completed
+the explicitly historical objective. Sample counts, tariff/payment and link/activity boundaries
+were retained; this is not current conversion or business-outcome evidence. The real report
+has 523 characters, so its multi-page/tail behavior is proved by the separate local/PG/browser
+fixtures, not this single-page real-model check. Never rerun the retained diagnostic marker.
 
 ### Remaining full-goal work
 
