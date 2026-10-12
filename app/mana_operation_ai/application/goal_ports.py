@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -11,12 +12,6 @@ from app.mana_operation_ai.domain.goals import (
 )
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.session import SessionMemory
-
-
-@dataclass(frozen=True)
-class GoalHistory:
-    goals: list[OperationGoal]
-    older_goals_omitted: int
 
 
 @dataclass(frozen=True)
@@ -86,9 +81,9 @@ class GoalRepository(Protocol):
 
     async def find_request(self, owner: str, request_id: str) -> OperationGoal | None: ...
 
-    async def closed_history(
-        self, owner: str, topic_id: str, *, before: datetime
-    ) -> GoalHistory: ...
+    def closed_context(
+        self, owner: str, topic_id: str, *, product: ProductScope, before: datetime
+    ) -> AsyncGenerator[OperationGoal, None]: ...
 
     async def get(self, owner: str, goal_id: str) -> OperationGoal: ...
 

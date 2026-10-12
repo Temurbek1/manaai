@@ -56,12 +56,22 @@
   agent/product/freshness checks separately. Exact cross-role user-text dedup retains all words
   and `also_kinds` labels; it is not semantic compaction. Checkpoint v5 binds these extended
   contexts to their immutable analysis scope. Do not claim automatic long-session compaction or
-  removal of the existing 100-message topic / 400-unique-context / byte limits.
+  unlimited history: legacy topics retain 100-message admission; native topics use explicit
+  configured capacity. The 400-unique-context and byte limits still fail closed.
+- Session capture streams all same-owner/topic/product closed Goal conditions before its
+  frozen cutoff, independently of the public API's latest-100 results. Do not restore that
+  result-page limit for user constraints. Keep only three bounded result checkpoints; preserve
+  complete quotes/role aliases, strict old checkpoint validation and no inherited read grants.
+  `OPERATION_WORKSPACE_CONTEXT_GOAL_LIMIT=10000` bounds local SQL capture explicitly;
+  exceeding it refuses capture, never silently supplies a prefix as the whole history.
 - Public progress is a private SQL event journal, atomically written with successful Goal
   changes. Its authenticated SSE transport observes only: reconnecting, disconnecting or
   losing a cursor must never restart/cancel a task or repeat a source read. Keep raw tool
   results, internal reasoning, credentials and action/read grants out of stream payloads.
-  REST state remains authoritative for controls; streams are not model token streaming.
+  REST state remains authoritative for controls. Goal progress is not model token streaming;
+  the separate default-disabled ordinary-answer stream carries only display-only drafts.
+  Final schema/usage validation and policy still gate handoffs/actions; lost receipts retain
+  unknown cost holds, and reconnecting observation never redispatches generation.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

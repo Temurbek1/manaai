@@ -33,9 +33,9 @@ class OperationSessionContext:
         actions = (
             await self._actions.history(owner, topic_id, before=before) if self._actions else []
         )
-        history = await self._goals.closed_history(owner, topic_id, before=before)
-        goals = [goal for goal in history.goals if goal.product == topic.product]
         records: dict[str, SessionUserContext] = {}
+        checkpoints: list[SessionCheckpoint] = []
+        closed_count = 0
 
         def add(kind: str, text: str, origin: str) -> None:
             # Exact deduplication, not a model-invented summary or shortened constraints.
@@ -54,22 +54,51 @@ class OperationSessionContext:
         ) as records_stream:
             async for record in records_stream:
                 add(record.kind, record.text, record.origin_id)
-        for goal in goals:
-            if goal.session_memory is not None:
-                memory = goal.session_memory
-                if memory.topic_id == topic_id and memory.product == topic.product:
-                    for record in memory.user_context:
-                        add(record.kind, record.text, record.origin_id)
-                        for kind in record.also_kinds:
-                            add(kind, record.text, record.origin_id)
-            add("prior_objective", goal.request.objective, goal.goal_id)
-            add("prior_criteria", goal.request.success_criteria, goal.goal_id)
-            add("constraint", goal.request.constraints, goal.goal_id)
-            for instruction in goal.instructions:
-                add("instruction", instruction, goal.goal_id)
-            for prior_turn in goal.request.conversation_history:
-                add("user_message", prior_turn.user, goal.goal_id)
-        if not records and not goals and not actions:
+        async with aclosing(
+            self._goals.closed_context(owner, topic_id, product=topic.product, before=before)
+        ) as closed:
+            async for goal in closed:
+                closed_count += 1
+                if goal.session_memory is not None:
+                    memory = goal.session_memory
+                    if memory.topic_id == topic_id and memory.product == topic.product:
+                        for record in memory.user_context:
+                            add(record.kind, record.text, record.origin_id)
+                            for kind in record.also_kinds:
+                                add(kind, record.text, record.origin_id)
+                add("prior_objective", goal.request.objective, goal.goal_id)
+                add("prior_criteria", goal.request.success_criteria, goal.goal_id)
+                add("constraint", goal.request.constraints, goal.goal_id)
+                for instruction in goal.instructions:
+                    add("instruction", instruction, goal.goal_id)
+                for prior_turn in goal.request.conversation_history:
+                    add("user_message", prior_turn.user, goal.goal_id)
+                if len(checkpoints) >= 3:
+                    continue
+                checkpoints.append(
+                    SessionCheckpoint(
+                        goal_id=goal.goal_id,
+                        status=goal.status,
+                        updated_at=goal.updated_at,
+                        result=goal.result[:2000],
+                        result_shortened=len(goal.result) > 2000,
+                        sources=[
+                            SessionEvidenceReference(
+                                report_id=item.report_id,
+                                capability_key=item.capability_key,
+                                product=item.product,
+                                collected_at=item.collected_at,
+                                fresh_until=item.fresh_until,
+                                refresh_status=item.refresh_status,
+                                limitations=item.limitations,
+                                shortened=item.shortened,
+                            )
+                            for item in goal.evidence
+                            if item.product == topic.product
+                        ],
+                    )
+                )
+        if not records and not checkpoints and not actions:
             return None
         return SessionMemory(
             topic_id=topic_id,
@@ -77,31 +106,8 @@ class OperationSessionContext:
             captured_at=before,
             user_context=list(records.values()),
             actions=actions,
-            checkpoints=[
-                SessionCheckpoint(
-                    goal_id=goal.goal_id,
-                    status=goal.status,
-                    updated_at=goal.updated_at,
-                    result=goal.result[:2000],
-                    result_shortened=len(goal.result) > 2000,
-                    sources=[
-                        SessionEvidenceReference(
-                            report_id=item.report_id,
-                            capability_key=item.capability_key,
-                            product=item.product,
-                            collected_at=item.collected_at,
-                            fresh_until=item.fresh_until,
-                            refresh_status=item.refresh_status,
-                            limitations=item.limitations,
-                            shortened=item.shortened,
-                        )
-                        for item in goal.evidence
-                        if item.product == topic.product
-                    ],
-                )
-                for goal in goals[:3]
-            ],
-            older_checkpoints_omitted=history.older_goals_omitted + max(0, len(goals) - 3),
+            checkpoints=checkpoints,
+            older_checkpoints_omitted=max(0, closed_count - len(checkpoints)),
         )
 
 

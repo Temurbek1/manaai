@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, TypedDict
@@ -8,8 +9,8 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.mana_operation_ai.application.chat_ports import ChatError
-from app.mana_operation_ai.application.goal_ports import GoalHistory, SavedTaskPage
+from app.mana_operation_ai.application.chat_ports import ChatError, SessionContextTooLarge
+from app.mana_operation_ai.application.goal_ports import SavedTaskPage
 from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.agent_tools import TASK_HISTORY_TOOLS
@@ -121,11 +122,19 @@ class SqlAlchemyGoalRepository:
     """SQL claims, optimistic fencing and durable controls across API/worker replicas."""
 
     def __init__(
-        self, database: OperationDatabase, clock: Clock, *, events_enabled: bool = False
+        self,
+        database: OperationDatabase,
+        clock: Clock,
+        *,
+        events_enabled: bool = False,
+        context_goal_limit: int = 10000,
     ) -> None:
+        if not 1 <= context_goal_limit <= 10000:
+            raise ValueError("Session Goal archive capacity must be between 1 and 10000")
         self._sessions = database.session_factory
         self._clock = clock
         self._events_enabled = events_enabled
+        self._context_goal_limit = context_goal_limit
         self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
@@ -417,29 +426,52 @@ class SqlAlchemyGoalRepository:
             raise ChatError("История требует проверки привязки к приложению.", 503)
         return SavedTaskPage(goals=goals, next_cursor=goals[-1].goal_id if len(rows) > 5 else None)
 
-    async def closed_history(self, owner: str, topic_id: str, *, before: datetime) -> GoalHistory:
+    async def closed_context(
+        self, owner: str, topic_id: str, *, product: ProductScope, before: datetime
+    ) -> AsyncGenerator[OperationGoal, None]:
+        """Full quoted-condition history, not the bounded result/history page.
+
+        Stream small SQL batches and retain strict checkpoint validation. Refuse an
+        excessive archive explicitly; never treat the first page as all conditions.
+        No provider read, model call or state mutation occurs here.
+        """
         async with self._sessions() as session:
-            conditions = (
-                GoalRow.owner == owner,
-                GoalRow.topic_id == topic_id,
-                _states("completed", "cancelled"),
-                GoalRow.updated_at < before,
-            )
-            rows = list(
-                await session.scalars(
-                    select(GoalRow)
-                    .where(*conditions)
-                    .order_by(GoalRow.updated_at.desc(), GoalRow.goal_id)
-                    .limit(100)
+            stream = await session.stream_scalars(
+                select(GoalRow)
+                .where(
+                    GoalRow.owner == owner,
+                    GoalRow.topic_id == topic_id,
+                    _states("completed", "cancelled"),
+                    GoalRow.updated_at < before,
                 )
+                .order_by(GoalRow.updated_at.desc(), GoalRow.goal_id)
+                .limit(self._context_goal_limit + 1)
+                .execution_options(yield_per=8)
             )
-            total = await session.scalar(
-                select(func.count()).select_from(GoalRow).where(*conditions)
-            )
-            return GoalHistory(
-                goals=[_goal(row) for row in rows],
-                older_goals_omitted=max(0, (total or 0) - len(rows)),
-            )
+            try:
+                index = 0
+                async for row in stream:
+                    if index == self._context_goal_limit:
+                        raise SessionContextTooLarge()
+                    index += 1
+                    try:
+                        goal = _goal(row)
+                    except ValidationError as exc:
+                        raise ChatError(
+                            "История целей повреждена; запрос к AI не отправлен.", 503
+                        ) from exc
+                    if (
+                        goal.topic_id != topic_id
+                        or goal.status not in ("completed", "cancelled")
+                        or goal.updated_at.utcoffset() is None
+                        or goal.updated_at >= before
+                    ):
+                        raise ChatError("История требует проверки привязки к приложению.", 503)
+                    if goal.product != product:
+                        continue
+                    yield goal
+            finally:
+                await stream.close()
 
     async def command(self, owner: str, goal_id: str, payload: GoalCommand) -> OperationGoal:
         async with self._sessions() as session, session.begin():

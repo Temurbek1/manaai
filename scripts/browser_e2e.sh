@@ -292,11 +292,26 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
     browser wait --fn 'document.body.innerText.includes("Тестовый поток завершён и проверен.")' >/dev/null
     assert_browser '!document.querySelector(".goal-workspace")' 'reply reload created an unintended Goal'
   fi
+  # Original Goal-only constraints beyond the 100-result page reach the model
+  # and durable successor, not just a recent transcript message or a prose summary.
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator/topic/00000000-0000-4000-8000-000000000105" >/dev/null
+  browser wait --load networkidle >/dev/null
+  browser find label "Сообщение агенту" fill 'Продолжи анализ с условиями из первой архивной задачи' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
+  browser eval '([...document.querySelectorAll(".goal-controls button")].find(button => button.textContent.trim() === "Последние 7 дней")).scrollIntoView({block:"center", behavior:"instant"}); "scrolled"' >/dev/null
+  browser find role button click --name "Последние 7 дней" --exact >/dev/null
+  browser wait --fn 'document.querySelector(".goal-result")?.textContent.includes("Исходные условия из первой задачи сохранены")' >/dev/null
+  assert_browser 'document.querySelector(".goal-result")?.textContent.includes("бюджет $5") && document.querySelector(".goal-result")?.textContent.includes("Не контактируй")' 'old Goal conditions were lost before the model/review'
+  assert_accessible
+  browser reload >/dev/null
+  browser wait --fn 'document.querySelector(".goal-result")?.textContent.includes("Исходные условия из первой задачи сохранены")' >/dev/null
+  browser eval '(async()=>{ const topic=location.pathname.split("/").at(-1); const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if(goals.length!==100 || goals[0].status!=="completed" || goals[0].read_attempted || goals[0].approved_capability || goals[0].evidence.length!==1) throw new Error("Archive continuation inherited authority or expanded public history"); return "all original conditions; only scoped saved evidence"; })()' >/dev/null
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737
   assert_browser 'document.querySelectorAll(".topic-link").length === 0' 'another administrator sees the private agent workspace'
-  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, 110-turn history paging/position/frozen constraints/reload, owner isolation, CSRF and accessibility"
+  echo "Agent workspace browser E2E passed: handoff, durable stream/reconnection, scoped tools, inline question, reviewed result, continuation, scoped sandbox decision, lost reply without redispatch, receipt reload, explicit historical deliverable, 110-turn transcript paging, 105-Goal full-condition handoff/review/reload, owner isolation, CSRF and accessibility"
   exit 0
 fi
 assert_browser 'document.querySelectorAll(".chat-page button:not(.composer-mode button)").length === 1 && document.querySelectorAll(".composer-mode button").length === 2' 'new chat has extra action buttons outside the chat/goal mode selector'

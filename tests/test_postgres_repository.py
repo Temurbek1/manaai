@@ -160,6 +160,91 @@ async def test_postgres_native_transcript_pages_and_frozen_constraints() -> None
         await database.dispose()
 
 
+async def test_postgres_all_closed_goal_conditions_and_scoped_stream() -> None:
+    from app.mana_operation_ai.application.session_context import OperationSessionContext
+    from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    chats = SqlAlchemyChatRepository(database, hourly_limit=200, daily_limit=1000)
+    await chats.initialize()
+    clock = Clock(datetime(2020, 1, 1, tzinfo=UTC))
+    goals = SqlAlchemyGoalRepository(database, clock)
+    owner = f"archive-owner-{uuid4()}"
+    try:
+        topic = await chats.create(
+            owner,
+            TopicCreate(agent_id="operations-orchestrator", product="mana", title="Full archive"),
+        )
+        for index in range(105):
+            goal = await goals.create(
+                owner,
+                topic,
+                GoalCreate(
+                    request_id=uuid4(),
+                    objective="Historical analysis.",
+                    constraints="No customer contact; budget $5." if index == 0 else "",
+                ),
+                session_memory=SessionMemory(
+                    topic_id=topic.topic_id,
+                    product="mana",
+                    captured_at=clock.now(),
+                    user_context=[
+                        SessionUserContext(
+                            kind="instruction",
+                            text="No scheduled Firebase reads.",
+                            origin_id="old-user-quote",
+                        )
+                    ],
+                )
+                if index == 0
+                else None,
+            )
+            assert await goals.save(
+                owner,
+                goal,
+                goal.model_copy(update={"status": "completed", "result": f"Result {index}"}),
+            )
+            clock.value += timedelta(seconds=1)
+        cutoff = clock.now()
+        reader = OperationSessionContext(chats, goals)
+        memory = await reader.read(owner, topic.topic_id, before=cutoff)
+        assert memory is not None
+        assert any("$5" in item.text for item in memory.user_context)
+        assert any("Firebase" in item.text for item in memory.user_context)
+        assert len(memory.checkpoints) == 3 and memory.older_checkpoints_omitted == 102
+        assert not [
+            item
+            async for item in goals.closed_context(
+                "foreign", topic.topic_id, product="mana", before=cutoff
+            )
+        ]
+        assert not [
+            item
+            async for item in goals.closed_context(
+                owner, topic.topic_id, product="360rec", before=cutoff
+            )
+        ]
+        assert not [
+            item
+            async for item in goals.closed_context(
+                owner, topic.topic_id, product="mana", before=datetime(2019, 1, 1, tzinfo=UTC)
+            )
+        ]
+        records = [
+            item
+            async for item in goals.closed_context(
+                owner, topic.topic_id, product="mana", before=cutoff
+            )
+        ]
+        assert (
+            len(records) == 105
+            and records[-1].request.constraints == "No customer contact; budget $5."
+        )
+    finally:
+        await database.dispose()
+
+
 async def test_postgres_saved_task_paging_literal_search_and_scope() -> None:
     assert POSTGRES_URL is not None
     database = OperationDatabase(POSTGRES_URL)

@@ -379,6 +379,219 @@ async def test_old_request_replay_bypasses_context_rebuild_beyond_history_page(
     get_settings.cache_clear()
 
 
+@pytest.mark.parametrize("native", [False, True])
+async def test_original_goal_conditions_survive_beyond_the_latest_hundred(
+    tmp_path: Path, native: bool
+) -> None:
+    database = OperationDatabase(f"sqlite+aiosqlite:///{tmp_path / 'all-goals.db'}")
+    await database.create_schema()
+    clock = Clock(datetime(2020, 1, 1, tzinfo=UTC))
+    chats = SqlAlchemyChatRepository(database, hourly_limit=50, daily_limit=200)
+    await chats.initialize()
+    goals = SqlAlchemyGoalRepository(database, clock)
+    topic = await chats.create(
+        "alice", TopicCreate(agent_id="operations-orchestrator", product="mana", title="Long work")
+    )
+    oldest = None
+    try:
+        for index in range(105):
+            goal = await goals.create(
+                "alice",
+                topic,
+                GoalCreate(
+                    request_id=uuid4(),
+                    objective="Continue the historical analysis.",
+                    constraints="Never contact parents; the maximum budget is $5."
+                    if index == 0
+                    else "",
+                    success_criteria="Use parent-only cohorts, never child denominators."
+                    if index == 0
+                    else "",
+                ),
+                session_memory=SessionMemory(
+                    topic_id=topic.topic_id,
+                    product="mana",
+                    captured_at=clock.now(),
+                    user_context=[
+                        SessionUserContext(
+                            kind="user_message",
+                            text="Never activate scheduled Firebase reads.",
+                            origin_id="original-user-message",
+                            also_kinds=["constraint"],
+                        )
+                    ],
+                )
+                if index == 0 and native
+                else None,
+            )
+            assert await goals.save(
+                "alice",
+                goal,
+                goal.model_copy(
+                    update={
+                        "status": "completed",
+                        "result": f"Historical result {index}",
+                        "instructions": ["Do not claim tariffs are confirmed payments."]
+                        if index == 0
+                        else [],
+                    }
+                ),
+            )
+            oldest = goal.goal_id if index == 0 else oldest
+            clock.value += timedelta(seconds=1)
+        reader = OperationSessionContext(chats, goals)
+        memory = await reader.read("alice", topic.topic_id, before=clock.now())
+        assert memory is not None
+        assert any(
+            item.origin_id == oldest and item.kind == "constraint" and "$5" in item.text
+            for item in memory.user_context
+        )
+        assert any("parent-only" in item.text for item in memory.user_context)
+        assert any("tariffs" in item.text for item in memory.user_context)
+        assert [checkpoint.result for checkpoint in memory.checkpoints] == [
+            "Historical result 104",
+            "Historical result 103",
+            "Historical result 102",
+        ]
+        assert memory.older_checkpoints_omitted == 102
+        assert len(memory.user_context) == (5 if native else 4)
+        if native:
+            directive = next(item for item in memory.user_context if "Firebase" in item.text)
+            assert directive.also_kinds == ["constraint"]
+            # Old native conditions are also strictly validated, not bypassed because
+            # their Goal has fallen out of the short visible result history.
+            async with database.session_factory() as session, session.begin():
+                row = await session.get(GoalRow, oldest)
+                assert row is not None and row.workspace_payload is not None
+                row.workspace_payload = {**row.workspace_payload, "version": 999}
+            with pytest.raises(ChatError, match="совместимой версии"):
+                await reader.read("alice", topic.topic_id, before=clock.now())
+        else:
+            # A damaged old product field must not be filtered out before validating
+            # the very record holding the original constraints.
+            async with database.session_factory() as session, session.begin():
+                row = await session.get(GoalRow, oldest)
+                assert row is not None
+                row.payload = {key: value for key, value in row.payload.items() if key != "product"}
+            with pytest.raises(ChatError, match="повреждена"):
+                await reader.read("alice", topic.topic_id, before=clock.now())
+    finally:
+        await database.dispose()
+
+
+async def test_archive_capacity_stops_before_model_and_keeps_original_records(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    configure_workspace(monkeypatch, tmp_path / "archive-limit.db")
+    monkeypatch.setenv("OPERATION_WORKSPACE_CONTEXT_GOAL_LIMIT", "2")
+    get_settings.cache_clear()
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        chats = app.state.operation_chat_service
+        goals = app.state.operation_goal_service
+        model = FakeConversation()
+        chats._model = model
+        topic = await chats.create(
+            "alice", TopicCreate(agent_id="growth-agent", product="mana", title="Bounded archive")
+        )
+        clock = Clock(datetime.now(UTC) - timedelta(hours=1))
+        repo = SqlAlchemyGoalRepository(app.state.operation_database, clock)
+        ids = []
+        for _ in range(3):
+            goal = await repo.create(
+                "alice",
+                topic,
+                GoalCreate(request_id=uuid4(), objective="Keep every original condition."),
+            )
+            assert await repo.save("alice", goal, goal.model_copy(update={"status": "completed"}))
+            ids.append(goal.goal_id)
+            clock.value += timedelta(seconds=1)
+        with pytest.raises(SessionContextTooLarge):
+            await goals.create(
+                "alice",
+                topic.topic_id,
+                GoalCreate(
+                    request_id=uuid4(),
+                    objective="Continue under all prior conditions.",
+                    execution_mode="agent",
+                ),
+            )
+        result = await chats.send(
+            "alice",
+            topic.topic_id,
+            MessageCreate(request_id=uuid4(), message="Continue under all prior conditions."),
+        )
+        assert result.status == "failed" and "Ограничения не сокращались" in result.answer
+        assert model.contexts == []
+        assert {goal.goal_id for goal in await repo.list("alice", topic.topic_id)} == set(ids)
+        for item in ids:
+            assert (
+                await repo.get("alice", item)
+            ).request.objective == "Keep every original condition."
+    get_settings.cache_clear()
+
+
+async def test_full_history_handoff_freezes_old_conditions_without_inheriting_authority(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    configure_workspace(monkeypatch, tmp_path / "handoff-archive.db")
+    app = create_app()
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        chats, goals = app.state.operation_chat_service, app.state.operation_goal_service
+        router = WorkspaceConversation()
+        chats._model = router
+        topic = await chats.create(
+            "alice",
+            TopicCreate(agent_id="operations-orchestrator", product="mana", title="All conditions"),
+        )
+        clock = Clock(datetime.now(UTC) - timedelta(hours=1))
+        repo = SqlAlchemyGoalRepository(app.state.operation_database, clock)
+        for index in range(105):
+            goal = await repo.create(
+                "alice",
+                topic,
+                GoalCreate(
+                    request_id=uuid4(),
+                    objective="Historical parent analysis.",
+                    constraints="Never contact customers. Budget remains $5." if index == 0 else "",
+                ),
+            )
+            assert await repo.save("alice", goal, goal.model_copy(update={"status": "completed"}))
+            clock.value += timedelta(seconds=1)
+        path = f"{BASE}/topics/{topic.topic_id}/messages"
+        request = {
+            "request_id": str(uuid4()),
+            "message": "Проанализируй удержание по прежним условиям.",
+            "execution_mode": "agent",
+        }
+        response = await client.post(path, headers=headers("alice", "operator"), json=request)
+        assert response.status_code == 200, response.text
+        context = router.contexts[-1]["session_memory"]
+        assert isinstance(context, dict)
+        memory = SessionMemory.model_validate(context)
+        assert any(
+            "$5" in item.text and "Never contact" in item.text for item in memory.user_context
+        )
+        current = await goals.repository.get("alice", response.json()["goal"]["goal_id"])
+        assert current.session_memory is not None
+        assert current.session_memory.user_context == memory.user_context
+        assert not current.read_attempted and current.approved_capability is None
+        assert not current.evidence and not current.tools and current.accounted_microusd == 0
+        assert goals._session_context is not None
+        from unittest.mock import AsyncMock
+
+        forbidden = AsyncMock(side_effect=AssertionError("Frozen replay must not rebuild context"))
+        monkeypatch.setattr(goals._session_context, "read", forbidden)
+        replay = await client.post(path, headers=headers("alice", "operator"), json=request)
+        assert replay.status_code == 200 and replay.json() == response.json()
+        assert len(router.contexts) == 1
+        forbidden.assert_not_called()
+    get_settings.cache_clear()
+
+
 @pytest.mark.parametrize(
     "corruption",
     [

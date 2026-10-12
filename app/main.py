@@ -619,7 +619,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.operation_agent_workspace_enabled and settings.operation_workspace_events_enabled
     )
     goal_repository = SqlAlchemyGoalRepository(
-        operation_database, clock, events_enabled=events_enabled
+        operation_database,
+        clock,
+        events_enabled=events_enabled,
+        context_goal_limit=settings.operation_workspace_context_goal_limit,
     )
     app.state.operation_workspace_events = WorkspaceEventService(
         SqlAlchemyWorkspaceEvents(operation_database),

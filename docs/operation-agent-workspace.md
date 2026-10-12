@@ -675,6 +675,51 @@ checks; API synchronization, standalone UI, bundle and secret checks passed. Git
 reports `push=false`; scoped release approval remains outstanding. No production activation,
 new source permissions, Firebase reads, schedules or SSH changes occurred.
 
+### Complete closed-Goal condition capture, 2026-10-12
+
+The latest-100 result page is no longer used as the source of all user conditions. A failing
+regression demonstrated that a legacy Goal's original no-contact/$5/parent-only conditions
+disappeared after 105 completed tasks, despite the deduplicated context fitting every limit.
+Session capture now streams the complete same-owner/topic/product closed history before the
+frozen cutoff, validates every checkpoint, preserves exact quoted conditions/role aliases,
+and retains only three result excerpts with the exact omitted-result count. This also covers
+old native session-memory quotes beyond the visible page; an incompatible old checkpoint
+fails closed rather than quietly disappearing. Public task lists remain bounded to 100.
+
+The SQL iterator uses batches of eight, an explicit
+`OPERATION_WORKSPACE_CONTEXT_GOAL_LIMIT=10000` (range 1–10000), and deterministic date/ID
+ordering. Capture exceeding this archive bound fails before any model call; the independent
+400-unique-quote and input-byte bounds remain unchanged. Stream/cursor resources close even
+on early failure. This is lossless condition capture within explicit limits, not an unlimited
+context window, semantic summary or relaxation of consent. Existing frozen chat/Goal snapshots
+are not rewritten. Prior findings still need separately admitted source evidence.
+
+The bound counts inspected closed topic rows. Product ownership is checked after strict
+decoding, so a missing/damaged old product field cannot filter away the original prohibition.
+Valid other-product records never enter the context; incompatible or corrupt records fail
+capture with a controlled error. No raw checkpoint contents appear in that error.
+
+The design follows the official distinction between
+[memory, compaction and reviewed artifacts](https://developers.openai.com/cookbook/examples/agents_sdk/building_reliable_agents_memory_compaction):
+SQL remains authoritative for original conditions, source lineage and lifecycle state;
+model working memory is not the record of truth. No paid compaction/extraction or external
+data collection was added to this capture fix. No schema/API migration or production/key/
+source/schedule change was made. Full release acceptance remains outstanding.
+
+Local evidence: `make verify` passed (794 backend tests, 127 UI tests, 13 separately opt-in
+PostgreSQL skips and two excluded live suites). Separate PostgreSQL 17 migration round trip,
+drift and 13 cases passed, including a 105-Goal native/legacy condition archive and owner/
+product/time filtering. Actual private-browser flow passed full-condition handoff from the
+first of 105 historical tasks through scoped saved-data tools, question, investigation,
+independent fake-model review and reload. This is workflow evidence, not live LLM quality.
+SQL/HTTP cases also cover exact cross-role quotes, explicit overflow before generation,
+corrupt old protocol/product fields, unchanged original records and frozen idempotent replay.
+Unpublished local image `mana-ai-operation:goal-archive-local-20261012` passed a networkless
+105-Goal HTTP/SQL/model-port/replay/ownership smoke and the actual old/new rollback probe;
+five backend source hashes match the workspace and no `.env` is present. Contract sync,
+standalone UI, bundle, type/lint/format and secret gates passed. No paid API call was made.
+GitHub still reports `push=false`; scoped release approval remains outstanding.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:

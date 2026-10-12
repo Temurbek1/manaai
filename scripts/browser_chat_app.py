@@ -22,7 +22,7 @@ from app.mana_operation_ai.application.runtime import SystemClock
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
-from app.mana_operation_ai.domain.goals import GoalDecision, GoalTask
+from app.mana_operation_ai.domain.goals import GoalCreate, GoalDecision, GoalTask, OperationGoal
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
 from app.mana_operation_ai.infrastructure.agent_tool_schema import agent_function_tools
@@ -31,15 +31,21 @@ from app.mana_operation_ai.infrastructure.goal_continuation import (
     prepare_continuation,
 )
 from app.mana_operation_ai.infrastructure.persistence.chat_repository import _storage
+from app.mana_operation_ai.infrastructure.persistence.goal_repository import (
+    SqlAlchemyGoalRepository,
+)
 from app.mana_operation_ai.infrastructure.persistence.models import (
     AdminUserRow,
     ChatTopicRow,
     ChatTurnRow,
+    GoalRow,
 )
 from app.mana_operation_ai.infrastructure.retention.parents import FakeParentSummaryAdapter
 
 LONG_TOPIC = "00000000-0000-4000-8000-000000000110"
 LONG_CONSTRAINT = "Не смешивай родителей и детей; не запускай повторный сбор данных."
+ARCHIVE_TOPIC = "00000000-0000-4000-8000-000000000105"
+ARCHIVE_CONSTRAINT = "Не контактируй с родителями; бюджет $5; только родительские когорты."
 
 
 class BrowserConversationFake:
@@ -63,6 +69,19 @@ class BrowserConversationFake:
         payload = json.loads(context)
         message = str(payload.get("message", ""))
         agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
+        if message == "Продолжи анализ с условиями из первой архивной задачи":
+            memory = payload.get("session_memory")
+            assert memory and any(
+                item["text"] == ARCHIVE_CONSTRAINT for item in memory["user_context"]
+            )
+            assert memory["older_checkpoints_omitted"] == 102
+            return ChatTurnOutput(
+                "Исходные условия переданы в рабочую цель.",
+                "browser-fake",
+                10,
+                20,
+                next_action="start_goal",
+            )
         if message == "Проверь первое условие длинной темы":
             memory = payload.get("session_memory")
             assert memory and memory["user_context"][0]["text"] == LONG_CONSTRAINT
@@ -207,6 +226,12 @@ class BrowserGoalFake:
         agent_mode = goal["request"].get("execution_mode") == "agent"
         waiting = goal["phase"] == "investigate" and not goal["instructions"]
         recall = "Прошлая рабочая цель" in goal["request"]["objective"]
+        archive = "первой архивной задачи" in goal["request"]["objective"]
+        if archive:
+            assert any(
+                item["text"] == ARCHIVE_CONSTRAINT
+                for item in goal["session_memory"]["user_context"]
+            )
         if recall:
             waiting = False
         tool = None
@@ -239,7 +264,12 @@ class BrowserGoalFake:
                         status="done" if goal["phase"] == "review" else "active",
                     )
                 ],
-                draft="Тестовый анализ. Есть исторические агрегаты, но платежи и отток "
+                draft=(
+                    "Исходные условия из первой задачи сохранены. " + ARCHIVE_CONSTRAINT + " "
+                    if archive
+                    else ""
+                )
+                + "Тестовый анализ. Есть исторические агрегаты, но платежи и отток "
                 "по единой когорте не подтверждены. Данные пользователей не изменялись.",
                 evidence_ids=[item["report_id"] for item in goal["evidence"]],
                 disposition="waiting"
@@ -338,6 +368,45 @@ def create_app() -> FastAPI:
                                     status=turn.status,
                                     created_at=turn.created_at,
                                     **_storage(turn),
+                                )
+                            )
+                    if await session.get(ChatTopicRow, ARCHIVE_TOPIC) is None:
+                        archive_topic = topic.model_copy(
+                            update={"topic_id": ARCHIVE_TOPIC, "title": "Архив условий"}
+                        )
+                        session.add(
+                            ChatTopicRow(
+                                topic_id=ARCHIVE_TOPIC,
+                                owner=owner,
+                                updated_at=observed,
+                                payload=archive_topic.model_dump(mode="json"),
+                            )
+                        )
+                        await session.flush()
+                        for index in range(105):
+                            at = observed + timedelta(seconds=index)
+                            goal = OperationGoal(
+                                goal_id=str(uuid4()),
+                                topic_id=ARCHIVE_TOPIC,
+                                agent_id="operations-orchestrator",
+                                product="mana",
+                                status="completed",
+                                request=GoalCreate(
+                                    request_id=uuid4(),
+                                    objective="Архивная тестовая задача.",
+                                    constraints=ARCHIVE_CONSTRAINT if index == 0 else "",
+                                ),
+                                created_at=at,
+                                updated_at=at,
+                                result="Архивный тестовый результат.",
+                            )
+                            session.add(
+                                GoalRow(
+                                    goal_id=goal.goal_id,
+                                    topic_id=ARCHIVE_TOPIC,
+                                    owner=owner,
+                                    request_id=str(goal.request.request_id),
+                                    **SqlAlchemyGoalRepository._storage(goal),
                                 )
                             )
                 admin = application.state.operation_admin_service
