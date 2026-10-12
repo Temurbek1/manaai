@@ -531,6 +531,99 @@ deployed private-browser acceptance and the other full-goal obligations remain
 open; no Firebase/GA4 reads, new schedules, independent API/audio changes, SSH
 changes or credential edits are part of it.
 
+### Native model continuation checkpoint, 2026-10-12
+
+The opt-in Goal model now implements actual stateless Responses item chaining and
+server-side compaction, not a model-written summary pretending to be compaction.
+The implementation follows the [official compaction guide](https://developers.openai.com/api/docs/guides/compaction):
+`store=false`, encrypted reasoning included, a server compaction threshold, and
+pruning only items before the latest **server-side** compaction item. The standalone
+`/compact` endpoint is not used and its canonical output must not be pruned.
+
+Private continuation is a typed application-port result, scoped by owner,
+goal/topic/agent/product, unchanged request and all original quoted conditions.
+The adapter validates/materializes supported SDK item types, rejects system/developer
+authority, raw reasoning, unknown functions, duplicate/missing tool acknowledgements,
+unsettled tool records and oversized windows. A pending function receives its actual
+SQL receipt, including denial/unknown status, before another model decision; it is
+never executed from a saved opaque item. Every new window reasserts the full current
+conditions, steering, evidence and permission snapshot. Review starts fresh without
+the investigator's opaque reasoning. Compaction is not an evidence or read grant.
+
+Checkpoint v6 isolates continuation/recovery fields from strict legacy JSON. The
+payload and scope digests are checked on reload; older workers cannot claim it.
+Goal list/detail/control/create and workspace handoff responses strip provider
+continuation, and public events expose only a truthful compaction progress note.
+No ciphertext or raw model reasoning reaches the UI. Controls/CAS still win a
+model-result race; missing/changed/disabled continuation never silently invokes
+the legacy model path. Original byte/400-unique-quote guards remain: this does not
+solve arbitrarily large original user-condition histories or imply unlimited context.
+
+Local configuration, disabled by default and gated by the native workspace:
+
+- `OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED=false`;
+- `OPERATION_WORKSPACE_COMPACT_THRESHOLD=8000`;
+- `OPERATION_WORKSPACE_MODEL_WINDOW_BYTES=192000`;
+- `OPERATION_WORKSPACE_MODEL_MAX_OUTPUT_TOKENS=8192` (legacy calls remain 4096).
+
+Reservations include the actual private window and native output allowance before
+I/O. Goal/day/month monetary limits are unchanged; verified usage settles normally,
+unknown usage stays reserved, and lost source/response I/O never retries automatically.
+Known invalid evidence citations now receive at most two **new bounded reasoning
+steps** with typed feedback. The invalid draft is not published, IDs are not silently
+dropped or admitted as evidence, and no source consent is inferred. Successful saved
+report loading clears obsolete feedback. Repeated invalid output stops truthfully.
+
+Real-model QA revealed both a catalog-only citation mistake and known incomplete
+output at the old 4096-token allowance. These were not hidden as successful analyses:
+the citation gate stopped the draft, verified costs were retained, and the same
+local ledger/unchanged objective was continued after targeted fixes. Native output
+allocation is now separate, explicitly configured and conservatively reserved.
+No production, Firebase/GA4/Manakids request, source scan, new schedule or domain
+mutation is part of this checkpoint; real-model evaluation uses only a previously
+minimized saved MANA Parent report. Publication/deployed acceptance and the full
+objective remain unfinished.
+
+Real-model result (same local ledger, no repeat party): **8 requests, 8 server
+compactions, $0.261311 settled, zero unknown holds**, completed historical Goal.
+The first citation error and two known output-limit failures are included in that
+total, not omitted from the evaluation. Exact report loading succeeded after bounded
+feedback; the final plan/investigation/fresh review completed after the native
+output allowance was corrected. No source/domain/production requests occurred.
+This is one inspected quality case, not statistical model-quality or full-goal proof.
+
+Manual data-quality/analysis validation: the final result cites the original report
+ID and `2026-10-09T17:06:18.388488Z`; counts 208985 (API count), 10 (sample), 3/7
+(tariff present/absent), 9/6 (parents with child/connected-child relationships) match
+the minimized saved source. It keeps the historical/unknown-freshness caveat,
+nonrandom-page limitation, parent/child distinction and tariff/purchase-date versus
+payment distinction. It does not compute actual retention/conversion/churn or causal
+improvement. Proposed D7 is explicitly a future parent-only measurement, UTC
+`[t0+168h, t0+192h)`, mature common denominator, deduplication, undefined empty
+denominator, and boundary checks. No event/KPI availability is invented.
+Confidence: usable **with the stated caveats** for this historical-summary QA only.
+Underlying raw-key uniqueness, full-population coverage/current state and behavioural
+cohorts cannot be independently verified from a minimized ten-parent aggregate.
+The engineering artifact is `output/continuation-20261012/model-quality/step-8.json`;
+the source is `output/workspace-release-20261012/saved-parent-report.json`, and the
+budget/attempt markers remain in the same ignored evaluation directory. Neither
+opaque context nor an API key is written into exported step JSON.
+
+Final local verification: `make verify` passed with **780 backend tests** (ten
+PostgreSQL skips in that run/two live suites excluded), **122 UI tests**, mypy
+303 files, lint/format, TypeScript, production UI build and zero npm vulnerabilities.
+Separate PostgreSQL 17 migration/drift and **ten** cases passed, including v6
+continuation persistence, owner isolation and pause. The actual native browser
+flow ran with continuation enabled and fake Responses windows, covering inline
+questions, receipt chaining, reload, source/action consent, task recall, 110-turn
+history and WCAG checks. Actual old `2ea7b9a`/new-image pause/rollback retained v6
+opaque state, original scope/action aliases and unknown source holds. Networkless
+runtime HTTP/SQL, schema sync, standalone UI/bundle/secret and whitespace checks
+passed. Local image `mana-ai-operation:continuation-local-20261012` is unpublished;
+no production switch, key, source setting or scheduler was changed. GitHub write
+permission still reports `push=false`, and scoped backend/worker release approval
+is outstanding. Full native activation/deployed acceptance is not claimed.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:

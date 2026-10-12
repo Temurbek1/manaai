@@ -4,7 +4,8 @@ import re
 from typing import TypedDict
 
 from openai import AsyncOpenAI
-from openai.types.responses import FunctionToolParam
+from openai.types.responses import FunctionToolParam, ResponseIncludable, ResponseInputItemParam
+from openai.types.responses.response_create_params import ContextManagement
 from pydantic import BaseModel, Field, JsonValue
 
 from app.core.config import Settings
@@ -18,9 +19,15 @@ from app.mana_operation_ai.domain.cost_control import (
     ResourceUsage,
 )
 from app.mana_operation_ai.domain.goals import GoalDecision, GoalDecisionBody
+from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.infrastructure.agent_tool_schema import (
     agent_function_tools,
     parse_agent_function,
+)
+from app.mana_operation_ai.infrastructure.goal_continuation import (
+    PreparedContinuation,
+    finish_continuation,
+    prepare_continuation,
 )
 from app.mana_operation_ai.infrastructure.inference import (
     inference_rate_cards,
@@ -31,6 +38,11 @@ from app.mana_operation_ai.infrastructure.inference import (
 class ToolRequestOptions(TypedDict, total=False):
     tools: list[FunctionToolParam]
     parallel_tool_calls: bool
+
+
+class ContinuationRequestOptions(TypedDict, total=False):
+    context_management: list[ContextManagement]
+    include: list[ResponseIncludable]
 
 
 class GoalInputUsage(BaseModel):
@@ -51,6 +63,7 @@ class GoalUsageEnvelope(BaseModel):
     status: str
     usage: GoalProviderUsage | None
     output: list[dict[str, JsonValue]] = Field(default_factory=list)
+    incomplete_details: dict[str, JsonValue] | None = None
 
 
 class OpenAIGoalModel:
@@ -74,13 +87,13 @@ class OpenAIGoalModel:
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=120
         )
 
-    def _input_bound(self, context: str) -> int:
+    def _input_bound(self, context: str, items: list[ResponseInputItemParam] | None = None) -> int:
         return (
             len(
                 json.dumps(
                     {
                         "instructions": GOAL_INSTRUCTIONS,
-                        "input": context,
+                        "input": items if items is not None else context,
                         "schema": GoalDecisionBody.model_json_schema(),
                         "tools": agent_function_tools() if self._agent_mode(context) else [],
                     },
@@ -108,18 +121,72 @@ class OpenAIGoalModel:
         )
 
     async def decide(self, *, context: str, owner: str) -> GoalModelOutput:
-        amount = self.reservation(context)
+        return await self._decide(context=context, owner=owner)
+
+    def _prepare(
+        self, context: str, owner: str, state: ModelContinuation | None
+    ) -> PreparedContinuation:
+        if (
+            not self._agent_mode(context)
+            or not self._settings.operation_workspace_model_continuation_enabled
+        ):
+            raise ValueError("Native model continuation is disabled")
+        # Preserve the same current-snapshot bound before handling a separate private window.
+        self.reservation(context)
+        plan = selected_inference(context, goal=True) if self._catalog else None
+        return prepare_continuation(
+            context=context,
+            owner=owner,
+            state=state,
+            model=plan.model if plan else self._settings.operation_goals_model,
+            maximum_bytes=self._settings.operation_workspace_model_window_bytes,
+        )
+
+    def continuation_reservation(
+        self, *, context: str, owner: str, state: ModelContinuation | None
+    ) -> int:
+        prepared = self._prepare(context, owner, state)
+        plan = selected_inference(context, goal=True) if self._catalog else None
+        rates = self._catalog[plan.model] if plan else self._rates
+        return rates.reserve_microusd(
+            input_tokens=self._input_bound(context, prepared.items),
+            output_tokens=self._settings.operation_workspace_model_max_output_tokens,
+        )
+
+    async def continue_decide(
+        self, *, context: str, owner: str, state: ModelContinuation | None
+    ) -> GoalModelOutput:
+        prepared = self._prepare(context, owner, state)
+        return await self._decide(context=context, owner=owner, prepared=prepared)
+
+    async def _decide(
+        self, *, context: str, owner: str, prepared: PreparedContinuation | None = None
+    ) -> GoalModelOutput:
         plan = selected_inference(context, goal=True) if self._catalog else None
         model_name = plan.model if plan else self._settings.operation_goals_model
         effort = plan.effort if plan else self._settings.operation_goals_reasoning_effort
         rates = self._catalog[plan.model] if plan else self._rates
+        output_bound = (
+            self._settings.operation_workspace_model_max_output_tokens
+            if prepared
+            else self._settings.operation_goals_max_output_tokens
+        )
+        input_bound = self._input_bound(context, prepared.items if prepared else None)
+        amount = (
+            rates.reserve_microusd(
+                input_tokens=input_bound,
+                output_tokens=output_bound,
+            )
+            if prepared
+            else self.reservation(context)
+        )
         goal = json.loads(context)["goal"]
         reservation = await self._ledger.reserve(
             ResourceUsage(
                 llm_calls=1,
                 provider_requests=1,
-                input_tokens=self._input_bound(context),
-                output_tokens=self._settings.operation_goals_max_output_tokens,
+                input_tokens=input_bound,
+                output_tokens=output_bound,
                 response_bytes=262_144,
                 llm_microusd=amount,
             ),
@@ -135,11 +202,24 @@ class OpenAIGoalModel:
             if self._agent_mode(context) and goal.get("phase") != "review"
             else {}
         )
+        continuation_options: ContinuationRequestOptions = (
+            {
+                "context_management": [
+                    {
+                        "type": "compaction",
+                        "compact_threshold": self._settings.operation_workspace_compact_threshold,
+                    }
+                ],
+                "include": ["reasoning.encrypted_content"],
+            }
+            if prepared
+            else {}
+        )
         raw = await self._client.responses.with_raw_response.parse(
             model=model_name,
             instructions=GOAL_INSTRUCTIONS,
-            input=context,
-            max_output_tokens=self._settings.operation_goals_max_output_tokens,
+            input=prepared.items if prepared else context,
+            max_output_tokens=output_bound,
             reasoning={"effort": effort},
             text={"verbosity": "medium"},
             text_format=GoalDecisionBody,
@@ -147,6 +227,7 @@ class OpenAIGoalModel:
             service_tier="default",
             safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
             **tool_options,
+            **continuation_options,
         )
         # Parsing an incomplete JSON body can fail inside the SDK before returning usage.
         # Account verified raw HTTP usage first, then validate the domain decision.
@@ -178,9 +259,14 @@ class OpenAIGoalModel:
         if actual.exceeds(reservation.usage):
             raise RuntimeError("Goal response exceeded its resource reservation")
         if envelope.status != "completed":
+            reason = (envelope.incomplete_details or {}).get("reason")
             raise GoalModelResponseError(
                 "Ответ AI не завершён. Токены учтены; автоматического повтора нет.",
                 actual.llm_microusd,
+                provider_status=envelope.status,
+                incomplete_reason=reason
+                if isinstance(reason, str) and re.fullmatch(r"[a-z_]{1,80}", reason)
+                else None,
             )
         # A native call may accompany ordinary public commentary. Do not parse that
         # commentary as a structured final decision before handling the function call.
@@ -225,7 +311,22 @@ class OpenAIGoalModel:
                     "Формат ответа AI не прошёл проверку. Расходы учтены; повтор не запущен.",
                     actual.llm_microusd,
                 ) from None
-        return GoalModelOutput(decision, envelope.model, actual.llm_microusd)
+        continuation = None
+        if prepared:
+            try:
+                continuation = finish_continuation(
+                    prepared,
+                    envelope.output,
+                    model=model_name,
+                    call=decision.tool_call,
+                    maximum_bytes=self._settings.operation_workspace_model_window_bytes,
+                )
+            except ValueError:
+                raise GoalModelResponseError(
+                    "Контекст продолжения не прошёл проверку. Расходы учтены; повтор не запущен.",
+                    actual.llm_microusd,
+                ) from None
+        return GoalModelOutput(decision, envelope.model, actual.llm_microusd, continuation)
 
     async def close(self) -> None:
         await self._client.close()

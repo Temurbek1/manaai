@@ -119,6 +119,10 @@ class Settings(BaseSettings):
     operation_workspace_actions_enabled: bool = True
     operation_workspace_transcript_enabled: bool = True
     operation_workspace_topic_message_limit: int = Field(default=1000, ge=100, le=10000)
+    operation_workspace_model_continuation_enabled: bool = False
+    operation_workspace_compact_threshold: int = Field(default=8000, ge=1024, le=24000)
+    operation_workspace_model_max_output_tokens: int = Field(default=8192, ge=4096, le=16384)
+    operation_workspace_model_window_bytes: int = Field(default=192000, ge=64000, le=262144)
     operation_workspace_event_poll_seconds: float = Field(default=1.0, ge=0.5, le=10)
     operation_workspace_stream_seconds: float = Field(default=45.0, ge=15, le=120)
     operation_workspace_stream_max_connections: int = Field(default=32, ge=1, le=128)

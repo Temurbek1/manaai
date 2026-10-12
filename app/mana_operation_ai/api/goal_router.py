@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.mana_operation_ai.api.security import ActorDep, require_role
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.goal_service import OperationGoalService
+from app.mana_operation_ai.application.model_continuation import public_goal
 from app.mana_operation_ai.domain.enums import UserRole
 from app.mana_operation_ai.domain.goals import (
     GoalAvailability,
@@ -32,7 +33,7 @@ async def availability(service: GoalDep, actor: ActorDep) -> GoalAvailability:
 async def list_goals(topic_id: str, service: GoalDep, actor: ActorDep) -> list[OperationGoal]:
     require_role(actor, UserRole.VIEWER)
     try:
-        return await service.list_goals(actor.actor_id, topic_id)
+        return [public_goal(goal) for goal in await service.list_goals(actor.actor_id, topic_id)]
     except ChatError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
 
@@ -43,7 +44,7 @@ async def create_goal(
 ) -> OperationGoal:
     require_role(actor, UserRole.OPERATOR)
     try:
-        return await service.create(actor.actor_id, topic_id, payload)
+        return public_goal(await service.create(actor.actor_id, topic_id, payload))
     except ChatError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
 
@@ -52,7 +53,7 @@ async def create_goal(
 async def detail(goal_id: str, service: GoalDep, actor: ActorDep) -> OperationGoal:
     require_role(actor, UserRole.VIEWER)
     try:
-        return await service.repository.get(actor.actor_id, goal_id)
+        return public_goal(await service.repository.get(actor.actor_id, goal_id))
     except ChatError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
 
@@ -63,6 +64,6 @@ async def control(
 ) -> OperationGoal:
     require_role(actor, UserRole.OPERATOR)
     try:
-        return await service.command(actor.actor_id, goal_id, payload)
+        return public_goal(await service.command(actor.actor_id, goal_id, payload))
     except ChatError as exc:
         raise HTTPException(exc.status, str(exc)) from exc

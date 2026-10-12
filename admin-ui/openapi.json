@@ -6646,6 +6646,27 @@
         "title": "GoalEvidence",
         "type": "object"
       },
+      "GoalModelFeedback": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "unloaded_evidence",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 1000,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "GoalModelFeedback",
+        "type": "object"
+      },
       "GoalTask": {
         "additionalProperties": false,
         "properties": {
@@ -9559,6 +9580,76 @@
         "title": "MetricValue",
         "type": "object"
       },
+      "ModelContinuation": {
+        "additionalProperties": false,
+        "properties": {
+          "compactions": {
+            "default": 0,
+            "maximum": 48.0,
+            "minimum": 0.0,
+            "title": "Compactions",
+            "type": "integer"
+          },
+          "model": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "payload": {
+            "maxLength": 262144,
+            "minLength": 1,
+            "title": "Payload",
+            "type": "string"
+          },
+          "payload_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Payload Digest",
+            "type": "string"
+          },
+          "pending_tool_call": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentToolCall"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pending_tool_position": {
+            "anyOf": [
+              {
+                "maximum": 11.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Tool Position"
+          },
+          "protocol": {
+            "default": "goal-model-continuation-v1",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "scope_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Scope Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "scope_digest",
+          "payload",
+          "payload_digest"
+        ],
+        "title": "ModelContinuation",
+        "type": "object"
+      },
       "NoChangeActionParameters": {
         "additionalProperties": false,
         "properties": {
@@ -9804,6 +9895,33 @@
               }
             ],
             "title": "Model"
+          },
+          "model_continuation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelContinuation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalModelFeedback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_recoveries": {
+            "default": 0,
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Model Recoveries",
+            "type": "integer"
           },
           "phase": {
             "default": "plan",

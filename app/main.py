@@ -672,6 +672,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         repository=goal_repository,
         chats=chat_repository,
         model=goal_model,
+        continuing_model=goal_model
+        if (
+            settings.operation_agent_workspace_enabled
+            and settings.operation_workspace_model_continuation_enabled
+        )
+        else None,
         admin=operation_admin_service,
         clock=clock,
         max_context_bytes=settings.operation_goals_max_context_bytes,

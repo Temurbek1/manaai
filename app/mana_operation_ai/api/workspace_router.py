@@ -7,6 +7,7 @@ from app.mana_operation_ai.api.chat_router import ChatDep
 from app.mana_operation_ai.api.security import ActorDep, require_role
 from app.mana_operation_ai.api.workspace_stream import workspace_stream_response
 from app.mana_operation_ai.application.chat_ports import ChatError
+from app.mana_operation_ai.application.model_continuation import public_goal
 from app.mana_operation_ai.application.workspace_actions import WorkspaceActionService
 from app.mana_operation_ai.application.workspace_events import WorkspaceEventService
 from app.mana_operation_ai.application.workspace_service import OperationWorkspaceService
@@ -140,6 +141,7 @@ async def send_message(
 ) -> WorkspaceTurn:
     require_role(actor, UserRole.OPERATOR)
     try:
-        return await service.send(actor.actor_id, topic_id, payload)
+        result = await service.send(actor.actor_id, topic_id, payload)
+        return result.model_copy(update={"goal": public_goal(result.goal) if result.goal else None})
     except ChatError as exc:
         raise HTTPException(exc.status, str(exc)) from exc

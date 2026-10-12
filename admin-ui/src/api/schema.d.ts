@@ -4345,6 +4345,16 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** GoalModelFeedback */
+        GoalModelFeedback: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "unloaded_evidence";
+            /** Message */
+            message: string;
+        };
         /** GoalTask */
         GoalTask: {
             /**
@@ -5321,6 +5331,30 @@ export interface components {
             /** Value */
             value?: string | null;
         };
+        /** ModelContinuation */
+        ModelContinuation: {
+            /**
+             * Compactions
+             * @default 0
+             */
+            compactions: number;
+            /** Model */
+            model: string;
+            /** Payload */
+            payload: string;
+            /** Payload Digest */
+            payload_digest: string;
+            pending_tool_call?: components["schemas"]["AgentToolCall"] | null;
+            /** Pending Tool Position */
+            pending_tool_position?: number | null;
+            /**
+             * Protocol
+             * @default goal-model-continuation-v1
+             */
+            protocol: string;
+            /** Scope Digest */
+            scope_digest: string;
+        };
         /** NoChangeActionParameters */
         NoChangeActionParameters: {
             /**
@@ -5408,6 +5442,13 @@ export interface components {
             lease_until?: string | null;
             /** Model */
             model?: string | null;
+            model_continuation?: components["schemas"]["ModelContinuation"] | null;
+            model_feedback?: components["schemas"]["GoalModelFeedback"] | null;
+            /**
+             * Model Recoveries
+             * @default 0
+             */
+            model_recoveries: number;
             /**
              * Phase
              * @default plan

@@ -166,6 +166,67 @@ async def test_postgres_saved_task_paging_literal_search_and_scope() -> None:
         await database.dispose()
 
 
+async def test_postgres_private_continuation_checkpoint_and_scope() -> None:
+    import json
+
+    from app.mana_operation_ai.infrastructure.goal_continuation import (
+        finish_continuation,
+        prepare_continuation,
+    )
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    clock = Clock()
+    chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
+    repository = SqlAlchemyGoalRepository(database, clock, events_enabled=True)
+    try:
+        owner = "postgres-continuation-owner"
+        topic = await chats.create(
+            owner,
+            TopicCreate(
+                agent_id="operations-orchestrator", product="mana", title="Context checkpoint"
+            ),
+        )
+        goal = await repository.create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Verify a private bounded MANA workspace continuation.",
+                execution_mode="agent",
+            ),
+        )
+        prepared = prepare_continuation(
+            context=json.dumps({"goal": goal.model_dump(mode="json")}),
+            owner=owner,
+            state=None,
+            model="test-model",
+            maximum_bytes=192000,
+        )
+        state = finish_continuation(
+            prepared,
+            [{"type": "compaction", "id": "cmp_pg", "encrypted_content": "test-private-pg-state"}],
+            model="test-model",
+            call=None,
+            maximum_bytes=192000,
+        )
+        changed = goal.model_copy(update={"model_continuation": state})
+        assert await repository.save(owner, goal, changed)
+        reopened = SqlAlchemyGoalRepository(database, clock)
+        saved = await reopened.get(owner, goal.goal_id)
+        assert saved.model_continuation == state
+        paused = await reopened.command(
+            owner,
+            saved.goal_id,
+            GoalCommand(request_id=uuid4(), command="pause", expected_revision=saved.revision),
+        )
+        assert paused.model_continuation == state and paused.status == "paused"
+        with pytest.raises(ChatError):
+            await reopened.get("foreign-owner", goal.goal_id)
+    finally:
+        await database.dispose()
+
+
 async def test_postgres_goal_claim_controls_fencing_and_recovery() -> None:
     assert POSTGRES_URL is not None
     databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]

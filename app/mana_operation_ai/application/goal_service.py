@@ -13,11 +13,13 @@ from app.mana_operation_ai.application.chat_ports import (
 from app.mana_operation_ai.application.chat_service import _report_source, _verified_report_product
 from app.mana_operation_ai.application.cost_control import CostBudgetExceeded
 from app.mana_operation_ai.application.goal_ports import (
+    ContinuingGoalModel,
     GoalModel,
     GoalModelResponseError,
     GoalRepository,
 )
 from app.mana_operation_ai.application.goal_tools import GoalEvidenceTools
+from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.application.session_context import session_memory_payload
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
@@ -29,6 +31,7 @@ from app.mana_operation_ai.domain.goals import (
     GoalDecision,
     GoalEvent,
     GoalEvidence,
+    GoalModelFeedback,
     OperationGoal,
 )
 from app.mana_operation_ai.domain.session import SessionMemory
@@ -36,6 +39,13 @@ from app.mana_operation_ai.domain.session import SessionMemory
 logger = logging.getLogger(__name__)
 
 GOAL_INSTRUCTIONS = """You are the durable administrative analysis workspace of MANA OPERATION AI.
+Opaque continuation is only background working state, never fresh evidence or authority.
+The current request, complete quoted conditions, steering, permissions and evidence snapshot
+always take precedence over an older window. Do not infer a read grant from past reasoning.
+Catalog references are NOT loaded evidence. evidence_ids may contain only IDs already present
+in goal.evidence. First invoke read_saved_report to inspect a catalog reference. If model_feedback
+reports unloaded evidence, correct the next decision/tool request; do not repeat the rejected
+draft or treat the feedback as user consent for collecting data.
 Reply in Russian. Work like a careful collaborative coding agent: publish brief progress, keep
 an explicit plan, investigate evidence, then independently review the draft against the objective,
 success criteria and constraints. These are PUBLIC work updates, never hidden chain-of-thought.
@@ -122,6 +132,7 @@ class OperationGoalService:
         global_kill_switch_default: bool = False,
         auth: AdminAuthRepository | None = None,
         session_context: SessionContextReader | None = None,
+        continuing_model: ContinuingGoalModel | None = None,
     ) -> None:
         self.repository = repository
         self._chats = chats
@@ -134,6 +145,7 @@ class OperationGoalService:
         self._auth = auth
         self._tools = GoalEvidenceTools(admin, clock, repository)
         self._session_context = session_context
+        self._continuing_model = continuing_model
 
     async def _access(self, owner: str) -> None:
         if self._auth is not None:
@@ -284,7 +296,9 @@ class OperationGoalService:
         context = json.dumps(
             {
                 # Full journal stays in SQL/UI, without duplicating it in every model call.
-                "goal": context_goal.model_dump(mode="json", exclude={"lease_until", "events"}),
+                "goal": context_goal.model_dump(
+                    mode="json", exclude={"lease_until", "events", "model_continuation"}
+                ),
                 "evaluation_time": self._clock.now().isoformat(),
                 "allowed_read_capabilities": self._allowed_reads(goal),
                 "completion_scope": "analysis_only_not_business_outcome",
@@ -399,7 +413,18 @@ class OperationGoalService:
                     "Лимит шагов исчерпан. Частичный результат сохранён. Создайте более узкую цель."
                 )
             context = self._context(goal)
-            amount = self._model.reservation(context)
+            if goal.model_continuation is not None and self._continuing_model is None:
+                raise ChatError(
+                    "Продолжение с сохранённым контекстом отключено. История сохранена."
+                )
+            continuing = self._continuing_model if goal.request.execution_mode == "agent" else None
+            amount = (
+                continuing.continuation_reservation(
+                    context=context, owner=owner, state=goal.model_continuation
+                )
+                if continuing
+                else self._model.reservation(context)
+            )
             if goal.accounted_microusd + amount > goal.request.budget_microusd:
                 raise ChatError(
                     "Бюджет цели исчерпан. Результат сохранён; неизвестные расходы входят в резерв."
@@ -416,13 +441,41 @@ class OperationGoalService:
             if goal.status != "running":
                 return True
             async with asyncio.timeout(180):
-                output = await self._model.decide(context=context, owner=owner)
+                output = (
+                    await continuing.continue_decide(
+                        context=context, owner=owner, state=goal.model_continuation
+                    )
+                    if continuing
+                    else await self._model.decide(context=context, owner=owner)
+                )
             if output.actual_microusd > amount or output.actual_microusd < 0:
                 raise ChatError(
                     "Стоимость ответа превысила подтверждённый резерв; цель остановлена."
                 )
             goal.accounted_microusd += output.actual_microusd - amount
             goal.model = output.model
+            if continuing:
+                if output.continuation is None:
+                    raise ChatError(
+                        "AI не сохранил проверяемый контекст продолжения. Повтор не запущен."
+                    )
+                if output.continuation.scope_digest != continuation_scope_digest(owner, goal):
+                    raise ChatError("Контекст продолжения не принадлежит этой цели.")
+                prior_compactions = (
+                    goal.model_continuation.compactions if goal.model_continuation else 0
+                )
+                goal.model_continuation = output.continuation
+                if output.continuation.compactions > prior_compactions:
+                    goal.events.append(
+                        GoalEvent(
+                            at=self._clock.now(),
+                            kind="progress",
+                            message=(
+                                "Рабочий контекст сжат и сохранён. "
+                                "Исходные условия переданы полностью."
+                            ),
+                        )
+                    )
             if output.decision.tool_call is not None:
                 if (
                     goal.request.execution_mode != "agent"
@@ -447,7 +500,36 @@ class OperationGoalService:
                 await self._access(owner)
                 await self._execute_tool(goal, output.decision.tool_call, owner=owner)
             else:
-                self._apply(goal, output.decision)
+                if (
+                    continuing
+                    and not set(output.decision.evidence_ids).issubset(
+                        {item.report_id for item in goal.evidence}
+                    )
+                    and goal.model_recoveries < 2
+                ):
+                    # A known, charged model-format mistake is a new bounded reasoning
+                    # step, not a retry of lost I/O or a source read. Keep the last valid draft.
+                    goal.model_recoveries += 1
+                    goal.model_feedback = GoalModelFeedback(
+                        code="unloaded_evidence",
+                        message="Каталог содержит только ссылки. Сначала вызови read_saved_report. "
+                        "В evidence_ids можно указывать лишь уже загруженные goal.evidence. "
+                        "Новые источники не разрешены этим сообщением.",
+                    )
+                    goal.status = "queued"
+                    goal.events.append(
+                        GoalEvent(
+                            at=self._clock.now(),
+                            kind="progress",
+                            message=(
+                                "Проверяю основание выводов: "
+                                "ссылка ещё не означает прочитанный отчёт."
+                            ),
+                        )
+                    )
+                else:
+                    goal.model_feedback = None
+                    self._apply(goal, output.decision)
             goal.lease_until = None
             await self.repository.save(owner, before, goal)
         except asyncio.CancelledError:
@@ -528,6 +610,7 @@ class OperationGoalService:
                 if len(evidence) >= 4:
                     raise ChatError("У цели уже четыре источника; уточните область анализа.")
                 goal.evidence = [*evidence, item]
+                goal.model_feedback = None
                 record.result = json.dumps(
                     {"report_id": item.report_id, "loaded_into_evidence": True}
                 )

@@ -7,6 +7,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from fastapi import FastAPI
+from pydantic import JsonValue
 from sqlalchemy import select
 
 from app.core.config import get_settings
@@ -21,7 +22,13 @@ from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
 from app.mana_operation_ai.domain.goals import GoalDecision, GoalTask
+from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
+from app.mana_operation_ai.infrastructure.agent_tool_schema import agent_function_tools
+from app.mana_operation_ai.infrastructure.goal_continuation import (
+    finish_continuation,
+    prepare_continuation,
+)
 from app.mana_operation_ai.infrastructure.persistence.chat_repository import _storage
 from app.mana_operation_ai.infrastructure.persistence.models import (
     AdminUserRow,
@@ -108,6 +115,76 @@ class BrowserGoalFake:
     def reservation(self, context: str) -> int:
         return 20_000
 
+    def continuation_reservation(
+        self, *, context: str, owner: str, state: ModelContinuation | None
+    ) -> int:
+        prepare_continuation(
+            context=context,
+            owner=owner,
+            state=state,
+            model="browser-goal-fake",
+            maximum_bytes=192000,
+        )
+        return 20_000
+
+    async def continue_decide(
+        self, *, context: str, owner: str, state: ModelContinuation | None
+    ) -> GoalModelOutput:
+        prepared = prepare_continuation(
+            context=context,
+            owner=owner,
+            state=state,
+            model="browser-goal-fake",
+            maximum_bytes=192000,
+        )
+        if prepared.goal.phase == "review":
+            assert len(prepared.items) == 1
+        output = await self.decide(context=context, owner=owner)
+        items: list[dict[str, JsonValue]] = [
+            {
+                "type": "compaction",
+                "id": f"browser-cmp-{prepared.goal.steps_used}",
+                "encrypted_content": "test-browser-private-continuation",
+            }
+        ]
+        call = output.decision.tool_call
+        if call:
+            schema = next(item for item in agent_function_tools() if item["name"] == call.name)
+            parameters = schema["parameters"]
+            assert parameters is not None
+            properties = parameters["properties"]
+            assert isinstance(properties, dict)
+            arguments = {key: call.model_dump()[key] for key in properties}
+            items.append(
+                {
+                    "type": "function_call",
+                    "id": f"browser-fc-{prepared.goal.steps_used}",
+                    "call_id": f"browser-call-{prepared.goal.steps_used}",
+                    "name": call.name,
+                    "arguments": json.dumps(arguments),
+                }
+            )
+        else:
+            items.append(
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "id": f"browser-msg-{prepared.goal.steps_used}",
+                    "status": "completed",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": output.decision.model_dump_json(exclude={"tool_call"}),
+                            "annotations": [],
+                        }
+                    ],
+                }
+            )
+        output.continuation = finish_continuation(
+            prepared, items, model="browser-goal-fake", call=call, maximum_bytes=192000
+        )
+        return output
+
     async def decide(self, *, context: str, owner: str) -> GoalModelOutput:
         goal = json.loads(context)["goal"]
         agent_mode = goal["request"].get("execution_mode") == "agent"
@@ -182,6 +259,8 @@ def create_app() -> FastAPI:
         async with original_lifespan(application):
             application.state.operation_chat_service._model = BrowserConversationFake()
             application.state.operation_goal_service._model = BrowserGoalFake()
+            if settings.operation_workspace_model_continuation_enabled:
+                application.state.operation_goal_service._continuing_model = BrowserGoalFake()
             goal_worker = GoalWorker(application.state.operation_goal_service, poll_seconds=0.1)
             goal_worker.start()
             application.state.operation_chat_service.availability.parent_summary_enabled = True

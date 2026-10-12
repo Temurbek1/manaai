@@ -10,7 +10,8 @@ import type { WorkspaceStreamState } from "./useWorkspaceStream";
 
 export const GOALS_BASE = "/api/v1/admin/operation/goals";
 type StoredGoal = components["schemas"]["OperationGoal"];
-export type Goal = Omit<StoredGoal, "request"> & {
+export type Goal = Omit<StoredGoal, "request" | "model_recoveries"> & {
+  model_recoveries?: StoredGoal["model_recoveries"];
   request: Omit<
     StoredGoal["request"],
     "execution_mode" | "analysis_scope" | "older_turns_omitted"

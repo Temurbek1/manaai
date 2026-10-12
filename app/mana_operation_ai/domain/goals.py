@@ -13,6 +13,7 @@ from app.mana_operation_ai.domain.agent_tools import (
 )
 from app.mana_operation_ai.domain.chat import ChatModel, ProductScope
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
+from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.session import SessionMemory
 
 GoalStatus = Literal["queued", "running", "paused", "waiting", "completed", "cancelled"]
@@ -81,6 +82,11 @@ class GoalEvidence(ChatModel):
     shortened: bool = False
 
 
+class GoalModelFeedback(ChatModel):
+    code: Literal["unloaded_evidence"]
+    message: str = Field(max_length=1000)
+
+
 class OperationGoal(ChatModel):
     goal_id: str
     topic_id: str
@@ -108,6 +114,9 @@ class OperationGoal(ChatModel):
     lease_until: datetime | None = None
     tools: list[AgentToolRecord] = Field(default_factory=list, max_length=12)
     session_memory: SessionMemory | None = None
+    model_continuation: ModelContinuation | None = None
+    model_feedback: GoalModelFeedback | None = None
+    model_recoveries: int = Field(default=0, ge=0, le=2)
 
 
 class GoalDecisionBody(ChatModel):

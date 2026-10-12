@@ -9,6 +9,7 @@ from app.mana_operation_ai.domain.goals import (
     GoalDecision,
     OperationGoal,
 )
+from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.session import SessionMemory
 
 
@@ -25,24 +26,50 @@ class SavedTaskPage:
 
 
 class GoalModelOutput:
-    def __init__(self, decision: GoalDecision, model: str, actual_microusd: int) -> None:
+    def __init__(
+        self,
+        decision: GoalDecision,
+        model: str,
+        actual_microusd: int,
+        continuation: ModelContinuation | None = None,
+    ) -> None:
         self.decision = decision
         self.model = model
         self.actual_microusd = actual_microusd
+        self.continuation = continuation
 
 
 class GoalModelResponseError(RuntimeError):
     """Controlled output failure after verified provider usage was accounted."""
 
-    def __init__(self, reason: str, actual_microusd: int) -> None:
+    def __init__(
+        self,
+        reason: str,
+        actual_microusd: int,
+        *,
+        provider_status: str | None = None,
+        incomplete_reason: str | None = None,
+    ) -> None:
         super().__init__(reason)
         self.actual_microusd = actual_microusd
+        self.provider_status = provider_status
+        self.incomplete_reason = incomplete_reason
 
 
 class GoalModel(Protocol):
     def reservation(self, context: str) -> int: ...
 
     async def decide(self, *, context: str, owner: str) -> GoalModelOutput: ...
+
+
+class ContinuingGoalModel(Protocol):
+    def continuation_reservation(
+        self, *, context: str, owner: str, state: ModelContinuation | None
+    ) -> int: ...
+
+    async def continue_decide(
+        self, *, context: str, owner: str, state: ModelContinuation | None
+    ) -> GoalModelOutput: ...
 
 
 class GoalRepository(Protocol):

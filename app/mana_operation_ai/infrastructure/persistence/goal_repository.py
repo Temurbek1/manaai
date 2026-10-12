@@ -10,6 +10,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.goal_ports import GoalHistory, SavedTaskPage
+from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.agent_tools import TASK_HISTORY_TOOLS
 from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
@@ -33,7 +34,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5] = 1
+    version: Literal[1, 2, 3, 4, 5, 6] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -64,12 +65,20 @@ def _goal(row: GoalRow) -> OperationGoal:
     goal = checkpoint.goal
     memory = goal.session_memory
     extended_context = _extended_context(goal)
+    continuation = goal.model_continuation
     if (
-        (checkpoint.version == 5) != extended_context
-        or (checkpoint.version == 5 and checkpoint.analysis_scope != goal.request.analysis_scope)
-        or (checkpoint.version != 5 and checkpoint.analysis_scope is not None)
+        (checkpoint.version == 5) != (extended_context and continuation is None)
+        or (checkpoint.version == 6) != (continuation is not None)
         or (
-            checkpoint.version != 5
+            continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
+        )
+        or (
+            checkpoint.version in (5, 6)
+            and checkpoint.analysis_scope != goal.request.analysis_scope
+        )
+        or (checkpoint.version not in (5, 6) and checkpoint.analysis_scope is not None)
+        or (
+            checkpoint.version not in (5, 6)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (checkpoint.version == 1 and memory is not None)
@@ -79,6 +88,13 @@ def _goal(row: GoalRow) -> OperationGoal:
         or (
             memory is not None
             and (memory.topic_id != goal.topic_id or memory.product != goal.product)
+        )
+        or (
+            continuation is not None
+            and (
+                goal.request.execution_mode != "agent"
+                or continuation.scope_digest != continuation_scope_digest(row.owner, goal)
+            )
         )
     ):
         raise ChatError("Сохранённая цель требует проверки совместимости контекста.", 503)
@@ -136,7 +152,14 @@ class SqlAlchemyGoalRepository:
     @staticmethod
     def _payload(goal: OperationGoal) -> dict[str, object]:
         payload: dict[str, object] = goal.model_dump(
-            mode="json", exclude={"tools", "session_memory"}
+            mode="json",
+            exclude={
+                "tools",
+                "session_memory",
+                "model_continuation",
+                "model_feedback",
+                "model_recoveries",
+            },
         )
         payload["request"] = goal.request.model_dump(
             mode="json",
@@ -169,6 +192,7 @@ class SqlAlchemyGoalRepository:
             or goal.request.older_turns_omitted
             or goal.tools
             or goal.session_memory is not None
+            or goal.model_continuation is not None
             or "retention.parents.analyze" in (goal.requested_capability, goal.approved_capability)
         )
 
@@ -176,6 +200,7 @@ class SqlAlchemyGoalRepository:
     def _storage(cls, goal: OperationGoal) -> _GoalStorage:
         native = cls._is_workspace(goal)
         extended_context = _extended_context(goal)
+        continuation = goal.model_continuation is not None
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -185,7 +210,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=5
+                version=6
+                if continuation
+                else 5
                 if extended_context
                 else 4
                 if goal.request.analysis_scope == "saved_snapshot"
@@ -194,13 +221,25 @@ class SqlAlchemyGoalRepository:
                 else 2
                 if goal.session_memory is not None
                 else 1,
-                analysis_scope=goal.request.analysis_scope if extended_context else None,
+                analysis_scope=goal.request.analysis_scope
+                if extended_context or continuation
+                else None,
                 goal=goal,
             ).model_dump(
                 mode="json",
                 exclude={
-                    **({"analysis_scope": True} if not extended_context else {}),
+                    **(
+                        {"analysis_scope": True}
+                        if not extended_context and not continuation
+                        else {}
+                    ),
                     "goal": {
+                        **({"model_continuation": True} if not continuation else {}),
+                        **(
+                            {"model_feedback": True, "model_recoveries": True}
+                            if not continuation
+                            else {}
+                        ),
                         **({"session_memory": True} if goal.session_memory is None else {}),
                         **(
                             {"request": {"analysis_scope"}}

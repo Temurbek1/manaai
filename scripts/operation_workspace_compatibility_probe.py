@@ -125,6 +125,40 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                         ),
                     )
                     lost = title == "Native lost"
+                    from app.mana_operation_ai.infrastructure.goal_continuation import (
+                        finish_continuation,
+                        prepare_continuation,
+                    )
+
+                    prepared = prepare_continuation(
+                        context=goal.model_dump_json().join(('{"goal":', "}")),
+                        owner=OWNER,
+                        state=None,
+                        model="compatibility-fake",
+                        maximum_bytes=192000,
+                    )
+                    continuation = finish_continuation(
+                        prepared,
+                        [
+                            {
+                                "type": "compaction",
+                                "id": "cmp_compat",
+                                "encrypted_content": "test-compat-private-model-state",
+                            },
+                            {
+                                "type": "function_call",
+                                "id": "fc_compat",
+                                "call_id": "call_compat",
+                                "name": "request_source_read",
+                                "arguments": '{"capability":"retention.parents.analyze"}',
+                            },
+                        ],
+                        model="compatibility-fake",
+                        call=AgentToolCall(
+                            name="request_source_read", capability="retention.parents.analyze"
+                        ),
+                        maximum_bytes=192000,
+                    )
                     updated = goal.model_copy(
                         update={
                             "status": "running" if lost else "queued",
@@ -132,6 +166,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                             "steps_used": 1,
                             "accounted_microusd": 90_000,
                             "read_attempted": lost,
+                            "model_continuation": continuation,
                             "requested_capability": None if lost else "retention.parents.analyze",
                             "approved_capability": None if lost else "retention.parents.analyze",
                             "tools": [
@@ -232,6 +267,9 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert goal.request.conversation_history[0].user == "Do not contact clients."
                 assert goal.steps_used == 1 and goal.accounted_microusd == 90_000
                 assert goal.read_attempted == lost
+                assert goal.model_continuation is not None
+                assert "test-compat-private-model-state" in goal.model_continuation.payload
+                assert goal.model_continuation.compactions == 1
                 assert goal.tools[0].status == (
                     "unknown" if lost and paused else "started" if lost else "awaiting_approval"
                 )
