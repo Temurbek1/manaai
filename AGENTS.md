@@ -26,8 +26,10 @@
   confirmed read-only delegation. It is not a fifth agent, a full Orchestrator implementation,
   or proof of business-outcome improvement. Keep unknown in-flight costs reserved and never
   automatically retry a lost source read. See `docs/operation-goals.md`.
-- The opt-in native agent workspace is an unreleased local checkpoint, default disabled via
-  `OPERATION_AGENT_WORKSPACE_ENABLED`. It adds conversational handoff, typed scoped evidence
+- The opt-in native agent workspace remains default disabled via
+  `OPERATION_AGENT_WORKSPACE_ENABLED`; the scoped production deployment explicitly enables it.
+  See `docs/operation-agent-workspace-production-release.md` for actual versions and limits.
+  It adds conversational handoff, typed scoped evidence
   tools and in-flight steering, not unrestricted SQL/shell or full Orchestrator handlers.
   Read `docs/operation-agent-workspace.md` for the full acceptance scope and known release/rollback
   gaps. Handle native function calls before parsing accompanying text; account verified raw

@@ -1,6 +1,7 @@
 # Native agent workspace: release and application rollback
 
-Status: local checkpoint, **not deployed**. This document is a bounded release checklist,
+Status: the scoped release is deployed; see [actual versions and checks](operation-agent-workspace-production-release.md).
+This document is a bounded release checklist,
 not authorization to change unrelated services or activate sources/schedules. The full
 objective remains in [operation-agent-workspace.md](operation-agent-workspace.md).
 

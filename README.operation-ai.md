@@ -15,8 +15,9 @@ implement the full Orchestrator or Technical agent. See [Goals](docs/operation-g
 
 The opt-in **agent workspace** (`OPERATION_AGENT_WORKSPACE_ENABLED=true`, default false)
 adds automatic conversation-to-task handoff, native model-selected scoped evidence tools,
-in-flight steering and inline questions/approvals. This checkpoint is local, not yet released
-to production. See [scope and acceptance evidence](docs/operation-agent-workspace.md).
+in-flight steering and inline questions/approvals. The scoped production release explicitly
+enables it; see [versions, checks and limits](docs/operation-agent-workspace-production-release.md)
+and [scope and acceptance evidence](docs/operation-agent-workspace.md).
 Its public progress now uses an owner/topic-scoped SQL journal and authenticated SSE,
 with cursor replay and read-only reconnection. This streams task/plan/tool states, not model
 tokens or internal reasoning. Browser observation never starts another source read.
@@ -27,21 +28,22 @@ and `make audit-workspace-compat` (local old image, synthetic DB, no provider ne
 Native Goals also support an explicit `saved_snapshot` historical deliverable. In Goal mode,
 choose «Сохранённый срез» to analyze dated saved evidence without requesting a new source read.
 Current-data analysis remains the default and keeps its freshness gate. Historical completion
-is not a current conversion/retention measurement. This addition is still local/unreleased.
+is not a current conversion/retention measurement.
 
 Native evidence tools also support private saved-task search/result paging. The model can
 recover an older analysis omitted from the three automatic excerpts, then independently
 revalidate its saved source report. SQL history is not a new collection, permission or current
 measurement. Exact cross-role text dedup preserves constraint/instruction labels in checkpoint
-v5; automatic semantic compaction and longer transcript delivery remain future work.
+v5. Native transcript paging and bounded encrypted model continuation are released;
+explicit byte/count limits still refuse oversized user context without silently shortening it.
 
 Native chat also has an opt-in human action-review lane (`OPERATION_WORKSPACE_ACTIONS_ENABLED`),
 limited to explicitly synthetic MANA Growth sandbox experiment drafts. Decisions are scoped to
 the private topic/turn and immutable parameters, persisted before owning-domain dispatch, and
 never automatically resent after a lost reply. Reload and subsequent conversation restore the
 actual execution/verification, not a claim of improved conversion. Analysis Goals remain
-read-only; historical unverified chat proposals cannot be approved there. This is local and
-unreleased, not live writes or a full Orchestrator implementation.
+read-only; historical unverified chat proposals cannot be approved there. The production
+lane remains sandbox-only, not live writes or a full Orchestrator implementation.
 
 The default administrator UI is a private conversation workspace: exactly four agent rooms,
 with separate server-persisted topics and an explicit MANA/360REC conversation context.
@@ -50,8 +52,9 @@ See [admin-ux-ui.md](docs/admin-ux-ui.md) for behavior, safety limits and releas
 
 MANA-only Parent API integration: [mana-parent-api.md](docs/mana-parent-api.md).
 The manual `retention.parents.analyze` capability adds minimized tariff/connection summaries
-without enabling new scheduled reads, Firebase access or customer actions. Local integration
-and live one-row verification are complete; production activation is a separate release.
+without enabling new scheduled reads, Firebase access or customer actions. The existing scoped
+deployment already enables this manual-only source with a maximum ten-parent page and shared
+six-hour cooldown. The workspace release did not change those source settings.
 
 Growth and Retention chats can explain saved evidence and offer a confirmation card for the
 existing analysis workflow. With the workspace flag disabled, Orchestrator and Technical chats

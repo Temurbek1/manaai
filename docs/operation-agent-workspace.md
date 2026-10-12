@@ -2,6 +2,11 @@
 
 ## Objective and evidence
 
+Latest status: the scoped native workspace release is deployed, with bounded production
+checks recorded in [the release report](operation-agent-workspace-production-release.md).
+Earlier checkpoints below are historical; they do not override that report or establish
+complete Codex/Claude parity, current-source coverage or unbuilt business actions.
+
 Owner request, 2026-10-11: implement the observable working experience of Codex and
 Claude agents for MANA administration and its own data. This is not a claim to
 reproduce proprietary prompts, identical model accuracy, branding or unrestricted
@@ -806,8 +811,9 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
 - Expand conversational owning-domain action coverage beyond the now-verified synthetic
   Growth draft lane, following Retention-first delivery and explicit live authority. Do not
   claim unbuilt Retention/Orchestrator/Technical handlers or real payment/conversion evidence.
-- Produce a scoped sidecar/UI release and rollback, keep the independent main API/audio and
-  scheduler/source settings unchanged, and inspect the actual deployed browser/API behavior.
-- Repeat the scoped release/rollback checks against the actual deployment configuration;
-  the local older-image proof is not a production acceptance test or permission to downgrade
-  the schema. Confirm paused native Goals stay paused after rolling forward.
+- The scoped sidecar/UI release and production diagnostic are recorded in
+  [the release report](operation-agent-workspace-production-release.md). Repeat that scoped
+  verification after further changes; preserve the independent main API/audio and scheduler.
+- Retain the actual deployment's rollback controls and additive schema. The local older-image
+  proof is not a destructive production restore drill or permission to downgrade history;
+  confirm paused native Goals stay paused after any future rollback/roll-forward.
