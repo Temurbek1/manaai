@@ -1,6 +1,11 @@
 # Native administrative workspace release — 2026-10-12
 
-## Actual deployment
+Historical release record for `737b75d`. It is superseded by
+[the active `9020b06` release](operation-agent-workspace-report-pages-release.md), including
+its v8-compatible rollback requirements. The checks and costs below belong to this earlier
+release and must not be replayed as a new diagnostic.
+
+## Deployment at this checkpoint
 
 The owner approved updating only the operational API/its Goals worker and administrator UI.
 Published branch: `feat/operation-admin-20260929`; running application commit:

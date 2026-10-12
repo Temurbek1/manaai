@@ -28,7 +28,7 @@
   automatically retry a lost source read. See `docs/operation-goals.md`.
 - The opt-in native agent workspace remains default disabled via
   `OPERATION_AGENT_WORKSPACE_ENABLED`; the scoped production deployment explicitly enables it.
-  See `docs/operation-agent-workspace-production-release.md` for actual versions and limits.
+  See `docs/operation-agent-workspace-report-pages-release.md` for current versions and limits.
   It adds conversational handoff, typed scoped evidence
   tools and in-flight steering, not unrestricted SQL/shell or full Orchestrator handlers.
   Read `docs/operation-agent-workspace.md` for the full acceptance scope and known release/rollback

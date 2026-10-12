@@ -822,10 +822,10 @@ sandbox approvals, owner/CSRF isolation and accessibility still passed. Separate
 17 migration/drift plus 14 cases passed, including v8 restart and concurrent control replay.
 The actual networkless `2ea7b9a` reader passed closed projection, queue/control refusal and
 explicit-pause retention of complete paged evidence, existing unknown holds and approvals.
-The current production `737b75d` reader is not a v8 compatibility target.
+The previous production `737b75d` reader is not a v8 compatibility target.
 
-No paid model, Firebase/GA4/Manakids/Meta read/write or production mutation was used for this
-checkpoint. The browser fixture uses the already deployed twelve-step admission setting;
+The local checkpoint checks used no paid model, Firebase/GA4/Manakids/Meta read/write or
+production mutation. The browser fixture uses the already deployed twelve-step admission setting;
 the real policy/defaults were not raised to make a test pass. Full source/business-action
 acceptance remains open; this change establishes bounded saved-text acquisition, not
 unlimited context or a statistical model-quality result.
@@ -859,7 +859,8 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
 - Extend real-model quality coverage beyond the small reviewed synthetic/saved-data checks,
   then separately verify any newly approved source bindings without a scan or new schedule.
 - Expand Goal-step streaming/continuation and extended-context behavior with
-  explicit interruption/reconnection semantics; ordinary answer streaming is now a local opt-in.
+  explicit interruption/reconnection semantics; ordinary answer streaming defaults to opt-in
+  and is enabled in the scoped production deployment.
   Completed results now enter ordinary conversation as bounded historical checkpoints, not
   fresh evidence. Very long user-context histories still fail closed at an explicit byte/count
   limit without calling the model; scalable retrieval/compaction of extended sessions remains.
@@ -867,7 +868,7 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
   Growth draft lane, following Retention-first delivery and explicit live authority. Do not
   claim unbuilt Retention/Orchestrator/Technical handlers or real payment/conversion evidence.
 - The scoped sidecar/UI release and production diagnostic are recorded in
-  [the release report](operation-agent-workspace-production-release.md). Repeat that scoped
+  [the active release report](operation-agent-workspace-report-pages-release.md). Repeat that scoped
   verification after further changes; preserve the independent main API/audio and scheduler.
 - Retain the actual deployment's rollback controls and additive schema. The local older-image
   proof is not a destructive production restore drill or permission to downgrade history;
