@@ -1,7 +1,8 @@
 """Local browser audit factory. Never contacts a model provider."""
 
+import asyncio
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from uuid import uuid4
@@ -42,6 +43,22 @@ LONG_CONSTRAINT = "Не смешивай родителей и детей; не 
 
 
 class BrowserConversationFake:
+    async def stream_reply(
+        self, *, instructions: str, context: str, owner: str
+    ) -> AsyncGenerator[str | ChatTurnOutput, None]:
+        if json.loads(context)["message"] == "Проверь поток ответа без новой цели":
+            yield "Тестовый поток: начало 🧒"
+            await asyncio.sleep(4)
+            yield "Тестовый поток: начало 🧒 и продолжение"
+            await asyncio.sleep(2)
+            yield ChatTurnOutput(
+                "Тестовый поток завершён и проверен.", "browser-fake", 10, 20, next_action="none"
+            )
+            return
+        output = await self.reply(instructions=instructions, context=context, owner=owner)
+        yield output.answer
+        yield output
+
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
         payload = json.loads(context)
         message = str(payload.get("message", ""))
@@ -258,6 +275,10 @@ def create_app() -> FastAPI:
     async def fake_lifespan(application: FastAPI) -> AsyncIterator[None]:
         async with original_lifespan(application):
             application.state.operation_chat_service._model = BrowserConversationFake()
+            if settings.operation_workspace_chat_streaming_enabled:
+                application.state.operation_chat_service._streaming_model = (
+                    BrowserConversationFake()
+                )
             application.state.operation_goal_service._model = BrowserGoalFake()
             if settings.operation_workspace_model_continuation_enabled:
                 application.state.operation_goal_service._continuing_model = BrowserGoalFake()

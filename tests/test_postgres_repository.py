@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 from pytest import MonkeyPatch
+from sqlalchemy import func, select
 
 from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import ChatError
@@ -35,7 +36,7 @@ from app.mana_operation_ai.infrastructure.persistence.database import OperationD
 from app.mana_operation_ai.infrastructure.persistence.goal_repository import (
     SqlAlchemyGoalRepository,
 )
-from app.mana_operation_ai.infrastructure.persistence.models import AgentScheduleRow
+from app.mana_operation_ai.infrastructure.persistence.models import AgentScheduleRow, ChatTurnRow
 from app.mana_operation_ai.infrastructure.persistence.repository import (
     SqlAlchemyOperationRepository,
 )
@@ -55,6 +56,67 @@ pytestmark = pytest.mark.skipif(
     POSTGRES_URL is None,
     reason="TEST_POSTGRES_URL is required for isolated PostgreSQL integration tests",
 )
+
+
+async def test_postgres_atomic_chat_stream_stop_recovery_and_bounds() -> None:
+    from tests.test_chat_text_stream import assert_stream_atomicity
+
+    assert POSTGRES_URL is not None
+    await assert_stream_atomicity(POSTGRES_URL)
+
+
+async def test_postgres_chat_and_goal_share_event_commit_order() -> None:
+    from app.mana_operation_ai.application.runtime import SystemClock
+    from app.mana_operation_ai.domain.workspace_events import ChatTextEvent, WorkspaceEvent
+    from app.mana_operation_ai.infrastructure.persistence.models import GoalRow
+
+    assert POSTGRES_URL is not None
+    databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]
+    chats = SqlAlchemyChatRepository(
+        databases[0], hourly_limit=100, daily_limit=1000, stream_events_enabled=True
+    )
+    goals = SqlAlchemyGoalRepository(databases[0], SystemClock(), events_enabled=True)
+    await chats.initialize()
+    owner = f"commit-order-{uuid4()}"
+    topic = await chats.create(
+        owner, TopicCreate(agent_id="operations-orchestrator", product="mana", title="Commit order")
+    )
+    turn, _ = await chats.reserve(
+        owner, topic.topic_id, MessageCreate(request_id=uuid4(), message="Chat")
+    )
+    goal = await goals.create(
+        owner, topic, GoalCreate(request_id=uuid4(), objective="Journal ordering only")
+    )
+    events = SqlAlchemyWorkspaceEvents(databases[1])
+    before = await events.notifications(owner, topic.topic_id, 0)
+    other = SqlAlchemyChatRepository(
+        databases[1], hourly_limit=100, daily_limit=1000, stream_events_enabled=True
+    )
+    writer: asyncio.Task[bool] | None = None
+    try:
+        async with databases[0].session_factory() as session, session.begin():
+            await goals._lock(session)
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row is not None
+            goals._store(session, row, goal.model_copy(update={"revision": 1, "status": "paused"}))
+            await session.flush()  # Allocate the earlier event ID but do not commit it yet.
+            writer = asyncio.create_task(
+                other.preview(owner, topic.topic_id, turn.turn_id, "Draft")
+            )
+            await asyncio.sleep(0.05)
+            assert not writer.done()
+            assert not (await events.notifications(owner, topic.topic_id, before.next_cursor)).items
+        assert await asyncio.wait_for(writer, 3)
+        after = await events.notifications(owner, topic.topic_id, before.next_cursor)
+        assert len(after.items) == 2
+        assert isinstance(after.items[0], WorkspaceEvent) and after.items[0].status == "paused"
+        assert isinstance(after.items[1], ChatTextEvent) and after.items[1].delta == "Draft"
+        assert after.items[0].event_id < after.items[1].event_id
+    finally:
+        if writer and not writer.done():
+            writer.cancel()
+            await asyncio.gather(writer, return_exceptions=True)
+        await asyncio.gather(*(db.dispose() for db in databases))
 
 
 async def test_postgres_native_transcript_pages_and_frozen_constraints() -> None:
@@ -424,8 +486,16 @@ async def test_postgres_chat_budget_serializes_across_connections() -> None:
     assert POSTGRES_URL is not None
     first_db = OperationDatabase(POSTGRES_URL)
     second_db = OperationDatabase(POSTGRES_URL)
-    first = SqlAlchemyChatRepository(first_db, hourly_limit=1, daily_limit=1)
-    second = SqlAlchemyChatRepository(second_db, hourly_limit=1, daily_limit=1)
+    # Other integration cases may already have today's synthetic chat rows.
+    # Give this concurrency case exactly one remaining global slot, not a clean-DB assumption.
+    async with first_db.session_factory() as session:
+        used = await session.scalar(
+            select(func.count())
+            .select_from(ChatTurnRow)
+            .where(ChatTurnRow.created_at >= datetime.now(UTC) - timedelta(days=1))
+        )
+    first = SqlAlchemyChatRepository(first_db, hourly_limit=1, daily_limit=(used or 0) + 1)
+    second = SqlAlchemyChatRepository(second_db, hourly_limit=1, daily_limit=(used or 0) + 1)
     try:
         await first.initialize()
         topics = [

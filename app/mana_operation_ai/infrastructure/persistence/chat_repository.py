@@ -17,11 +17,13 @@ from app.mana_operation_ai.domain.chat import (
     TranscriptPage,
 )
 from app.mana_operation_ai.domain.session import SessionUserContext
+from app.mana_operation_ai.domain.workspace_events import ChatTextEvent
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import (
     ChatBudgetRow,
     ChatTopicRow,
     ChatTurnRow,
+    WorkspaceEventRow,
 )
 
 ACTIVE = ("reading", "thinking")
@@ -49,6 +51,8 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
             "reasoning",
             "execution_mode",
             "session_memory",
+            "preview",
+            "preview_revision",
         },
     )
     metadata = {
@@ -71,13 +75,23 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
     if turn.next_action in ("mana_parents", "start_goal"):
         payload["next_action"] = "none"
     workspace = None
-    if turn.execution_mode == "agent" or turn.next_action == "start_goal" or turn.session_memory:
+    if (
+        turn.execution_mode == "agent"
+        or turn.next_action == "start_goal"
+        or turn.session_memory
+        or turn.preview_revision
+    ):
         workspace = {
             "execution_mode": turn.execution_mode,
             "next_action": turn.next_action,
             "session_memory": turn.session_memory.model_dump(mode="json")
             if turn.session_memory
             else None,
+            **(
+                {"preview": turn.preview, "preview_revision": turn.preview_revision}
+                if turn.preview_revision
+                else {}
+            ),
         }
     return {"payload": payload, "context_metadata": metadata, "workspace_metadata": workspace}
 
@@ -90,6 +104,7 @@ class SqlAlchemyChatRepository:
         hourly_limit: int,
         daily_limit: int,
         topic_message_limit: int = 100,
+        stream_events_enabled: bool = False,
     ) -> None:
         if not 100 <= topic_message_limit <= 10000:
             raise ValueError("Topic message capacity must be between 100 and 10000")
@@ -97,6 +112,7 @@ class SqlAlchemyChatRepository:
         self._hourly_limit = hourly_limit
         self._daily_limit = daily_limit
         self._topic_message_limit = topic_message_limit
+        self._stream_events_enabled = stream_events_enabled
 
     async def initialize(self) -> None:
         # Migration seeds production. This also supports isolated create_schema test databases.
@@ -191,11 +207,13 @@ class SqlAlchemyChatRepository:
             ChatTurnRow.context_metadata,
             ChatTurnRow.workspace_metadata["execution_mode"].as_string(),
             ChatTurnRow.workspace_metadata["next_action"].as_string(),
+            ChatTurnRow.workspace_metadata["preview"].as_string(),
+            ChatTurnRow.workspace_metadata["preview_revision"].as_integer(),
         )
 
     @staticmethod
     def _public_turn(row: Any) -> ChatTurn:
-        payload, metadata, mode, action = row
+        payload, metadata, mode, action, preview, preview_revision = row
         return ChatTurn.model_validate(
             {
                 **payload,
@@ -203,6 +221,8 @@ class SqlAlchemyChatRepository:
                 **({"execution_mode": mode} if mode is not None else {}),
                 **({"next_action": action} if action is not None else {}),
                 "session_memory": None,
+                "preview": preview or "",
+                "preview_revision": preview_revision or 0,
             }
         )
 
@@ -303,11 +323,14 @@ class SqlAlchemyChatRepository:
         )
 
     async def _expire(self, session: AsyncSession) -> None:
+        await self._lock_writes(session)
         rows = await session.scalars(
-            select(ChatTurnRow).where(
+            select(ChatTurnRow)
+            .where(
                 ChatTurnRow.status.in_(ACTIVE),
                 ChatTurnRow.created_at < datetime.now(UTC) - timedelta(minutes=3),
             )
+            .with_for_update(skip_locked=True)
         )
         for row in rows:
             turn = _turn(row).model_copy(
@@ -316,14 +339,7 @@ class SqlAlchemyChatRepository:
                     "answer": "Ответ прерван. Автоматического повторного запроса не будет.",
                 }
             )
-            await session.execute(
-                update(ChatTurnRow)
-                .where(ChatTurnRow.turn_id == row.turn_id, ChatTurnRow.status.in_(ACTIVE))
-                .values(
-                    status=turn.status,
-                    **_storage(turn),
-                )
-            )
+            await self._update(session, row, turn)
 
     async def reserve(
         self, owner: str, topic_id: str, payload: MessageCreate
@@ -411,15 +427,120 @@ class SqlAlchemyChatRepository:
 
     async def update(self, turn: ChatTurn) -> bool:
         async with self._sessions() as session, session.begin():
-            result = await session.execute(
-                update(ChatTurnRow)
-                .where(ChatTurnRow.turn_id == turn.turn_id, ChatTurnRow.status.in_(ACTIVE))
-                .values(
-                    status=turn.status,
-                    **_storage(turn),
+            await self._lock_writes(session)
+            row = await session.scalar(
+                select(ChatTurnRow)
+                .where(ChatTurnRow.turn_id == turn.turn_id, ChatTurnRow.topic_id == turn.topic_id)
+                .with_for_update()
+            )
+            if row is None or row.status not in ACTIVE:
+                return False
+            return await self._update(session, row, turn)
+
+    async def _lock_writes(self, session: AsyncSession) -> None:
+        # Share the Goal journal fence: cursor allocation must follow commit
+        # order across both kinds of events. It also replaces SQLite's ignored
+        # FOR UPDATE for preview/stop/recovery races. Never hold it over I/O.
+        await self._lock_budget(session)
+
+    async def _update(self, session: AsyncSession, row: ChatTurnRow, turn: ChatTurn) -> bool:
+        prior = _turn(row)
+        terminal = turn.status not in ACTIVE and prior.preview_revision > 0
+        turn = turn.model_copy(
+            update={
+                "preview": prior.preview,
+                "preview_revision": prior.preview_revision + int(terminal),
+            }
+        )
+        result = await session.execute(
+            update(ChatTurnRow)
+            .where(ChatTurnRow.turn_id == turn.turn_id, ChatTurnRow.status.in_(ACTIVE))
+            .values(status=turn.status, **_storage(turn))
+        )
+        if result.rowcount and terminal:
+            event = ChatTextEvent(
+                event_id=0,
+                topic_id=turn.topic_id,
+                turn_id=turn.turn_id,
+                revision=turn.preview_revision,
+                at=datetime.now(UTC),
+                status=turn.status,
+                offset=len(turn.preview),
+                final_answer=turn.answer,
+            )
+            session.add(
+                WorkspaceEventRow(
+                    owner=row.owner,
+                    topic_id=turn.topic_id,
+                    payload=event.model_dump(mode="json", exclude={"event_id"}),
                 )
             )
-            return bool(result.rowcount)
+        return bool(result.rowcount)
+
+    async def preview(self, owner: str, topic_id: str, turn_id: str, text: str) -> bool:
+        if not self._stream_events_enabled:
+            raise ChatError("Поток текста отключён.", 503)
+        if len(text) > 16000:
+            raise ChatError("Черновик ответа достиг лимита.", 422)
+        async with self._sessions() as session, session.begin():
+            await self._lock_writes(session)
+            await self._owned(session, owner, topic_id)
+            row = await session.scalar(
+                select(ChatTurnRow)
+                .where(
+                    ChatTurnRow.turn_id == turn_id,
+                    ChatTurnRow.owner == owner,
+                    ChatTurnRow.topic_id == topic_id,
+                )
+                .with_for_update()
+            )
+            if row is None or row.status not in ACTIVE:
+                return False
+            prior = _turn(row)
+            if not text.startswith(prior.preview):
+                raise ChatError("Поток ответа изменил уже переданный префикс.")
+            if text == prior.preview:
+                return True
+            if prior.preview_revision >= 128:
+                return True  # Final validated reply still replaces the draft once.
+            revision = prior.preview_revision + 1
+            metadata = {
+                **(row.workspace_metadata or {}),
+                "preview": text,
+                "preview_revision": revision,
+            }
+            result = await session.execute(
+                update(ChatTurnRow)
+                .where(
+                    ChatTurnRow.turn_id == turn_id,
+                    ChatTurnRow.status.in_(ACTIVE),
+                    func.coalesce(
+                        ChatTurnRow.workspace_metadata["preview_revision"].as_integer(), 0
+                    )
+                    == prior.preview_revision,
+                )
+                .values(workspace_metadata=metadata)
+            )
+            if not result.rowcount:
+                return False
+            event = ChatTextEvent(
+                event_id=0,
+                topic_id=topic_id,
+                turn_id=turn_id,
+                revision=revision,
+                at=datetime.now(UTC),
+                status="thinking",
+                offset=len(prior.preview),
+                delta=text[len(prior.preview) :],
+            )
+            session.add(
+                WorkspaceEventRow(
+                    owner=owner,
+                    topic_id=topic_id,
+                    payload=event.model_dump(mode="json", exclude={"event_id"}),
+                )
+            )
+            return True
 
     async def cancel(self, owner: str, topic_id: str, turn_id: str) -> ChatTurn:
         async with self._sessions() as session:

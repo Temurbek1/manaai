@@ -1,8 +1,13 @@
 import hashlib
 import json
 import re
+from collections.abc import AsyncGenerator
+from time import monotonic
+from typing import Literal
 
 from openai import AsyncOpenAI
+from openai.types.responses import Response
+from pydantic_core import from_json
 
 from app.core.config import Settings
 from app.mana_operation_ai.application.chat_ports import ChatTurnOutput
@@ -49,36 +54,15 @@ class OpenAIConversationModel:
         )
 
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
-        model_name, effort, rates = self._model_name, self._reasoning_effort, self._rates
-        output_limit = min(self._settings.openai_max_output_tokens, 2048)
-        if self._settings.operation_model_selection_enabled:
-            plan = selected_inference(context, goal=False)
-            model_name, effort, rates = plan.model, plan.effort, self._catalog[plan.model]
-            output_limit = self._settings.operation_chat_max_output_tokens
-        reservation: CostReservation | None = None
-        if self._ledger is not None:
-            if model_name != rates.model:
-                raise RuntimeError("Operational model and configured rate card do not match")
-            # Text-only byte bound includes instructions and the structured-output
-            # schema. It deliberately over-reserves instead of guessing a tokenizer
-            # for a different model or adding an external token-counting request.
-            input_bound = conversation_input_bound(instructions=instructions, context=context)
-            if input_bound > self._settings.operation_chat_max_input_tokens:
-                raise RuntimeError("Operational conversation context exceeds its token bound")
-            reservation = await self._ledger.reserve(
-                ResourceUsage(
-                    llm_calls=1,
-                    provider_requests=1,
-                    input_tokens=input_bound,
-                    output_tokens=output_limit,
-                    response_bytes=262_144,
-                    llm_microusd=rates.reserve_microusd(
-                        input_tokens=input_bound,
-                        output_tokens=output_limit,
-                    ),
-                ),
-                attribution=_attribution(context),
-            )
+        model_name, effort, rates, output_limit = self._selection(context)
+        reservation = await self._admit(
+            instructions=instructions,
+            context=context,
+            model=model_name,
+            rates=rates,
+            output_limit=output_limit,
+            response_bytes=262144,
+        )
         # Exceptions, timeouts and cancellation deliberately retain the reservation.
         response = await self._client.responses.parse(
             model=model_name,
@@ -92,6 +76,78 @@ class OpenAIConversationModel:
             safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
             text_format=ChatReply,
         )
+        await self._settle(
+            response,
+            reservation,
+            rates,
+            len(response.model_dump_json(warnings=False).encode())
+            if reservation is not None
+            else 0,
+        )
+        if response.status != "completed" or response.output_parsed is None:
+            raise RuntimeError("Conversation response did not complete")
+        return ChatTurnOutput(
+            answer=response.output_parsed.answer,
+            model=response.model,
+            input_tokens=response.usage.input_tokens if response.usage else None,
+            output_tokens=response.usage.output_tokens if response.usage else None,
+            plan=response.output_parsed.plan,
+            next_action=response.output_parsed.next_action,
+        )
+
+    def _selection(
+        self, context: str
+    ) -> tuple[str, Literal["none", "low", "medium", "high", "xhigh"], LlmRateCard, int]:
+        model_name, effort, rates = self._model_name, self._reasoning_effort, self._rates
+        output_limit = min(self._settings.openai_max_output_tokens, 2048)
+        if self._settings.operation_model_selection_enabled:
+            plan = selected_inference(context, goal=False)
+            model_name, effort, rates = plan.model, plan.effort, self._catalog[plan.model]
+            output_limit = self._settings.operation_chat_max_output_tokens
+        return model_name, effort, rates, output_limit
+
+    async def _admit(
+        self,
+        *,
+        instructions: str,
+        context: str,
+        model: str,
+        rates: LlmRateCard,
+        output_limit: int,
+        response_bytes: int,
+    ) -> CostReservation | None:
+        if self._ledger is not None:
+            if model != rates.model:
+                raise RuntimeError("Operational model and configured rate card do not match")
+            # Text-only byte bound includes instructions and the structured-output
+            # schema. It deliberately over-reserves instead of guessing a tokenizer
+            # for a different model or adding an external token-counting request.
+            input_bound = conversation_input_bound(instructions=instructions, context=context)
+            if input_bound > self._settings.operation_chat_max_input_tokens:
+                raise RuntimeError("Operational conversation context exceeds its token bound")
+            return await self._ledger.reserve(
+                ResourceUsage(
+                    llm_calls=1,
+                    provider_requests=1,
+                    input_tokens=input_bound,
+                    output_tokens=output_limit,
+                    response_bytes=response_bytes,
+                    llm_microusd=rates.reserve_microusd(
+                        input_tokens=input_bound,
+                        output_tokens=output_limit,
+                    ),
+                ),
+                attribution=_attribution(context),
+            )
+        return None
+
+    async def _settle(
+        self,
+        response: Response,
+        reservation: CostReservation | None,
+        rates: LlmRateCard,
+        response_bytes: int,
+    ) -> None:
         if reservation is not None and self._ledger is not None:
             if (
                 re.fullmatch(re.escape(rates.model) + r"(?:-\d{4}-\d{2}-\d{2})?", response.model)
@@ -112,7 +168,7 @@ class OpenAIConversationModel:
                 # SDK parsed-response generic annotations can emit serialization
                 # warnings containing answer/source text. This local size estimate
                 # must not log it; model/tier/usage validation stays strict above.
-                response_bytes=len(response.model_dump_json(warnings=False).encode()),
+                response_bytes=response_bytes,
                 llm_microusd=rates.actual_microusd(
                     input_tokens=response.usage.input_tokens,
                     output_tokens=response.usage.output_tokens,
@@ -123,16 +179,83 @@ class OpenAIConversationModel:
             await self._ledger.settle(reservation.reservation_id, actual=actual)
             if actual.exceeds(reservation.usage):
                 raise RuntimeError("Operational response exceeded its reserved resource bound")
-        if response.status != "completed" or response.output_parsed is None:
-            raise RuntimeError("Conversation response did not complete")
-        return ChatTurnOutput(
-            answer=response.output_parsed.answer,
-            model=response.model,
-            input_tokens=response.usage.input_tokens if response.usage else None,
-            output_tokens=response.usage.output_tokens if response.usage else None,
-            plan=response.output_parsed.plan,
-            next_action=response.output_parsed.next_action,
+
+    async def stream_reply(
+        self, *, instructions: str, context: str, owner: str
+    ) -> AsyncGenerator[str | ChatTurnOutput, None]:
+        model, effort, rates, output_limit = self._selection(context)
+        reservation = await self._admit(
+            instructions=instructions,
+            context=context,
+            model=model,
+            rates=rates,
+            output_limit=output_limit,
+            response_bytes=1048576,
         )
+        stream = await self._client.responses.create(
+            model=model,
+            instructions=instructions,
+            input=context,
+            stream=True,
+            reasoning={"effort": effort},
+            max_output_tokens=output_limit,
+            store=False,
+            service_tier="default",
+            safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
+            text={
+                "verbosity": "medium" if self._catalog else self._settings.openai_verbosity,
+                "format": {
+                    "type": "json_schema",
+                    "name": "ChatReply",
+                    "strict": True,
+                    "schema": ChatReply.model_json_schema(),
+                },
+            },
+        )
+        text, published, response = "", "", None
+        last = 0.0
+        try:
+            async for event in stream:
+                if stream.response.num_bytes_downloaded > 1048576:
+                    raise RuntimeError("Conversation stream exceeded its byte bound")
+                if event.type == "response.output_text.delta":
+                    text += event.delta
+                    if len(text.encode()) > 65536:
+                        raise RuntimeError("Conversation JSON stream exceeded its bound")
+                    # The SDK owns SSE parsing; parse only the display field from
+                    # unfinished JSON. It never becomes a card, tool or final answer.
+                    try:
+                        partial = from_json(text, allow_partial="trailing-strings")
+                    except ValueError:
+                        continue
+                    answer = partial.get("answer") if isinstance(partial, dict) else None
+                    if isinstance(answer, str):
+                        answer = answer.lstrip()[:16000]
+                        if not answer.startswith(published):
+                            raise RuntimeError("Conversation preview rewrote its prefix")
+                        if answer != published and (not published or monotonic() - last >= 0.25):
+                            published, last = answer, monotonic()
+                            yield answer
+                elif event.type in ("response.completed", "response.incomplete", "response.failed"):
+                    response = event.response
+                    # Settle known usage before JSON/schema validation can fail.
+                    await self._settle(
+                        response, reservation, rates, stream.response.num_bytes_downloaded
+                    )
+                    break
+            if response is None or response.status != "completed":
+                raise RuntimeError("Conversation stream has no completed receipt")
+            parsed = ChatReply.model_validate_json(text)
+            yield ChatTurnOutput(
+                parsed.answer,
+                response.model,
+                response.usage.input_tokens if response.usage else None,
+                response.usage.output_tokens if response.usage else None,
+                plan=parsed.plan,
+                next_action=parsed.next_action,
+            )
+        finally:
+            await stream.close()
 
     async def close(self) -> None:
         await self._client.close()

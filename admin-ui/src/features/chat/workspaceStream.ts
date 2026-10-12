@@ -2,13 +2,25 @@ import { ApiError, ApiStreamProtocolError, apiOpenStream } from "@/api/client";
 import type { components } from "@/api/schema";
 
 export type WorkspaceEvent = components["schemas"]["WorkspaceEvent"];
+export type ChatTextEvent = components["schemas"]["ChatTextEvent"];
+type Notification = WorkspaceEvent | ChatTextEvent;
 
 class StreamProtocolError extends Error {}
 
 export function parseWorkspaceFrame(
   frame: string,
   topicId: string,
-): WorkspaceEvent | null {
+): WorkspaceEvent | null;
+export function parseWorkspaceFrame(
+  frame: string,
+  topicId: string,
+  withChat: true,
+): Notification | null;
+export function parseWorkspaceFrame(
+  frame: string,
+  topicId: string,
+  withChat = false,
+): Notification | null {
   const lines = frame.split("\n");
   const name = lines
     .find((line) => line.startsWith("event:"))
@@ -21,7 +33,8 @@ export function parseWorkspaceFrame(
   }
   if (name === "unavailable")
     throw new StreamProtocolError("Workspace access or stream unavailable");
-  if (name !== "workspace") return null;
+  if (name !== "workspace" && name !== "chat_text") return null;
+  if (name === "chat_text" && !withChat) return null;
   const value: unknown = JSON.parse(
     lines
       .filter((line) => line.startsWith("data:"))
@@ -35,6 +48,37 @@ export function parseWorkspaceFrame(
       .trim(),
   );
   const item = value as WorkspaceEvent;
+  if (name === "chat_text") {
+    const chat = value as ChatTextEvent;
+    if (
+      !value ||
+      typeof value !== "object" ||
+      chat.kind !== "chat_text" ||
+      chat.event_id !== id ||
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      chat.topic_id !== topicId ||
+      typeof chat.turn_id !== "string" ||
+      !Number.isSafeInteger(chat.revision) ||
+      chat.revision < 1 ||
+      chat.revision > 130 ||
+      !Number.isFinite(Date.parse(chat.at)) ||
+      !["thinking", "completed", "failed", "cancelled"].includes(chat.status) ||
+      !Number.isSafeInteger(chat.offset) ||
+      chat.offset < 0 ||
+      chat.offset > 16000 ||
+      typeof chat.delta !== "string" ||
+      Array.from(chat.delta).length > 16000 ||
+      (chat.final_answer !== null &&
+        (typeof chat.final_answer !== "string" ||
+          Array.from(chat.final_answer).length > 16000)) ||
+      (chat.status === "thinking"
+        ? chat.final_answer !== null
+        : chat.final_answer === null)
+    )
+      throw new StreamProtocolError("Invalid chat text event");
+    return chat;
+  }
   if (
     !value ||
     typeof value !== "object" ||
@@ -97,7 +141,7 @@ export function parseWorkspaceFrame(
 async function consume(
   response: Response,
   topicId: string,
-  received: (event: WorkspaceEvent) => void,
+  received: (event: Notification) => void,
   activity: () => void,
 ): Promise<void> {
   const reader = response.body!.getReader();
@@ -114,7 +158,11 @@ async function consume(
       while (boundary >= 0) {
         if (boundary > 65536)
           throw new StreamProtocolError("Workspace frame too large");
-        const event = parseWorkspaceFrame(buffer.slice(0, boundary), topicId);
+        const event = parseWorkspaceFrame(
+          buffer.slice(0, boundary),
+          topicId,
+          true,
+        );
         if (event) received(event);
         buffer = buffer.slice(boundary + 2);
         boundary = buffer.indexOf("\n\n");
@@ -134,11 +182,13 @@ export function watchWorkspace({
   owner,
   received,
   connection,
+  chatReceived,
 }: {
   topicId: string;
   owner: string;
   received: (event: WorkspaceEvent) => void;
   connection: (connected: boolean) => void;
+  chatReceived?: (event: ChatTextEvent) => void;
 }): () => void {
   const key = `mana:workspace-cursor:v1:${owner}:${topicId}`;
   let cursor = 0;
@@ -176,7 +226,9 @@ export function watchWorkspace({
         topicId,
         (event) => {
           if (disposed || event.event_id <= cursor) return;
-          received(event);
+          if ("kind" in event && event.kind === "chat_text")
+            chatReceived?.(event);
+          else received(event as WorkspaceEvent);
           cursor = event.event_id;
           try {
             sessionStorage.setItem(key, String(cursor));

@@ -13,6 +13,7 @@ import {
   parseWorkspaceFrame,
   watchWorkspace,
   type WorkspaceEvent,
+  type ChatTextEvent,
 } from "./workspaceStream";
 
 let open: jest.SpiedFunction<typeof fetch>;
@@ -57,6 +58,52 @@ afterEach(() => {
 });
 
 describe("workspace stream protocol", () => {
+  it("replays chat notifications once through the same scoped cursor without resubmitting", async () => {
+    const chat: ChatTextEvent = {
+      kind: "chat_text",
+      event_id: 13,
+      topic_id: "private-topic",
+      turn_id: "turn",
+      revision: 1,
+      at: event.at,
+      status: "thinking",
+      offset: 0,
+      delta: "Ответ 🧒",
+      final_answer: null,
+    };
+    const chatFrame = `id: 13\nevent: chat_text\ndata: ${JSON.stringify(chat)}\n\n`;
+    open.mockResolvedValueOnce(
+      response([
+        frame(),
+        chatFrame,
+        chatFrame,
+        "id: 14\nevent: chat_text\ndata: {",
+      ]),
+    );
+    open.mockImplementationOnce(
+      async () => new Promise<Response>(() => undefined),
+    );
+    const received = jest.fn<(item: WorkspaceEvent) => void>();
+    const chatReceived = jest.fn<(item: ChatTextEvent) => void>();
+    const stop = watchWorkspace({
+      topicId: "private-topic",
+      owner: "alice",
+      received,
+      chatReceived,
+      connection: () => undefined,
+    });
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(received).toHaveBeenCalledTimes(1);
+    expect(chatReceived).toHaveBeenCalledTimes(1);
+    expect(chatReceived).toHaveBeenCalledWith(chat);
+    expect(open.mock.calls[1]?.[0]).toContain("after=13");
+    expect(
+      open.mock.calls.every(
+        (call) => !call[1]?.method || call[1].method === "GET",
+      ),
+    ).toBe(true);
+    stop();
+  });
   it.each(["find_saved_tasks", "read_saved_task"] as const)(
     "accepts public %s progress without exposing its arguments",
     (name) => {

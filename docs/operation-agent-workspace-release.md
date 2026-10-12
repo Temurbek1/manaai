@@ -61,6 +61,15 @@ parent funnel facts is supported. Historical unverified chat cards are read-only
 professional action queue is unchanged. This is not a live experiment rollout or a write tool
 for read-only Goals, and provider verification is not measured business improvement.
 
+`OPERATION_WORKSPACE_CHAT_STREAMING_ENABLED=false` is a separate optional activation,
+subordinate to native workspace and event journal flags. It adds no migration: draft metadata
+uses the existing nullable workspace column, and typed `chat_text` notifications share the
+existing journal with Goal progress under its commit-order fence. The supported old image
+ignores those private metadata fields/table; `/events` stays Goal-only for older clients.
+Drain active ordinary chat producers before rollback. Retain cancelled/failed drafts and cost
+holds; a lost model receipt is not permission to refund or regenerate. Streaming activation
+does not change source credentials, cooldowns, permissions or schedules.
+
 An older API may create an ordinary Goal in a topic whose native Goal it sees as closed.
 Therefore keep Goals creation/worker execution disabled during rollback. Do not serve a
 mixed-version writable Goals deployment. The local compatibility probe does not replace

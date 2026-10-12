@@ -75,6 +75,7 @@ OPERATION_GOALS_WORKER_ENABLED=false \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
+OPERATION_WORKSPACE_CHAT_STREAMING_ENABLED="${AUDIT_CHAT_STREAMING:-false}" \
 OPERATION_WORKSPACE_EVENTS_ENABLED=true \
 OPERATION_WORKSPACE_STREAM_SECONDS=15 \
 OPERATION_AUTO_CREATE_SCHEMA=true \
@@ -278,6 +279,19 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser wait --fn 'document.body.innerText.includes("Первое условие сохранено полностью")' >/dev/null
   assert_browser 'document.querySelectorAll(".chat-turn").length === 20' 'reload lost the newest result or eagerly loaded the full transcript'
   assert_accessible
+  if [[ "${AUDIT_CHAT_STREAMING:-false}" == "true" ]]; then
+    browser eval '(() => { window.__chatPosts=0; window.__chatFrames=[]; const original=window.fetch.bind(window); window.fetch=async (...args)=>{ if(args[1]?.method==="POST"&&String(args[0]).includes("/messages")) window.__chatPosts++; const response=await original(...args); if(String(args[0]).includes("/stream?")) { const clone=response.clone(); (async()=>{const reader=clone.body.getReader();const decoder=new TextDecoder();while(true){const part=await reader.read();if(part.done)break;window.__chatFrames.push(decoder.decode(part.value,{stream:true}));}})(); } return response; }; return "observe chat only"; })()' >/dev/null
+    browser find label "Сообщение агенту" fill 'Проверь поток ответа без новой цели' >/dev/null
+    browser find role button click --name "Отправить сообщение" >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Тестовый поток: начало 🧒") && Boolean(document.querySelector("button[aria-label=\"Остановить ответ\"]"))' >/dev/null
+    assert_browser '!document.body.innerText.includes("Тестовый поток завершён и проверен.") && !document.querySelector(".goal-workspace")' 'preview was promoted to a result or started a task'
+    browser wait --fn 'document.body.innerText.includes("Тестовый поток завершён и проверен.")' >/dev/null
+    assert_browser 'window.__chatPosts===1 && window.__chatFrames.join("").includes("event: chat_text")' 'chat token display polled instead of consuming SSE or resubmitted the message'
+    assert_accessible
+    browser reload >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Тестовый поток завершён и проверен.")' >/dev/null
+    assert_browser '!document.querySelector(".goal-workspace")' 'reply reload created an unintended Goal'
+  fi
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737

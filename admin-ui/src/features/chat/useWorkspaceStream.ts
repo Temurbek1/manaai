@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSWRConfig } from "swr";
 import { CHAT_BASE } from "./agents";
-import { watchWorkspace, type WorkspaceEvent } from "./workspaceStream";
+import {
+  watchWorkspace,
+  type WorkspaceEvent,
+  type ChatTextEvent,
+} from "./workspaceStream";
 
 export interface WorkspaceStreamState {
   connected: boolean;
@@ -12,9 +16,14 @@ export function useWorkspaceStream(
   topicId: string | null | undefined,
   owner: string,
   enabled: boolean,
+  onChat?: (event: ChatTextEvent) => void,
 ): WorkspaceStreamState {
   const { mutate } = useSWRConfig();
   const scope = `${owner}:${topicId ?? ""}`;
+  const chatCallback = useRef(onChat);
+  useEffect(() => {
+    chatCallback.current = onChat;
+  }, [onChat]);
   const [state, setState] = useState<WorkspaceStreamState & { scope: string }>({
     connected: false,
     event: null,
@@ -27,6 +36,9 @@ export function useWorkspaceStream(
     const stop = watchWorkspace({
       topicId,
       owner,
+      chatReceived: (event) => {
+        if (!disposed) chatCallback.current?.(event);
+      },
       connection: (connected) => {
         if (!disposed)
           setState((prior) => ({

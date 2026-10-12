@@ -13,8 +13,16 @@ type Source = Omit<
 
 export type ChatViewTurn = Omit<
   components["schemas"]["ChatTurn"],
-  "sources" | "next_action" | "model_choice" | "reasoning" | "execution_mode"
+  | "sources"
+  | "next_action"
+  | "model_choice"
+  | "reasoning"
+  | "execution_mode"
+  | "preview"
+  | "preview_revision"
 > & {
+  preview?: string;
+  preview_revision?: number;
   execution_mode?: components["schemas"]["ChatTurn"]["execution_mode"];
   model_choice?: components["schemas"]["ChatTurn"]["model_choice"];
   reasoning?: components["schemas"]["ChatTurn"]["reasoning"];
@@ -32,8 +40,9 @@ export type ChatViewDetail = Omit<
 
 export type ChatViewAvailability = Omit<
   components["schemas"]["ChatAvailability"],
-  "transcript_pagination_enabled"
+  "transcript_pagination_enabled" | "chat_streaming_enabled"
 > & {
+  chat_streaming_enabled?: boolean;
   transcript_pagination_enabled?: boolean;
   parent_summary_enabled?: boolean;
 };

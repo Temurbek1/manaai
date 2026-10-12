@@ -6,11 +6,17 @@ from typing import Protocol
 from uuid import uuid4
 
 from app.mana_operation_ai.application.chat_ports import ChatError
-from app.mana_operation_ai.domain.workspace_events import WorkspaceEventPage
+from app.mana_operation_ai.domain.workspace_events import (
+    WorkspaceEventPage,
+    WorkspaceNotificationPage,
+)
 
 
 class WorkspaceEventRepository(Protocol):
     async def page(self, owner: str, topic_id: str, after: int) -> WorkspaceEventPage: ...
+    async def notifications(
+        self, owner: str, topic_id: str, after: int
+    ) -> WorkspaceNotificationPage: ...
 
 
 class WorkspaceEventService:
@@ -48,3 +54,10 @@ class WorkspaceEventService:
         if not self.enabled:
             raise ChatError("Поток рабочего прогресса пока отключён.", 404)
         return await self._repository.page(owner, topic_id, after)
+
+    async def notifications(
+        self, owner: str, topic_id: str, after: int = 0
+    ) -> WorkspaceNotificationPage:
+        if not self.enabled:
+            raise ChatError("Поток рабочего прогресса пока отключён.", 404)
+        return await self._repository.notifications(owner, topic_id, after)

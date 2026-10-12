@@ -64,6 +64,46 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it.each(["thinking", "cancelled"] as const)(
+    "keeps a %s preview separate from the result and actions",
+    async (status) => {
+      jest.spyOn(globalThis, "fetch").mockImplementation((input) => {
+        const url = requestUrl(input);
+        if (url.endsWith("/chat/availability"))
+          return response({ enabled: true });
+        if (url.endsWith("/chat/topics/topic-1"))
+          return response({
+            topic,
+            turns: [
+              {
+                ...turn,
+                status,
+                preview: "Незавершённый черновик 🧒",
+                preview_revision: 1,
+                answer: status === "thinking" ? "" : "Ответ остановлен.",
+                next_action: "analyze",
+              },
+            ],
+          });
+        return response([]);
+      });
+      renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+      const preview = await screen.findByText("Незавершённый черновик 🧒");
+      if (status === "thinking") {
+        expect(preview).toBeVisible();
+        expect(screen.getByText("Пишу ответ…")).toBeVisible();
+      } else {
+        expect(screen.getByText("Ответ остановлен.")).toBeVisible();
+        expect(preview).not.toBeVisible();
+        fireEvent.click(screen.getByText("Прерванный черновик"));
+        expect(preview).toBeVisible();
+      }
+      expect(
+        screen.queryByRole("button", { name: /Запустить анализ|Подтвердить/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("pages earlier history without model calls, duplicate turns or jumping to the end", async () => {
     const gets: string[] = [];
     const posts: string[] = [];

@@ -118,6 +118,7 @@ export function ChatPage({
     hasMore,
     loadingOlder,
     loadOlder,
+    applyText,
   } = useChatTranscript(
     currentTopicId,
     session.user.user_id,
@@ -177,7 +178,7 @@ export function ChatPage({
     : {};
   const latestTurn = turns.at(-1);
   const latestRevision = latestTurn
-    ? `${latestTurn.turn_id}:${latestTurn.status}:${latestTurn.answer}`
+    ? `${latestTurn.turn_id}:${latestTurn.status}:${latestTurn.answer}:${latestTurn.preview_revision ?? 0}`
     : null;
   const actionTurns = turns
     .filter(
@@ -191,8 +192,12 @@ export function ChatPage({
     currentTopicId,
     session.user.user_id,
     Boolean(
-      goalsAvailability?.event_stream_enabled && (sending || workingGoal),
+      goalsAvailability?.event_stream_enabled &&
+      (sending ||
+        workingGoal ||
+        (availability?.chat_streaming_enabled && active)),
     ),
+    applyText,
   );
 
   useEffect(() => {
@@ -538,12 +543,22 @@ export function ChatPage({
                   </span>
                   <div className="message-body">
                     {ACTIVE.includes(turn.status) ? (
-                      <p className="chat-progress" role="status">
-                        <span className="working-dot" />
-                        {turn.status === "reading"
-                          ? "Проверяю сохранённые отчёты…"
-                          : "Готовлю ответ с учётом контекста…"}
-                      </p>
+                      <>
+                        {turn.preview && (
+                          <p aria-live="off">
+                            {turn.preview}
+                            <span className="sr-only"> · Черновик ответа</span>
+                          </p>
+                        )}
+                        <p className="chat-progress" role="status">
+                          <span className="working-dot" />
+                          {turn.status === "reading"
+                            ? "Проверяю сохранённые отчёты…"
+                            : turn.preview
+                              ? "Пишу ответ…"
+                              : "Готовлю ответ с учётом контекста…"}
+                        </p>
+                      </>
                     ) : (
                       <p
                         className={
@@ -553,6 +568,14 @@ export function ChatPage({
                         {turn.answer}
                       </p>
                     )}
+                    {!ACTIVE.includes(turn.status) &&
+                      turn.status !== "completed" &&
+                      turn.preview && (
+                        <details>
+                          <summary>Прерванный черновик</summary>
+                          <p>{turn.preview}</p>
+                        </details>
+                      )}
                     {turn.analysis_requested && currentTopicId && (
                       <AnalysisResult
                         topicId={currentTopicId}

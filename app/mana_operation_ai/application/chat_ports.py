@@ -68,9 +68,17 @@ class ChatRepository(Protocol):
 
     async def cancel(self, owner: str, topic_id: str, turn_id: str) -> ChatTurn: ...
 
+    async def preview(self, owner: str, topic_id: str, turn_id: str, text: str) -> bool: ...
+
 
 class ConversationModel(Protocol):
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput: ...
+
+
+class StreamingConversationModel(Protocol):
+    def stream_reply(
+        self, *, instructions: str, context: str, owner: str
+    ) -> AsyncGenerator[str | ChatTurnOutput, None]: ...
 
 
 class ChatTurnOutput:

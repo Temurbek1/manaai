@@ -597,10 +597,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.operation_agent_service = agent_service
     app.state.operation_action_lifecycle = action_lifecycle
     app.state.operation_admin_service = operation_admin_service
+    chat_streaming_enabled = (
+        settings.operation_agent_workspace_enabled
+        and settings.operation_workspace_events_enabled
+        and settings.operation_workspace_chat_streaming_enabled
+    )
     chat_repository = SqlAlchemyChatRepository(
         operation_database,
         hourly_limit=settings.operation_chat_hourly_limit,
         daily_limit=settings.operation_chat_daily_limit,
+        stream_events_enabled=chat_streaming_enabled,
         topic_message_limit=(
             settings.operation_workspace_topic_message_limit
             if settings.operation_agent_workspace_enabled
@@ -643,6 +649,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.operation_chat_service = OperationChatService(
         repository=chat_repository,
         model=chat_model,
+        streaming_model=chat_model if chat_streaming_enabled else None,
         admin=operation_admin_service,
         max_context_bytes=settings.operation_chat_max_context_bytes,
         parent_minimum_interval_seconds=settings.manakids_parent_min_interval_seconds,
@@ -660,6 +667,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 settings.operation_agent_workspace_enabled
                 and settings.operation_workspace_transcript_enabled
             ),
+            chat_streaming_enabled=chat_streaming_enabled,
             agent_workspace_enabled=(
                 settings.operation_agent_workspace_enabled and settings.operation_goals_enabled
             ),

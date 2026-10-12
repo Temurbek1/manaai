@@ -3802,6 +3802,11 @@
             "title": "Agent Workspace Enabled",
             "type": "boolean"
           },
+          "chat_streaming_enabled": {
+            "default": false,
+            "title": "Chat Streaming Enabled",
+            "type": "boolean"
+          },
           "daily_limit": {
             "title": "Daily Limit",
             "type": "integer"
@@ -4056,6 +4061,86 @@
         "title": "ChatSource",
         "type": "object"
       },
+      "ChatTextEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "delta": {
+            "default": "",
+            "maxLength": 16000,
+            "title": "Delta",
+            "type": "string"
+          },
+          "event_id": {
+            "minimum": 0.0,
+            "title": "Event Id",
+            "type": "integer"
+          },
+          "final_answer": {
+            "anyOf": [
+              {
+                "maxLength": 16000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Answer"
+          },
+          "kind": {
+            "const": "chat_text",
+            "default": "chat_text",
+            "title": "Kind",
+            "type": "string"
+          },
+          "offset": {
+            "maximum": 16000.0,
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "revision": {
+            "maximum": 130.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "thinking",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "topic_id",
+          "turn_id",
+          "revision",
+          "at",
+          "status",
+          "offset"
+        ],
+        "title": "ChatTextEvent",
+        "type": "object"
+      },
       "ChatTopic": {
         "additionalProperties": false,
         "properties": {
@@ -4211,6 +4296,19 @@
             },
             "title": "Plan",
             "type": "array"
+          },
+          "preview": {
+            "default": "",
+            "maxLength": 16000,
+            "title": "Preview",
+            "type": "string"
+          },
+          "preview_revision": {
+            "default": 0,
+            "maximum": 130.0,
+            "minimum": 0.0,
+            "title": "Preview Revision",
+            "type": "integer"
           },
           "read_confirmation": {
             "anyOf": [
@@ -15263,6 +15361,41 @@
         "title": "WorkspaceEventPage",
         "type": "object"
       },
+      "WorkspaceNotificationPage": {
+        "additionalProperties": false,
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WorkspaceEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/ChatTextEvent"
+                }
+              ]
+            },
+            "maxItems": 50,
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "minimum": 0.0,
+            "title": "Next Cursor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "next_cursor",
+          "has_more"
+        ],
+        "title": "WorkspaceNotificationPage",
+        "type": "object"
+      },
       "WorkspaceToolState": {
         "additionalProperties": false,
         "properties": {
@@ -21849,6 +21982,124 @@
         ]
       }
     },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/notifications": {
+      "get": {
+        "operationId": "notifications_api_v1_admin_operation_workspace_topics__topic_id__notifications_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceNotificationPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notifications",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
     "/api/v1/admin/operation/workspace/topics/{topic_id}/stream": {
       "get": {
         "operationId": "stream_api_v1_admin_operation_workspace_topics__topic_id__stream_get",
@@ -21964,7 +22215,7 @@
                 }
               }
             },
-            "description": "SSE workspace events; typed frames match WorkspaceEvent in /events."
+            "description": "SSE workspace/chat_text events; typed frames match /notifications."
           },
           "422": {
             "content": {

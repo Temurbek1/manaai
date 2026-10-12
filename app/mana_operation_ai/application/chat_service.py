@@ -1,5 +1,6 @@
 import asyncio
 import json
+from contextlib import aclosing
 from datetime import UTC, datetime
 from typing import Literal, cast
 
@@ -9,9 +10,11 @@ from app.mana_operation_ai.application.admin_service import OperationAdminServic
 from app.mana_operation_ai.application.chat_ports import (
     ChatError,
     ChatRepository,
+    ChatTurnOutput,
     ConversationModel,
     SessionContextReader,
     SessionContextTooLarge,
+    StreamingConversationModel,
 )
 from app.mana_operation_ai.application.cost_control import CostBudgetExceeded
 from app.mana_operation_ai.application.growth.constants import ADVERTISING_CAPABILITY_KEY
@@ -270,9 +273,11 @@ class OperationChatService:
         parent_minimum_interval_seconds: int = 21600,
         session_context: SessionContextReader | None = None,
         shared_goals_enabled: bool = False,
+        streaming_model: StreamingConversationModel | None = None,
     ) -> None:
         self.repository = repository
         self._model = model
+        self._streaming_model = streaming_model
         self._admin = admin
         self.availability = availability
         if max_context_bytes < 8_192:
@@ -565,12 +570,16 @@ class OperationChatService:
                     ),
                     maximum_bytes=self._max_context_bytes,
                 )
-                output = await self._model.reply(
+                output = await self._reply(
                     instructions=(WORKSPACE_INSTRUCTIONS if workspace else INSTRUCTIONS)
                     + (SESSION_INSTRUCTIONS if memory is not None else ""),
                     context=context,
                     owner=owner,
+                    topic_id=topic_id,
+                    turn_id=turn.turn_id,
                 )
+                if output is None:
+                    return await self._read_turn(owner, topic_id, turn.turn_id)
                 if not output.answer.strip():
                     raise ChatError("AI вернул пустой ответ.", 502)
                 next_action: ChatNextAction = (
@@ -633,6 +642,29 @@ class OperationChatService:
         return self._with_read_confirmation(
             topic, await self.repository.turn(owner, topic_id, turn_id)
         )
+
+    async def _reply(
+        self, *, instructions: str, context: str, owner: str, topic_id: str, turn_id: str
+    ) -> ChatTurnOutput | None:
+        if self._streaming_model is None:
+            return await self._model.reply(instructions=instructions, context=context, owner=owner)
+        output = None
+        async with aclosing(
+            self._streaming_model.stream_reply(
+                instructions=instructions, context=context, owner=owner
+            )
+        ) as events:
+            async for event in events:
+                if isinstance(event, str):
+                    if not await self.repository.preview(owner, topic_id, turn_id, event[:16000]):
+                        return (
+                            None  # Explicit stop/CAS wins, close upstream and retain unknown usage.
+                        )
+                else:
+                    output = event
+        if output is None:
+            raise ChatError("Поток ответа завершился без подтверждённого результата.", 502)
+        return output
 
 
 def _aware_report_time(value: JsonValue) -> datetime | None:

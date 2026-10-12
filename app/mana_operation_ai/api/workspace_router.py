@@ -19,7 +19,10 @@ from app.mana_operation_ai.domain.workspace_actions import (
     WorkspaceActionPage,
     WorkspaceActionView,
 )
-from app.mana_operation_ai.domain.workspace_events import WorkspaceEventPage
+from app.mana_operation_ai.domain.workspace_events import (
+    WorkspaceEventPage,
+    WorkspaceNotificationPage,
+)
 
 
 def get_workspace(request: Request) -> OperationWorkspaceService:
@@ -109,7 +112,7 @@ async def events(
     response_model=None,
     responses={
         200: {
-            "description": "SSE workspace events; typed frames match WorkspaceEvent in /events.",
+            "description": "SSE workspace/chat_text events; typed frames match /notifications.",
             "content": {"text/event-stream": {"schema": {"type": "string"}}},
         }
     },
@@ -131,8 +134,25 @@ async def stream(
             raise HTTPException(400, "Invalid Last-Event-ID")
         after = cursor
     # Fail before sending SSE headers for disabled/foreign topics or bad cursors.
-    first = await events(topic_id, service, actor, after)
+    try:
+        first = await service.notifications(actor.actor_id, topic_id, after)
+    except ChatError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
     return await workspace_stream_response(request, service, actor, topic_id, after, first)
+
+
+@router.get("/topics/{topic_id}/notifications", response_model=WorkspaceNotificationPage)
+async def notifications(
+    topic_id: str,
+    service: EventsDep,
+    actor: ActorDep,
+    after: Annotated[int, Query(ge=0, le=9007199254740991)] = 0,
+) -> WorkspaceNotificationPage:
+    require_role(actor, UserRole.VIEWER)
+    try:
+        return await service.notifications(actor.actor_id, topic_id, after)
+    except ChatError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
 
 
 @router.post("/topics/{topic_id}/messages", response_model=WorkspaceTurn)

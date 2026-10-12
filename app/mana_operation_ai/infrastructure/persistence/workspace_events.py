@@ -6,8 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.domain.goals import OperationGoal
 from app.mana_operation_ai.domain.workspace_events import (
+    ChatTextEvent,
     WorkspaceEvent,
     WorkspaceEventPage,
+    WorkspaceNotificationPage,
     WorkspaceToolState,
 )
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
@@ -51,7 +53,9 @@ class SqlAlchemyWorkspaceEvents:
     def __init__(self, database: OperationDatabase) -> None:
         self._sessions = database.session_factory
 
-    async def page(self, owner: str, topic_id: str, after: int) -> WorkspaceEventPage:
+    async def _rows(
+        self, owner: str, topic_id: str, after: int, *, chat: bool
+    ) -> list[WorkspaceEventRow]:
         async with self._sessions() as session:
             owned = await session.scalar(
                 select(ChatTopicRow.topic_id).where(
@@ -69,21 +73,45 @@ class SqlAlchemyWorkspaceEvents:
             )
             if after > (tip or 0):
                 raise ChatError("Недействительный курсор рабочего прогресса.", 409)
-            rows = list(
+            conditions = [
+                WorkspaceEventRow.owner == owner,
+                WorkspaceEventRow.topic_id == topic_id,
+                WorkspaceEventRow.event_id > after,
+            ]
+            if not chat:
+                conditions.append(
+                    WorkspaceEventRow.payload["kind"].as_string().is_distinct_from("chat_text")
+                )
+            return list(
                 await session.scalars(
                     select(WorkspaceEventRow)
                     .where(
-                        WorkspaceEventRow.owner == owner,
-                        WorkspaceEventRow.topic_id == topic_id,
-                        WorkspaceEventRow.event_id > after,
+                        *conditions,
                     )
                     .order_by(WorkspaceEventRow.event_id)
                     .limit(51)
                 )
             )
-            items = [WorkspaceEvent(event_id=row.event_id, **row.payload) for row in rows[:50]]
-            return WorkspaceEventPage(
-                items=items,
-                next_cursor=items[-1].event_id if items else after,
-                has_more=len(rows) > 50,
-            )
+
+    async def page(self, owner: str, topic_id: str, after: int) -> WorkspaceEventPage:
+        rows = await self._rows(owner, topic_id, after, chat=False)
+        items = [WorkspaceEvent(event_id=row.event_id, **row.payload) for row in rows[:50]]
+        return WorkspaceEventPage(
+            items=items,
+            next_cursor=items[-1].event_id if items else after,
+            has_more=len(rows) > 50,
+        )
+
+    async def notifications(
+        self, owner: str, topic_id: str, after: int
+    ) -> WorkspaceNotificationPage:
+        rows = await self._rows(owner, topic_id, after, chat=True)
+        items = [
+            ChatTextEvent(event_id=row.event_id, **row.payload)
+            if row.payload.get("kind") == "chat_text"
+            else WorkspaceEvent(event_id=row.event_id, **row.payload)
+            for row in rows[:50]
+        ]
+        return WorkspaceNotificationPage(
+            items=items, next_cursor=items[-1].event_id if items else after, has_more=len(rows) > 50
+        )

@@ -114,6 +114,11 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                         ),
                     )
                     assert created
+                    # New preview fields remain outside the old strict chat JSON.
+                    chats._stream_events_enabled = True
+                    assert await chats.preview(
+                        OWNER, topic.topic_id, turn.turn_id, "Synthetic draft 🧒"
+                    )
                     assert await chats.update(
                         turn.model_copy(
                             update={
@@ -254,6 +259,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                 assert turns[0].next_action == "start_goal" and turns[0].execution_mode == "agent"
                 assert turns[0].session_memory is None
                 original = await chats.turn(OWNER, topic.topic_id, turns[0].turn_id)
+                assert original.preview == "Synthetic draft 🧒" and original.preview_revision == 2
                 assert original.session_memory is not None and goal.session_memory is not None
                 assert bool(goal.session_memory.actions) is (topic.title == "Native queued")
                 assert original.session_memory.actions == goal.session_memory.actions

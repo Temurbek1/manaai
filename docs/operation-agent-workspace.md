@@ -87,7 +87,8 @@ Status must be updated from actual tests/flows, not intent:
   Agent mode, actual persisted tool statuses, inline question choices, unchanged read
   approval, pause/resume/cancel and reload continuity. Public task/plan/tool progress now uses
   a private SQL journal and authenticated SSE with cursor replay and REST reconciliation;
-  it does not stream model tokens or internal reasoning.
+  Goal progress is distinct from the separately opt-in ordinary-answer text stream described
+  below. Neither exposes internal reasoning.
 - Version-safe checkpoint storage: local implementation; additive migration `c75f0a6e812b`,
   versioned native checkpoints/queue status separate from strict legacy Goal JSON. Older
   workers see only a closed projection; native controls/context remain in the new checkpoint.
@@ -624,6 +625,56 @@ no production switch, key, source setting or scheduler was changed. GitHub write
 permission still reports `push=false`, and scoped backend/worker release approval
 is outstanding. Full native activation/deployed acceptance is not claimed.
 
+### Durable ordinary-answer streaming checkpoint, 2026-10-12
+
+Ordinary conversation now has a separate, default-disabled incremental answer lane.
+`OPERATION_WORKSPACE_CHAT_STREAMING_ENABLED=false` requires both the native workspace
+and event journal flags. The one initiating POST still owns generation; an authenticated
+GET SSE subscription only observes committed local SQL notifications. Reconnect/replay
+cannot start a model call, source read, Goal or action. Existing legacy chat remains unchanged.
+
+The OpenAI SDK decodes the provider stream. Only the unfinished structured `answer` field
+is sent as a display-only draft; reasoning, plans and next-action fields are not streamed.
+Terminal usage settles before final JSON/schema validation. A cut, unpriced or missing receipt
+retains its unknown reservation, with no retry. Actions/handoff depend on the fully validated
+final response and existing server policy, never a draft. Closing observation does not stop
+generation; the existing explicit stop control closes the producer when it next yields.
+Already sent model work may still incur a charge.
+
+Draft text/revision lives in the additive chat metadata, outside legacy strict JSON. Each
+append and terminal notification commits atomically with its chat state. Chat and Goal writers
+share the same short SQL transaction fence, preserving event-ID commit order across producers;
+no model/network I/O runs under that fence. Per turn: at most 16,000 draft code points,
+128 append notifications plus one terminal notification; provider JSON is bounded to 64 KiB
+and the wire stream to 1 MiB. Long generation may reach the draft-update cap before its final
+validated reply. A cancelled/failed turn keeps its draft in collapsed details. Lost producers
+are marked failed on the existing stale-turn recovery path, without automatic generation.
+
+`/topics/{topic_id}/notifications` is the typed mixed cursor page; `/stream` uses distinct
+`chat_text` and `workspace` event names. The existing `/events` contract remains Goal-only.
+Browser cursors stay owner/topic-scoped. Unicode offsets, revision gaps, missing cache rows,
+duplicates and cut frames are checked; a gap triggers a local SQL GET repair, not a POST.
+No new default UI controls, hotkey hints or repeated accessibility announcements were added.
+
+One separately bounded actual-model synthetic check produced 18 monotone previews and one
+validated final answer with `next_action=none`: correct parent-funnel calculations, no inferred
+cohort retention, tariff-payment proof or child denominator. The local ledger settled one call
+at 819 input/435 output tokens, **$0.005988 using configured rate cards**, not an invoice claim.
+No application/source/production I/O occurred. Durable receipt and the one-call-only ledger:
+`output/chat-stream-20261012/quality.json` and `budget.db`. Do not restart the paid check.
+This is a narrow wire/grounding check, not evidence of full agent quality or business improvement.
+
+Local gates passed: `make verify` (790 backend tests, 127 UI tests; 12 PostgreSQL-only skips
+and two excluded opt-in live tests), separate PostgreSQL 17 migration round trip/drift and
+12 integration tests, native streaming and unchanged legacy browser flows. Tests cover atomic
+draft/final journal rollback, stop/append races across connections, commit ordering between
+Goals/chat, bounded storage, Unicode/gap repair and model receipt failure accounting. Supported
+old-image rollback retains previews and native private state. The unpublished local overlay
+image `mana-ai-operation:chat-text-local-20261012` passed networkless HTTP/SQL/replay/ownership
+checks; API synchronization, standalone UI, bundle and secret checks passed. GitHub still
+reports `push=false`; scoped release approval remains outstanding. No production activation,
+new source permissions, Firebase reads, schedules or SSH changes occurred.
+
 ### Remaining full-goal work
 
 Do not mark the overall Codex/Claude interaction objective complete from this checkpoint:
@@ -632,8 +683,8 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
   after subsequent changes; the current local checkpoint's final gates passed as listed above.
 - Extend real-model quality coverage beyond the small reviewed synthetic/saved-data checks,
   then separately verify any newly approved source bindings without a scan or new schedule.
-- Expand user-visible durable streaming/continuation and extended-context behavior with
-  explicit interruption/reconnection semantics; durable public progress is not token streaming.
+- Expand Goal-step streaming/continuation and extended-context behavior with
+  explicit interruption/reconnection semantics; ordinary answer streaming is now a local opt-in.
   Completed results now enter ordinary conversation as bounded historical checkpoints, not
   fresh evidence. Very long user-context histories still fail closed at an explicit byte/count
   limit without calling the model; scalable retrieval/compaction of extended sessions remains.

@@ -14,7 +14,7 @@ from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.workspace_events import WorkspaceEventService
 from app.mana_operation_ai.domain.enums import UserRole
-from app.mana_operation_ai.domain.workspace_events import WorkspaceEventPage
+from app.mana_operation_ai.domain.workspace_events import ChatTextEvent, WorkspaceNotificationPage
 
 
 class BoundedWorkspaceStream(StreamingResponse):
@@ -52,7 +52,7 @@ async def workspace_stream_response(
     actor: ActorContext,
     topic_id: str,
     after: int,
-    first: WorkspaceEventPage,
+    first: WorkspaceNotificationPage,
 ) -> StreamingResponse:
     settings = request.app.state.settings
     try:
@@ -80,9 +80,9 @@ async def workspace_stream_response(
                     yield "event: unavailable\ndata: {}\n\n"
                     return
                 for event in page.items:
+                    name = "chat_text" if isinstance(event, ChatTextEvent) else "workspace"
                     yield (
-                        f"id: {event.event_id}\nevent: workspace\n"
-                        f"data: {event.model_dump_json()}\n\n"
+                        f"id: {event.event_id}\nevent: {name}\ndata: {event.model_dump_json()}\n\n"
                     )
                     cursor = event.event_id
                 if not page.has_more:
@@ -91,7 +91,7 @@ async def workspace_stream_response(
                         heartbeat = monotonic()
                     await asyncio.sleep(settings.operation_workspace_event_poll_seconds)
                 try:
-                    page = await service.page(actor.actor_id, topic_id, cursor)
+                    page = await service.notifications(actor.actor_id, topic_id, cursor)
                 except Exception:
                     # No upstream exception text or implicit restart after lost observation.
                     yield "event: unavailable\ndata: {}\n\n"

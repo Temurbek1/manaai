@@ -85,6 +85,8 @@ class ChatTurn(ChatModel):
     next_action: ChatNextAction = "none"
     read_confirmation: ChatReadConfirmation | None = None
     session_memory: SessionMemory | None = None
+    preview: str = Field(default="", max_length=16000)
+    preview_revision: int = Field(default=0, ge=0, le=130)
 
 
 class TopicDetail(ChatModel):
@@ -119,6 +121,7 @@ class ChatAvailability(ChatModel):
     agent_workspace_enabled: bool = False
     action_reviews_enabled: bool = False
     transcript_pagination_enabled: bool = False
+    chat_streaming_enabled: bool = False
 
 
 class AnalysisRequest(ChatModel):

@@ -2,10 +2,42 @@
 
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
+import { useRef } from "react";
 import { apiGet } from "@/api/client";
 import type { components } from "@/api/schema";
 import { CHAT_BASE } from "./agents";
 import type { ChatViewDetail, ChatViewTurn } from "./contracts";
+import type { ChatTextEvent } from "./workspaceStream";
+
+export function applyChatText(
+  turn: ChatViewTurn,
+  event: ChatTextEvent,
+): ChatViewTurn | null {
+  if (turn.topic_id !== event.topic_id || turn.turn_id !== event.turn_id)
+    return null;
+  if (event.revision <= (turn.preview_revision ?? 0) || !active(turn))
+    return turn;
+  const preview = turn.preview ?? "";
+  if (event.status === "thinking") {
+    if (
+      event.revision !== (turn.preview_revision ?? 0) + 1 ||
+      event.offset !== Array.from(preview).length ||
+      Array.from(preview + event.delta).length > 16000
+    )
+      return null;
+    return {
+      ...turn,
+      preview: preview + event.delta,
+      preview_revision: event.revision,
+    };
+  }
+  return {
+    ...turn,
+    status: event.status,
+    answer: event.final_answer ?? "",
+    preview_revision: event.revision,
+  };
+}
 
 const WORKSPACE = "/api/v1/admin/operation/workspace";
 type Page = Omit<components["schemas"]["TranscriptPage"], "turns"> & {
@@ -29,7 +61,9 @@ export function useChatTranscript(
   loadingOlder: boolean;
   refresh: () => Promise<unknown>;
   loadOlder: () => Promise<unknown>;
+  applyText: (event: ChatTextEvent) => void;
 } {
+  const repairing = useRef(false);
   const legacy = useSWR<ChatViewDetail, Error>(
     topicId && paged === false
       ? ([`${CHAT_BASE}/topics/${topicId}`, owner] satisfies Key)
@@ -104,6 +138,42 @@ export function useChatTranscript(
       if (!paged || loadingOlder || !received?.at(-1)?.has_more) return;
       if (pages.error) return pages.mutate();
       return pages.setSize(pages.size + 1);
+    },
+    applyText: (event) => {
+      if (event.topic_id !== topicId) return;
+      const update = (turn: ChatViewTurn): ChatViewTurn =>
+        applyChatText(turn, event) ?? turn;
+      const existing = (paged ? data : legacy.data)?.turns.find(
+        (turn) => turn.turn_id === event.turn_id,
+      );
+      if (!existing || applyChatText(existing, event) === null) {
+        if (!repairing.current) {
+          repairing.current = true;
+          void (paged ? pages.mutate() : legacy.mutate())
+            .catch(() => undefined)
+            .finally(() => {
+              repairing.current = false;
+            });
+        }
+        return;
+      }
+      if (paged)
+        void pages.mutate(
+          (current) =>
+            current?.map((page) => ({
+              ...page,
+              turns: page.turns.map(update),
+            })),
+          { revalidate: false },
+        );
+      else
+        void legacy.mutate(
+          (current) =>
+            current
+              ? { ...current, turns: current.turns.map(update) }
+              : current,
+          { revalidate: false },
+        );
     },
   };
 }

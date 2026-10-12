@@ -966,6 +966,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notifications */
+        get: operations["notifications_api_v1_admin_operation_workspace_topics__topic_id__notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/stream": {
         parameters: {
             query?: never;
@@ -3243,6 +3260,11 @@ export interface components {
              * @default false
              */
             agent_workspace_enabled: boolean;
+            /**
+             * Chat Streaming Enabled
+             * @default false
+             */
+            chat_streaming_enabled: boolean;
             /** Daily Limit */
             daily_limit: number;
             /** Enabled */
@@ -3354,6 +3376,42 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ChatTextEvent */
+        ChatTextEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Delta
+             * @default
+             */
+            delta: string;
+            /** Event Id */
+            event_id: number;
+            /** Final Answer */
+            final_answer?: string | null;
+            /**
+             * Kind
+             * @default chat_text
+             * @constant
+             */
+            kind: "chat_text";
+            /** Offset */
+            offset: number;
+            /** Revision */
+            revision: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "thinking" | "completed" | "failed" | "cancelled";
+            /** Topic Id */
+            topic_id: string;
+            /** Turn Id */
+            turn_id: string;
+        };
         /** ChatTopic */
         ChatTopic: {
             /**
@@ -3432,6 +3490,16 @@ export interface components {
             output_tokens?: number | null;
             /** Plan */
             plan?: string[];
+            /**
+             * Preview
+             * @default
+             */
+            preview: string;
+            /**
+             * Preview Revision
+             * @default 0
+             */
+            preview_revision: number;
             read_confirmation?: components["schemas"]["ChatReadConfirmation"] | null;
             /**
              * Reasoning
@@ -7482,6 +7550,15 @@ export interface components {
             /** Next Cursor */
             next_cursor: number;
         };
+        /** WorkspaceNotificationPage */
+        WorkspaceNotificationPage: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items?: (components["schemas"]["WorkspaceEvent"] | components["schemas"]["ChatTextEvent"])[];
+            /** Next Cursor */
+            next_cursor: number;
+        };
         /** WorkspaceToolState */
         WorkspaceToolState: {
             /** Call Id */
@@ -9587,6 +9664,44 @@ export interface operations {
             };
         };
     };
+    notifications_api_v1_admin_operation_workspace_topics__topic_id__notifications_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceNotificationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stream_api_v1_admin_operation_workspace_topics__topic_id__stream_get: {
         parameters: {
             query?: {
@@ -9606,7 +9721,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description SSE workspace events; typed frames match WorkspaceEvent in /events. */
+            /** @description SSE workspace/chat_text events; typed frames match /notifications. */
             200: {
                 headers: {
                     [name: string]: unknown;
