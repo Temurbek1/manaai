@@ -19,6 +19,7 @@ def isolate_local_secrets(monkeypatch: MonkeyPatch, request: FixtureRequest) -> 
     monkeypatch.setenv("OPERATION_CHAT_MODEL", "")
     monkeypatch.setenv("OPERATION_CHAT_REASONING_EFFORT", "")
     monkeypatch.setenv("OPERATION_GOALS_WORKER_ENABLED", "false")
+    monkeypatch.setenv("OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED", "false")
     monkeypatch.setenv("MANA_TELEGRAM_AUTH_ENABLED", "0")
     monkeypatch.setenv("OPERATION_ALLOW_INSECURE_DEV_HEADERS", "1")
     monkeypatch.setenv("META_LIVE_READONLY_VERIFY", "0")

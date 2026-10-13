@@ -19,7 +19,9 @@ ITEMS = TypeAdapter(list[ResponseInputItemParam])
 ALLOWED = {"message", "reasoning", "compaction", "function_call", "function_call_output"}
 
 
-def validate_items(values: object) -> list[ResponseInputItemParam]:
+def validate_items(
+    values: object, *, report_discovery_enabled: bool = False
+) -> list[ResponseInputItemParam]:
     validated = ITEMS.validate_python(values, strict=True)
     # SDK TypedDicts declare nested Iterables. Materialize their validated
     # iterators before JSON hashing/storage or sending the window a second time.
@@ -42,7 +44,11 @@ def validate_items(values: object) -> list[ResponseInputItemParam]:
             if item.get("content"):
                 raise ValueError("Raw hidden reasoning is not retained")
         if kind == "function_call":
-            call = parse_agent_function(str(item.get("name")), str(item.get("arguments")))
+            call = parse_agent_function(
+                str(item.get("name")),
+                str(item.get("arguments")),
+                report_discovery_enabled=report_discovery_enabled,
+            )
             call_id = str(item.get("call_id"))
             if call_id in seen_calls:
                 raise ValueError("Duplicate provider tool identifier")
@@ -73,11 +79,21 @@ def prepare_continuation(
     scope = continuation_scope_digest(owner, goal)
     items: list[ResponseInputItemParam] = []
     if state:
+        if state.protocol != (
+            "goal-model-continuation-v2"
+            if goal.report_discovery_enabled
+            else "goal-model-continuation-v1"
+        ):
+            raise ChatError(
+                "Протокол продолжения не соответствует сохранённому набору инструментов."
+            )
         if state.scope_digest != scope:
             raise ChatError("Контекст модели не принадлежит этой цели.")
         if state.model != model and goal.phase != "review":
             raise ChatError("Модель изменилась. Сохранённый контекст нельзя переносить молча.")
-        items = validate_items(json.loads(state.payload))
+        items = validate_items(
+            json.loads(state.payload), report_discovery_enabled=goal.report_discovery_enabled
+        )
         pending = [item for item in items if item.get("type") == "function_call"]
         outputs = {
             item.get("call_id") for item in items if item.get("type") == "function_call_output"
@@ -89,7 +105,9 @@ def prepare_continuation(
                 raise ChatError("Подтверждение инструмента в журнале не найдено.")
             record = goal.tools[position]
             call = parse_agent_function(
-                str(pending[0].get("name")), str(pending[0].get("arguments"))
+                str(pending[0].get("name")),
+                str(pending[0].get("arguments")),
+                report_discovery_enabled=goal.report_discovery_enabled,
             )
             if (
                 record.call != state.pending_tool_call
@@ -121,7 +139,10 @@ def prepare_continuation(
     if len(json.dumps(items, ensure_ascii=False).encode()) > maximum_bytes:
         raise ChatError("Окно продолжения достигло лимита. История сохранена; AI не вызван.")
     return PreparedContinuation(
-        goal, scope, validate_items(items), state.compactions if state else 0
+        goal,
+        scope,
+        validate_items(items, report_discovery_enabled=goal.report_discovery_enabled),
+        state.compactions if state else 0,
     )
 
 
@@ -140,7 +161,7 @@ def finish_continuation(
     new_count = sum(item.get("type") == "compaction" for item in output)
     if compactions:
         values = values[compactions[-1] :]
-    items = validate_items(values)
+    items = validate_items(values, report_discovery_enabled=prepared.goal.report_discovery_enabled)
     payload = json.dumps(items, ensure_ascii=False)
     if len(payload.encode()) > maximum_bytes:
         raise ValueError("Returned model window exceeds the configured limit")
@@ -148,6 +169,9 @@ def finish_continuation(
     if bool(invocations) != (call is not None) or len(invocations) > 1:
         raise ValueError("Continuation and durable decision disagree")
     return ModelContinuation(
+        protocol="goal-model-continuation-v2"
+        if prepared.goal.report_discovery_enabled
+        else "goal-model-continuation-v1",
         model=model,
         scope_digest=prepared.scope_digest,
         payload=payload,

@@ -5,7 +5,11 @@ from typing import cast, get_args
 
 from openai.types.responses import FunctionToolParam
 
-from app.mana_operation_ai.domain.agent_tools import AgentToolCall, SourceReadCapability
+from app.mana_operation_ai.domain.agent_tools import (
+    REPORT_DISCOVERY_TOOL,
+    AgentToolCall,
+    SourceReadCapability,
+)
 
 _PROPERTIES: dict[str, dict[str, object]] = {
     "inspect_sources": {},
@@ -17,6 +21,14 @@ _PROPERTIES: dict[str, dict[str, object]] = {
     "find_saved_tasks": {
         "query": {"type": "string"},
         "cursor": {"type": ["string", "null"]},
+    },
+    "find_saved_reports": {
+        "query": {"type": "string", "maxLength": 120},
+        "cursor": {"type": ["string", "null"], "maxLength": 1024},
+        "catalog_capability": {
+            "type": ["string", "null"],
+            "enum": [*get_args(SourceReadCapability), None],
+        },
     },
     "read_saved_task": {
         "task_id": {"type": "string"},
@@ -45,6 +57,15 @@ _DESCRIPTIONS = {
         "Query is an exact objective substring (empty lists all); cursor is a returned task ID "
         "or null. SQL history only, never evidence or permission."
     ),
+    "find_saved_reports": (
+        "Find up to ten scoped saved report references created before this Goal started. "
+        "Query is a literal substring of title/text; empty searches all. "
+        "Optional catalog_capability filters references, never requests a collection. "
+        "Keep query/filter unchanged when following "
+        "next_cursor; null starts a search. Empty pages can have continuation cursors. "
+        "SQL only: read original reports separately before citing facts; "
+        "no grants or new source call."
+    ),
     "read_saved_task": (
         "Read a bounded page of one prior task's public result, starting at offset 0. "
         "Use returned next_offset for more text. Historical context only: original reports "
@@ -59,7 +80,7 @@ _DESCRIPTIONS = {
 }
 
 
-def agent_function_tools() -> list[FunctionToolParam]:
+def agent_function_tools(*, report_discovery_enabled: bool = False) -> list[FunctionToolParam]:
     return [
         cast(
             FunctionToolParam,
@@ -77,11 +98,14 @@ def agent_function_tools() -> list[FunctionToolParam]:
             },
         )
         for name, properties in _PROPERTIES.items()
+        if name != REPORT_DISCOVERY_TOOL or report_discovery_enabled
     ]
 
 
-def parse_agent_function(name: str, arguments: str) -> AgentToolCall:
-    if name not in _PROPERTIES:
+def parse_agent_function(
+    name: str, arguments: str, *, report_discovery_enabled: bool = False
+) -> AgentToolCall:
+    if name not in _PROPERTIES or (name == REPORT_DISCOVERY_TOOL and not report_discovery_enabled):
         raise ValueError("Unknown analysis function")
     payload = json.loads(arguments)
     if not isinstance(payload, dict) or set(payload) != set(_PROPERTIES[name]):

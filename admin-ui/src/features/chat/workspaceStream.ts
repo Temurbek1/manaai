@@ -121,6 +121,7 @@ export function parseWorkspaceFrame(
           "read_saved_report",
           "read_saved_report_page",
           "find_saved_tasks",
+          "find_saved_reports",
           "read_saved_task",
           "request_source_read",
           "ask_user",

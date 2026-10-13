@@ -119,12 +119,16 @@
   The supported `2ea7b9a` rollback sees a closed 5000-character evidence projection and retains
   full private state; the released `737b75d` native reader does not understand v8. Never choose
   that image as a v8 rollback target without a separately verified compatibility bridge.
-- The local saved-report discovery foundation adds bounded SQL keyset candidates and
-  application revalidation; it is not exposed as a native function or deployed. Cursor
+- The local default-disabled `OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED` captures
+  `find_saved_reports` only on new native Goals; it is not deployed. Private v11 binds
+  that immutable bit/scope; continuation v2 supports at most 120 tool positions only
+  under existing separately confirmed limits. Old v1 keeps twelve; never upgrade a
+  historical tool set/digest or auto-renew limits. Cursor
   positions are observation metadata, not grants, fresh measurements or complete catalog
   coverage. Preserve empty-page continuation and never treat the preview as the whole database.
-  Adding the native tool requires explicit new checkpoint/rollback compatibility, not quiet
-  insertion into v10. See `docs/operation-saved-report-discovery.md` for the remaining integration.
+  Only the closed `2ea7b9a` fallback with execution disabled is verified for v11/v2;
+  `a7752dc` cannot execute it. Release the compatible stream UI with the backend. See
+  `docs/operation-saved-report-discovery.md` for actual local checks and remaining acceptance.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

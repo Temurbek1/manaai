@@ -13,7 +13,11 @@ from app.mana_operation_ai.application.chat_ports import ChatError, SessionConte
 from app.mana_operation_ai.application.goal_ports import SavedTaskPage
 from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
 from app.mana_operation_ai.application.ports import Clock
-from app.mana_operation_ai.domain.agent_tools import REPORT_PAGE_TOOL, TASK_HISTORY_TOOLS
+from app.mana_operation_ai.domain.agent_tools import (
+    REPORT_DISCOVERY_TOOL,
+    REPORT_PAGE_TOOL,
+    TASK_HISTORY_TOOLS,
+)
 from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
 from app.mana_operation_ai.domain.first_party_analytics import FIRST_PARTY_CAPABILITIES
 from app.mana_operation_ai.domain.goals import (
@@ -37,7 +41,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -75,9 +79,34 @@ def _goal(row: GoalRow) -> OperationGoal:
     paged_reports = _paged_reports(goal)
     manual_reads = _manual_reads(goal)
     limit_state = goal.limit_tracking
-    version = _context_version(goal) if checkpoint.version == 10 else checkpoint.version
+    discovery = goal.report_discovery_enabled
+    raw_goal = (row.workspace_payload or {}).get("goal")
+    version = _context_version(goal) if checkpoint.version in (10, 11) else checkpoint.version
     if (
-        (checkpoint.version == 10) != limit_state
+        (checkpoint.version == 11) != discovery
+        or (not discovery and (checkpoint.version == 10) != limit_state)
+        or (
+            not discovery
+            and any(record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools)
+        )
+        or (
+            checkpoint.version != 11
+            and isinstance(raw_goal, dict)
+            and (
+                "report_discovery_enabled" in raw_goal
+                or any(
+                    isinstance(tool, dict)
+                    and isinstance(tool.get("call"), dict)
+                    and "catalog_capability" in tool["call"]
+                    for tool in raw_goal.get("tools", [])
+                )
+                or (
+                    isinstance(raw_goal.get("model_continuation"), dict)
+                    and isinstance(raw_goal["model_continuation"].get("pending_tool_call"), dict)
+                    and "catalog_capability" in raw_goal["model_continuation"]["pending_tool_call"]
+                )
+            )
+        )
         or (limit_state and goal.request.execution_mode != "agent")
         or (version == 9) != manual_reads
         or (manual_reads and goal.request.execution_mode != "agent")
@@ -96,12 +125,15 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8, 9, 10)
+            checkpoint.version in (5, 6, 7, 8, 9, 10, 11)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
-        or (checkpoint.version not in (5, 6, 7, 8, 9, 10) and checkpoint.analysis_scope is not None)
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11)
+            and checkpoint.analysis_scope is not None
+        )
+        or (
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (version == 1 and memory is not None)
@@ -125,6 +157,7 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is not None
             and (
                 goal.request.execution_mode != "agent"
+                or (continuation.protocol == "goal-model-continuation-v2") != discovery
                 or continuation.scope_digest != continuation_scope_digest(row.owner, goal)
             )
         )
@@ -200,6 +233,7 @@ class SqlAlchemyGoalRepository:
         events_enabled: bool = False,
         context_goal_limit: int = 10000,
         limit_extensions_enabled: bool = False,
+        report_discovery_enabled: bool = False,
     ) -> None:
         if not 1 <= context_goal_limit <= 10000:
             raise ValueError("Session Goal archive capacity must be between 1 and 10000")
@@ -208,6 +242,7 @@ class SqlAlchemyGoalRepository:
         self._events_enabled = events_enabled
         self._context_goal_limit = context_goal_limit
         self._limit_extensions_enabled = limit_extensions_enabled
+        self._report_discovery_enabled = report_discovery_enabled
         self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
@@ -245,6 +280,7 @@ class SqlAlchemyGoalRepository:
                 "limit_grants",
                 "limit_tracking",
                 "unsettled_microusd",
+                "report_discovery_enabled",
             },
         )
         payload["request"] = goal.request.model_dump(
@@ -299,6 +335,11 @@ class SqlAlchemyGoalRepository:
         paged_reports = _paged_reports(goal)
         manual_reads = _manual_reads(goal)
         limit_state = goal.limit_tracking
+        discovery = goal.report_discovery_enabled
+        if not discovery and any(
+            record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools
+        ):
+            raise ChatError("Инструмент каталога требует новой версии сохранённой цели.", 503)
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -308,9 +349,14 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=10 if limit_state else _context_version(goal),
+                version=11 if discovery else 10 if limit_state else _context_version(goal),
                 analysis_scope=goal.request.analysis_scope
-                if extended_context or continuation or paged_reports or manual_reads or limit_state
+                if extended_context
+                or continuation
+                or paged_reports
+                or manual_reads
+                or limit_state
+                or discovery
                 else None,
                 goal=goal,
             ).model_dump(
@@ -323,9 +369,19 @@ class SqlAlchemyGoalRepository:
                         and not paged_reports
                         and not manual_reads
                         and not limit_state
+                        and not discovery
                         else {}
                     ),
                     "goal": {
+                        **(
+                            {
+                                "report_discovery_enabled": True,
+                                "tools": {"__all__": {"call": {"catalog_capability"}}},
+                                "model_continuation": {"pending_tool_call": {"catalog_capability"}},
+                            }
+                            if not discovery
+                            else {}
+                        ),
                         **(
                             {
                                 "limit_stop": True,
@@ -405,6 +461,9 @@ class SqlAlchemyGoalRepository:
                 product=topic.product,
                 request=request,
                 limit_tracking=self._limit_extensions_enabled and request.execution_mode == "agent",
+                report_discovery_enabled=(
+                    self._report_discovery_enabled and request.execution_mode == "agent"
+                ),
                 session_memory=session_memory,
                 created_at=now,
                 updated_at=now,
@@ -763,6 +822,8 @@ class SqlAlchemyGoalRepository:
             return queued_row.owner, goal
 
     async def save(self, owner: str, before: OperationGoal, after: OperationGoal) -> bool:
+        if before.report_discovery_enabled != after.report_discovery_enabled:
+            raise ChatError("Набор инструментов сохранённой цели нельзя менять молча.", 409)
         after = after.model_copy(
             update={"revision": before.revision + 1, "updated_at": self._clock.now()}
         )

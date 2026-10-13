@@ -19,12 +19,14 @@ AgentToolName = Literal[
     "read_saved_report",
     "read_saved_report_page",
     "find_saved_tasks",
+    "find_saved_reports",
     "read_saved_task",
     "request_source_read",
     "ask_user",
 ]
 TASK_HISTORY_TOOLS = ("find_saved_tasks", "read_saved_task")
 REPORT_PAGE_TOOL = "read_saved_report_page"
+REPORT_DISCOVERY_TOOL = "find_saved_reports"
 AgentToolStatus = Literal[
     "started", "completed", "awaiting_approval", "waiting_for_user", "denied", "unknown"
 ]
@@ -38,7 +40,8 @@ class AgentToolCall(ChatModel):
     options: list[str] = Field(default_factory=list, max_length=3)
     task_id: str | None = Field(default=None, min_length=1, max_length=36)
     query: str | None = Field(default=None, max_length=120)
-    cursor: str | None = Field(default=None, min_length=1, max_length=36)
+    cursor: str | None = Field(default=None, min_length=1, max_length=1024)
+    catalog_capability: SourceReadCapability | None = None
     offset: int | None = Field(default=None, ge=0, le=32000, strict=True)
 
     @model_validator(mode="after")
@@ -50,6 +53,7 @@ class AgentToolCall(ChatModel):
             "request_source_read": (False, True, False),
             "ask_user": (False, False, True),
             "find_saved_tasks": (False, False, False),
+            "find_saved_reports": (False, False, False),
             "read_saved_task": (False, False, False),
         }[self.name]
         if (
@@ -68,10 +72,16 @@ class AgentToolCall(ChatModel):
             raise ValueError("Saved-task reads require an exact task and text offset")
         if self.name == "read_saved_task" and self.offset is not None and self.offset > 16000:
             raise ValueError("Saved-task offsets cannot exceed the result bound")
-        if (self.query is not None) != (self.name == "find_saved_tasks") or (
-            self.cursor is not None and self.name != "find_saved_tasks"
+        if (self.query is not None) != (
+            self.name in {"find_saved_tasks", "find_saved_reports"}
+        ) or (
+            self.cursor is not None and self.name not in {"find_saved_tasks", "find_saved_reports"}
         ):
-            raise ValueError("Search and cursor arguments belong only to saved-task lookup")
+            raise ValueError("Search and cursor arguments belong only to saved-history lookup")
+        if self.name == "find_saved_tasks" and self.cursor is not None and len(self.cursor) > 36:
+            raise ValueError("Saved-task cursors remain bounded task identifiers")
+        if self.catalog_capability is not None and self.name != "find_saved_reports":
+            raise ValueError("Catalog capability filters are not source-read requests")
         return self
 
 

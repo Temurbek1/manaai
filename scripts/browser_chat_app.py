@@ -185,7 +185,13 @@ class BrowserGoalFake:
         ]
         call = output.decision.tool_call
         if call:
-            schema = next(item for item in agent_function_tools() if item["name"] == call.name)
+            schema = next(
+                item
+                for item in agent_function_tools(
+                    report_discovery_enabled=prepared.goal.report_discovery_enabled
+                )
+                if item["name"] == call.name
+            )
             parameters = schema["parameters"]
             assert parameters is not None
             properties = parameters["properties"]
@@ -229,6 +235,7 @@ class BrowserGoalFake:
         archive = "первой архивной задачи" in goal["request"]["objective"]
         paged = "Прочитай полный сохранённый отчёт вместе с концом" in goal["request"]["objective"]
         extended = "Проверка продолжения той же цели" in goal["request"]["objective"]
+        discovery = "Найди отчёт в длинном каталоге" in goal["request"]["objective"]
         if archive:
             assert any(
                 item["text"] == ARCHIVE_CONSTRAINT
@@ -236,10 +243,34 @@ class BrowserGoalFake:
             )
         if recall or extended:
             waiting = False
-        if paged:
+        if paged or discovery:
             waiting = False
         tool = None
-        if paged:
+        if discovery:
+            assert goal["report_discovery_enabled"]
+            if not goal["evidence"]:
+                prior = json.loads(goal["tools"][-1]["result"]) if goal["tools"] else None
+                if prior and prior["saved_reports"]:
+                    tool = AgentToolCall(
+                        name="read_saved_report", report_id=prior["saved_reports"][0]["report_id"]
+                    )
+                else:
+                    tool = AgentToolCall(
+                        name="find_saved_reports",
+                        query="catalog-fixture",
+                        cursor=prior["next_cursor"] if prior else None,
+                    )
+            elif goal["evidence"][0]["shortened"]:
+                item = goal["evidence"][0]
+                progress = item.get("report_read_progress")
+                tool = AgentToolCall(
+                    name="read_saved_report_page",
+                    report_id=item["report_id"],
+                    offset=progress["next_offset"] if progress else 0,
+                )
+            else:
+                assert goal["evidence"][0]["summary"].endswith("EXACT CATALOG FOOTER")
+        elif paged:
             if not goal["tools"]:
                 tool = AgentToolCall(name="inspect_sources")
             else:
@@ -302,6 +333,7 @@ class BrowserGoalFake:
                     else ""
                 )
                 + ("EXACT PAGED FOOTER проверен. " if paged else "")
+                + ("EXACT CATALOG FOOTER проверен. " if discovery else "")
                 + "Тестовый анализ. Есть исторические агрегаты, но платежи и отток "
                 "по единой когорте не подтверждены. Данные пользователей не изменялись.",
                 evidence_ids=[item["report_id"] for item in goal["evidence"]],
@@ -504,6 +536,32 @@ def create_app() -> FastAPI:
                 base_run = await repository.get_run("browser-workspace-run")
                 base_report = await repository.get_report("browser-workspace-report")
                 assert base_run is not None and base_report is not None
+                if settings.operation_workspace_report_discovery_enabled:
+                    for index in range(23):
+                        run_id = f"browser-catalog-run-{index:03}"
+                        await repository.create_run(
+                            base_run.model_copy(
+                                update={"run_id": run_id, "idempotency_key": run_id}
+                            )
+                        )
+                        await repository.save_report(
+                            base_report.model_copy(
+                                update={
+                                    "report_id": f"browser-catalog-{index:03}",
+                                    "run_id": run_id,
+                                    "human_readable": "catalog-fixture: Synthetic parents only. "
+                                    + (
+                                        "р" * 8100 + " EXACT CATALOG FOOTER"
+                                        if index == 0
+                                        else "Invalid binding"
+                                    ),
+                                    "structured": {
+                                        **base_report.structured,
+                                        "scope_verified": index == 0,
+                                    },
+                                }
+                            )
+                        )
                 await repository.create_run(
                     base_run.model_copy(
                         update={

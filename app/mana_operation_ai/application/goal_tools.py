@@ -84,6 +84,15 @@ class GoalEvidenceTools:
         return result
 
     async def inspect(self, goal: OperationGoal, allowed_reads: list[str]) -> str:
+        if goal.report_discovery_enabled:
+            payload = json.loads(await self.find_reports(goal, query="", cursor=None))
+            payload.update(
+                allowed_confirmed_reads=allowed_reads,
+                catalog_bounded=True,
+                discovery_available=True,
+                more_references_omitted=payload["next_cursor"] is not None,
+            )
+            return json.dumps(payload, ensure_ascii=False)
         reports = await self.reports(goal)
         sources = [_report_source(report, now=self._clock.now()) for report in reports[:12]]
         return json.dumps(
@@ -122,7 +131,7 @@ class GoalEvidenceTools:
         cursor: str | None,
         capability_key: str | None = None,
     ) -> str:
-        """SQL discovery foundation; not yet exposed as a native model tool."""
+        """Reference-only discovery; the service gates its captured native tool contract."""
         if goal.request.execution_mode != "agent":
             raise ChatError("Поиск отчётов требует рабочей среды агента.")
         agents = (

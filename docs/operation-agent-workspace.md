@@ -64,10 +64,11 @@ component test does not establish feature parity or close the overall goal.
 
 ## Architecture
 
-The local [saved-report discovery foundation](operation-saved-report-discovery.md)
-adds scoped keyset SQL pages beyond the preview's twenty-row fetch. It is not yet
-advertised as a native tool or deployed; explicit new checkpoint/tool compatibility
-and end-to-end discovery/review acceptance remain required. No source refresh is implied.
+The local [saved-report discovery integration](operation-saved-report-discovery.md)
+adds a default-disabled native search tool and scoped keyset SQL pages beyond the
+preview's twenty-row fetch. Its captured v11/v2 contract preserves older tool sets;
+bounded fake SQL/SDK/browser discovery and confirmed continuation passed. It is not
+deployed or real-model/live-source acceptance. No source refresh is implied.
 
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model

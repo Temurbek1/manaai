@@ -31,7 +31,7 @@ from app.mana_operation_ai.infrastructure.persistence.goal_repository import (  
 OWNER = "local-workspace-rollback-audit"
 
 
-async def probe(path: Path, *, stage: str, paused: bool) -> None:
+async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) -> None:
     if stage == "setup" and path.exists():
         raise RuntimeError("Synthetic compatibility setup requires a nonexistent database file")
     database = OperationDatabase(f"sqlite+aiosqlite:///{path}")
@@ -41,7 +41,11 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
         SqlAlchemyGoalRepository(database, clock)
         if stage == "legacy"
         else SqlAlchemyGoalRepository(
-            database, clock, events_enabled=True, limit_extensions_enabled=True
+            database,
+            clock,
+            events_enabled=True,
+            limit_extensions_enabled=True,
+            **({"report_discovery_enabled": True} if catalog else {}),
         )
     )
     try:
@@ -239,6 +243,22 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                                 ),
                             )
                         ]
+                    if catalog:
+                        updated.tools.append(
+                            AgentToolRecord(
+                                call_id=f"synthetic-catalog-{title}",
+                                call=AgentToolCall(
+                                    name="find_saved_reports",
+                                    query="synthetic",
+                                    cursor="synthetic-position-" + "x" * 280,
+                                    catalog_capability="retention.parent_activity.analyze",
+                                ),
+                                status="completed",
+                                started_at=clock.now(),
+                                completed_at=clock.now(),
+                                result="References only; no collection.",
+                            )
+                        )
                     assert await repository.save(OWNER, goal, updated)
             return
 
@@ -304,6 +324,13 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                     continue
                 lost = topic.title == "Native lost"
                 assert goal.limit_tracking
+                assert getattr(goal, "report_discovery_enabled", False) == catalog
+                if catalog:
+                    assert goal.tools[1].call.name == "find_saved_reports"
+                    assert (
+                        goal.tools[1].call.catalog_capability == "retention.parent_activity.analyze"
+                    )
+                    assert goal.tools[1].result == "References only; no collection."
                 assert goal.unsettled_microusd == (90_000 if lost else 0)
                 assert len(goal.limit_grants) == (0 if lost else 1)
                 assert goal.execution_limits.max_steps == (6 if lost else 12)
@@ -367,8 +394,13 @@ def main() -> None:
     parser.add_argument("--database-file", required=True, type=Path)
     parser.add_argument("--stage", choices=("setup", "legacy", "verify"), required=True)
     parser.add_argument("--paused", action="store_true")
+    parser.add_argument("--catalog", action="store_true")
     args = parser.parse_args()
-    asyncio.run(probe(args.database_file.resolve(), stage=args.stage, paused=args.paused))
+    asyncio.run(
+        probe(
+            args.database_file.resolve(), stage=args.stage, paused=args.paused, catalog=args.catalog
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -81,6 +81,7 @@ OPERATION_GOALS_EXTENSION_BUDGET_MICROUSD=500000 \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
+OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
 OPERATION_WORKSPACE_CHAT_STREAMING_ENABLED="${AUDIT_CHAT_STREAMING:-false}" \
 OPERATION_WORKSPACE_EVENTS_ENABLED=true \
 OPERATION_WORKSPACE_STREAM_SECONDS=15 \
@@ -351,6 +352,21 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
     browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0];if(JSON.stringify({id:goal.goal_id,revision:goal.revision,cost:goal.accounted_microusd,steps:goal.steps_used,grants:goal.limit_grants})!==sessionStorage.getItem("limit-completed-baseline"))throw new Error("Reload changed the continued Goal");return "grant and result restored without another call";})()' >/dev/null
     assert_accessible
     echo "Goal limit browser flow passed: exact human grant, same objective, mobile form, CSRF, lost reply without redispatch and result reload"
+  fi
+  if [[ "${AUDIT_REPORT_DISCOVERY:-false}" == true ]]; then
+    browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
+    browser find label "Сообщение агенту" fill 'Найди отчёт в длинном каталоге и прочитай весь текст' >/dev/null
+    browser find role button click --name "Отправить сообщение" --exact >/dev/null
+    browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов") && document.querySelector(".goal-result")?.textContent.includes("EXACT CATALOG FOOTER")' >/dev/null
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0]; if(!goal.report_discovery_enabled || goal.evidence.length!==1 || !goal.evidence[0].summary.endsWith("EXACT CATALOG FOOTER") || goal.evidence[0].shortened || goal.tools.filter(t=>t.call.name==="find_saved_reports").length!==3 || goal.read_attempted || goal.approved_capability || goal.requested_capability || goal.unsettled_microusd) throw new Error("Discovery lost full text or inherited read authority"); sessionStorage.setItem("catalog-result",JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd})); return "three local catalog pages; complete report and review; no source read";})()' >/dev/null
+    browser reload >/dev/null
+    browser wait --fn 'document.querySelector(".goal-result")?.textContent.includes("EXACT CATALOG FOOTER")' >/dev/null
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0]; if(JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd})!==sessionStorage.getItem("catalog-result")) throw new Error("Observation redispatched discovery"); return "result restored without another task/model/source call";})()' >/dev/null
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/catalog-reviewed-result.png" --full >/dev/null
+    fi
+    echo "Catalog browser flow passed: three bounded SQL pages, complete saved text, reviewed result and reload without redispatch"
   fi
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null

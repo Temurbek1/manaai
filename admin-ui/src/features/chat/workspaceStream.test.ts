@@ -106,6 +106,7 @@ describe("workspace stream protocol", () => {
   });
   it.each([
     "find_saved_tasks",
+    "find_saved_reports",
     "read_saved_task",
     "read_saved_report_page",
   ] as const)(

@@ -7,7 +7,7 @@ from app.mana_operation_ai.domain.goals import OperationGoal
 
 
 def continuation_scope_digest(owner: str, goal: OperationGoal) -> str:
-    payload = {
+    payload: dict[str, object] = {
         "owner": owner,
         "goal_id": goal.goal_id,
         "topic_id": goal.topic_id,
@@ -18,6 +18,9 @@ def continuation_scope_digest(owner: str, goal: OperationGoal) -> str:
         if goal.session_memory
         else [],
     }
+    if goal.report_discovery_enabled:
+        # Preserve byte-equivalent pre-discovery scope digests for existing continuations.
+        payload["report_discovery_enabled"] = True
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     ).hexdigest()

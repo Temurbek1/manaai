@@ -31,15 +31,19 @@ chmod 755 "${audit_dir}"
 cd "${project_root}"
 database_file="${audit_dir}/synthetic.db"
 probe_script="${project_root}/scripts/operation_workspace_compatibility_probe.py"
+catalog_args=()
+if [[ "${WORKSPACE_REPORT_DISCOVERY_AUDIT:-false}" == true ]]; then
+  catalog_args=(--catalog)
+fi
 
-.venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup
+.venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {
   audit_docker run --rm --pull never --network none \
     --user "$(id -u):$(id -g)" --workdir /app \
     --mount "type=bind,source=${audit_dir},target=/audit-data" \
     --mount "type=bind,source=${probe_script},target=/audit/probe.py,readonly" \
     --entrypoint python "${legacy_image}" /audit/probe.py \
-    --database-file /audit-data/synthetic.db --stage legacy "$@"
+    --database-file /audit-data/synthetic.db --stage legacy "${catalog_args[@]}" "$@"
 }
 run_current() {
   if [[ -n "${current_image}" ]]; then
@@ -48,17 +52,17 @@ run_current() {
       --mount "type=bind,source=${audit_dir},target=/audit-data" \
       --mount "type=bind,source=${probe_script},target=/audit/probe.py,readonly" \
       --entrypoint python "${current_image}" /audit/probe.py \
-      --database-file /audit-data/synthetic.db --stage verify "$@"
+      --database-file /audit-data/synthetic.db --stage verify "${catalog_args[@]}" "$@"
   fi
 }
 run_legacy
-.venv/bin/python "${probe_script}" --database-file "${database_file}" --stage verify
+.venv/bin/python "${probe_script}" --database-file "${database_file}" --stage verify "${catalog_args[@]}"
 run_current
 export OPERATION_DATABASE_URL="sqlite+aiosqlite:///${database_file}"
 export OPENAI_API_KEY=test-key
 .venv/bin/python scripts/operation_workspace_rollback.py
 .venv/bin/python scripts/operation_workspace_rollback.py --apply-pause --workers-stopped
 run_legacy --paused
-.venv/bin/python "${probe_script}" --database-file "${database_file}" --stage verify --paused
+.venv/bin/python "${probe_script}" --database-file "${database_file}" --stage verify --paused "${catalog_args[@]}"
 run_current --paused
 echo "Workspace application rollback audit passed; no source requests or production changes."

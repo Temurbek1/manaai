@@ -12,11 +12,16 @@ export const GOALS_BASE = "/api/v1/admin/operation/goals";
 type StoredGoal = components["schemas"]["OperationGoal"];
 export type Goal = Omit<
   StoredGoal,
-  "request" | "model_recoveries" | "limit_tracking" | "unsettled_microusd"
+  | "request"
+  | "model_recoveries"
+  | "limit_tracking"
+  | "unsettled_microusd"
+  | "report_discovery_enabled"
 > & {
   limit_tracking?: StoredGoal["limit_tracking"];
   unsettled_microusd?: StoredGoal["unsettled_microusd"];
   model_recoveries?: StoredGoal["model_recoveries"];
+  report_discovery_enabled?: StoredGoal["report_discovery_enabled"];
   request: Omit<
     StoredGoal["request"],
     "execution_mode" | "analysis_scope" | "older_turns_omitted"
@@ -46,6 +51,7 @@ const TOOL_LABELS: Record<
   read_saved_report: "Чтение сохранённого отчёта",
   read_saved_report_page: "Чтение части сохранённого отчёта",
   find_saved_tasks: "Поиск прошлых задач",
+  find_saved_reports: "Поиск сохранённых отчётов",
   read_saved_task: "Чтение прошлого результата",
   request_source_read: "Запрос нового чтения",
   ask_user: "Уточнение задачи",

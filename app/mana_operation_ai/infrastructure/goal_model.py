@@ -87,7 +87,7 @@ class OpenAIGoalModel:
                         "instructions": GOAL_INSTRUCTIONS,
                         "input": items if items is not None else context,
                         "schema": GoalDecisionBody.model_json_schema(),
-                        "tools": agent_function_tools() if self._agent_mode(context) else [],
+                        "tools": self._function_tools(context) if self._agent_mode(context) else [],
                     },
                     ensure_ascii=False,
                 ).encode()
@@ -101,6 +101,16 @@ class OpenAIGoalModel:
             and json.loads(context).get("goal", {}).get("request", {}).get("execution_mode")
             == "agent"
         )
+
+    def _report_discovery_mode(self, context: str) -> bool:
+        return (
+            self._settings.operation_workspace_report_discovery_enabled
+            and self._agent_mode(context)
+            and json.loads(context).get("goal", {}).get("report_discovery_enabled") is True
+        )
+
+    def _function_tools(self, context: str) -> list[FunctionToolParam]:
+        return agent_function_tools(report_discovery_enabled=self._report_discovery_mode(context))
 
     def reservation(self, context: str) -> int:
         if len(context.encode()) > self._settings.operation_goals_max_context_bytes:
@@ -196,7 +206,7 @@ class OpenAIGoalModel:
             ),
         )
         tool_options: ToolRequestOptions = (
-            {"tools": agent_function_tools(), "parallel_tool_calls": False}
+            {"tools": self._function_tools(context), "parallel_tool_calls": False}
             if self._agent_mode(context) and goal.get("phase") != "review"
             else {}
         )
@@ -298,7 +308,9 @@ class OpenAIGoalModel:
                     actual.llm_microusd,
                 )
             try:
-                call = parse_agent_function(name, arguments)
+                call = parse_agent_function(
+                    name, arguments, report_discovery_enabled=self._report_discovery_mode(context)
+                )
             except ValueError:
                 raise GoalModelResponseError(
                     "Аргументы инструмента не прошли проверку. Ничего не выполнялось.",

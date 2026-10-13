@@ -96,6 +96,84 @@ async def test_postgres_saved_report_catalog_keyset_json_literal_and_scope_fence
         await database.dispose()
 
 
+async def test_postgres_catalog_v11_capture_cursor_restart_and_legacy_projection() -> None:
+    from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
+    from app.mana_operation_ai.infrastructure.persistence.goal_repository import (
+        SqlAlchemyGoalRepository,
+    )
+    from app.mana_operation_ai.infrastructure.persistence.models import GoalRow
+    from tests.legacy_goal_contract import LegacyGoal
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    clock = Clock()
+    repository = SqlAlchemyGoalRepository(
+        database, clock, report_discovery_enabled=True, limit_extensions_enabled=True
+    )
+    chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
+    owner = f"catalog-owner-{uuid4()}"
+    try:
+        await chats.initialize()
+        topic = await chats.create(
+            owner, TopicCreate(agent_id="operations-orchestrator", product="mana", title="Catalog")
+        )
+        goal = await repository.create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Keep the original MANA parent analysis",
+                execution_mode="agent",
+            ),
+        )
+        before = SqlAlchemyGoalRepository._storage(goal)
+        assert (
+            before["workspace_payload"] is not None and before["workspace_payload"]["version"] == 11
+        )
+        changed = goal.model_copy(
+            update={
+                "tools": [
+                    AgentToolRecord(
+                        call_id="pg-catalog",
+                        call=AgentToolCall(
+                            name="find_saved_reports",
+                            query="",
+                            cursor="synthetic-position-" + "x" * 280,
+                            catalog_capability="retention.parent_activity.analyze",
+                        ),
+                        status="completed",
+                        started_at=clock.now(),
+                        completed_at=clock.now(),
+                        result="References only; no new source read",
+                    )
+                ],
+                "accounted_microusd": 50000,
+                "unsettled_microusd": 50000,
+                "status": "waiting",
+            }
+        )
+        assert await repository.save(owner, goal, changed)
+        restored = await SqlAlchemyGoalRepository(database, clock).get(owner, goal.goal_id)
+        assert restored.report_discovery_enabled and restored.request == goal.request
+        assert restored.tools[0].call.cursor == changed.tools[0].call.cursor
+        assert restored.requested_capability is None and not restored.read_attempted
+        assert restored.unsettled_microusd == restored.accounted_microusd == 50000
+        with pytest.raises(ChatError):
+            await repository.save(
+                owner, restored, restored.model_copy(update={"report_discovery_enabled": False})
+            )
+        async with database.session_factory() as session:
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row is not None and row.workspace_payload is not None
+            assert (
+                row.workspace_payload["version"] == 11
+                and "report_discovery_enabled" not in row.payload
+            )
+            assert LegacyGoal.model_validate(row.payload).status == "cancelled"
+    finally:
+        await database.dispose()
+
+
 async def test_postgres_limit_grant_v10_atomic_replay_unknown_hold_and_read_fence() -> None:
     from app.mana_operation_ai.domain.first_party_analytics import CHILD_TELEMETRY_CAPABILITY
     from app.mana_operation_ai.infrastructure.persistence.models import GoalRow

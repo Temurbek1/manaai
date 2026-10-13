@@ -640,6 +640,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.operation_agent_workspace_enabled
             and settings.operation_goal_limit_extensions_enabled
         ),
+        report_discovery_enabled=(
+            settings.operation_agent_workspace_enabled
+            and settings.operation_workspace_report_discovery_enabled
+        ),
     )
     app.state.operation_workspace_events = WorkspaceEventService(
         SqlAlchemyWorkspaceEvents(operation_database),
@@ -710,6 +714,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         clock=clock,
         max_context_bytes=settings.operation_goals_max_context_bytes,
         global_kill_switch_default=settings.operation_global_kill_switch,
+        report_discovery_enabled=(
+            settings.operation_agent_workspace_enabled
+            and settings.operation_workspace_report_discovery_enabled
+        ),
         session_context=session_context,
         availability=GoalAvailability(
             enabled=settings.operation_goals_enabled and settings.is_openai_configured,

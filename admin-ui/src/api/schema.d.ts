@@ -2650,13 +2650,15 @@ export interface components {
         AgentToolCall: {
             /** Capability */
             capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze") | null;
+            /** Catalog Capability */
+            catalog_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze") | null;
             /** Cursor */
             cursor?: string | null;
             /**
              * Name
              * @enum {string}
              */
-            name: "inspect_sources" | "read_saved_report" | "read_saved_report_page" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
+            name: "inspect_sources" | "read_saved_report" | "read_saved_report_page" | "find_saved_tasks" | "find_saved_reports" | "read_saved_task" | "request_source_read" | "ask_user";
             /** Offset */
             offset?: number | null;
             /** Options */
@@ -5455,8 +5457,9 @@ export interface components {
             /**
              * Protocol
              * @default goal-model-continuation-v1
+             * @enum {string}
              */
-            protocol: string;
+            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2";
             /** Scope Digest */
             scope_digest: string;
         };
@@ -5581,6 +5584,11 @@ export interface components {
              * @default false
              */
             read_attempted: boolean;
+            /**
+             * Report Discovery Enabled
+             * @default false
+             */
+            report_discovery_enabled: boolean;
             request: components["schemas"]["GoalCreate"];
             /** Requested Capability */
             requested_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze") | null;
@@ -7636,7 +7644,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "inspect_sources" | "read_saved_report" | "read_saved_report_page" | "find_saved_tasks" | "read_saved_task" | "request_source_read" | "ask_user";
+            name: "inspect_sources" | "read_saved_report" | "read_saved_report_page" | "find_saved_tasks" | "find_saved_reports" | "read_saved_task" | "request_source_read" | "ask_user";
             /**
              * Status
              * @enum {string}

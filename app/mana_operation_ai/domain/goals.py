@@ -178,6 +178,8 @@ class OperationGoal(ChatModel):
     limit_grants: list[GoalLimitGrant] = Field(default_factory=list, max_length=20)
     limit_tracking: bool = False
     unsettled_microusd: int = Field(default=0, ge=0)
+    # Captured by the server on creation; never a source permission or public create option.
+    report_discovery_enabled: bool = Field(default=False, strict=True)
 
     @property
     def execution_limits(self) -> GoalExecutionLimits:
@@ -192,6 +194,8 @@ class OperationGoal(ChatModel):
 
     @model_validator(mode="after")
     def validate_limit_grants(self) -> "OperationGoal":
+        if self.report_discovery_enabled and self.request.execution_mode != "agent":
+            raise ValueError("Saved-report discovery requires the native workspace")
         if not self.limit_tracking and len(self.tools) > 12:
             raise ValueError("Legacy and untracked Goal tool journals remain limited to twelve")
         if (

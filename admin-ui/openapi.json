@@ -2151,10 +2151,28 @@
             ],
             "title": "Capability"
           },
+          "catalog_capability": {
+            "anyOf": [
+              {
+                "enum": [
+                  "retention.engagement.analyze",
+                  "growth.funnel.analyze",
+                  "retention.parents.analyze",
+                  "retention.parent_activity.analyze",
+                  "retention.child_telemetry.analyze"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Capability"
+          },
           "cursor": {
             "anyOf": [
               {
-                "maxLength": 36,
+                "maxLength": 1024,
                 "minLength": 1,
                 "type": "string"
               },
@@ -2170,6 +2188,7 @@
               "read_saved_report",
               "read_saved_report_page",
               "find_saved_tasks",
+              "find_saved_reports",
               "read_saved_task",
               "request_source_read",
               "ask_user"
@@ -9819,7 +9838,7 @@
           "pending_tool_position": {
             "anyOf": [
               {
-                "maximum": 11.0,
+                "maximum": 119.0,
                 "minimum": 0.0,
                 "type": "integer"
               },
@@ -9831,6 +9850,10 @@
           },
           "protocol": {
             "default": "goal-model-continuation-v1",
+            "enum": [
+              "goal-model-continuation-v1",
+              "goal-model-continuation-v2"
+            ],
             "title": "Protocol",
             "type": "string"
           },
@@ -10181,6 +10204,11 @@
           "read_attempted": {
             "default": false,
             "title": "Read Attempted",
+            "type": "boolean"
+          },
+          "report_discovery_enabled": {
+            "default": false,
+            "title": "Report Discovery Enabled",
             "type": "boolean"
           },
           "request": {
@@ -15595,6 +15623,7 @@
               "read_saved_report",
               "read_saved_report_page",
               "find_saved_tasks",
+              "find_saved_reports",
               "read_saved_task",
               "request_source_read",
               "ask_user"

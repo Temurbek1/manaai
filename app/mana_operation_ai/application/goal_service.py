@@ -98,6 +98,11 @@ Do not make an accepted decision when evidence is shortened or a relevant prereq
 In agent execution mode, use the supplied native tools to investigate rather than assuming
 sources are absent. inspect_sources lists verified saved reports and available read capabilities;
 read_saved_report obtains minimized evidence. These local tools need no external-read approval.
+When goal.report_discovery_enabled=true, inspect_sources is only a bounded SQL preview.
+Use find_saved_reports to find older sources or follow next_cursor. Keep the literal query and
+catalog_capability unchanged while paging; null cursor starts a different search. Empty pages
+with next_cursor do not prove absence. References are not loaded evidence: read the original
+saved reports before citing facts. Do not collect a provider merely to retrieve stored reports.
 If its text is shortened, read_saved_report_page starts at offset 0 and then follows the exact
 next_offset until goal.evidence contains the full report. A partial page cannot complete an
 analysis; full text does not prove complete population/payment coverage or current freshness.
@@ -154,6 +159,7 @@ class OperationGoalService:
         auth: AdminAuthRepository | None = None,
         session_context: SessionContextReader | None = None,
         continuing_model: ContinuingGoalModel | None = None,
+        report_discovery_enabled: bool = False,
     ) -> None:
         self.repository = repository
         self._chats = chats
@@ -167,6 +173,7 @@ class OperationGoalService:
         self._tools = GoalEvidenceTools(admin, clock, repository)
         self._session_context = session_context
         self._continuing_model = continuing_model
+        self._report_discovery_enabled = report_discovery_enabled
 
     async def _access(self, owner: str) -> None:
         if self._auth is not None:
@@ -375,6 +382,8 @@ class OperationGoalService:
                 and not self.availability.agent_workspace_enabled
             ):
                 raise ChatError("Рабочий режим агента отключён. История и результат сохранены.")
+            if goal.report_discovery_enabled and not self._report_discovery_enabled:
+                raise ChatError("Поиск сохранённых отчётов временно отключён. История сохранена.")
             if (
                 await self._admin.repository.get_control(
                     "global_kill_switch", default=self._global_kill_switch_default
@@ -571,6 +580,10 @@ class OperationGoalService:
                     or goal.phase == "review"
                 ):
                     raise ChatError("Инструмент недоступен на этом шаге.")
+                if output.decision.tool_call.name == "find_saved_reports" and not (
+                    goal.report_discovery_enabled and self._report_discovery_enabled
+                ):
+                    raise ChatError("Поиск не включён для этой сохранённой цели.")
                 # Persist the invocation before tool execution. Revision controls win.
                 record = AgentToolRecord(
                     call_id=f"{goal.goal_id}:{goal.steps_used}",
@@ -781,6 +794,16 @@ class OperationGoalService:
                 record.result = await self._tools.find_tasks(
                     owner, goal, query=call.query, cursor=call.cursor
                 )
+            elif call.name == "find_saved_reports":
+                if not goal.report_discovery_enabled or not self._report_discovery_enabled:
+                    raise ChatError("Поиск не включён для этой сохранённой цели.")
+                assert call.query is not None
+                record.result = await self._tools.find_reports(
+                    goal,
+                    query=call.query,
+                    cursor=call.cursor,
+                    capability_key=call.catalog_capability,
+                )
             elif call.name == "read_saved_task":
                 assert call.task_id is not None and call.offset is not None
                 record.result = await self._tools.read_task(owner, goal, call.task_id, call.offset)
@@ -821,6 +844,7 @@ class OperationGoalService:
                     "read_saved_report": "Прочитал сохранённую сводку.",
                     "read_saved_report_page": "Прочитал часть сохранённого отчёта.",
                     "find_saved_tasks": "Проверил прошлые задачи этой темы.",
+                    "find_saved_reports": "Проверил каталог сохранённых отчётов.",
                     "read_saved_task": "Прочитал сохранённый результат прошлой задачи.",
                     "request_source_read": "Запрошено подтверждение чтения; источник не читался.",
                     "ask_user": "Нужно ваше уточнение.",
