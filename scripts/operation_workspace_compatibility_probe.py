@@ -222,7 +222,7 @@ async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) 
                         }
                     )
                     if not lost:
-                        text = "Synthetic complete report: " + "x" * 5200 + " EXACT FOOTER"
+                        text = "Synthetic complete report: " + "x" * 5200 + " EXACT FOOTER \t\n"
                         digest = hashlib.sha256(text.encode()).hexdigest()
                         updated.evidence = [
                             GoalEvidence(
@@ -363,7 +363,7 @@ async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) 
                 assert "test-compat-private-model-state" in goal.model_continuation.payload
                 assert goal.model_continuation.compactions == 1
                 if not lost:
-                    assert goal.evidence[0].summary.endswith("EXACT FOOTER")
+                    assert goal.evidence[0].summary.endswith("EXACT FOOTER \t\n")
                     assert len(goal.evidence[0].summary) > 5000
                     assert goal.evidence[0].report_read_progress is not None
                     assert not goal.evidence[0].shortened

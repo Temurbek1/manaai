@@ -4,6 +4,12 @@ Status: **local native integration, default disabled; not deployed**.
 Production remains `a7752dc`. The broad Codex/Claude workspace objective remains
 open; this checkpoint does not activate the deployed catalog or prove live model quality.
 
+The later [catalog-quality diagnostic](operation-catalog-quality-checkpoint.md)
+loaded all exact synthetic source text, but its seven-call real-model attempt
+stopped on budget before analysis/review. It does not satisfy the remaining full
+analytical acceptance. That checkpoint also fixes source-whitespace preservation
+locally and strengthens the actual legacy rollback probe; neither is deployed.
+
 ## Observed gap
 
 The pre-discovery `GoalEvidenceTools.reports()` fetches twenty latest reports per agent,

@@ -129,6 +129,13 @@
   Only the closed `2ea7b9a` fallback with execution disabled is verified for v11/v2;
   `a7752dc` cannot execute it. Release the compatible stream UI with the backend. See
   `docs/operation-saved-report-discovery.md` for actual local checks and remaining acceptance.
+- Goal evidence retains exact source whitespace for fingerprinted saved-text receipts;
+  never trim a fixture/source to make contiguous paging pass. The independent local
+  catalog diagnostic loaded the entire source but stopped on budget before analysis/review;
+  it is not full quality acceptance. Do not replay it or replace its original receipt
+  with a pass. Lossless runtime snapshot replacement/exact token preflight are not
+  implemented. See `docs/operation-catalog-quality-checkpoint.md` for the measured trace
+  and unchanged production boundary.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

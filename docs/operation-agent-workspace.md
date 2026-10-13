@@ -70,6 +70,13 @@ preview's twenty-row fetch. Its captured v11/v2 contract preserves older tool se
 bounded fake SQL/SDK/browser discovery and confirmed continuation passed. It is not
 deployed or real-model/live-source acceptance. No source refresh is implied.
 
+The subsequent [independent catalog-quality checkpoint](operation-catalog-quality-checkpoint.md)
+found and loaded the complete synthetic report in seven verified real-model calls,
+then stopped at conservative budget admission ($0.259170 estimated known cost,
+no unknown hold or source request). It did **not** complete numerical analysis or
+review. Exact saved-text whitespace is fixed locally; safe lossless runtime-context
+replacement remains future work, not a reason to weaken budgets or shorten objectives.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

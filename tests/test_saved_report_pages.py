@@ -33,6 +33,33 @@ REPORT_ID = "paged-synthetic-report"
 TEXT = "Synthetic minimized source. " + "р" * 8100 + " EXACT FOOTER: fixture only, not payments."
 
 
+async def test_saved_text_preserves_whitespace_at_start_page_boundary_and_tail(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    configure_workspace(monkeypatch, tmp_path / "exact-whitespace.db")
+    app = create_app()
+    text = "\n " + "x" * 3995 + " \n " + "y" * 4000 + "\n FINAL FOOTER \t\n"
+    async with app.router.lifespan_context(app):
+        goal = await setup_goal(app, text=text)
+        service = app.state.operation_goal_service
+        offset = 0
+        while True:
+            evidence, receipt = await service._tools.read_page(goal, REPORT_ID, offset)
+            goal.evidence = [evidence]
+            value = json.loads(receipt)
+            if value["next_offset"] is None:
+                break
+            offset = value["next_offset"]
+        assert goal.evidence[0].summary == text and not goal.evidence[0].shortened
+        saved = await service.repository.get("alice", goal.goal_id)
+        assert await service.repository.save("alice", saved, goal)
+        restored = await service.repository.get("alice", goal.goal_id)
+        assert restored.evidence[0].summary == text
+        assert restored.evidence[0].report_read_progress is not None
+        assert restored.evidence[0].report_read_progress.next_offset == len(text)
+    get_settings.cache_clear()
+
+
 class PageModel(GoalFake):
     async def decide(self, *, context: str, owner: str) -> GoalModelOutput:
         goal = OperationGoal.model_validate(json.loads(context)["goal"])

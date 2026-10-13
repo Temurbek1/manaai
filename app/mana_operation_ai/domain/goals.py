@@ -2,10 +2,10 @@
 
 import hashlib
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, StringConstraints, model_validator
 
 from app.mana_operation_ai.domain.agent_tools import (
     AgentToolCall,
@@ -116,7 +116,8 @@ class GoalEvidence(ChatModel):
     collected_at: datetime | None
     fresh_until: datetime | None
     refresh_status: Literal["live", "cached", "stale", "unknown"]
-    summary: str = Field(max_length=32000)
+    # Saved-text receipts hash exact source characters, including whitespace boundaries.
+    summary: Annotated[str, StringConstraints(strip_whitespace=False)] = Field(max_length=32000)
     limitations: list[str] = Field(default_factory=list, max_length=10)
     shortened: bool = False
     report_read_progress: ReportReadProgress | None = None
