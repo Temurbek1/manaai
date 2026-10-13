@@ -33,6 +33,8 @@ def configure_operation_env(
     monkeypatch.setenv("META_ACCESS_TOKEN", "")
     monkeypatch.setenv("MARKETING_DATABASE_PATH", str(database_path))
     monkeypatch.setenv("OPERATION_ADS_PROVIDER", "fake_meta")
+    monkeypatch.setenv("OPERATION_PARENT_ANALYTICS_ENABLED", "false")
+    monkeypatch.setenv("OPERATION_CHILD_TELEMETRY_ENABLED", "false")
     monkeypatch.setenv("OPERATION_DRY_RUN", "true" if dry_run else "false")
     monkeypatch.setenv("OPERATION_SCHEDULER_ENABLED", "false")
     monkeypatch.setenv("OPERATION_ALLOW_SELF_APPROVAL", "false")

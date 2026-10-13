@@ -15,6 +15,7 @@ from app.mana_operation_ai.application.model_continuation import continuation_sc
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.agent_tools import REPORT_PAGE_TOOL, TASK_HISTORY_TOOLS
 from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
+from app.mana_operation_ai.domain.first_party_analytics import FIRST_PARTY_CAPABILITIES
 from app.mana_operation_ai.domain.goals import (
     GoalCommand,
     GoalCreate,
@@ -35,7 +36,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -71,23 +72,31 @@ def _goal(row: GoalRow) -> OperationGoal:
         goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
     )
     paged_reports = _paged_reports(goal)
+    manual_reads = _manual_reads(goal)
     if (
-        (checkpoint.version == 8) != paged_reports
+        (checkpoint.version == 9) != manual_reads
+        or (manual_reads and goal.request.execution_mode != "agent")
+        or (checkpoint.version == 8) != (paged_reports and not manual_reads)
         or (checkpoint.version == 5)
-        != (not paged_reports and extended_context and continuation is None)
-        or (checkpoint.version == 7) != (not paged_reports and format_feedback)
+        != (not manual_reads and not paged_reports and extended_context and continuation is None)
+        or (checkpoint.version == 7) != (not manual_reads and not paged_reports and format_feedback)
         or (checkpoint.version == 6)
-        != (not paged_reports and continuation is not None and not format_feedback)
+        != (
+            not manual_reads
+            and not paged_reports
+            and continuation is not None
+            and not format_feedback
+        )
         or (
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8)
+            checkpoint.version in (5, 6, 7, 8, 9)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
-        or (checkpoint.version not in (5, 6, 7, 8) and checkpoint.analysis_scope is not None)
+        or (checkpoint.version not in (5, 6, 7, 8, 9) and checkpoint.analysis_scope is not None)
         or (
-            checkpoint.version not in (5, 6, 7, 8)
+            checkpoint.version not in (5, 6, 7, 8, 9)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (checkpoint.version == 1 and memory is not None)
@@ -119,6 +128,14 @@ def _goal(row: GoalRow) -> OperationGoal:
     if row.workspace_status != goal.status or row.revision != goal.revision:
         raise ChatError("Сохранённая цель требует проверки совместимости версии.", 503)
     return goal
+
+
+def _manual_reads(goal: OperationGoal) -> bool:
+    return (
+        goal.requested_capability in FIRST_PARTY_CAPABILITIES
+        or goal.approved_capability in FIRST_PARTY_CAPABILITIES
+        or any(record.call.capability in FIRST_PARTY_CAPABILITIES for record in goal.tools)
+    )
 
 
 def _extended_context(goal: OperationGoal) -> bool:
@@ -233,6 +250,7 @@ class SqlAlchemyGoalRepository:
             or goal.tools
             or goal.session_memory is not None
             or goal.model_continuation is not None
+            or _manual_reads(goal)
             or "retention.parents.analyze" in (goal.requested_capability, goal.approved_capability)
         )
 
@@ -245,6 +263,7 @@ class SqlAlchemyGoalRepository:
             goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
         )
         paged_reports = _paged_reports(goal)
+        manual_reads = _manual_reads(goal)
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -254,7 +273,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=8
+                version=9
+                if manual_reads
+                else 8
                 if paged_reports
                 else 7
                 if format_feedback
@@ -270,7 +291,7 @@ class SqlAlchemyGoalRepository:
                 if goal.session_memory is not None
                 else 1,
                 analysis_scope=goal.request.analysis_scope
-                if extended_context or continuation or paged_reports
+                if extended_context or continuation or paged_reports or manual_reads
                 else None,
                 goal=goal,
             ).model_dump(
@@ -278,7 +299,10 @@ class SqlAlchemyGoalRepository:
                 exclude={
                     **(
                         {"analysis_scope": True}
-                        if not extended_context and not continuation and not paged_reports
+                        if not extended_context
+                        and not continuation
+                        and not paged_reports
+                        and not manual_reads
                         else {}
                     ),
                     "goal": {

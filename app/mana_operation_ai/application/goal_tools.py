@@ -5,6 +5,7 @@ import json
 from typing import Literal
 
 from app.mana_operation_ai.application.admin_service import OperationAdminService
+from app.mana_operation_ai.application.analytics_scope import shared_mana_analytics
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.chat_service import _report_source, _verified_report_product
 from app.mana_operation_ai.application.goal_ports import GoalRepository
@@ -57,7 +58,7 @@ class GoalEvidenceTools:
         agents = (
             ["growth-agent", "retention-agent"]
             if goal.agent_id == "operations-orchestrator"
-            else [goal.agent_id]
+            else list(dict.fromkeys([goal.agent_id, "retention-agent"]))
         )
         result: list[AgentReport] = []
         for agent in agents:
@@ -65,7 +66,14 @@ class GoalEvidenceTools:
                 agent_id=agent, capability_key=None, limit=20, offset=0
             )
             result.extend(
-                report for report in reports if _verified_report_product(report) == goal.product
+                report
+                for report in reports
+                if _verified_report_product(report) == goal.product
+                and (
+                    report.agent_id == goal.agent_id
+                    or goal.agent_id == "operations-orchestrator"
+                    or shared_mana_analytics(report)
+                )
             )
         return result
 
@@ -130,7 +138,7 @@ class GoalEvidenceTools:
         )
         if (
             report is None
-            or report.agent_id not in allowed_agents
+            or (report.agent_id not in allowed_agents and not shared_mana_analytics(report))
             or _verified_report_product(report) != goal.product
         ):
             raise ChatError("Отчёт недоступен в проверенной области этого приложения.")

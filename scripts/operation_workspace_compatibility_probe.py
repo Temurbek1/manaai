@@ -62,12 +62,17 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
 
             await database.create_schema()
             await chats.initialize()
-            for title in ("Native queued", "Native lost", "Legacy"):
+            for title in ("Native queued", "Native lost", "Native manual", "Legacy"):
                 topic = await chats.create(
                     OWNER,
                     TopicCreate(agent_id="operations-orchestrator", product="mana", title=title),
                 )
                 native = title != "Legacy"
+                capability = (
+                    "retention.parent_activity.analyze"
+                    if title == "Native manual"
+                    else "retention.parents.analyze"
+                )
                 request = GoalCreate(
                     request_id=uuid4(),
                     objective="Synthetic compatibility task; no customer data or provider I/O.",
@@ -161,13 +166,11 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                                 "id": "fc_compat",
                                 "call_id": "call_compat",
                                 "name": "request_source_read",
-                                "arguments": '{"capability":"retention.parents.analyze"}',
+                                "arguments": '{"capability":"' + capability + '"}',
                             },
                         ],
                         model="compatibility-fake",
-                        call=AgentToolCall(
-                            name="request_source_read", capability="retention.parents.analyze"
-                        ),
+                        call=AgentToolCall(name="request_source_read", capability=capability),
                         maximum_bytes=192000,
                     )
                     updated = goal.model_copy(
@@ -185,14 +188,14 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                             if not lost
                             else None,
                             "model_recoveries": 1 if not lost else 0,
-                            "requested_capability": None if lost else "retention.parents.analyze",
-                            "approved_capability": None if lost else "retention.parents.analyze",
+                            "requested_capability": None if lost else capability,
+                            "approved_capability": None if lost else capability,
                             "tools": [
                                 AgentToolRecord(
                                     call_id=f"synthetic-{title}",
                                     call=AgentToolCall(
                                         name="request_source_read",
-                                        capability="retention.parents.analyze",
+                                        capability=capability,
                                     ),
                                     status="started" if lost else "awaiting_approval",
                                     started_at=clock.now(),
@@ -226,7 +229,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
             return
 
         topics = await chats.topics(OWNER)
-        assert len(topics) == 3
+        assert len(topics) == 4
         if stage == "legacy":
             # This process imports the real old image's strict models and repository.
             for topic in topics:
@@ -328,7 +331,11 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                     "unknown" if lost and paused else "started" if lost else "awaiting_approval"
                 )
                 assert goal.approved_capability == (
-                    None if paused or lost else "retention.parents.analyze"
+                    None
+                    if paused or lost
+                    else "retention.parent_activity.analyze"
+                    if topic.title == "Native manual"
+                    else "retention.parents.analyze"
                 )
             if paused:
                 assert await repository.claim() is None

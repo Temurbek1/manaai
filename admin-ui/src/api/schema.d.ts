@@ -2649,7 +2649,7 @@ export interface components {
         /** AgentToolCall */
         AgentToolCall: {
             /** Capability */
-            capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
+            capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze") | null;
             /** Cursor */
             cursor?: string | null;
             /**
@@ -4267,7 +4267,7 @@ export interface components {
              */
             model_selection_enabled: boolean;
             /** Read Capabilities */
-            read_capabilities: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze")[];
+            read_capabilities: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze")[];
             /** Read Product */
             read_product?: ("mana" | "360rec") | null;
             /** Read Products */
@@ -5493,7 +5493,7 @@ export interface components {
             /** Agent Id */
             agent_id: string;
             /** Approved Capability */
-            approved_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
+            approved_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze") | null;
             /**
              * Created At
              * Format: date-time
@@ -5538,7 +5538,7 @@ export interface components {
             read_attempted: boolean;
             request: components["schemas"]["GoalCreate"];
             /** Requested Capability */
-            requested_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze") | null;
+            requested_capability?: ("retention.engagement.analyze" | "growth.funnel.analyze" | "retention.parents.analyze" | "retention.parent_activity.analyze" | "retention.child_telemetry.analyze") | null;
             /**
              * Result
              * @default

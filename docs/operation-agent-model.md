@@ -202,6 +202,12 @@ must not cross into MANA OPERATION AI merely to improve business analytics.
 
 ## Agents must perform actions
 
+The 2026-10-13 local [manual analytics checkpoint](operation-manual-analytics.md)
+adds two Retention-owned read-only capabilities for shared MANA evidence. Parent
+GA4 activity/cohorts and child-device Firestore prefix samples remain separate.
+Both default disabled, manual-only and not deployed; no source/schedule activation,
+full Orchestrator or Technical execution is implied.
+
 Analysis-only agents do not satisfy the product goal. Every domain agent must eventually support
 safe actions appropriate to its authority. An action is complete only when the platform can prove
 the full lifecycle:

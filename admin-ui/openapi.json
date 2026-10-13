@@ -2139,7 +2139,9 @@
                 "enum": [
                   "retention.engagement.analyze",
                   "growth.funnel.analyze",
-                  "retention.parents.analyze"
+                  "retention.parents.analyze",
+                  "retention.parent_activity.analyze",
+                  "retention.child_telemetry.analyze"
                 ],
                 "type": "string"
               },
@@ -6409,7 +6411,9 @@
               "enum": [
                 "retention.engagement.analyze",
                 "growth.funnel.analyze",
-                "retention.parents.analyze"
+                "retention.parents.analyze",
+                "retention.parent_activity.analyze",
+                "retention.child_telemetry.analyze"
               ],
               "type": "string"
             },
@@ -6443,7 +6447,9 @@
               "enum": [
                 "retention.engagement.analyze",
                 "growth.funnel.analyze",
-                "retention.parents.analyze"
+                "retention.parents.analyze",
+                "retention.parent_activity.analyze",
+                "retention.child_telemetry.analyze"
               ]
             },
             "title": "Read Products",
@@ -9942,7 +9948,9 @@
                 "enum": [
                   "retention.engagement.analyze",
                   "growth.funnel.analyze",
-                  "retention.parents.analyze"
+                  "retention.parents.analyze",
+                  "retention.parent_activity.analyze",
+                  "retention.child_telemetry.analyze"
                 ],
                 "type": "string"
               },
@@ -10075,7 +10083,9 @@
                 "enum": [
                   "retention.engagement.analyze",
                   "growth.funnel.analyze",
-                  "retention.parents.analyze"
+                  "retention.parents.analyze",
+                  "retention.parent_activity.analyze",
+                  "retention.child_telemetry.analyze"
                 ],
                 "type": "string"
               },

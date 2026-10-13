@@ -29,6 +29,11 @@ const LABELS: Record<string, string> = {
   "growth.funnel.analyze": "Воронка продаж",
   "retention.engagement.analyze": "Вовлечённость пользователей",
   "retention.parents.analyze": "Родители MANA — тарифы и подключения",
+  "retention.parent_activity.analyze": "Активность родителей MANA · GA4",
+  "retention.child_telemetry.analyze": "Устройства детей MANA · выборка",
+  mana_first_party_analytics: "Аналитика приложения MANA",
+  mana_ga4_parent_analytics: "GA4 · родительское приложение MANA",
+  mana_firestore_child_telemetry: "Firestore · устройства детей MANA",
   mana_parent_summary: "Сводка родителей MANA",
   manakids_parent_api: "Parent API · только MANA",
   registered: "Зарегистрирован",
@@ -139,6 +144,10 @@ const DESCRIPTIONS: Record<string, string> = {
     "Активность пользователей и качество данных. Без отправки сообщений и изменения подписок.",
   "retention.parents.analyze":
     "Ручная ограниченная выборка родителей только MANA. Текущий тариф может быть бесплатным; это не история платежей и не оценка оттока.",
+  "retention.parent_activity.analyze":
+    "По подтверждению: активность родительского GA4-потока, когортное удержание и push-воронка. Без истории платежей и автоматического обновления.",
+  "retention.child_telemetry.analyze":
+    "По подтверждению: до 100 записей батареи и до 100 записей геопозиции детей. Только сводка качества данных, не вся база и не активность родителей.",
 };
 
 export function descriptionFor(value: string): string {

@@ -4,6 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -226,6 +227,20 @@ class Settings(BaseSettings):
     operation_firestore_document_usd_per_100k: Decimal = Field(default=Decimal("0.06"), ge=0)
     operation_firestore_response_usd_per_gib: Decimal = Field(default=Decimal("0.12"), ge=0)
     ga4_product_stream_ids: list[str] = Field(default_factory=list)
+    operation_parent_analytics_enabled: bool = False
+    operation_child_telemetry_enabled: bool = False
+    operation_parent_analytics_binding_revision: str = Field(
+        default="unverified", min_length=1, max_length=80, pattern=r"^[a-z0-9_.-]+$"
+    )
+    operation_child_telemetry_binding_revision: str = Field(
+        default="unverified", min_length=1, max_length=80, pattern=r"^[a-z0-9_.-]+$"
+    )
+    ga4_parent_stream_id: str | None = Field(default=None, pattern=r"^[0-9]+$")
+    ga4_parent_property_timezone: str | None = None
+    firebase_child_sample_limit: int = Field(default=100, ge=1, le=100)
+    firebase_child_precise_accuracy_meters: Decimal = Field(
+        default=Decimal("100"), gt=0, le=10000, allow_inf_nan=False
+    )
     operation_viewer_api_key: SecretStr | None = None
     operation_operator_api_key: SecretStr | None = None
     operation_approver_api_key: SecretStr | None = None
@@ -558,6 +573,28 @@ class Settings(BaseSettings):
                 )
             if not self.ga4_service_account_file.is_file():
                 raise ValueError("GA4_SERVICE_ACCOUNT_FILE must reference a readable file")
+        if self.operation_parent_analytics_enabled and (
+            self.operation_parent_analytics_binding_revision == "unverified"
+            or self.ga4_property_id is None
+            or self.ga4_parent_stream_id is None
+            or self.ga4_parent_property_timezone is None
+            or self.ga4_service_account_file is None
+            or not self.ga4_service_account_file.is_file()
+        ):
+            raise ValueError(
+                "Manual parent analytics requires an approved revision, GA4 property, "
+                "parent stream, property timezone and readable service-account file"
+            )
+        if self.operation_child_telemetry_enabled and (
+            self.operation_child_telemetry_binding_revision == "unverified"
+            or self.firebase_project_id is None
+            or self.firebase_service_account_file is None
+            or not self.firebase_service_account_file.is_file()
+        ):
+            raise ValueError(
+                "Manual child telemetry requires an approved revision, Firebase project "
+                "and readable service-account file; public-rule reads are not used"
+            )
         if self.firebase_operational_telemetry_enabled:
             if self.operation_product_activity_provider == "fake":
                 raise ValueError(
@@ -659,6 +696,17 @@ class Settings(BaseSettings):
             raise ValueError("GA4 product streams must be at most 20 numeric stream IDs")
         if len(value) != len(set(value)):
             raise ValueError("GA4 product stream IDs must be distinct")
+        return value
+
+    @field_validator("ga4_parent_property_timezone")
+    @classmethod
+    def validate_parent_property_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError("GA4 parent timezone must be an explicit IANA timezone") from exc
         return value
 
     @field_validator(

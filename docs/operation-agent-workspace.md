@@ -60,6 +60,14 @@ component test does not establish feature parity or close the overall goal.
 
 ## Architecture
 
+The 2026-10-13 [manual first-party analytics checkpoint](operation-manual-analytics.md)
+adds default-disabled, independently bound GA4 parent activity and Firestore child
+telemetry tools. Local final verification: 879 backend/127 UI tests, 16 isolated
+PostgreSQL cases including v9 restart/unknown-cost fencing, scoped native browser
+regression and actual networkless legacy rollback passed. The 43 new adapter/workspace
+cases use fake transports only. Production release/source activation is a separate
+approved next step; no automatic refresh or full-goal completion is implied.
+
 Exactly four top-level rooms remain. The shared workspace is infrastructure,
 not a fifth agent or a claim that full Orchestrator/Technical handlers are built.
 It may delegate read-only work from the Orchestrator room without moving the user.

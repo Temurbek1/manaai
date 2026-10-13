@@ -123,6 +123,9 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_actions import (
 from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
     SqlAlchemyWorkspaceEvents,
 )
+from app.mana_operation_ai.infrastructure.retention.analytics_runtime import (
+    register_manual_analytics,
+)
 from app.mana_operation_ai.infrastructure.retention.fake import (
     FakeBackendActivityAdapter,
     FakeMobileActivityAdapter,
@@ -466,6 +469,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
         ),
     )
+    manual_analytics_reads = register_manual_analytics(
+        settings=settings,
+        registry=retention_capability_registry,
+        ledger=cost_ledger,
+        shared_reader=shared_data_reader,
+        repository=operation_repository,
+        clock=clock,
+        ids=ids,
+        clients=first_party_http_clients,
+    )
     agent_registry = AgentRegistry()
     parent_source: ParentSummaryPort = UnavailableParentSummaryAdapter()
     if settings.manakids_parent_source_enabled:
@@ -723,6 +736,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     if settings.manakids_parent_source_enabled and settings.operation_agent_workspace_enabled:
         goal_service.availability.read_capabilities.append("retention.parents.analyze")
+    goal_service.availability.read_capabilities.extend(manual_analytics_reads)
+    goal_service.availability.read_products.update({key: "mana" for key in manual_analytics_reads})
     app.state.operation_goal_service = goal_service
     app.state.operation_workspace_service = OperationWorkspaceService(
         app.state.operation_chat_service, goal_service

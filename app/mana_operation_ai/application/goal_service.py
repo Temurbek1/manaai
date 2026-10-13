@@ -4,6 +4,7 @@ import logging
 from contextlib import suppress
 
 from app.mana_operation_ai.application.admin_service import ActorContext, OperationAdminService
+from app.mana_operation_ai.application.analytics_scope import shared_mana_analytics
 from app.mana_operation_ai.application.auth_ports import AdminAuthRepository
 from app.mana_operation_ai.application.chat_ports import (
     ChatError,
@@ -24,6 +25,7 @@ from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.application.session_context import session_memory_payload
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
 from app.mana_operation_ai.domain.enums import AdminUserStatus, AgentRunStatus, UserRole
+from app.mana_operation_ai.domain.first_party_analytics import FIRST_PARTY_CAPABILITIES
 from app.mana_operation_ai.domain.goals import (
     GoalAvailability,
     GoalCommand,
@@ -98,6 +100,14 @@ analysis; full text does not prove complete population/payment coverage or curre
 The saved-report bound is 32000 characters; context/step/dollar limits still apply. Never drop
 the original objective or request a new provider read merely to retrieve an existing text tail.
 request_source_read only asks for separate human approval; it does not run a provider read.
+When enabled, retention.parent_activity.analyze collects scoped MANA parent GA4 aggregates:
+completed-day windows, mature exact-day cohorts, push engagement funnel and bounded screen,
+device, geography, first-acquisition and time breakdowns. retention.child_telemetry.analyze
+collects only two MANA child-device prefix samples, not a representative population or parent
+retention. Choose the capability relevant to the objective; never collect children for a parent
+denominator. Both are manual-only, have no schedule and share reports with MANA rooms only.
+After an approved read completes, use its report_id to read_saved_report; the receipt alone is
+not loaded evidence. A source failure is not permission to retry it or collect the other source.
 ask_user asks one focused question when the user must supply a choice or missing information.
 find_saved_tasks searches this private topic's closed tasks by literal objective substring and
 bounded cursor pages. read_saved_task pages through a prior public result using next_offset.
@@ -239,8 +249,10 @@ class OperationGoalService:
             for key in self.availability.read_capabilities
             if self.availability.read_products.get(key, self.availability.read_product)
             == goal.product
+            and (key not in FIRST_PARTY_CAPABILITIES or goal.request.execution_mode == "agent")
             and (
                 goal.agent_id == "operations-orchestrator"
+                or key in FIRST_PARTY_CAPABILITIES
                 or (key.startswith("retention.") and goal.agent_id == "retention-agent")
                 or (key.startswith("growth.") and goal.agent_id == "growth-agent")
             )
@@ -250,7 +262,7 @@ class OperationGoalService:
         agents = (
             ["growth-agent", "retention-agent"]
             if goal.agent_id == "operations-orchestrator"
-            else [goal.agent_id]
+            else list(dict.fromkeys([goal.agent_id, "retention-agent"]))
         )
         evidence: list[GoalEvidence] = []
         for agent_id in agents:
@@ -259,6 +271,12 @@ class OperationGoalService:
             )
             for report in reports:
                 if _verified_report_product(report) != goal.product:
+                    continue
+                if (
+                    report.agent_id != goal.agent_id
+                    and goal.agent_id != "operations-orchestrator"
+                    and not shared_mana_analytics(report)
+                ):
                     continue
                 source = _report_source(report, now=self._clock.now())
                 evidence.append(
@@ -349,6 +367,13 @@ class OperationGoalService:
                 capability = goal.approved_capability
                 if capability not in self._allowed_reads(goal):
                     raise ChatError("Чтение недоступно; автоматического повторного сбора не будет.")
+                if capability in FIRST_PARTY_CAPABILITIES and not any(
+                    record.call.name == "request_source_read"
+                    and record.call.capability == capability
+                    and record.status == "awaiting_approval"
+                    for record in goal.tools
+                ):
+                    raise ChatError("Ручная аналитика требует запроса инструмента рабочей среды.")
                 # Consume permission durably before I/O. A crash cannot rescan a source.
                 goal.read_attempted = True
                 goal.approved_capability = None
@@ -400,7 +425,11 @@ class OperationGoalService:
                     record.status = "completed"
                     record.completed_at = self._clock.now()
                     record.result = json.dumps(
-                        {"run_id": read_result.run_id, "status": "completed"}
+                        {
+                            "run_id": read_result.run_id,
+                            "report_id": read_result.report_id,
+                            "status": "completed",
+                        }
                     )
                 goal.events.append(
                     GoalEvent(
@@ -727,6 +756,11 @@ class OperationGoalService:
         goal.events = goal.events[-100:]
 
     def _apply(self, goal: OperationGoal, decision: GoalDecision) -> None:
+        if decision.requested_capability in FIRST_PARTY_CAPABILITIES:
+            raise ChatError(
+                "Для ручной MANA-аналитики вызовите request_source_read; "
+                "текст решения не выдаёт разрешение."
+            )
         if not set(decision.evidence_ids).issubset({item.report_id for item in goal.evidence}):
             raise ChatError("Проверка источников не пройдена: AI сослался на отсутствующий отчёт.")
         goal.plan = decision.plan

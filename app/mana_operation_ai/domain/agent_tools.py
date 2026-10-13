@@ -8,7 +8,11 @@ from pydantic import Field, model_validator
 from app.mana_operation_ai.domain.chat import ChatModel
 
 SourceReadCapability = Literal[
-    "retention.engagement.analyze", "growth.funnel.analyze", "retention.parents.analyze"
+    "retention.engagement.analyze",
+    "growth.funnel.analyze",
+    "retention.parents.analyze",
+    "retention.parent_activity.analyze",
+    "retention.child_telemetry.analyze",
 ]
 AgentToolName = Literal[
     "inspect_sources",

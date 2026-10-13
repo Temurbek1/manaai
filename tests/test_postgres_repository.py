@@ -65,6 +65,97 @@ async def test_postgres_atomic_chat_stream_stop_recovery_and_bounds() -> None:
     await assert_stream_atomicity(POSTGRES_URL)
 
 
+async def test_postgres_manual_read_v9_pending_and_unknown_restart_fences() -> None:
+    from app.mana_operation_ai.domain.first_party_analytics import CHILD_TELEMETRY_CAPABILITY
+    from app.mana_operation_ai.infrastructure.persistence.models import GoalRow
+    from tests.legacy_goal_contract import LegacyGoal
+
+    assert POSTGRES_URL is not None
+    databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]
+    clock = Clock()
+    chats = SqlAlchemyChatRepository(databases[0], hourly_limit=100, daily_limit=1000)
+    repositories = [SqlAlchemyGoalRepository(db, clock) for db in databases]
+    owner = f"manual-{uuid4()}"
+    try:
+        await chats.initialize()
+        topic = await chats.create(
+            owner,
+            TopicCreate(agent_id="operations-orchestrator", product="mana", title="Manual read"),
+        )
+        goal = await repositories[0].create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Synthetic source read; no provider I/O.",
+                execution_mode="agent",
+            ),
+        )
+        pending = goal.model_copy(
+            update={
+                "status": "waiting",
+                "requested_capability": CHILD_TELEMETRY_CAPABILITY,
+                "tools": [
+                    AgentToolRecord(
+                        call_id="pg-manual-read",
+                        call=AgentToolCall(
+                            name="request_source_read", capability=CHILD_TELEMETRY_CAPABILITY
+                        ),
+                        status="awaiting_approval",
+                        started_at=clock.now(),
+                    )
+                ],
+            }
+        )
+        assert await repositories[0].save(owner, goal, pending)
+        reloaded = await repositories[1].get(owner, goal.goal_id)
+        async with databases[1].session_factory() as session:
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row and row.workspace_payload and row.workspace_payload["version"] == 9
+            assert LegacyGoal.model_validate(row.payload).requested_capability is None
+            original_payload = row.workspace_payload
+        approved = await repositories[1].command(
+            owner,
+            goal.goal_id,
+            GoalCommand(
+                request_id=uuid4(), command="approve_read", expected_revision=reloaded.revision
+            ),
+        )
+        consumed = approved.model_copy(
+            deep=True,
+            update={
+                "status": "running",
+                "requested_capability": None,
+                "approved_capability": None,
+                "read_attempted": True,
+                "accounted_microusd": 90000,
+                "lease_until": clock.now() - timedelta(minutes=1),
+            },
+        )
+        consumed.tools[0].status = "started"
+        assert await repositories[0].save(owner, approved, consumed)
+        assert await repositories[1].claim() is None
+        lost = await repositories[0].get(owner, goal.goal_id)
+        assert lost.status == "waiting" and lost.read_attempted
+        assert lost.tools[0].status == "unknown" and lost.accounted_microusd == 90000
+        async with databases[1].session_factory.begin() as session:
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row and row.workspace_payload and row.workspace_payload["version"] == 9
+            row.workspace_payload = {**row.workspace_payload, "version": 8}
+        with pytest.raises(ChatError, match="совместимости"):
+            await repositories[0].get(owner, goal.goal_id)
+        # Restore the isolated fixture before later archive checks inspect it.
+        async with databases[1].session_factory.begin() as session:
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row and row.workspace_payload
+            row.workspace_payload = {
+                **row.workspace_payload,
+                "version": original_payload["version"],
+            }
+    finally:
+        await asyncio.gather(*(db.dispose() for db in databases))
+
+
 @pytest.mark.parametrize("replanning", [False, True])
 async def test_postgres_paged_evidence_v8_restart_and_idempotent_control(replanning: bool) -> None:
     import json
