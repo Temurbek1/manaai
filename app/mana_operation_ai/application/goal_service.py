@@ -160,6 +160,7 @@ class OperationGoalService:
         clock: Clock,
         availability: GoalAvailability,
         max_context_bytes: int = 64_000,
+        model_step_timeout_seconds: float = 180,
         global_kill_switch_default: bool = False,
         auth: AdminAuthRepository | None = None,
         session_context: SessionContextReader | None = None,
@@ -168,6 +169,9 @@ class OperationGoalService:
         snapshot_replacement_enabled: bool = False,
         page_projection_enabled: bool = False,
     ) -> None:
+        # Leave at least 60 seconds inside the repository's five-minute claim lease.
+        if not 11 <= model_step_timeout_seconds <= 240:
+            raise ValueError("Goal model step timeout must be between 11 and 240 seconds")
         self.repository = repository
         self._chats = chats
         self._model = model
@@ -175,6 +179,7 @@ class OperationGoalService:
         self._clock = clock
         self.availability = availability
         self._max_context_bytes = max_context_bytes
+        self._model_step_timeout_seconds = model_step_timeout_seconds
         self._global_kill_switch_default = global_kill_switch_default
         self._auth = auth
         self._tools = GoalEvidenceTools(admin, clock, repository)
@@ -556,14 +561,17 @@ class OperationGoalService:
                 # This invocation has not dispatched a model request.
                 verified_actual = 0
                 return True
-            async with asyncio.timeout(180):
-                output = (
-                    await continuing.continue_decide(
-                        context=context, owner=owner, state=goal.model_continuation
+            try:
+                async with asyncio.timeout(self._model_step_timeout_seconds):
+                    output = (
+                        await continuing.continue_decide(
+                            context=context, owner=owner, state=goal.model_continuation
+                        )
+                        if continuing
+                        else await self._model.decide(context=context, owner=owner)
                     )
-                    if continuing
-                    else await self._model.decide(context=context, owner=owner)
-                )
+            except TimeoutError:
+                raise InferenceProviderError("timeout") from None
             if output.actual_microusd > amount or output.actual_microusd < 0:
                 raise ChatError(
                     "Стоимость ответа превысила подтверждённый резерв; цель остановлена."

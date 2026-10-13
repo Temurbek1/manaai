@@ -92,6 +92,14 @@ and current-source proof gate each continuation. Old tasks are not upgraded and
 no source or production is activated. Fake SDK/SQL/browser/actual-image checks
 passed; full new real-model analytical acceptance remains pending.
 
+The next [timeout checkpoint](operation-goal-timeout-checkpoint.md) ran one
+independent full-scope v13/v4 diagnostic: seven verified receipts estimated
+$0.164365, eighth-call unknown hold $0.301848, full text loaded but no numerical
+analysis/review. This is not a pass or $0.466213 confirmed spend; it is not resumed.
+Model HTTP/wall timeouts are now explicit locally with unchanged 120/180 defaults,
+validated lease margin, no retries and a separate unchanged source limit.
+Production, sources and all protected unknown holds remain untouched.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

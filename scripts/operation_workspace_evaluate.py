@@ -264,6 +264,7 @@ async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
         continuing_model=goal_model,
         admin=admin,
         clock=clock,
+        model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
         session_context=memory,
         availability=GoalAvailability(
             enabled=True,

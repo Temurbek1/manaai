@@ -4,6 +4,11 @@ Status: **local, default disabled, not deployed**, 2026-10-14 (Asia/Samarkand).
 Production remains `a7752dc`. This advances the full native workspace objective;
 it is not full Codex/Claude parity, real-model analytical acceptance or business lift.
 
+The subsequent [independent diagnostic/timeout checkpoint](operation-goal-timeout-checkpoint.md)
+loaded all exact source text but stopped on an eighth-call timeout with an unknown
+hold before full analysis/review. It does not convert this local fixture proof into
+real-model acceptance or a production release, and the original attempt is retained.
+
 ## Contract
 
 `OPERATION_WORKSPACE_PAGE_PROJECTION_ENABLED=false` captures a server-owned

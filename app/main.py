@@ -725,6 +725,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         admin=operation_admin_service,
         clock=clock,
         max_context_bytes=settings.operation_goals_max_context_bytes,
+        model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
         global_kill_switch_default=settings.operation_global_kill_switch,
         report_discovery_enabled=(
             settings.operation_agent_workspace_enabled

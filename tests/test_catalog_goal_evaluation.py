@@ -11,6 +11,7 @@ from openai import AsyncOpenAI
 from pytest import CaptureFixture, MonkeyPatch
 
 from app.core.config import Settings
+from app.mana_operation_ai.application.goal_service import OperationGoalService
 from app.mana_operation_ai.domain.goals import GoalDecisionBody, GoalTask, OperationGoal
 from app.mana_operation_ai.infrastructure.goal_model import OpenAIGoalModel
 from scripts import operation_catalog_goal_evaluate as exercise
@@ -58,11 +59,16 @@ async def test_exclusive_attempt_marker_prevents_settings_or_model_recreation(
 
 
 @pytest.mark.parametrize("project_pages", [False, True])
-@pytest.mark.parametrize("failure", [None, "quota", "incomplete"])
+@pytest.mark.parametrize("failure", [None, "quota", "incomplete", "timeout"])
 async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences(
     monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None, project_pages: bool
 ) -> None:
-    settings = Settings(_env_file=None, openai_api_key="fixture")
+    settings = Settings(
+        _env_file=None,
+        openai_api_key="fixture",
+        operation_goals_request_timeout_seconds=210,
+        operation_goals_model_step_timeout_seconds=240,
+    )
     monkeypatch.setattr(exercise, "get_settings", lambda: settings)
     requests: list[dict[str, Any]] = []
 
@@ -70,6 +76,9 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         assert request.url.host == "api.openai.com"
         payload = json.loads(request.content)
         requests.append(payload)
+        assert request.extensions["timeout"]["read"] == 210
+        if failure == "timeout":
+            raise httpx.ReadTimeout("PRIVATE timeout body", request=request)
         if failure == "quota":
             return httpx.Response(
                 429,
@@ -148,6 +157,7 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
             self._client = AsyncOpenAI(
                 api_key="fixture",
                 max_retries=0,
+                timeout=self._settings.operation_goals_request_timeout_seconds,
                 http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
             )
 
@@ -160,7 +170,20 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", forbidden)
     monkeypatch.setattr(exercise, "OpenAIGoalModel", SyntheticSDK)
+
+    class CapturedService(OperationGoalService):
+        def __init__(self, **kwargs: Any) -> None:
+            assert kwargs["model_step_timeout_seconds"] == 240
+            super().__init__(**kwargs)
+
+    monkeypatch.setattr(exercise, "OperationGoalService", CapturedService)
     result = await exercise.evaluate(tmp_path / "independent", project_pages=project_pages)
+    configuration = json.loads((tmp_path / "independent/runtime-configuration.json").read_text())
+    assert configuration == {
+        "model_request_timeout_seconds": 210,
+        "model_step_timeout_seconds": 240,
+        "sdk_max_retries": 0,
+    }
     assert result["semantic_review"] == "pending" and result["original_request_retained"]
     assert result["production_changes"] == result["source_attempts"] == 0
     assert "PRIVATE" not in json.dumps(result)
@@ -174,8 +197,10 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
     assert isinstance(accounting, dict) and accounting["calls"] == len(requests)
     if failure:
         assert len(requests) == 1 and goal["status"] == "waiting"
-        assert (accounting["unknown_hold_microusd"] > 0) == (failure == "quota")
-        assert (goal["unsettled_microusd"] > 0) == (failure == "quota")
+        assert (accounting["unknown_hold_microusd"] > 0) == (failure in {"quota", "timeout"})
+        assert (goal["unsettled_microusd"] > 0) == (failure in {"quota", "timeout"})
+        if failure == "timeout":
+            assert "не завершился вовремя" in goal["waiting_reason"]
     else:
         assert goal["status"] == "completed" and goal["phase"] == "review"
         assert accounting["unknown_hold_microusd"] == goal["unsettled_microusd"] == 0

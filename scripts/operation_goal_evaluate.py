@@ -160,6 +160,7 @@ async def evaluate(directory: Path, *, agent: bool = False, budget: int = 490_00
             agent_workspace_enabled=agent,
         ),
         max_context_bytes=settings.operation_goals_max_context_bytes,
+        model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
     )
     try:
         topic = await chats.create(

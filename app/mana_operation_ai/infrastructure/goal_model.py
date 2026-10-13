@@ -76,7 +76,9 @@ class OpenAIGoalModel:
             output_usd_per_million=settings.operation_goals_output_usd_per_million,
         )
         self._client = AsyncOpenAI(
-            api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=120
+            api_key=settings.openai_api_key.get_secret_value(),
+            max_retries=0,
+            timeout=settings.operation_goals_request_timeout_seconds,
         )
 
     def _input_bound(self, context: str, items: list[ResponseInputItemParam] | None = None) -> int:

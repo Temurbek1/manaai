@@ -228,6 +228,16 @@ async def evaluate(directory: Path, *, project_pages: bool = False) -> dict[str,
             "operation_workspace_model_max_output_tokens": OUTPUT_TOKENS,
         }
     )
+    (directory / "runtime-configuration.json").write_text(
+        json.dumps(
+            {
+                "model_request_timeout_seconds": settings.operation_goals_request_timeout_seconds,
+                "model_step_timeout_seconds": settings.operation_goals_model_step_timeout_seconds,
+                "sdk_max_retries": 0,
+            },
+            indent=2,
+        )
+    )
     clock = SystemClock()
     database = OperationDatabase(f"sqlite+aiosqlite:///{directory.resolve() / 'workspace.db'}")
     await database.create_schema()
@@ -266,6 +276,7 @@ async def evaluate(directory: Path, *, project_pages: bool = False) -> dict[str,
         continuing_model=model,
         admin=cast(OperationAdminService, fixture),
         clock=clock,
+        model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
         report_discovery_enabled=True,
         snapshot_replacement_enabled=project_pages,
         page_projection_enabled=project_pages,

@@ -114,6 +114,8 @@ class Settings(BaseSettings):
     operation_goals_worker_enabled: bool = True
     operation_goals_model: str = "gpt-6.1-sol"
     operation_goals_reasoning_effort: Literal["low", "medium", "high", "xhigh"] = "medium"
+    operation_goals_request_timeout_seconds: float = Field(default=120, ge=1, le=230)
+    operation_goals_model_step_timeout_seconds: float = Field(default=180, ge=11, le=240)
     operation_goals_max_steps: int = Field(default=6, ge=3, le=12)
     operation_agent_workspace_enabled: bool = False
     operation_workspace_events_enabled: bool = True
@@ -519,6 +521,14 @@ class Settings(BaseSettings):
     def validate_operation_chat_configuration(self) -> "Settings":
         self.require_operation_chat_rate_card()
         self.require_operation_goals_rate_card()
+        if (
+            self.operation_goals_model_step_timeout_seconds
+            < self.operation_goals_request_timeout_seconds + 10
+        ):
+            raise ValueError(
+                "OPERATION_GOALS_MODEL_STEP_TIMEOUT_SECONDS must exceed "
+                "OPERATION_GOALS_REQUEST_TIMEOUT_SECONDS by at least 10 seconds"
+            )
         return self
 
     def require_operation_goals_rate_card(self) -> None:

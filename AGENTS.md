@@ -154,6 +154,13 @@
   without refetch/replay. Byte reduction and fake completion are not model-quality or
   financial acceptance. Only closed `2ea7b9a` rollback is verified; `a7752dc`/`dfe098f`
   cannot execute v13/v4. See `docs/operation-saved-page-projection.md`.
+- Goal model timeouts are explicit with preserved SDK/model-wall defaults 120/180
+  seconds. Keep the model wall limit at most 240 (below the current 300-second SQL
+  lease) and at least SDK + 10. External read timeout remains separate at 180;
+  neither timeout adds retries or releases unknown holds. The independent v13
+  diagnostic loaded full text but lost its eighth model receipt at timeout; it
+  did not complete analysis/review and must not be replayed. See
+  `docs/operation-goal-timeout-checkpoint.md`; no production setting was changed.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

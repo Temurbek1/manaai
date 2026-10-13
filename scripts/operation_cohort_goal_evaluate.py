@@ -180,6 +180,7 @@ async def evaluate(directory: Path) -> dict[str, object]:
         continuing_model=model,
         admin=cast(OperationAdminService, fixture),
         clock=clock,
+        model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
         session_context=OperationSessionContext(chats, repository),
         availability=GoalAvailability(
             enabled=True,
