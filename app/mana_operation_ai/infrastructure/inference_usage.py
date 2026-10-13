@@ -2,6 +2,19 @@
 
 from pydantic import BaseModel, Field
 
+from app.mana_operation_ai.application.inference_errors import InferencePendingStatus
+
+
+def pending_usage_status(payload: object) -> InferencePendingStatus | None:
+    """An explicitly running request cannot supply its final billable usage yet."""
+    if not isinstance(payload, dict) or type(payload.get("status")) is not str:
+        return None
+    if payload["status"] == "queued":
+        return "queued"
+    if payload["status"] == "in_progress":
+        return "in_progress"
+    return None
+
 
 class InferenceInputUsage(BaseModel):
     cached_tokens: int = Field(ge=0, strict=True)

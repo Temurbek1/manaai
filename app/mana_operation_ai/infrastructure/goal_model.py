@@ -1,7 +1,7 @@
 import hashlib
 import json
 import re
-from typing import TypedDict
+from typing import TypedDict, get_args
 
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI
 from openai.types.responses import FunctionToolParam, ResponseIncludable, ResponseInputItemParam
@@ -10,7 +10,12 @@ from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from app.core.config import Settings
 from app.mana_operation_ai.application.cost_control import CostLedger
-from app.mana_operation_ai.application.goal_ports import GoalModelOutput, GoalModelResponseError
+from app.mana_operation_ai.application.goal_ports import (
+    GoalIncompleteReason,
+    GoalModelOutput,
+    GoalModelResponseError,
+    GoalProviderStatus,
+)
 from app.mana_operation_ai.application.goal_service import GOAL_INSTRUCTIONS
 from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.cost_control import (
@@ -39,7 +44,10 @@ from app.mana_operation_ai.infrastructure.inference import (
     selected_inference,
 )
 from app.mana_operation_ai.infrastructure.inference_errors import response_failure, sdk_failure
-from app.mana_operation_ai.infrastructure.inference_usage import InferenceUsageEnvelope
+from app.mana_operation_ai.infrastructure.inference_usage import (
+    InferenceUsageEnvelope,
+    pending_usage_status,
+)
 
 
 class ToolRequestOptions(TypedDict, total=False):
@@ -259,6 +267,9 @@ class OpenAIGoalModel:
         if payload.get("status") == "failed" and envelope.usage is None:
             error = payload.get("error")
             raise response_failure(error.get("code") if isinstance(error, dict) else None)
+        pending = pending_usage_status(payload)
+        if pending is not None:
+            raise InferenceProviderError("unknown_usage", pending_status=pending)
         # Unknown usage/model/tier retains the global and goal-local worst-case hold.
         if (
             re.fullmatch(re.escape(rates.model) + r"(?:-\d{4}-\d{2}-\d{2})?", envelope.model)
@@ -298,10 +309,10 @@ class OpenAIGoalModel:
                 "Ответ AI не завершён. Токены учтены; автоматического повтора нет.",
                 actual.llm_microusd,
                 provider_status=content.status
-                if content.status in {"failed", "incomplete", "cancelled", "queued", "in_progress"}
+                if content.status in get_args(GoalProviderStatus)
                 else None,
                 incomplete_reason=reason
-                if isinstance(reason, str) and reason in {"max_output_tokens", "content_filter"}
+                if isinstance(reason, str) and reason in get_args(GoalIncompleteReason)
                 else None,
             )
         # A native call may accompany ordinary public commentary. Do not parse that

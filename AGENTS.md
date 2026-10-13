@@ -161,6 +161,15 @@
   diagnostic loaded full text but lost its eighth model receipt at timeout; it
   did not complete analysis/review and must not be replayed. See
   `docs/operation-goal-timeout-checkpoint.md`; no production setting was changed.
+- Known noncompleted Goal responses preserve only closed completion facts in the
+  existing waiting reason/event; never expose provider prose or use them to retry.
+  Explicit `queued`/`in_progress` raw receipts are provisional even with numeric
+  zero usage and must keep admission holds in Goals, blocking chat and streamed
+  chat. A named completion SSE event cannot override a pending payload. The new
+  independent diagnostic has a manually verified full draft but incomplete model
+  review; its old zero-usage record lacks terminal metadata and is not proof of
+  zero billing or permission to repeat it. See
+  `docs/operation-completion-receipt-checkpoint.md`; production remains untouched.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

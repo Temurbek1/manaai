@@ -100,6 +100,14 @@ Model HTTP/wall timeouts are now explicit locally with unchanged 120/180 default
 validated lease margin, no retries and a separate unchanged source limit.
 Production, sources and all protected unknown holds remain untouched.
 
+The following [completion-receipt checkpoint](operation-completion-receipt-checkpoint.md)
+produced a full manually verified synthetic catalog draft with test-only210/240
+timeouts, then stopped on a noncompleted independent review response. Its stored
+estimate is$0.256739, with last reported usage0; missing completion metadata means
+no invoice/finality or full-runtime pass is inferred. Locally, allowlisted failure
+facts now survive and explicit pending receipts retain holds across Goals, blocking
+chat and streaming. No prior attempt is replayed and production is unchanged.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

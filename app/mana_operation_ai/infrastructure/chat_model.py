@@ -28,7 +28,10 @@ from app.mana_operation_ai.infrastructure.inference import (
     selected_inference,
 )
 from app.mana_operation_ai.infrastructure.inference_errors import response_failure, sdk_failure
-from app.mana_operation_ai.infrastructure.inference_usage import InferenceUsageEnvelope
+from app.mana_operation_ai.infrastructure.inference_usage import (
+    InferenceUsageEnvelope,
+    pending_usage_status,
+)
 
 
 class _RawChatResponse(Protocol):
@@ -107,6 +110,9 @@ class OpenAIConversationModel:
                 envelope = InferenceUsageEnvelope.model_validate(payload)
             except ValueError:
                 raise InferenceProviderError("unknown_usage") from None
+            pending = pending_usage_status(payload)
+            if pending is not None:
+                raise InferenceProviderError("unknown_usage", pending_status=pending)
             if payload.get("status") == "failed" and envelope.usage is None:
                 error = payload.get("error")
                 raise response_failure(error.get("code") if isinstance(error, dict) else None)
@@ -318,6 +324,9 @@ class OpenAIConversationModel:
                         response = InferenceUsageEnvelope.model_validate(payload)
                     except ValueError:
                         raise InferenceProviderError("unknown_usage") from None
+                    pending = pending_usage_status(payload)
+                    if pending is not None:
+                        raise InferenceProviderError("unknown_usage", pending_status=pending)
                     assert isinstance(payload, dict)
                     status = payload.get("status")
                     if status == "failed" and response.usage is None:

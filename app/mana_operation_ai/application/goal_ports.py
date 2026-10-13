@@ -59,6 +59,8 @@ DecisionIssueCode = Literal[
     "model_type",
     "enum",
 ]
+GoalProviderStatus = Literal["failed", "incomplete", "cancelled", "queued", "in_progress"]
+GoalIncompleteReason = Literal["max_output_tokens", "content_filter"]
 
 
 @dataclass(frozen=True)
@@ -112,6 +114,22 @@ class GoalModelResponseError(RuntimeError):
             + "; ".join(f"{issue.field}: {issue.code}" for issue in self.validation_issues)
             + "."
         )
+
+    @property
+    def completion_feedback(self) -> str:
+        """At most two coherent allowlisted facts, not provider prose or retry authority."""
+        if type(self.provider_status) is not str or self.provider_status not in get_args(
+            GoalProviderStatus
+        ):
+            return ""
+        facts = [f"provider_status={self.provider_status}"]
+        if (
+            self.provider_status == "incomplete"
+            and type(self.incomplete_reason) is str
+            and self.incomplete_reason in get_args(GoalIncompleteReason)
+        ):
+            facts.append(f"incomplete_reason={self.incomplete_reason}")
+        return " Проверка завершения: " + "; ".join(facts) + "."
 
 
 class GoalModel(Protocol):

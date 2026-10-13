@@ -710,7 +710,7 @@ class OperationGoalService:
                     )
                     await self.repository.save(owner, before, goal)
                     return True
-            await self._wait(owner, before, goal, str(exc))
+            await self._wait(owner, before, goal, str(exc) + exc.completion_feedback)
         except CostBudgetExceeded:
             # Only the unused model hold is refundable. A later tool admission
             # denial must never erase the already priced model response.
