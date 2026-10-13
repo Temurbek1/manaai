@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.main import create_app
 from app.mana_operation_ai.application.chat_ports import ChatError, ChatTurnOutput
+from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.chat import ChatReply, MessageCreate, TopicCreate
 from app.mana_operation_ai.domain.workspace_events import ChatTextEvent
 from app.mana_operation_ai.infrastructure.chat_model import OpenAIConversationModel
@@ -31,6 +32,7 @@ from app.mana_operation_ai.infrastructure.persistence.models import ChatTurnRow,
 from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
     SqlAlchemyWorkspaceEvents,
 )
+from tests.test_inference_failures import wire as synthetic_response
 from tests.test_operation_agent_workspace import BASE, configure_workspace
 from tests.test_operation_api import headers
 from tests.test_operation_chat_costs import CONTEXT, policy
@@ -271,7 +273,10 @@ async def test_durable_preview_terminal_race_replay_and_owner_scope(
     get_settings.cache_clear()
 
 
-@pytest.mark.parametrize("failure", [None, "invalid", "incomplete", "unknown_model", "cut"])
+@pytest.mark.parametrize(
+    "failure",
+    [None, "invalid", "incomplete", "unknown_model", "cut", "missing_usage", "bad_usage", "failed"],
+)
 async def test_sdk_stream_usage_before_parse_and_unknown_receipts(
     tmp_path: Path, failure: str | None
 ) -> None:
@@ -304,6 +309,16 @@ async def test_sdk_stream_usage_before_parse_and_unknown_receipts(
             "total_tokens": 300,
         },
     }
+    if failure == "missing_usage":
+        final["usage"] = None
+    elif failure == "bad_usage":
+        invalid_usage = final["usage"]
+        assert isinstance(invalid_usage, dict)
+        invalid_usage["output_tokens"] = True
+    elif failure == "failed":
+        final["status"] = "failed"
+        final["usage"] = None
+        final["error"] = {"code": "insufficient_quota", "message": "PRIVATE SSE provider body"}
     events = [
         {
             "type": "response.output_text.delta",
@@ -317,7 +332,11 @@ async def test_sdk_stream_usage_before_parse_and_unknown_receipts(
     if failure != "cut":
         events.append(
             {
-                "type": "response.incomplete" if failure == "incomplete" else "response.completed",
+                "type": "response.incomplete"
+                if failure == "incomplete"
+                else "response.failed"
+                if failure == "failed"
+                else "response.completed",
                 "sequence_number": 2,
                 "response": final,
             }
@@ -364,6 +383,101 @@ async def test_sdk_stream_usage_before_parse_and_unknown_receipts(
             if failure in (None, "invalid", "incomplete")
             else usage.llm_microusd > 158
         )
+    finally:
+        await model.close()
+        await database.dispose()
+
+
+@pytest.mark.parametrize(
+    "scenario", ["one_byte", "sse_error", "transport_timeout", "transport_connection"]
+)
+async def test_raw_sdk_sse_framing_and_midstream_failures_do_not_reissue(
+    tmp_path: Path,
+    scenario: str,
+) -> None:
+    database = OperationDatabase(f"sqlite+aiosqlite:///{tmp_path / 'framing.db'}")
+    await database.create_schema()
+    ledger = SqlAlchemyCostLedger(database, clock=Clock(), limits=policy())
+    settings = Settings(
+        _env_file=None, openai_api_key="synthetic-only", openai_model="gpt-5.4-nano"
+    )
+    model = OpenAIConversationModel(settings, ledger=ledger)
+    body = synthetic_response(settings.openai_model, "chat")
+    answer = "Salom, Привет 🧒!"
+    text = ChatReply(answer=answer, plan=[], next_action="none").model_dump_json()
+    delta = {
+        "type": "response.output_text.delta",
+        "sequence_number": 1,
+        "content_index": 0,
+        "output_index": 0,
+        "item_id": "msg_synthetic",
+        "delta": text,
+    }
+    payload = f": heartbeat\r\n\r\ndata: {json.dumps(delta, ensure_ascii=False)}\r\n\r\n".encode()
+    terminal = {"type": "response.completed", "sequence_number": 2, "response": body}
+    final = f"data: {json.dumps(terminal, ensure_ascii=False)}\r\n\r\ndata: [DONE]\r\n\r\n".encode()
+    requests: list[str] = []
+
+    class WireStream(httpx.AsyncByteStream):
+        async def __aiter__(self) -> AsyncGenerator[bytes, None]:
+            # Include multibyte characters, comments and CRLF boundaries.
+            for byte in payload:
+                yield bytes([byte])
+            if scenario == "transport_timeout":
+                raise httpx.ReadTimeout("PRIVATE midstream timeout")
+            if scenario == "transport_connection":
+                raise httpx.ReadError("PRIVATE midstream connection")
+            if scenario == "sse_error":
+                yield (
+                    b'event: error\ndata: {"type":"error","code":"insufficient_quota",'
+                    b'"message":"PRIVATE SSE error"}\n\n'
+                )
+                return
+            for byte in final:
+                yield bytes([byte])
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        requests.append(request.url.path)
+        return httpx.Response(
+            200, headers={"Content-Type": "text/event-stream"}, stream=WireStream()
+        )
+
+    await model._client.close()
+    model._client = AsyncOpenAI(
+        api_key="synthetic-only",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
+    )
+    try:
+        if scenario == "one_byte":
+            events = [
+                event
+                async for event in model.stream_reply(
+                    instructions="Synthetic", context=CONTEXT, owner="owner"
+                )
+            ]
+            assert isinstance(events[-1], ChatTurnOutput) and events[-1].answer == answer
+        else:
+            with pytest.raises(InferenceProviderError) as caught:
+                _ = [
+                    event
+                    async for event in model.stream_reply(
+                        instructions="Synthetic", context=CONTEXT, owner="owner"
+                    )
+                ]
+            assert (
+                caught.value.kind
+                == {
+                    "transport_timeout": "timeout",
+                    "transport_connection": "connection",
+                    "sse_error": "quota",
+                }[scenario]
+            )
+            assert "PRIVATE" not in str(caught.value)
+        assert requests == ["/v1/responses"]
+        usage = (await ledger.periods())[0].usage
+        assert usage.llm_calls == usage.provider_requests == 1
+        assert (usage.input_tokens == 100) == (scenario == "one_byte")
     finally:
         await model.close()
         await database.dispose()

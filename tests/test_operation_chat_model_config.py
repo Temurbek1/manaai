@@ -152,7 +152,7 @@ async def test_override_controls_dispatch_and_accounting_without_mutating_global
     ledger = SqlAlchemyCostLedger(database, clock=Clock(), limits=policy())
     gateway = OpenAIConversationModel(settings, ledger=ledger)
     parse = AsyncMock(return_value=response(settings))
-    monkeypatch.setattr(gateway._client.responses, "parse", parse)
+    monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
     try:
         output = await gateway.reply(instructions="Test", context=CONTEXT, owner="private-owner")
         assert output.model == "gpt-5.4-mini"
@@ -202,7 +202,7 @@ async def test_real_chat_route_uses_override_but_public_service_retains_global_m
             gateway = cast(OpenAIConversationModel, service._model)
             settings = cast(Settings, app.state.settings)
             parse = AsyncMock(return_value=response(settings))
-            monkeypatch.setattr(gateway._client.responses, "parse", parse)
+            monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
             created = await client.post(
                 "/api/v1/admin/operation/chat/topics",
                 headers=headers("operator", "viewer"),

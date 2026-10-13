@@ -45,7 +45,7 @@ async def test_budget_fallback_is_dated_scoped_idempotent_and_performs_no_provid
         service = cast(OperationChatService, app.state.operation_chat_service)
         gateway = cast(OpenAIConversationModel, service._model)
         parse = AsyncMock(side_effect=AssertionError("No real or fake paid dispatch is allowed"))
-        monkeypatch.setattr(gateway._client.responses, "parse", parse)
+        monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
         clock.value += timedelta(hours=7)
         topic = await service.create(
             "operator",

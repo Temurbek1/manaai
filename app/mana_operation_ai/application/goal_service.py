@@ -20,6 +20,10 @@ from app.mana_operation_ai.application.goal_ports import (
     GoalRepository,
 )
 from app.mana_operation_ai.application.goal_tools import GoalEvidenceTools, SavedToolInputError
+from app.mana_operation_ai.application.inference_errors import (
+    InferenceProviderError,
+    inference_failure_message,
+)
 from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.application.session_context import session_memory_payload
@@ -679,6 +683,8 @@ class OperationGoalService:
             )
         except ChatError as exc:
             await self._wait(owner, before, goal, str(exc))
+        except InferenceProviderError as exc:
+            await self._wait(owner, before, goal, inference_failure_message(exc))
         except Exception:
             # Never persist upstream bodies or credentials in a user-visible journal.
             await self._wait(

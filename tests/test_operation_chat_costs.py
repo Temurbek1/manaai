@@ -27,7 +27,7 @@ CONTEXT = json.dumps(
 
 
 def response(settings: Settings) -> SimpleNamespace:
-    return SimpleNamespace(
+    parsed = SimpleNamespace(
         status="completed",
         model=settings.effective_operation_chat_model,
         service_tier="default",
@@ -39,6 +39,17 @@ def response(settings: Settings) -> SimpleNamespace:
         ),
         model_dump_json=lambda **kwargs: "{}",
     )
+    payload = {
+        "status": parsed.status,
+        "model": parsed.model,
+        "service_tier": parsed.service_tier,
+        "usage": {
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "input_tokens_details": {"cached_tokens": 40, "cache_write_tokens": 30},
+        },
+    }
+    return SimpleNamespace(http_response=httpx.Response(200, json=payload), parse=lambda: parsed)
 
 
 def policy(calls: int = 1) -> CostLimits:
@@ -65,7 +76,7 @@ async def test_llm_admission_settlement_and_rejection_before_sdk_call(
     )
     gateway = OpenAIConversationModel(settings, ledger=ledger)
     parse = AsyncMock(return_value=response(settings))
-    monkeypatch.setattr(gateway._client.responses, "parse", parse)
+    monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
     try:
         result = await gateway.reply(instructions="Test", context=CONTEXT, owner="private-owner")
         assert result.input_tokens == 200
@@ -96,7 +107,7 @@ async def test_unknown_llm_charge_is_not_refunded_on_timeout(
     )
     gateway = OpenAIConversationModel(settings, ledger=ledger)
     parse = AsyncMock(side_effect=TimeoutError("No receipt"))
-    monkeypatch.setattr(gateway._client.responses, "parse", parse)
+    monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
     try:
         with pytest.raises(TimeoutError):
             await gateway.reply(instructions="Test", context=CONTEXT, owner="owner")
@@ -215,26 +226,27 @@ async def test_sdk_parsed_size_accounting_does_not_log_private_answer_warnings(
         max_retries=0,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handle)),
     ) as fake_sdk:
-        sdk_response = await fake_sdk.responses.parse(
+        raw_response = await fake_sdk.responses.with_raw_response.parse(
             model=settings.openai_model, input="synthetic", store=False, text_format=ChatReply
         )
+        sdk_response = raw_response.parse()
     with warnings.catch_warnings(record=True) as baseline:
         warnings.simplefilter("always")
-        baseline_json = sdk_response.model_dump_json()
+        sdk_response.model_dump_json()
     assert any("PII" in str(item.message) for item in baseline)
     db = OperationDatabase(f"sqlite+aiosqlite:///{tmp_path / 'serialization.db'}")
     await db.create_schema()
     ledger = SqlAlchemyCostLedger(db, clock=Clock(), limits=policy())
     gateway = OpenAIConversationModel(settings, ledger=ledger)
-    parse = AsyncMock(return_value=sdk_response)
-    monkeypatch.setattr(gateway._client.responses, "parse", parse)
+    parse = AsyncMock(return_value=raw_response)
+    monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
     try:
         with warnings.catch_warnings(record=True) as emitted:
             warnings.simplefilter("always")
             result = await gateway.reply(instructions="Test", context=CONTEXT, owner="owner")
         assert result.answer == reply.answer and not emitted
         usage = (await ledger.periods())[0].usage
-        assert usage.response_bytes == len(baseline_json.encode())
+        assert usage.response_bytes == len(raw_response.http_response.content)
         assert usage.llm_microusd == 165 and usage.llm_calls == 1
         assert parse.call_count == 1
     finally:

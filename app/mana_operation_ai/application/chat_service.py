@@ -19,6 +19,10 @@ from app.mana_operation_ai.application.chat_ports import (
 )
 from app.mana_operation_ai.application.cost_control import CostBudgetExceeded
 from app.mana_operation_ai.application.growth.constants import ADVERTISING_CAPABILITY_KEY
+from app.mana_operation_ai.application.inference_errors import (
+    InferenceProviderError,
+    inference_failure_message,
+)
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.application.retention.constants import (
     ENGAGEMENT_CAPABILITY_KEY,
@@ -635,6 +639,16 @@ class OperationChatService:
             await self.repository.update(
                 turn.model_copy(
                     update={"status": "failed", "answer": str(exc), "next_action": "none"}
+                )
+            )
+        except InferenceProviderError as exc:
+            await self.repository.update(
+                turn.model_copy(
+                    update={
+                        "status": "failed",
+                        "answer": inference_failure_message(exc),
+                        "next_action": "none",
+                    }
                 )
             )
         except Exception:

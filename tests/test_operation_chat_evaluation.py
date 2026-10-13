@@ -370,7 +370,7 @@ async def test_stronger_profile_fake_sdk_is_metered_isolated_and_stops_on_failur
         if fail_at is not None:
             results[fail_at - 1] = TimeoutError("fake-flagship-secret")
         parse = AsyncMock(side_effect=results)
-        monkeypatch.setattr(gateway._client.responses, "parse", parse)
+        monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
         clients.append(gateway)
         parses.append(parse)
         return gateway
@@ -556,7 +556,7 @@ async def test_all_comparison_endpoints_are_checked_before_the_first_model_call(
         gateway = OpenAIConversationModel(configured, ledger=ledger)
         if configured.effective_operation_chat_reasoning_effort == "low":
             gateway._client.base_url = "https://unapproved.example/v1/"
-        monkeypatch.setattr(gateway._client.responses, "parse", parse)
+        monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
         clients.append(gateway)
         return gateway
 
@@ -616,7 +616,7 @@ async def test_comparison_uses_isolated_operational_baseline_not_public_model(
     ) -> OpenAIConversationModel:
         gateway = OpenAIConversationModel(configured, ledger=ledger)
         parse = AsyncMock(return_value=response(configured))
-        monkeypatch.setattr(gateway._client.responses, "parse", parse)
+        monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
         clients.append(gateway)
         parses.append(parse)
         return gateway
@@ -671,7 +671,7 @@ async def test_live_comparison_with_fake_sdk_preserves_settings_and_stops_on_err
             if fail_candidate and len(clients) == 1
             else None,
         )
-        monkeypatch.setattr(gateway._client.responses, "parse", parse)
+        monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
         clients.append(gateway)
         parses.append(parse)
         return gateway
@@ -853,7 +853,7 @@ async def test_complete_opt_in_path_with_fake_sdk_is_isolated_and_cannot_repeat(
         gateway = OpenAIConversationModel(settings, ledger=ledger)
         if not approved_endpoint:
             gateway._client.base_url = "https://unapproved.example/v1/"
-        monkeypatch.setattr(gateway._client.responses, "parse", parse)
+        monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
         clients.append(gateway)
         return gateway
 
@@ -910,7 +910,7 @@ async def test_paired_runner_uses_real_admission_with_fake_sdk_and_never_grades_
         side_effect=TimeoutError("fake-provider-secret-never-log") if fail else None,
         return_value=response(settings),
     )
-    monkeypatch.setattr(gateway._client.responses, "parse", parse)
+    monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
     try:
         results = await evaluate(requests, model=gateway, ledger=ledger)
         assert all(result.quality_status == "manual_review_pending" for result in results)
@@ -950,7 +950,7 @@ async def test_cancelled_evaluation_retains_first_attempt_and_does_not_continue(
         Settings(_env_file=None, openai_api_key="fake-qa-key"), ledger=ledger
     )
     parse = AsyncMock(side_effect=asyncio.CancelledError())
-    monkeypatch.setattr(gateway._client.responses, "parse", parse)
+    monkeypatch.setattr(gateway._client.responses.with_raw_response, "parse", parse)
     try:
         with pytest.raises(asyncio.CancelledError):
             await evaluate(requests, model=gateway, ledger=ledger)

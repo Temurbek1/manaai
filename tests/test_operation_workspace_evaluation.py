@@ -35,6 +35,22 @@ def test_cli_defaults_to_pinned_plan_without_settings_sdk_or_io(
     assert len(result["cases"]) == 8
     assert result["max_calls"] == 16 and result["cap_microusd"] == 490000
     assert result["sources"] == 0
+    assert result["tracked_limits"] is False
+
+
+def test_v10_plan_is_still_offline_and_never_activates_application_flags(
+    monkeypatch: MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def forbidden() -> None:
+        raise AssertionError("Plan-only v10 inspection cannot load secrets or execute a source")
+
+    monkeypatch.setattr(benchmark, "get_settings", forbidden)
+    monkeypatch.setattr(sys, "argv", ["operation_workspace_evaluate.py", "--tracked-limits"])
+    benchmark.main()
+    result = json.loads(capsys.readouterr().out)
+    assert result["tracked_limits"] is True and result["sources"] == 0
+    assert result["max_calls"] == 16 and result["cap_microusd"] == 490000
 
 
 async def test_an_attempted_paid_output_cannot_be_restarted(

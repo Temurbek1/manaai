@@ -220,7 +220,7 @@ async def receipts(database: OperationDatabase) -> dict[str, int]:
     }
 
 
-async def evaluate(directory: Path) -> None:
+async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
     # Exclusive creation is a durable attempt marker, even before a paid hold exists.
     directory.mkdir(parents=True, exist_ok=False)
     plan = [case.__dict__ for case in cases()]
@@ -230,6 +230,7 @@ async def evaluate(directory: Path) -> None:
             "operation_agent_workspace_enabled": True,
             "operation_workspace_model_continuation_enabled": True,
             "operation_model_selection_enabled": True,
+            "operation_goal_limit_extensions_enabled": tracked_limits,
         }
     )
     clock = SystemClock()
@@ -250,7 +251,9 @@ async def evaluate(directory: Path) -> None:
         database, hourly_limit=20, daily_limit=20, stream_events_enabled=True
     )
     await chats.initialize()
-    repository = SqlAlchemyGoalRepository(database, clock, events_enabled=True)
+    repository = SqlAlchemyGoalRepository(
+        database, clock, events_enabled=True, limit_extensions_enabled=tracked_limits
+    )
     memory = OperationSessionContext(chats, repository)
     fixture = SavedOnlyAdmin(clock)
     admin = cast(OperationAdminService, fixture)
@@ -270,6 +273,11 @@ async def evaluate(directory: Path) -> None:
             read_capabilities=[],
             agent_workspace_enabled=True,
             model_selection_enabled=True,
+            limit_extensions_enabled=tracked_limits,
+            extension_max_steps=settings.operation_goals_extension_max_steps
+            if tracked_limits
+            else 0,
+            extension_budget_microusd=490000 if tracked_limits else 0,
         ),
     )
     chat = OperationChatService(
@@ -381,6 +389,7 @@ async def evaluate(directory: Path) -> None:
                     "production_changes": 0,
                     "budget_cap_microusd": 490000,
                     "manual_review_required": True,
+                    "tracked_limits": tracked_limits,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -394,6 +403,7 @@ async def evaluate(directory: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--confirm-paid", action="store_true")
+    parser.add_argument("--tracked-limits", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not args.confirm_paid:
@@ -404,6 +414,7 @@ def main() -> None:
                     "max_calls": 16,
                     "cap_microusd": 490000,
                     "sources": 0,
+                    "tracked_limits": args.tracked_limits,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -412,7 +423,7 @@ def main() -> None:
         return
     if args.output is None:
         parser.error("A fresh --output directory is required for the authorized paid check")
-    asyncio.run(evaluate(args.output))
+    asyncio.run(evaluate(args.output, tracked_limits=args.tracked_limits))
 
 
 if __name__ == "__main__":

@@ -3,15 +3,18 @@ import json
 import re
 from collections.abc import AsyncGenerator
 from time import monotonic
-from typing import Literal
+from typing import Literal, Protocol, cast
 
-from openai import AsyncOpenAI
-from openai.types.responses import Response
+import httpx
+from openai import APIConnectionError, APIStatusError, AsyncOpenAI
+from openai.types.responses import ParsedResponse
+from pydantic import ValidationError
 from pydantic_core import from_json
 
 from app.core.config import Settings
 from app.mana_operation_ai.application.chat_ports import ChatTurnOutput
 from app.mana_operation_ai.application.cost_control import CostLedger
+from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.chat import ChatReply
 from app.mana_operation_ai.domain.cost_control import (
     CostAttribution,
@@ -24,6 +27,14 @@ from app.mana_operation_ai.infrastructure.inference import (
     inference_rate_cards,
     selected_inference,
 )
+from app.mana_operation_ai.infrastructure.inference_errors import response_failure, sdk_failure
+from app.mana_operation_ai.infrastructure.inference_usage import InferenceUsageEnvelope
+
+
+class _RawChatResponse(Protocol):
+    http_response: httpx.Response
+
+    def parse(self) -> ParsedResponse[ChatReply]: ...
 
 
 class OpenAIConversationModel:
@@ -54,6 +65,14 @@ class OpenAIConversationModel:
         )
 
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
+        try:
+            return await self._reply(instructions=instructions, context=context, owner=owner)
+        except (APIConnectionError, APIStatusError) as exc:
+            raise sdk_failure(exc) from None
+        except ValidationError:
+            raise InferenceProviderError("invalid_response") from None
+
+    async def _reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
         model_name, effort, rates, output_limit = self._selection(context)
         reservation = await self._admit(
             instructions=instructions,
@@ -64,7 +83,12 @@ class OpenAIConversationModel:
             response_bytes=262144,
         )
         # Exceptions, timeouts and cancellation deliberately retain the reservation.
-        response = await self._client.responses.parse(
+        parser = (
+            self._client.responses.with_raw_response.parse
+            if reservation is not None
+            else self._client.responses.parse
+        )
+        raw = await parser(
             model=model_name,
             instructions=instructions,
             input=context,
@@ -76,16 +100,28 @@ class OpenAIConversationModel:
             safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
             text_format=ChatReply,
         )
-        await self._settle(
-            response,
-            reservation,
-            rates,
-            len(response.model_dump_json(warnings=False).encode())
-            if reservation is not None
-            else 0,
-        )
+        if reservation is not None:
+            receipt = cast(_RawChatResponse, raw)
+            try:
+                payload = receipt.http_response.json()
+                envelope = InferenceUsageEnvelope.model_validate(payload)
+            except ValueError:
+                raise InferenceProviderError("unknown_usage") from None
+            if payload.get("status") == "failed" and envelope.usage is None:
+                error = payload.get("error")
+                raise response_failure(error.get("code") if isinstance(error, dict) else None)
+            await self._settle(envelope, reservation, rates, len(receipt.http_response.content))
+            if payload.get("status") != "completed":
+                raise InferenceProviderError("invalid_response")
+            try:
+                response = receipt.parse()
+            except (ValueError, TypeError, KeyError, AttributeError):
+                # SDK output parsing is local; valid usage was settled above.
+                raise InferenceProviderError("invalid_response") from None
+        else:
+            response = cast(ParsedResponse[ChatReply], raw)
         if response.status != "completed" or response.output_parsed is None:
-            raise RuntimeError("Conversation response did not complete")
+            raise InferenceProviderError("invalid_response")
         return ChatTurnOutput(
             answer=response.output_parsed.answer,
             model=response.model,
@@ -143,7 +179,7 @@ class OpenAIConversationModel:
 
     async def _settle(
         self,
-        response: Response,
+        response: InferenceUsageEnvelope,
         reservation: CostReservation | None,
         rates: LlmRateCard,
         response_bytes: int,
@@ -155,7 +191,7 @@ class OpenAIConversationModel:
                 or response.service_tier != "default"
                 or response.usage is None
             ):
-                raise RuntimeError("Operational response pricing or usage cannot be verified")
+                raise InferenceProviderError("unknown_usage")
             cached = response.usage.input_tokens_details.cached_tokens
             cache_writes = (
                 getattr(response.usage.input_tokens_details, "cache_write_tokens", 0) or 0
@@ -181,6 +217,23 @@ class OpenAIConversationModel:
                 raise RuntimeError("Operational response exceeded its reserved resource bound")
 
     async def stream_reply(
+        self, *, instructions: str, context: str, owner: str
+    ) -> AsyncGenerator[str | ChatTurnOutput, None]:
+        try:
+            async for event in self._stream_reply(
+                instructions=instructions, context=context, owner=owner
+            ):
+                yield event
+        except (APIConnectionError, APIStatusError) as exc:
+            raise sdk_failure(exc) from None
+        except httpx.TimeoutException:
+            raise InferenceProviderError("timeout") from None
+        except httpx.TransportError:
+            raise InferenceProviderError("connection") from None
+        except ValidationError:
+            raise InferenceProviderError("invalid_response") from None
+
+    async def _stream_reply(
         self, *, instructions: str, context: str, owner: str
     ) -> AsyncGenerator[str | ChatTurnOutput, None]:
         model, effort, rates, output_limit = self._selection(context)
@@ -212,14 +265,33 @@ class OpenAIConversationModel:
                 },
             },
         )
-        text, published, response = "", "", None
+        text, published = "", ""
+        response: InferenceUsageEnvelope | None = None
+        status: object = None
         last = 0.0
         try:
-            async for event in stream:
+            # The pinned SDK owns SSE framing. Its normal event models may coerce
+            # usage types, so validate terminal raw JSON before that conversion.
+            # This consumes the same stream once; it never repeats HTTP or SSE I/O.
+            async for event in stream._iter_events():
                 if stream.response.num_bytes_downloaded > 1048576:
                     raise RuntimeError("Conversation stream exceeded its byte bound")
-                if event.type == "response.output_text.delta":
-                    text += event.delta
+                if event.data.startswith("[DONE]"):
+                    break
+                try:
+                    data = event.json()
+                except ValueError:
+                    raise InferenceProviderError("unknown_usage") from None
+                if not isinstance(data, dict):
+                    raise InferenceProviderError("invalid_response")
+                if event.event == "error" or data.get("type") == "error":
+                    error = data.get("error", data)
+                    raise response_failure(error.get("code") if isinstance(error, dict) else None)
+                if data.get("type") == "response.output_text.delta":
+                    delta = data.get("delta")
+                    if not isinstance(delta, str):
+                        raise InferenceProviderError("invalid_response")
+                    text += delta
                     if len(text.encode()) > 65536:
                         raise RuntimeError("Conversation JSON stream exceeded its bound")
                     # The SDK owns SSE parsing; parse only the display field from
@@ -236,15 +308,32 @@ class OpenAIConversationModel:
                         if answer != published and (not published or monotonic() - last >= 0.25):
                             published, last = answer, monotonic()
                             yield answer
-                elif event.type in ("response.completed", "response.incomplete", "response.failed"):
-                    response = event.response
+                elif data.get("type") in (
+                    "response.completed",
+                    "response.incomplete",
+                    "response.failed",
+                ):
+                    payload = data.get("response")
+                    try:
+                        response = InferenceUsageEnvelope.model_validate(payload)
+                    except ValueError:
+                        raise InferenceProviderError("unknown_usage") from None
+                    assert isinstance(payload, dict)
+                    status = payload.get("status")
+                    if status == "failed" and response.usage is None:
+                        error = payload.get("error")
+                        raise response_failure(
+                            error.get("code") if isinstance(error, dict) else None
+                        )
                     # Settle known usage before JSON/schema validation can fail.
                     await self._settle(
                         response, reservation, rates, stream.response.num_bytes_downloaded
                     )
                     break
-            if response is None or response.status != "completed":
-                raise RuntimeError("Conversation stream has no completed receipt")
+            if response is None:
+                raise InferenceProviderError("unknown_usage")
+            if status != "completed":
+                raise InferenceProviderError("invalid_response")
             parsed = ChatReply.model_validate_json(text)
             yield ChatTurnOutput(
                 parsed.answer,

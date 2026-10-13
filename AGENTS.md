@@ -35,6 +35,12 @@
   gaps. Handle native function calls before parsing accompanying text; account verified raw
   provider usage before validating structured content. Never equate a passing fake workflow
   or a single synthetic model evaluation with production readiness or complete feature parity.
+- The local inference-receipt checkpoint separates strict raw usage from answer/metadata
+  validation and classifies only allowlisted provider failures. Ordinary streamed chat uses
+  the pinned OpenAI 2.53.0 SDK SSE decoder's private `_iter_events` boundary to avoid token-type
+  coercion. Reverify it on SDK upgrades; never add a second HTTP request or refund unknown
+  usage. A successful new synthetic diagnostic does not resolve historical lost calls or prove
+  full model quality. See `docs/operation-inference-receipts-checkpoint.md`; not deployed.
 - Topic-owned session memory preserves user constraints and bounded completed/cancelled Goal
   result excerpts across chat/task continuation. It is private historical context, not fresh
   evidence or permission; never inherit previous source approvals or budgets. Freeze it before

@@ -3,7 +3,7 @@ import json
 import re
 from typing import TypedDict
 
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APIStatusError, AsyncOpenAI
 from openai.types.responses import FunctionToolParam, ResponseIncludable, ResponseInputItemParam
 from openai.types.responses.response_create_params import ContextManagement
 from pydantic import BaseModel, Field, JsonValue
@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.mana_operation_ai.application.cost_control import CostLedger
 from app.mana_operation_ai.application.goal_ports import GoalModelOutput, GoalModelResponseError
 from app.mana_operation_ai.application.goal_service import GOAL_INSTRUCTIONS
+from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.cost_control import (
     CostAttribution,
     LlmRateCard,
@@ -33,6 +34,8 @@ from app.mana_operation_ai.infrastructure.inference import (
     inference_rate_cards,
     selected_inference,
 )
+from app.mana_operation_ai.infrastructure.inference_errors import response_failure, sdk_failure
+from app.mana_operation_ai.infrastructure.inference_usage import InferenceUsageEnvelope
 
 
 class ToolRequestOptions(TypedDict, total=False):
@@ -45,23 +48,8 @@ class ContinuationRequestOptions(TypedDict, total=False):
     include: list[ResponseIncludable]
 
 
-class GoalInputUsage(BaseModel):
-    cached_tokens: int = Field(ge=0)
-    # Optional in older Responses payloads; no cache write is reported there.
-    cache_write_tokens: int = Field(default=0, ge=0)
-
-
-class GoalProviderUsage(BaseModel):
-    input_tokens: int = Field(ge=0)
-    output_tokens: int = Field(ge=0)
-    input_tokens_details: GoalInputUsage
-
-
-class GoalUsageEnvelope(BaseModel):
-    model: str
-    service_tier: str | None
+class GoalOutputEnvelope(BaseModel):
     status: str
-    usage: GoalProviderUsage | None
     output: list[dict[str, JsonValue]] = Field(default_factory=list)
     incomplete_details: dict[str, JsonValue] | None = None
 
@@ -121,7 +109,10 @@ class OpenAIGoalModel:
         )
 
     async def decide(self, *, context: str, owner: str) -> GoalModelOutput:
-        return await self._decide(context=context, owner=owner)
+        try:
+            return await self._decide(context=context, owner=owner)
+        except (APIConnectionError, APIStatusError) as exc:
+            raise sdk_failure(exc) from None
 
     def _prepare(
         self, context: str, owner: str, state: ModelContinuation | None
@@ -157,7 +148,10 @@ class OpenAIGoalModel:
         self, *, context: str, owner: str, state: ModelContinuation | None
     ) -> GoalModelOutput:
         prepared = self._prepare(context, owner, state)
-        return await self._decide(context=context, owner=owner, prepared=prepared)
+        try:
+            return await self._decide(context=context, owner=owner, prepared=prepared)
+        except (APIConnectionError, APIStatusError) as exc:
+            raise sdk_failure(exc) from None
 
     async def _decide(
         self, *, context: str, owner: str, prepared: PreparedContinuation | None = None
@@ -231,7 +225,14 @@ class OpenAIGoalModel:
         )
         # Parsing an incomplete JSON body can fail inside the SDK before returning usage.
         # Account verified raw HTTP usage first, then validate the domain decision.
-        envelope = GoalUsageEnvelope.model_validate(raw.http_response.json())
+        try:
+            payload = raw.http_response.json()
+            envelope = InferenceUsageEnvelope.model_validate(payload)
+        except ValueError:
+            raise InferenceProviderError("unknown_usage") from None
+        if payload.get("status") == "failed" and envelope.usage is None:
+            error = payload.get("error")
+            raise response_failure(error.get("code") if isinstance(error, dict) else None)
         # Unknown usage/model/tier retains the global and goal-local worst-case hold.
         if (
             re.fullmatch(re.escape(rates.model) + r"(?:-\d{4}-\d{2}-\d{2})?", envelope.model)
@@ -239,7 +240,7 @@ class OpenAIGoalModel:
             or envelope.service_tier != "default"
             or envelope.usage is None
         ):
-            raise RuntimeError("Goal response usage/pricing cannot be verified")
+            raise InferenceProviderError("unknown_usage")
         usage = envelope.usage
         actual = ResourceUsage(
             llm_calls=1,
@@ -258,19 +259,28 @@ class OpenAIGoalModel:
         await self._ledger.settle(reservation.reservation_id, actual=actual)
         if actual.exceeds(reservation.usage):
             raise RuntimeError("Goal response exceeded its resource reservation")
-        if envelope.status != "completed":
-            reason = (envelope.incomplete_details or {}).get("reason")
+        try:
+            content = GoalOutputEnvelope.model_validate(payload)
+        except ValueError:
+            raise GoalModelResponseError(
+                "Структура AI-ответа не прошла проверку. Расходы учтены; повтор не запущен.",
+                actual.llm_microusd,
+            ) from None
+        if content.status != "completed":
+            reason = (content.incomplete_details or {}).get("reason")
             raise GoalModelResponseError(
                 "Ответ AI не завершён. Токены учтены; автоматического повтора нет.",
                 actual.llm_microusd,
-                provider_status=envelope.status,
+                provider_status=content.status
+                if content.status in {"failed", "incomplete", "cancelled", "queued", "in_progress"}
+                else None,
                 incomplete_reason=reason
-                if isinstance(reason, str) and re.fullmatch(r"[a-z_]{1,80}", reason)
+                if isinstance(reason, str) and reason in {"max_output_tokens", "content_filter"}
                 else None,
             )
         # A native call may accompany ordinary public commentary. Do not parse that
         # commentary as a structured final decision before handling the function call.
-        calls = [item for item in envelope.output if item.get("type") == "function_call"]
+        calls = [item for item in content.output if item.get("type") == "function_call"]
         if calls:
             if not self._agent_mode(context) or goal.get("phase") == "review" or len(calls) != 1:
                 raise GoalModelResponseError(
@@ -306,7 +316,7 @@ class OpenAIGoalModel:
                 if response.output_parsed is None:
                     raise ValueError("Missing structured decision")
                 decision = GoalDecision.model_validate(response.output_parsed.model_dump())
-            except ValueError:
+            except (ValueError, TypeError, KeyError, AttributeError):
                 raise GoalModelResponseError(
                     "Формат ответа AI не прошёл проверку. Расходы учтены; повтор не запущен.",
                     actual.llm_microusd,
@@ -317,7 +327,7 @@ class OpenAIGoalModel:
             try:
                 continuation = finish_continuation(
                     prepared,
-                    envelope.output,
+                    content.output,
                     model=model_name,
                     call=decision.tool_call,
                     maximum_bytes=self._settings.operation_workspace_model_window_bytes,

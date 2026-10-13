@@ -52,6 +52,8 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+# Generated release/evaluation artifacts are not importable application modules.
+exclude = ["^output/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
