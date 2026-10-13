@@ -343,7 +343,8 @@ class Ga4ParentAnalyticsAdapter:
             [
                 "Dimension reports retain at most ten groups each, not the whole population. "
                 "Distinct users overlap across groups; never sum them into unique users. Missing "
-                "labels and withheld private-looking values explicitly reduce coverage.",
+                "labels, ambiguous normalized groups and withheld private-looking values "
+                "explicitly reduce coverage.",
                 "Geography describes approximate app activity, not GPS, orders or sales. "
                 "First-user attribution is not advertising spend or paid conversion; screen "
                 "engagement is not per-user time. Minute buckets are aggregate opens, not "
@@ -413,7 +414,7 @@ class Ga4ParentAnalyticsAdapter:
             report, timezone=str(self._timezone)
         )
         raw_rows = _rows(report, ["streamId", *dimensions], metrics, limit=10)
-        rows = []
+        rows_by_key: dict[tuple[str | None, ...], ParentBreakdownRow | None] = {}
         withheld = 0
         label_names, measure_names = PARENT_BREAKDOWN_FIELDS[kind]
         for labels, values in raw_rows:
@@ -444,7 +445,17 @@ class Ga4ParentAnalyticsAdapter:
                 observed = datetime.strptime(value, "%Y%m%d%H%M").date()
                 if not end - timedelta(days=29) <= observed <= end:
                     raise ProviderPermanentError("GA4 notification bucket is outside its period")
-            rows.append(ParentBreakdownRow(labels=converted_labels, measures=converted_values))
+            key = tuple(converted_labels[name] for name in label_names)
+            if key in rows_by_key:
+                # Normalization can collapse distinct provider groups. Discard all
+                # ambiguous rows: distinct users must never be summed or deduped.
+                withheld += 2 if rows_by_key[key] is not None else 1
+                rows_by_key[key] = None
+            else:
+                rows_by_key[key] = ParentBreakdownRow(
+                    labels=converted_labels, measures=converted_values
+                )
+        rows = [row for row in rows_by_key.values() if row is not None]
         groups = report.get("rowCount", len(raw_rows))
         if quality == "complete":
             if not rows and not groups:

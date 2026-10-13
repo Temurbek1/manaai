@@ -343,7 +343,7 @@ def render_analytics(facts: ParentAnalyticsFacts | ChildTelemetryFacts) -> str:
             lines.append(
                 f"{titles[breakdown.kind]}: {breakdown.quality}; "
                 f"показано групп {len(breakdown.rows)}/{breakdown.total_groups}; "
-                f"скрыто длинных/потенциально личных значений: {breakdown.withheld_rows}."
+                f"исключено неоднозначных/длинных/личных строк: {breakdown.withheld_rows}."
             )
             for row in breakdown.rows:
                 lines.append(

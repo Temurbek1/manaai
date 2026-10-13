@@ -41,7 +41,9 @@ label. Longer labels are withheld with explicit partial coverage, never silently
 shortened; this keeps the complete generated report inside the saved-text reader's
 32000-character limit. Users overlap between groups;
 distinct-user counts must not be summed. Truncation, missing labels, high-cardinality
-data loss, sampling and thresholds remain explicit. Email/URL/long-identifier/GPS-
+data loss and colliding normalized groups remain explicit. Every ambiguous group is
+withheld, including all duplicates; its distinct users are never summed or deduped.
+Sampling and thresholds remain explicit. Email/URL/long-identifier/GPS-
 looking labels are withheld; this filter is not a general DLP guarantee. Custom
 user dimensions, raw timelines, payment identifiers and identity joins are excluded.
 Acquisition is app attribution, not collection from external advertising services.

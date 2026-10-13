@@ -454,7 +454,6 @@ async def test_ga4_dimension_coverage_and_privacy_are_explicit(
     "shape",
     [
         "foreign_stream",
-        "duplicate_group",
         "negative_metric",
         "bad_hour",
         "future_minute",
@@ -474,9 +473,6 @@ async def test_invalid_ga4_dimensions_stop_at_the_known_attempt(
             row = payload["reports"][0]
             if shape == "foreign_stream":
                 row["rows"][0]["dimensionValues"][0]["value"] = "360"
-            if shape == "duplicate_group":
-                row["rows"].append(row["rows"][0])
-                row["rowCount"] = 2
             if shape == "negative_metric":
                 row["rows"][0]["metricValues"][0]["value"] = "-1"
             if shape == "missing_metric":
@@ -498,6 +494,80 @@ async def test_invalid_ga4_dimensions_stop_at_the_known_attempt(
         with pytest.raises(ProviderPermanentError):
             await source.collect()
     assert calls == (5 if shape == "future_minute" else 4)
+
+
+@pytest.mark.parametrize("shape", ["missing_sentinels", "whitespace", "raw_duplicate"])
+async def test_ambiguous_dimension_groups_are_withheld_without_summing_users(
+    harness: Harness, shape: str
+) -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        payload = ga4_payload(request)
+        body = json.loads(request.content)
+        first = body.get("requests", [{}])[0]
+        if first.get("dimensions", [{}])[1:] == [
+            {"name": "unifiedScreenName"},
+            {"name": "unifiedScreenClass"},
+        ]:
+            row = payload["reports"][3]
+            labels = (
+                ["(not set)", "(other)", ""]
+                if shape == "missing_sentinels"
+                else ["instagram", " instagram ", "instagram "]
+                if shape == "whitespace"
+                else ["instagram"] * 3
+            )
+            row["rows"] = [
+                {
+                    "dimensionValues": [
+                        {"value": value}
+                        for value in [
+                            STREAM,
+                            label,
+                            "(not set)",
+                            "(not set)",
+                            "(not set)",
+                            "(not set)",
+                        ]
+                    ],
+                    "metricValues": [{"value": value} for value in ["2", "3", "750"]],
+                }
+                for label in labels
+            ]
+            row["rows"].append(
+                {
+                    "dimensionValues": [
+                        {"value": value}
+                        for value in [
+                            STREAM,
+                            "referral",
+                            "(not set)",
+                            "(not set)",
+                            "(not set)",
+                            "(not set)",
+                        ]
+                    ],
+                    "metricValues": [{"value": value} for value in ["1", "1", "25"]],
+                }
+            )
+            row["rowCount"] = 4
+        return httpx.Response(200, json=payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        source = Ga4ParentAnalyticsAdapter(
+            http=AnalyticsReadHttp(client, Token(), harness.meter()),
+            clock=harness.clock,
+            property_id="123",
+            stream_id=STREAM,
+            timezone="Etc/GMT-5",
+        )
+        facts = await source.collect()
+    acquisition = facts.breakdowns[3]
+    assert acquisition.quality == "partial" and acquisition.withheld_rows == 3
+    assert len(acquisition.rows) == 1 and acquisition.total_groups == 4
+    assert acquisition.rows[0].labels["source"] == "referral"
+    assert acquisition.rows[0].measures["active_users"] == 1
+    assert len(facts.windows) == 3 and facts.notification_funnel is not None
+    assert (await harness.ledger.periods())[0].usage.provider_requests == 5
 
 
 @pytest.mark.parametrize("shape", ["absent", "sampled", "thresholded"])
