@@ -2,7 +2,11 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { renderWithSession } from "@/test/render";
 import { requestUrl } from "@/test/http";
-import { GoalWorkspace, type Goal } from "./GoalWorkspace";
+import {
+  GoalWorkspace,
+  type Goal,
+  type GoalsAvailability,
+} from "./GoalWorkspace";
 
 function response(body: unknown, status = 200): Promise<Response> {
   return Promise.resolve(
@@ -50,6 +54,34 @@ const fixture: Goal = {
   approved_capability: null,
   read_attempted: false,
   lease_until: null,
+};
+
+const limitAvailability: GoalsAvailability = {
+  enabled: true,
+  model: "fake",
+  max_steps: 6,
+  budget_microusd: 500000,
+  agent_workspace_enabled: true,
+  event_stream_enabled: true,
+  model_selection_enabled: false,
+  read_capabilities: [],
+  limit_extensions_enabled: true,
+  extension_max_steps: 24,
+  extension_budget_microusd: 500000,
+};
+const limited: Goal = {
+  ...fixture,
+  request: {
+    ...fixture.request,
+    execution_mode: "agent",
+    budget_microusd: 50000,
+  },
+  steps_used: 6,
+  limit_tracking: true,
+  limit_stop: "steps",
+  limit_grants: [],
+  unsettled_microusd: 0,
+  waiting_reason: "Лимит шагов исчерпан.",
 };
 
 describe("GoalWorkspace", () => {
@@ -203,5 +235,154 @@ describe("GoalWorkspace", () => {
     );
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
     expect(container.querySelector(".goal-workspace")).toBeNull();
+  });
+
+  it("extends the same goal only after exact human limit confirmation", async () => {
+    const posts: Record<string, unknown>[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)));
+        return response({
+          ...limited,
+          status: "queued",
+          limit_stop: null,
+          revision: 4,
+        });
+      }
+      return response([limited]);
+    });
+    renderWithSession(
+      <GoalWorkspace topicId="topic-1" availability={limitAvailability} />,
+    );
+    const button = await screen.findByRole("button", {
+      name: "Продолжить эту цель",
+    });
+    expect(
+      screen.queryByRole("button", { name: "Продолжить" }),
+    ).not.toBeInTheDocument();
+    expect(posts).toHaveLength(0);
+    fireEvent.click(button);
+    expect(posts).toHaveLength(0);
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: "Общий бюджет, $" }),
+      { target: { value: "0.10" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить и продолжить" }),
+    );
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({
+      command: "extend_limits",
+      expected_revision: 3,
+      message: "",
+      max_steps: 12,
+      budget_microusd: 100000,
+    });
+    expect(
+      screen.queryByRole("button", { name: "Разрешить чтение данных" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("never submits decreased, fractional or over-ceiling limits", async () => {
+    const posts: unknown[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      if (init?.method === "POST") posts.push(init.body);
+      return response([limited]);
+    });
+    renderWithSession(
+      <GoalWorkspace topicId="topic-1" availability={limitAvailability} />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Продолжить эту цель" }),
+    );
+    const steps = screen.getByRole("spinbutton", { name: "Всего шагов" });
+    const budget = screen.getByRole("spinbutton", { name: "Общий бюджет, $" });
+    const confirm = screen.getByRole("button", {
+      name: "Подтвердить и продолжить",
+    });
+    for (const value of ["5", "6", "6.5", "25", ""]) {
+      fireEvent.change(steps, { target: { value } });
+      expect(confirm).toBeDisabled();
+    }
+    fireEvent.change(steps, { target: { value: "12" } });
+    for (const value of ["0.01", "0.501", "0.51", ""]) {
+      fireEvent.change(budget, { target: { value } });
+      expect(confirm).toBeDisabled();
+    }
+    expect(posts).toHaveLength(0);
+  });
+
+  it.each(["viewer", "admin"] as const)(
+    "unknown cost holds never offer extension to %s",
+    async (role) => {
+      jest
+        .spyOn(globalThis, "fetch")
+        .mockImplementation(() =>
+          response([
+            { ...limited, limit_stop: null, unsettled_microusd: 12000 },
+          ]),
+        );
+      renderWithSession(
+        <GoalWorkspace topicId="topic-1" availability={limitAvailability} />,
+        role,
+      );
+      expect(
+        await screen.findByText(/Исход AI-запроса неизвестен/),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "Продолжить эту цель" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Продолжить" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("fails closed when limit availability is missing or disabled", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => response([limited]));
+    renderWithSession(<GoalWorkspace topicId="topic-1" />);
+    expect(
+      await screen.findByText(
+        /Продолжение с новыми лимитами сейчас недоступно/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Продолжить эту цель" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Продолжить" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reuses a lost extension receipt rather than doubling its grant", async () => {
+    const posts: Record<string, unknown>[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)));
+        return posts.length === 1
+          ? Promise.reject(new Error("Lost reply"))
+          : response(limited);
+      }
+      return response([limited]);
+    });
+    renderWithSession(
+      <GoalWorkspace topicId="topic-1" availability={limitAvailability} />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Продолжить эту цель" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить и продолжить" }),
+    );
+    await screen.findByRole("alert");
+    const retry = screen.getByRole("button", {
+      name: "Подтвердить и продолжить",
+    });
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]).toEqual(posts[0]);
   });
 });

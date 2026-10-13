@@ -229,8 +229,25 @@ class OperationGoalService:
         return await self.repository.list(owner, topic_id)
 
     async def command(self, owner: str, goal_id: str, payload: GoalCommand) -> OperationGoal:
-        if payload.command in ("resume", "steer", "approve_read") and not self.availability.enabled:
+        if (
+            payload.command in ("resume", "steer", "approve_read", "extend_limits")
+            and not self.availability.enabled
+        ):
             raise ChatError("Goals временно отключены. История доступна.", 503)
+        if payload.command == "extend_limits":
+            await self._access(owner)
+            if not (
+                self.availability.agent_workspace_enabled
+                and self.availability.limit_extensions_enabled
+            ):
+                raise ChatError("Продолжение с новыми лимитами пока отключено.", 503)
+            if (
+                payload.max_steps is None
+                or payload.budget_microusd is None
+                or payload.max_steps > self.availability.extension_max_steps
+                or payload.budget_microusd > self.availability.extension_budget_microusd
+            ):
+                raise ChatError("Новые лимиты превышают разрешённые сервером.", 422)
         if payload.command == "approve_read":
             goal = await self.repository.get(owner, goal_id)
             if (
@@ -346,6 +363,7 @@ class OperationGoalService:
         owner, goal = claimed
         before = goal.model_copy(deep=True)
         held_amount = 0
+        verified_actual: int | None = None
         try:
             await self._access(owner)
             if (
@@ -363,6 +381,21 @@ class OperationGoalService:
                 )
             ):
                 raise ChatError("Выполнение остановлено защитным выключателем.")
+            if goal.limit_tracking:
+                if not self.availability.limit_extensions_enabled:
+                    raise ChatError(
+                        "Продолжение с отслеживаемыми лимитами отключено. История сохранена."
+                    )
+                if goal.unsettled_microusd:
+                    raise ChatError(
+                        "Исход AI-запроса неизвестен. Резерв сохранён; повтор запрещён."
+                    )
+                if goal.limit_grants and (
+                    goal.execution_limits.max_steps > self.availability.extension_max_steps
+                    or goal.execution_limits.budget_microusd
+                    > self.availability.extension_budget_microusd
+                ):
+                    raise ChatError("Подтверждённые лимиты больше текущих серверных ограничений.")
             if goal.approved_capability:
                 capability = goal.approved_capability
                 if capability not in self._allowed_reads(goal):
@@ -444,9 +477,15 @@ class OperationGoalService:
             # Review the exact durable evidence used for the draft, not a moving latest report.
             if goal.phase != "review" and goal.request.execution_mode != "agent":
                 goal.evidence = await self._evidence(goal)
-            if goal.steps_used >= goal.request.max_steps:
+            limits = goal.execution_limits
+            if goal.steps_used >= limits.max_steps:
+                if goal.limit_tracking:
+                    goal.limit_stop = "steps"
                 raise ChatError(
-                    "Лимит шагов исчерпан. Частичный результат сохранён. Создайте более узкую цель."
+                    "Лимит шагов исчерпан. Частичный результат сохранён. "
+                    "Можно подтвердить увеличение лимитов этой же цели."
+                    if goal.limit_tracking
+                    else "Лимит шагов исчерпан. Частичный результат сохранён."
                 )
             context = self._context(goal)
             if goal.model_continuation is not None and self._continuing_model is None:
@@ -461,12 +500,16 @@ class OperationGoalService:
                 if continuing
                 else self._model.reservation(context)
             )
-            if goal.accounted_microusd + amount > goal.request.budget_microusd:
+            if goal.accounted_microusd + amount > limits.budget_microusd:
+                if goal.limit_tracking:
+                    goal.limit_stop = "budget"
                 raise ChatError(
                     "Бюджет цели исчерпан. Результат сохранён; неизвестные расходы входят в резерв."
                 )
             # Goal-local conservative hold supplements the shared atomic day/month ledger.
             goal.accounted_microusd += amount
+            if goal.limit_tracking:
+                goal.unsettled_microusd += amount
             held_amount = amount
             goal.steps_used += 1
             if not await self.repository.save(owner, before, goal):
@@ -475,6 +518,8 @@ class OperationGoalService:
             goal = before.model_copy(deep=True)
             # A concurrent control after the reservation wins; never send a new call after pause.
             if goal.status != "running":
+                # This invocation has not dispatched a model request.
+                verified_actual = 0
                 return True
             async with asyncio.timeout(180):
                 output = (
@@ -488,7 +533,10 @@ class OperationGoalService:
                 raise ChatError(
                     "Стоимость ответа превысила подтверждённый резерв; цель остановлена."
                 )
+            verified_actual = output.actual_microusd
             goal.accounted_microusd += output.actual_microusd - amount
+            if goal.limit_tracking:
+                goal.unsettled_microusd -= amount
             goal.model = output.model
             if continuing:
                 if output.continuation is None:
@@ -580,7 +628,10 @@ class OperationGoalService:
             raise
         except GoalModelResponseError as exc:
             if 0 <= exc.actual_microusd <= held_amount:
+                verified_actual = exc.actual_microusd
                 goal.accounted_microusd += exc.actual_microusd - held_amount
+                if goal.limit_tracking:
+                    goal.unsettled_microusd -= held_amount
                 if (
                     exc.output_failure == "invalid_decision"
                     and goal.request.execution_mode == "agent"
@@ -613,8 +664,13 @@ class OperationGoalService:
                     return True
             await self._wait(owner, before, goal, str(exc))
         except CostBudgetExceeded:
-            # Shared admission failed before I/O; this local hold is known unused.
-            goal.accounted_microusd -= held_amount
+            # Only the unused model hold is refundable. A later tool admission
+            # denial must never erase the already priced model response.
+            if verified_actual is None:
+                goal.accounted_microusd -= held_amount
+                verified_actual = 0
+                if goal.limit_tracking:
+                    goal.unsettled_microusd -= held_amount
             await self._wait(
                 owner,
                 before,
@@ -640,6 +696,7 @@ class OperationGoalService:
                 and current.lease_until == before.lease_until
             ):
                 released = current.model_copy(update={"lease_until": None})
+                self._settle_fenced_model_cost(released, held_amount, verified_actual)
                 self._interrupt_tools(released)
                 await self.repository.save(owner, current, released)
             elif (
@@ -650,9 +707,25 @@ class OperationGoalService:
                 # Steering is accepted while I/O is in flight. Ignore the old result,
                 # then continue with the new instruction after that I/O ends.
                 released = current.model_copy(update={"status": "queued", "lease_until": None})
+                self._settle_fenced_model_cost(released, held_amount, verified_actual)
                 self._interrupt_tools(released)
                 await self.repository.save(owner, current, released)
         return True
+
+    @staticmethod
+    def _settle_fenced_model_cost(
+        goal: OperationGoal, held_amount: int, verified_actual: int | None
+    ) -> None:
+        # Accept only verified usage, never the stale model decision/continuation.
+        # One tracked hold owns this drained lease; unknown receipts remain held.
+        if (
+            goal.limit_tracking
+            and held_amount > 0
+            and verified_actual is not None
+            and goal.unsettled_microusd == held_amount
+        ):
+            goal.accounted_microusd += verified_actual - held_amount
+            goal.unsettled_microusd = 0
 
     @staticmethod
     def _interrupt_tools(goal: OperationGoal) -> None:

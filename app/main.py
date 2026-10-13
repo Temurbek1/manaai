@@ -636,6 +636,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         clock,
         events_enabled=events_enabled,
         context_goal_limit=settings.operation_workspace_context_goal_limit,
+        limit_extensions_enabled=(
+            settings.operation_agent_workspace_enabled
+            and settings.operation_goal_limit_extensions_enabled
+        ),
     )
     app.state.operation_workspace_events = WorkspaceEventService(
         SqlAlchemyWorkspaceEvents(operation_database),
@@ -712,6 +716,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             model=settings.operation_goals_model,
             max_steps=settings.operation_goals_max_steps,
             budget_microusd=settings.operation_goals_budget_microusd,
+            limit_extensions_enabled=(
+                settings.operation_agent_workspace_enabled
+                and settings.operation_goal_limit_extensions_enabled
+            ),
+            extension_max_steps=settings.operation_goals_extension_max_steps,
+            extension_budget_microusd=settings.operation_goals_extension_budget_microusd,
             read_capabilities=(
                 ["retention.engagement.analyze"]
                 if source_product in (ProductScope.MANA, ProductScope.REC360)

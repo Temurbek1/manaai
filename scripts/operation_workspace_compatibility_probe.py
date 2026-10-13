@@ -40,7 +40,9 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
     repository = (
         SqlAlchemyGoalRepository(database, clock)
         if stage == "legacy"
-        else SqlAlchemyGoalRepository(database, clock, events_enabled=True)
+        else SqlAlchemyGoalRepository(
+            database, clock, events_enabled=True, limit_extensions_enabled=True
+        )
     )
     try:
         if stage == "setup":
@@ -54,6 +56,7 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
             from app.mana_operation_ai.domain.goals import (
                 GoalConversationTurn,
                 GoalEvidence,
+                GoalLimitGrant,
                 GoalModelFeedback,
                 ReportReadProgress,
             )
@@ -179,6 +182,17 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                             "lease_until": clock.now() - timedelta(minutes=1) if lost else None,
                             "steps_used": 1,
                             "accounted_microusd": 90_000,
+                            "unsettled_microusd": 90_000 if lost else 0,
+                            "limit_grants": []
+                            if lost
+                            else [
+                                GoalLimitGrant(
+                                    request_id=uuid4(),
+                                    at=clock.now(),
+                                    max_steps=12,
+                                    budget_microusd=goal.request.budget_microusd,
+                                )
+                            ],
                             "read_attempted": lost,
                             "model_continuation": continuation,
                             "model_feedback": GoalModelFeedback(
@@ -289,6 +303,10 @@ async def probe(path: Path, *, stage: str, paused: bool) -> None:
                     assert goal.status == "cancelled"
                     continue
                 lost = topic.title == "Native lost"
+                assert goal.limit_tracking
+                assert goal.unsettled_microusd == (90_000 if lost else 0)
+                assert len(goal.limit_grants) == (0 if lost else 1)
+                assert goal.execution_limits.max_steps == (6 if lost else 12)
                 journal = await SqlAlchemyWorkspaceEvents(database).page(OWNER, topic.topic_id, 0)
                 assert len(journal.items) == 2
                 assert [event.revision for event in journal.items] == [0, 1]

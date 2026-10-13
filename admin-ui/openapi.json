@@ -6393,6 +6393,25 @@
             "title": "Event Stream Enabled",
             "type": "boolean"
           },
+          "extension_budget_microusd": {
+            "default": 0,
+            "maximum": 10000000.0,
+            "minimum": 0.0,
+            "title": "Extension Budget Microusd",
+            "type": "integer"
+          },
+          "extension_max_steps": {
+            "default": 0,
+            "maximum": 120.0,
+            "minimum": 0.0,
+            "title": "Extension Max Steps",
+            "type": "integer"
+          },
+          "limit_extensions_enabled": {
+            "default": false,
+            "title": "Limit Extensions Enabled",
+            "type": "boolean"
+          },
           "max_steps": {
             "title": "Max Steps",
             "type": "integer"
@@ -6469,13 +6488,27 @@
       "GoalCommand": {
         "additionalProperties": false,
         "properties": {
+          "budget_microusd": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 50000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Microusd"
+          },
           "command": {
             "enum": [
               "pause",
               "resume",
               "cancel",
               "steer",
-              "approve_read"
+              "approve_read",
+              "extend_limits"
             ],
             "title": "Command",
             "type": "string"
@@ -6484,6 +6517,19 @@
             "minimum": 0.0,
             "title": "Expected Revision",
             "type": "integer"
+          },
+          "max_steps": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 3.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Steps"
           },
           "message": {
             "default": "",
@@ -6759,6 +6805,41 @@
           "summary"
         ],
         "title": "GoalEvidence",
+        "type": "object"
+      },
+      "GoalLimitGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "budget_microusd": {
+            "maximum": 10000000.0,
+            "minimum": 50000.0,
+            "title": "Budget Microusd",
+            "type": "integer"
+          },
+          "max_steps": {
+            "maximum": 120.0,
+            "minimum": 3.0,
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "max_steps",
+          "budget_microusd",
+          "request_id",
+          "at"
+        ],
+        "title": "GoalLimitGrant",
         "type": "object"
       },
       "GoalModelFeedback": {
@@ -10005,6 +10086,34 @@
             ],
             "title": "Lease Until"
           },
+          "limit_grants": {
+            "items": {
+              "$ref": "#/components/schemas/GoalLimitGrant"
+            },
+            "maxItems": 20,
+            "title": "Limit Grants",
+            "type": "array"
+          },
+          "limit_stop": {
+            "anyOf": [
+              {
+                "enum": [
+                  "steps",
+                  "budget"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Stop"
+          },
+          "limit_tracking": {
+            "default": false,
+            "title": "Limit Tracking",
+            "type": "boolean"
+          },
           "model": {
             "anyOf": [
               {
@@ -10138,13 +10247,19 @@
             "items": {
               "$ref": "#/components/schemas/AgentToolRecord"
             },
-            "maxItems": 12,
+            "maxItems": 120,
             "title": "Tools",
             "type": "array"
           },
           "topic_id": {
             "title": "Topic Id",
             "type": "string"
+          },
+          "unsettled_microusd": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Unsettled Microusd",
+            "type": "integer"
           },
           "updated_at": {
             "format": "date-time",
@@ -15382,7 +15497,7 @@
             "items": {
               "$ref": "#/components/schemas/WorkspaceToolState"
             },
-            "maxItems": 12,
+            "maxItems": 120,
             "title": "Tools",
             "type": "array"
           },

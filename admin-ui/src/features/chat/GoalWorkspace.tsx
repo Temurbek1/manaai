@@ -10,7 +10,12 @@ import type { WorkspaceStreamState } from "./useWorkspaceStream";
 
 export const GOALS_BASE = "/api/v1/admin/operation/goals";
 type StoredGoal = components["schemas"]["OperationGoal"];
-export type Goal = Omit<StoredGoal, "request" | "model_recoveries"> & {
+export type Goal = Omit<
+  StoredGoal,
+  "request" | "model_recoveries" | "limit_tracking" | "unsettled_microusd"
+> & {
+  limit_tracking?: StoredGoal["limit_tracking"];
+  unsettled_microusd?: StoredGoal["unsettled_microusd"];
   model_recoveries?: StoredGoal["model_recoveries"];
   request: Omit<
     StoredGoal["request"],
@@ -61,10 +66,12 @@ export function GoalWorkspace({
   topicId,
   inlineSteering = true,
   progressStream,
+  availability,
 }: {
   topicId: string;
   inlineSteering?: boolean;
   progressStream?: WorkspaceStreamState;
+  availability?: GoalsAvailability | undefined;
 }): React.JSX.Element | null {
   const { session } = useSession();
   const canControl = hasRole(session, "operator");
@@ -87,6 +94,9 @@ export function GoalWorkspace({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [limitFormGoalId, setLimitFormGoalId] = useState<string | null>(null);
+  const [limitSteps, setLimitSteps] = useState("");
+  const [limitBudget, setLimitBudget] = useState("");
   const guard = useRef(false);
   const pending = useRef<{ goalId: string; payload: object } | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -109,10 +119,37 @@ export function GoalWorkspace({
       : null;
   const inFlight =
     goal.lease_until && new Date(goal.lease_until).getTime() > now;
+  const limits = goal.limit_grants?.at(-1) ?? goal.request;
+  const canExtend = Boolean(
+    goal.limit_tracking &&
+    goal.limit_stop &&
+    !goal.unsettled_microusd &&
+    availability?.limit_extensions_enabled &&
+    (goal.limit_stop === "steps"
+      ? limits.max_steps < (availability.extension_max_steps ?? 0)
+      : limits.budget_microusd < (availability.extension_budget_microusd ?? 0)),
+  );
+  const proposedSteps = Number(limitSteps);
+  const proposedBudget = Math.round(Number(limitBudget) * 1_000_000);
+  const validLimits = Boolean(
+    canExtend &&
+    Number.isInteger(proposedSteps) &&
+    proposedSteps >= limits.max_steps &&
+    proposedSteps <= (availability?.extension_max_steps ?? 0) &&
+    /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(limitBudget) &&
+    Number.isSafeInteger(proposedBudget) &&
+    proposedBudget >= limits.budget_microusd &&
+    proposedBudget <= (availability?.extension_budget_microusd ?? 0) &&
+    (proposedSteps > limits.max_steps ||
+      proposedBudget > limits.budget_microusd) &&
+    (goal.limit_stop !== "steps" || proposedSteps > goal.steps_used) &&
+    (goal.limit_stop !== "budget" || proposedBudget > limits.budget_microusd),
+  );
 
   async function control(
     command: Command,
     clarification = message,
+    extension?: { max_steps: number; budget_microusd: number },
   ): Promise<void> {
     if (guard.current) return;
     guard.current = true;
@@ -123,15 +160,24 @@ export function GoalWorkspace({
       command,
       message: command === "steer" ? clarification.trim() : "",
       expected_revision: goal.revision,
+      ...(command === "extend_limits" ? extension : {}),
     };
     const prior = pending.current?.payload as
-      | { command?: Command; message?: string; expected_revision?: number }
+      | {
+          command?: Command;
+          message?: string;
+          expected_revision?: number;
+          max_steps?: number;
+          budget_microusd?: number;
+        }
       | undefined;
     if (
       pending.current?.goalId !== goal.goal_id ||
       prior?.command !== command ||
       prior?.message !== payload.message ||
-      prior?.expected_revision !== goal.revision
+      prior?.expected_revision !== goal.revision ||
+      prior?.max_steps !== extension?.max_steps ||
+      prior?.budget_microusd !== extension?.budget_microusd
     )
       pending.current = { goalId: goal.goal_id, payload };
     try {
@@ -141,6 +187,7 @@ export function GoalWorkspace({
       );
       pending.current = null;
       if (command === "steer") setMessage("");
+      if (command === "extend_limits") setLimitFormGoalId(null);
       await mutate();
     } catch (caught) {
       setActionError(
@@ -283,6 +330,8 @@ export function GoalWorkspace({
               </button>
             ) : null
           ) : goal.requested_capability ||
+            goal.limit_stop ||
+            goal.unsettled_microusd ||
             (goal.status === "waiting" &&
               question?.call.name === "ask_user") ? null : (
             <button
@@ -291,6 +340,33 @@ export function GoalWorkspace({
               onClick={() => void control("resume")}
             >
               Продолжить
+            </button>
+          )}
+          {goal.limit_stop && canExtend && limitFormGoalId !== goal.goal_id && (
+            <button
+              type="button"
+              disabled={busy || Boolean(inFlight)}
+              onClick={() => {
+                setLimitSteps(
+                  String(
+                    Math.min(
+                      limits.max_steps + 6,
+                      availability!.extension_max_steps,
+                    ),
+                  ),
+                );
+                const budget =
+                  goal.limit_stop === "budget"
+                    ? Math.min(
+                        limits.budget_microusd + 100000,
+                        availability!.extension_budget_microusd,
+                      )
+                    : limits.budget_microusd;
+                setLimitBudget((Math.ceil(budget / 10000) / 100).toFixed(2));
+                setLimitFormGoalId(goal.goal_id);
+              }}
+            >
+              Продолжить эту цель
             </button>
           )}
           {goal.requested_capability && goal.status === "waiting" && (
@@ -314,6 +390,75 @@ export function GoalWorkspace({
             <span>Заканчивается текущий запрос…</span>
           )}
         </div>
+      )}
+      {!terminal &&
+        canControl &&
+        goal.limit_stop &&
+        canExtend &&
+        limitFormGoalId === goal.goal_id && (
+          <form
+            className="goal-limit-form"
+            aria-label="Увеличить лимиты цели"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (validLimits && !inFlight)
+                void control("extend_limits", "", {
+                  max_steps: proposedSteps,
+                  budget_microusd: proposedBudget,
+                });
+            }}
+          >
+            <label>
+              Всего шагов
+              <input
+                type="number"
+                min={limits.max_steps}
+                max={availability!.extension_max_steps}
+                step="1"
+                value={limitSteps}
+                disabled={busy}
+                onChange={(event) => setLimitSteps(event.target.value)}
+              />
+            </label>
+            <label>
+              Общий бюджет, $
+              <input
+                type="number"
+                min={limits.budget_microusd / 1_000_000}
+                max={availability!.extension_budget_microusd / 1_000_000}
+                step="0.01"
+                value={limitBudget}
+                disabled={busy}
+                onChange={(event) => setLimitBudget(event.target.value)}
+              />
+            </label>
+            <p>
+              Расходы сохраняются. Это не разрешение на новое чтение данных.
+            </p>
+            <button
+              type="submit"
+              disabled={busy || Boolean(inFlight) || !validLimits}
+            >
+              Подтвердить и продолжить
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setLimitFormGoalId(null)}
+            >
+              Назад
+            </button>
+          </form>
+        )}
+      {goal.status === "waiting" && Boolean(goal.unsettled_microusd) && (
+        <p className="goal-update">
+          Исход AI-запроса неизвестен. Резерв сохранён; повтор не запускается.
+        </p>
+      )}
+      {goal.limit_stop && !canExtend && (
+        <p className="goal-update">
+          Продолжение с новыми лимитами сейчас недоступно. Результат сохранён.
+        </p>
       )}
       {!terminal && canControl && inlineSteering && (
         <form
@@ -345,9 +490,9 @@ export function GoalWorkspace({
       <details className="goal-details">
         <summary>История и источники</summary>
         <p>
-          {goal.steps_used} / {goal.request.max_steps} шагов · Учтено с
-          резервом: ${(goal.accounted_microusd / 1_000_000).toFixed(3)} / $
-          {(goal.request.budget_microusd / 1_000_000).toFixed(2)}
+          {goal.steps_used} / {limits.max_steps} шагов · Учтено с резервом: $
+          {(goal.accounted_microusd / 1_000_000).toFixed(3)} / $
+          {(limits.budget_microusd / 1_000_000).toFixed(2)}
         </p>
         <p>Критерий: {goal.request.success_criteria}</p>
         <p>Ограничения: {goal.request.constraints}</p>

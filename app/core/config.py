@@ -130,6 +130,11 @@ class Settings(BaseSettings):
     operation_workspace_stream_seconds: float = Field(default=45.0, ge=15, le=120)
     operation_workspace_stream_max_connections: int = Field(default=32, ge=1, le=128)
     operation_goals_budget_microusd: int = Field(default=500_000, ge=50_000, le=10_000_000)
+    operation_goals_extension_max_steps: int = Field(default=120, ge=12, le=120)
+    operation_goal_limit_extensions_enabled: bool = False
+    operation_goals_extension_budget_microusd: int = Field(
+        default=500_000, ge=50_000, le=10_000_000
+    )
     operation_goals_max_context_bytes: int = Field(default=64_000, ge=8192, le=96_000)
     operation_goals_max_output_tokens: int = Field(default=4096, ge=1024, le=16384)
     operation_goals_rate_model: str = "gpt-6.1-sol"

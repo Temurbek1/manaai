@@ -60,6 +60,14 @@ component test does not establish feature parity or close the overall goal.
 
 ## Architecture
 
+The 2026-10-13 [explicit Goal-limit continuation](operation-goal-limit-extensions.md)
+is a local, default-disabled increment. It keeps the original objective/context,
+accepts separately confirmed monotonic limits and reserves unknown model costs;
+tracked native state uses v10. It does not renew budgets automatically or approve
+reads/writes. Older/untracked histories are not reclassified or rewritten.
+The active production `38292de` image cannot execute v10; release approval and
+deployed acceptance for this increment remain separate from its local checks.
+
 The 2026-10-13 [manual first-party analytics checkpoint](operation-manual-analytics.md)
 adds default-disabled, independently bound GA4 parent activity and Firestore child
 telemetry tools, explicitly enabled in the production sidecar. Final verification:

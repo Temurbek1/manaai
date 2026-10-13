@@ -75,6 +75,9 @@ OPERATION_ALLOW_SELF_APPROVAL=false \
 OPERATION_SCHEDULER_ENABLED=false \
 OPERATION_GOALS_WORKER_ENABLED=false \
 OPERATION_GOALS_MAX_STEPS=12 \
+OPERATION_GOAL_LIMIT_EXTENSIONS_ENABLED="${AUDIT_LIMIT_EXTENSIONS:-false}" \
+OPERATION_GOALS_EXTENSION_MAX_STEPS=24 \
+OPERATION_GOALS_EXTENSION_BUDGET_MICROUSD=500000 \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
@@ -324,6 +327,31 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser reload >/dev/null
   browser wait --fn 'document.querySelector(".goal-result")?.textContent.includes("EXACT PAGED FOOTER")' >/dev/null
   browser eval '(async()=>{ const topic=location.pathname.split("/").at(-1); const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); const goal=goals[0]; if(JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd})!==sessionStorage.getItem("paged-audit-baseline")) throw new Error("Reload redispatched the paged task"); if(goal.evidence[0].shortened || !goal.evidence[0].summary.endsWith("EXACT PAGED FOOTER")) throw new Error("Reload lost complete evidence"); return "paged checkpoint restored"; })()' >/dev/null
+  if [[ "${AUDIT_LIMIT_EXTENSIONS:-false}" == "true" ]]; then
+    # Normal authenticated browser requests; only the isolated fake model runs.
+    browser eval '(async()=>{ const csrf=decodeURIComponent(document.cookie.split("; ").find(x=>x.startsWith("mana_csrf=")).split("=").slice(1).join("=")); const headers={"Content-Type":"application/json","X-CSRF-Token":csrf}; const topicReply=await fetch("/api/v1/admin/operation/chat/topics",{method:"POST",headers,body:JSON.stringify({agent_id:"operations-orchestrator",product:"mana",title:"Продолжение длинной цели"})}); if(!topicReply.ok)throw new Error("Topic creation refused"); const topic=await topicReply.json(); const request={request_id:crypto.randomUUID(),objective:"Проверка продолжения той же цели без новых источников",constraints:"Не читай источники, не изменяй данные, сохрани исходную задачу.",max_steps:3,budget_microusd:500000,execution_mode:"agent"}; const created=await fetch(`/api/v1/admin/operation/goals/topics/${topic.topic_id}`,{method:"POST",headers,body:JSON.stringify(request)}); if(!created.ok)throw new Error("Goal creation refused"); window.__limitTopic=topic.topic_id; sessionStorage.setItem("limit-original-request",JSON.stringify(request)); return "bounded Goal created"; })()' >/dev/null
+    limit_topic=$(browser eval 'window.__limitTopic' | tr -d '"')
+    browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator/topic/${limit_topic}" >/dev/null
+    browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Лимит шагов исчерпан")' >/dev/null
+    assert_browser '!document.querySelector(".goal-limit-form")' 'limit form opened without a user choice'
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1); const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0]; if(goal.limit_stop!=="steps" || goal.limit_grants.length || goal.unsettled_microusd || goal.steps_used!==3)throw new Error("No tracked safe limit stop"); const denied=await fetch(`/api/v1/admin/operation/goals/${goal.goal_id}/commands`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({request_id:crypto.randomUUID(),command:"extend_limits",expected_revision:goal.revision,max_steps:9,budget_microusd:500000})}); if(denied.status!==403)throw new Error("Extension bypassed CSRF"); window.__extensionPosts=0; const original=window.fetch.bind(window); window.fetch=async(...args)=>{const extension=args[1]?.method==="POST" && String(args[0]).endsWith("/commands") && JSON.parse(args[1].body).command==="extend_limits"; if(extension)window.__extensionPosts++; const reply=await original(...args); if(extension && reply.ok)throw new Error("Synthetic lost extension reply after commit"); return reply; }; return "tracked stop, CSRF and single-dispatch observation ready";})()' >/dev/null
+    browser find role button click --name "Продолжить эту цель" --exact >/dev/null
+    browser set viewport 320 812 >/dev/null
+    assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'limit form overflows on mobile'
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/goal-limit-form-mobile.png" --full >/dev/null
+    fi
+    browser eval '([...document.querySelectorAll("button")].find(button=>button.textContent.trim()==="Подтвердить и продолжить")).scrollIntoView({block:"center",behavior:"instant"}); "scrolled"' >/dev/null
+    browser find role button click --name "Подтвердить и продолжить" --exact >/dev/null
+    browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json();const goal=goals[0];const original=JSON.parse(sessionStorage.getItem("limit-original-request"));if(goals.length!==1 || goal.status!=="completed" || goal.limit_grants.length!==1 || goal.request.request_id!==original.request_id || goal.request.objective!==original.objective || goal.request.constraints!==original.constraints || goal.request.max_steps!==3 || goal.limit_grants[0].max_steps!==9 || goal.read_attempted || goal.approved_capability || goal.unsettled_microusd || window.__extensionPosts!==1)throw new Error("Extension narrowed task, reset costs, granted a read or was redispatched");sessionStorage.setItem("limit-completed-baseline",JSON.stringify({id:goal.goal_id,revision:goal.revision,cost:goal.accounted_microusd,steps:goal.steps_used,grants:goal.limit_grants}));return "same Goal completed after one confirmed extension";})()' >/dev/null
+    browser reload >/dev/null
+    browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0];if(JSON.stringify({id:goal.goal_id,revision:goal.revision,cost:goal.accounted_microusd,steps:goal.steps_used,grants:goal.limit_grants})!==sessionStorage.getItem("limit-completed-baseline"))throw new Error("Reload changed the continued Goal");return "grant and result restored without another call";})()' >/dev/null
+    assert_accessible
+    echo "Goal limit browser flow passed: exact human grant, same objective, mobile form, CSRF, lost reply without redispatch and result reload"
+  fi
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
   login_browser 51456737

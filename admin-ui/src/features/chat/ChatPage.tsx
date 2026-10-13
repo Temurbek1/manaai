@@ -646,6 +646,7 @@ export function ChatPage({
               )}
             {currentTopicId && !wrongAgent && (
               <GoalWorkspace
+                availability={goalsAvailability}
                 progressStream={progressStream}
                 key={currentTopicId}
                 topicId={currentTopicId}

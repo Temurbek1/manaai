@@ -27,7 +27,7 @@ class WorkspaceEvent(DomainModel):
     message: str = Field(max_length=2000)
     message_shortened: bool = False
     plan: list[GoalTask] = Field(default_factory=list, max_length=8)
-    tools: list[WorkspaceToolState] = Field(default_factory=list, max_length=12)
+    tools: list[WorkspaceToolState] = Field(default_factory=list, max_length=120)
 
 
 class WorkspaceEventPage(DomainModel):

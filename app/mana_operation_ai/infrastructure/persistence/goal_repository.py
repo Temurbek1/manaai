@@ -20,6 +20,7 @@ from app.mana_operation_ai.domain.goals import (
     GoalCommand,
     GoalCreate,
     GoalEvent,
+    GoalLimitGrant,
     GoalStatus,
     OperationGoal,
 )
@@ -36,7 +37,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -73,14 +74,18 @@ def _goal(row: GoalRow) -> OperationGoal:
     )
     paged_reports = _paged_reports(goal)
     manual_reads = _manual_reads(goal)
+    limit_state = goal.limit_tracking
+    version = _context_version(goal) if checkpoint.version == 10 else checkpoint.version
     if (
-        (checkpoint.version == 9) != manual_reads
+        (checkpoint.version == 10) != limit_state
+        or (limit_state and goal.request.execution_mode != "agent")
+        or (version == 9) != manual_reads
         or (manual_reads and goal.request.execution_mode != "agent")
-        or (checkpoint.version == 8) != (paged_reports and not manual_reads)
-        or (checkpoint.version == 5)
+        or (version == 8) != (paged_reports and not manual_reads)
+        or (version == 5)
         != (not manual_reads and not paged_reports and extended_context and continuation is None)
-        or (checkpoint.version == 7) != (not manual_reads and not paged_reports and format_feedback)
-        or (checkpoint.version == 6)
+        or (version == 7) != (not manual_reads and not paged_reports and format_feedback)
+        or (version == 6)
         != (
             not manual_reads
             and not paged_reports
@@ -91,18 +96,18 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8, 9)
+            checkpoint.version in (5, 6, 7, 8, 9, 10)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
-        or (checkpoint.version not in (5, 6, 7, 8, 9) and checkpoint.analysis_scope is not None)
+        or (checkpoint.version not in (5, 6, 7, 8, 9, 10) and checkpoint.analysis_scope is not None)
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
-        or (checkpoint.version == 1 and memory is not None)
-        or (checkpoint.version == 2 and memory is None)
-        or (checkpoint.version == 2 and memory is not None and bool(memory.actions))
-        or (checkpoint.version == 3 and (memory is None or not memory.actions))
+        or (version == 1 and memory is not None)
+        or (version == 2 and memory is None)
+        or (version == 2 and memory is not None and bool(memory.actions))
+        or (version == 3 and (memory is None or not memory.actions))
         or (paged_reports and goal.request.execution_mode != "agent")
         or (
             paged_reports
@@ -138,6 +143,32 @@ def _manual_reads(goal: OperationGoal) -> bool:
     )
 
 
+def _context_version(goal: OperationGoal) -> Literal[1, 2, 3, 4, 5, 6, 7, 8, 9]:
+    if _manual_reads(goal):
+        return 9
+    if _paged_reports(goal):
+        return 8
+    if goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision":
+        return 7
+    if goal.model_continuation is not None:
+        return 6
+    if _extended_context(goal):
+        return 5
+    if goal.request.analysis_scope == "saved_snapshot":
+        return 4
+    if goal.session_memory is not None:
+        return 3 if goal.session_memory.actions else 2
+    return 1
+
+
+def _command_payload(payload: GoalCommand) -> dict[str, object]:
+    # Preserve byte-equivalent pre-extension command receipts on idempotent replay.
+    return payload.model_dump(
+        mode="json",
+        exclude={"max_steps", "budget_microusd"} if payload.command != "extend_limits" else set(),
+    )
+
+
 def _extended_context(goal: OperationGoal) -> bool:
     return any(record.call.name in TASK_HISTORY_TOOLS for record in goal.tools) or bool(
         goal.session_memory and any(item.also_kinds for item in goal.session_memory.user_context)
@@ -168,6 +199,7 @@ class SqlAlchemyGoalRepository:
         *,
         events_enabled: bool = False,
         context_goal_limit: int = 10000,
+        limit_extensions_enabled: bool = False,
     ) -> None:
         if not 1 <= context_goal_limit <= 10000:
             raise ValueError("Session Goal archive capacity must be between 1 and 10000")
@@ -175,6 +207,7 @@ class SqlAlchemyGoalRepository:
         self._clock = clock
         self._events_enabled = events_enabled
         self._context_goal_limit = context_goal_limit
+        self._limit_extensions_enabled = limit_extensions_enabled
         self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
@@ -208,6 +241,10 @@ class SqlAlchemyGoalRepository:
                 "model_continuation",
                 "model_feedback",
                 "model_recoveries",
+                "limit_stop",
+                "limit_grants",
+                "limit_tracking",
+                "unsettled_microusd",
             },
         )
         payload["request"] = goal.request.model_dump(
@@ -259,11 +296,9 @@ class SqlAlchemyGoalRepository:
         native = cls._is_workspace(goal)
         extended_context = _extended_context(goal)
         continuation = goal.model_continuation is not None
-        format_feedback = (
-            goal.model_feedback is not None and goal.model_feedback.code == "invalid_decision"
-        )
         paged_reports = _paged_reports(goal)
         manual_reads = _manual_reads(goal)
+        limit_state = goal.limit_tracking
         return {
             "status": ("completed" if goal.status == "completed" else "cancelled")
             if native
@@ -273,25 +308,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=9
-                if manual_reads
-                else 8
-                if paged_reports
-                else 7
-                if format_feedback
-                else 6
-                if continuation
-                else 5
-                if extended_context
-                else 4
-                if goal.request.analysis_scope == "saved_snapshot"
-                else 3
-                if goal.session_memory is not None and goal.session_memory.actions
-                else 2
-                if goal.session_memory is not None
-                else 1,
+                version=10 if limit_state else _context_version(goal),
                 analysis_scope=goal.request.analysis_scope
-                if extended_context or continuation or paged_reports or manual_reads
+                if extended_context or continuation or paged_reports or manual_reads or limit_state
                 else None,
                 goal=goal,
             ).model_dump(
@@ -303,9 +322,20 @@ class SqlAlchemyGoalRepository:
                         and not continuation
                         and not paged_reports
                         and not manual_reads
+                        and not limit_state
                         else {}
                     ),
                     "goal": {
+                        **(
+                            {
+                                "limit_stop": True,
+                                "limit_grants": True,
+                                "limit_tracking": True,
+                                "unsettled_microusd": True,
+                            }
+                            if not limit_state
+                            else {}
+                        ),
                         **({"model_continuation": True} if not continuation else {}),
                         **(
                             {"model_feedback": True, "model_recoveries": True}
@@ -374,6 +404,7 @@ class SqlAlchemyGoalRepository:
                 agent_id=topic.agent_id,
                 product=topic.product,
                 request=request,
+                limit_tracking=self._limit_extensions_enabled and request.execution_mode == "agent",
                 session_memory=session_memory,
                 created_at=now,
                 updated_at=now,
@@ -553,7 +584,7 @@ class SqlAlchemyGoalRepository:
                 )
             )
             if prior:
-                if prior.payload != payload.model_dump(mode="json"):
+                if prior.payload != _command_payload(payload):
                     raise ChatError("Идентификатор команды уже использован.")
                 return goal
             if goal.revision != payload.expected_revision:
@@ -569,7 +600,7 @@ class SqlAlchemyGoalRepository:
                 raise ChatError("Цель закрыта. Для новой задачи создайте новую цель.")
             now = self._clock.now()
             if (
-                payload.command in ("resume", "approve_read")
+                payload.command in ("resume", "approve_read", "extend_limits")
                 and goal.lease_until
                 and goal.lease_until > now
             ):
@@ -586,14 +617,61 @@ class SqlAlchemyGoalRepository:
                     raise ChatError("Добавьте уточнение; максимум 20 уточнений на цель.")
                 goal.instructions.append(payload.message)
                 goal.phase = "investigate" if goal.plan else "plan"
-                if not (goal.lease_until and goal.lease_until > now):
+                if (
+                    not goal.limit_stop
+                    and not goal.unsettled_microusd
+                    and not (goal.lease_until and goal.lease_until > now)
+                ):
                     goal.status = "queued"
                 message = payload.message
+            elif payload.command == "extend_limits":
+                limits = goal.execution_limits
+                if (
+                    goal.request.execution_mode != "agent"
+                    or goal.status not in {"waiting", "paused"}
+                    or goal.limit_stop is None
+                    or not goal.limit_tracking
+                    or goal.unsettled_microusd != 0
+                    or len(goal.limit_grants) >= 20
+                    or payload.max_steps is None
+                    or payload.budget_microusd is None
+                    or payload.max_steps < limits.max_steps
+                    or payload.budget_microusd < limits.budget_microusd
+                    or (
+                        payload.max_steps == limits.max_steps
+                        and payload.budget_microusd == limits.budget_microusd
+                    )
+                    or (goal.limit_stop == "steps" and payload.max_steps <= goal.steps_used)
+                    or (
+                        goal.limit_stop == "budget"
+                        and payload.budget_microusd <= limits.budget_microusd
+                    )
+                    or goal.requested_capability is not None
+                    or goal.approved_capability is not None
+                    or any(tool.status in {"started", "unknown"} for tool in goal.tools)
+                ):
+                    raise ChatError("Нет безопасной остановки по лимиту для продолжения этой цели.")
+                goal.limit_grants.append(
+                    GoalLimitGrant(
+                        request_id=payload.request_id,
+                        at=now,
+                        max_steps=payload.max_steps,
+                        budget_microusd=payload.budget_microusd,
+                    )
+                )
+                goal.limit_stop = None
+                goal.status = "queued"
+                message = (
+                    f"Подтверждены общие лимиты: {payload.max_steps} шагов, "
+                    f"${payload.budget_microusd / 1_000_000:.2f}. Цель, накопленные расходы "
+                    "и ограничения сохранены. Новое чтение или действие не разрешено."
+                )
             elif payload.command == "approve_read":
                 if (
                     goal.status != "waiting"
                     or goal.requested_capability is None
                     or goal.read_attempted
+                    or goal.unsettled_microusd
                 ):
                     raise ChatError("Нет ожидающего запроса на чтение.")
                 goal.approved_capability = goal.requested_capability
@@ -601,11 +679,18 @@ class SqlAlchemyGoalRepository:
                 message = "Подтверждён один read-only анализ. Доступ, приложение, "
                 "интервал и бюджет проверяются отдельно."
             else:
+                if goal.limit_stop:
+                    raise ChatError("Для продолжения подтвердите увеличение лимитов этой цели.")
+                if goal.limit_tracking and goal.unsettled_microusd:
+                    raise ChatError(
+                        "Исход AI-запроса неизвестен. Резерв сохранён; повтор запрещён."
+                    )
                 if goal.status not in ("paused", "waiting"):
                     raise ChatError("Цель уже выполняется.")
                 goal.status = "queued"
                 message = "Продолжаем с сохранённого шага; предыдущие расходы и лимиты сохранены."
-            goal.waiting_reason = ""
+            if not goal.limit_stop:
+                goal.waiting_reason = ""
             if payload.command not in ("pause", "cancel", "steer"):
                 goal.lease_until = None
             goal.revision += 1
@@ -618,7 +703,7 @@ class SqlAlchemyGoalRepository:
                     command_id=str(uuid4()),
                     goal_id=goal_id,
                     request_id=str(payload.request_id),
-                    payload=payload.model_dump(mode="json"),
+                    payload=_command_payload(payload),
                 )
             )
             return goal

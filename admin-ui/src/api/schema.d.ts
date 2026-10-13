@@ -4257,6 +4257,21 @@ export interface components {
              * @default false
              */
             event_stream_enabled: boolean;
+            /**
+             * Extension Budget Microusd
+             * @default 0
+             */
+            extension_budget_microusd: number;
+            /**
+             * Extension Max Steps
+             * @default 0
+             */
+            extension_max_steps: number;
+            /**
+             * Limit Extensions Enabled
+             * @default false
+             */
+            limit_extensions_enabled: boolean;
             /** Max Steps */
             max_steps: number;
             /** Model */
@@ -4277,13 +4292,17 @@ export interface components {
         };
         /** GoalCommand */
         GoalCommand: {
+            /** Budget Microusd */
+            budget_microusd?: number | null;
             /**
              * Command
              * @enum {string}
              */
-            command: "pause" | "resume" | "cancel" | "steer" | "approve_read";
+            command: "pause" | "resume" | "cancel" | "steer" | "approve_read" | "extend_limits";
             /** Expected Revision */
             expected_revision: number;
+            /** Max Steps */
+            max_steps?: number | null;
             /**
              * Message
              * @default
@@ -4413,6 +4432,23 @@ export interface components {
             shortened: boolean;
             /** Summary */
             summary: string;
+        };
+        /** GoalLimitGrant */
+        GoalLimitGrant: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Budget Microusd */
+            budget_microusd: number;
+            /** Max Steps */
+            max_steps: number;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
         };
         /** GoalModelFeedback */
         GoalModelFeedback: {
@@ -5509,6 +5545,15 @@ export interface components {
             instructions?: string[];
             /** Lease Until */
             lease_until?: string | null;
+            /** Limit Grants */
+            limit_grants?: components["schemas"]["GoalLimitGrant"][];
+            /** Limit Stop */
+            limit_stop?: ("steps" | "budget") | null;
+            /**
+             * Limit Tracking
+             * @default false
+             */
+            limit_tracking: boolean;
             /** Model */
             model?: string | null;
             model_continuation?: components["schemas"]["ModelContinuation"] | null;
@@ -5565,6 +5610,11 @@ export interface components {
             tools?: components["schemas"]["AgentToolRecord"][];
             /** Topic Id */
             topic_id: string;
+            /**
+             * Unsettled Microusd
+             * @default 0
+             */
+            unsettled_microusd: number;
             /**
              * Updated At
              * Format: date-time

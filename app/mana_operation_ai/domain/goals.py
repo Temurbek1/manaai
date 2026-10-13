@@ -55,9 +55,36 @@ class GoalCreate(ChatModel):
 
 class GoalCommand(ChatModel):
     request_id: UUID
-    command: Literal["pause", "resume", "cancel", "steer", "approve_read"]
+    command: Literal["pause", "resume", "cancel", "steer", "approve_read", "extend_limits"]
     message: str = Field(default="", max_length=6000)
     expected_revision: int = Field(ge=0)
+    max_steps: int | None = Field(default=None, ge=3, le=120, strict=True)
+    budget_microusd: int | None = Field(default=None, ge=50_000, le=10_000_000, strict=True)
+
+    @model_validator(mode="after")
+    def validate_limit_command(self) -> "GoalCommand":
+        if self.command == "extend_limits":
+            if self.max_steps is None or self.budget_microusd is None or self.message:
+                raise ValueError("Limit extensions require exact limits, not a new instruction")
+        elif self.max_steps is not None or self.budget_microusd is not None:
+            raise ValueError("Only explicit limit extension commands can change limits")
+        return self
+
+
+class GoalExecutionLimits(ChatModel):
+    max_steps: int = Field(ge=3, le=120, strict=True)
+    budget_microusd: int = Field(ge=50_000, le=10_000_000, strict=True)
+
+
+class GoalLimitGrant(GoalExecutionLimits):
+    request_id: UUID
+    at: datetime
+
+    @model_validator(mode="after")
+    def validate_time(self) -> "GoalLimitGrant":
+        if self.at.utcoffset() is None:
+            raise ValueError("Limit grants require an aware timestamp")
+        return self
 
 
 class GoalTask(ChatModel):
@@ -142,11 +169,60 @@ class OperationGoal(ChatModel):
     read_attempted: bool = False
     model: str | None = None
     lease_until: datetime | None = None
-    tools: list[AgentToolRecord] = Field(default_factory=list, max_length=12)
+    tools: list[AgentToolRecord] = Field(default_factory=list, max_length=120)
     session_memory: SessionMemory | None = None
     model_continuation: ModelContinuation | None = None
     model_feedback: GoalModelFeedback | None = None
     model_recoveries: int = Field(default=0, ge=0, le=2)
+    limit_stop: Literal["steps", "budget"] | None = None
+    limit_grants: list[GoalLimitGrant] = Field(default_factory=list, max_length=20)
+    limit_tracking: bool = False
+    unsettled_microusd: int = Field(default=0, ge=0)
+
+    @property
+    def execution_limits(self) -> GoalExecutionLimits:
+        if self.limit_grants:
+            grant = self.limit_grants[-1]
+            return GoalExecutionLimits(
+                max_steps=grant.max_steps, budget_microusd=grant.budget_microusd
+            )
+        return GoalExecutionLimits(
+            max_steps=self.request.max_steps, budget_microusd=self.request.budget_microusd
+        )
+
+    @model_validator(mode="after")
+    def validate_limit_grants(self) -> "OperationGoal":
+        if not self.limit_tracking and len(self.tools) > 12:
+            raise ValueError("Legacy and untracked Goal tool journals remain limited to twelve")
+        if (
+            self.limit_tracking or self.limit_grants or self.limit_stop or self.unsettled_microusd
+        ) and self.request.execution_mode != "agent":
+            raise ValueError("Extended limits require the native workspace")
+        if (
+            self.limit_grants or self.limit_stop or self.unsettled_microusd
+        ) and not self.limit_tracking:
+            raise ValueError("Extended limits require tracked model reservations")
+        if self.unsettled_microusd > self.accounted_microusd:
+            raise ValueError("Unsettled costs cannot exceed accounted costs")
+        steps, budget, at = self.request.max_steps, self.request.budget_microusd, self.created_at
+        seen: set[UUID] = set()
+        for grant in self.limit_grants:
+            if (
+                grant.max_steps < steps
+                or grant.budget_microusd < budget
+                or (grant.max_steps == steps and grant.budget_microusd == budget)
+                or at.utcoffset() is None
+                or grant.at < at
+                or grant.request_id in seen
+            ):
+                raise ValueError("Limit grants must be unique, dated, monotonic increases")
+            seen.add(grant.request_id)
+            steps, budget, at = grant.max_steps, grant.budget_microusd, grant.at
+        if self.limit_stop and self.status not in {"waiting", "paused", "cancelled"}:
+            raise ValueError("A limit stop cannot execute or complete a Goal")
+        if self.limit_stop == "steps" and self.steps_used < steps:
+            raise ValueError("Step exhaustion must match the effective step limit")
+        return self
 
 
 class GoalDecisionBody(ChatModel):
@@ -178,3 +254,6 @@ class GoalAvailability(ChatModel):
     agent_workspace_enabled: bool = False
     event_stream_enabled: bool = False
     read_products: dict[GoalCapability, ProductScope] = Field(default_factory=dict)
+    limit_extensions_enabled: bool = False
+    extension_max_steps: int = Field(default=0, ge=0, le=120)
+    extension_budget_microusd: int = Field(default=0, ge=0, le=10_000_000)

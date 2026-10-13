@@ -104,7 +104,11 @@ describe("workspace stream protocol", () => {
     ).toBe(true);
     stop();
   });
-  it.each(["find_saved_tasks", "read_saved_task"] as const)(
+  it.each([
+    "find_saved_tasks",
+    "read_saved_task",
+    "read_saved_report_page",
+  ] as const)(
     "accepts public %s progress without exposing its arguments",
     (name) => {
       const data = {
@@ -115,6 +119,25 @@ describe("workspace stream protocol", () => {
       expect(JSON.stringify(data)).not.toContain("query");
     },
   );
+  it("accepts a bounded extended tool journal and rejects an oversized one", () => {
+    const tools: WorkspaceEvent["tools"] = Array.from(
+      { length: 120 },
+      (_, index) => ({
+        call_id: `saved-read-${index}`,
+        name: "read_saved_report_page",
+        status: "completed",
+      }),
+    );
+    expect(
+      parseWorkspaceFrame(frame({ ...event, tools }), "private-topic")?.tools,
+    ).toHaveLength(120);
+    expect(() =>
+      parseWorkspaceFrame(
+        frame({ ...event, tools: [...tools, tools[0]!] }),
+        "private-topic",
+      ),
+    ).toThrow();
+  });
   it("validates typed public frames and Unicode without executing anything", () => {
     expect(parseWorkspaceFrame(frame(), "private-topic")).toEqual(event);
     expect(parseWorkspaceFrame(": heartbeat", "private-topic")).toBeNull();

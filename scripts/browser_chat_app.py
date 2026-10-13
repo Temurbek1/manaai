@@ -228,12 +228,13 @@ class BrowserGoalFake:
         recall = "Прошлая рабочая цель" in goal["request"]["objective"]
         archive = "первой архивной задачи" in goal["request"]["objective"]
         paged = "Прочитай полный сохранённый отчёт вместе с концом" in goal["request"]["objective"]
+        extended = "Проверка продолжения той же цели" in goal["request"]["objective"]
         if archive:
             assert any(
                 item["text"] == ARCHIVE_CONSTRAINT
                 for item in goal["session_memory"]["user_context"]
             )
-        if recall:
+        if recall or extended:
             waiting = False
         if paged:
             waiting = False

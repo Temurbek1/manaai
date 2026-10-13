@@ -111,7 +111,7 @@ export function parseWorkspaceFrame(
         !["pending", "active", "done", "blocked"].includes(task.status),
     ) ||
     !Array.isArray(item.tools) ||
-    item.tools.length > 12 ||
+    item.tools.length > 120 ||
     item.tools.some(
       (tool) =>
         !tool ||
@@ -119,6 +119,7 @@ export function parseWorkspaceFrame(
         ![
           "inspect_sources",
           "read_saved_report",
+          "read_saved_report_page",
           "find_saved_tasks",
           "read_saved_task",
           "request_source_read",

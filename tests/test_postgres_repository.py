@@ -58,6 +58,103 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+async def test_postgres_limit_grant_v10_atomic_replay_unknown_hold_and_read_fence() -> None:
+    from app.mana_operation_ai.domain.first_party_analytics import CHILD_TELEMETRY_CAPABILITY
+    from app.mana_operation_ai.infrastructure.persistence.models import GoalRow
+    from tests.legacy_goal_contract import LegacyGoal
+
+    assert POSTGRES_URL is not None
+    databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]
+    clock = Clock()
+    chats = SqlAlchemyChatRepository(databases[0], hourly_limit=100, daily_limit=1000)
+    repositories = [
+        SqlAlchemyGoalRepository(db, clock, limit_extensions_enabled=True) for db in databases
+    ]
+    owner = f"limits-{uuid4()}"
+    try:
+        await chats.initialize()
+        topic = await chats.create(
+            owner,
+            TopicCreate(agent_id="operations-orchestrator", product="mana", title="Long task"),
+        )
+        goal = await repositories[0].create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Complete the same synthetic analysis.",
+                execution_mode="agent",
+            ),
+        )
+        stopped = goal.model_copy(
+            update={
+                "status": "waiting",
+                "limit_stop": "steps",
+                "steps_used": 6,
+                "accounted_microusd": 10000,
+                "read_attempted": True,
+                "tools": [
+                    AgentToolRecord(
+                        call_id="already-consumed-read",
+                        call=AgentToolCall(
+                            name="request_source_read", capability=CHILD_TELEMETRY_CAPABILITY
+                        ),
+                        status="completed",
+                        started_at=clock.now(),
+                        completed_at=clock.now(),
+                        result='{"report_id":"synthetic-saved"}',
+                    )
+                ],
+            }
+        )
+        assert await repositories[0].save(owner, goal, stopped)
+        stopped = await repositories[0].get(owner, goal.goal_id)
+        grant = GoalCommand(
+            request_id=uuid4(),
+            command="extend_limits",
+            expected_revision=stopped.revision,
+            max_steps=12,
+            budget_microusd=500000,
+        )
+        expanded = await asyncio.gather(
+            *[repository.command(owner, goal.goal_id, grant) for repository in repositories]
+        )
+        assert expanded[0] == expanded[1] and len(expanded[0].limit_grants) == 1
+        assert expanded[0].request == stopped.request
+        assert expanded[0].read_attempted and expanded[0].approved_capability is None
+        assert not await repositories[1].save(
+            owner, stopped, stopped.model_copy(update={"result": "late"})
+        )
+        held = expanded[0].model_copy(
+            update={
+                "status": "running",
+                "lease_until": clock.now() - timedelta(minutes=1),
+                "accounted_microusd": 30000,
+                "unsettled_microusd": 20000,
+            }
+        )
+        assert await repositories[0].save(owner, expanded[0], held)
+        await repositories[1].claim()
+        recovered = await repositories[1].get(owner, goal.goal_id)
+        assert recovered.status == "waiting" and recovered.unsettled_microusd == 20000
+        assert recovered.accounted_microusd == 30000 and recovered.read_attempted
+        with pytest.raises(ChatError):
+            await repositories[1].command(
+                owner,
+                goal.goal_id,
+                GoalCommand(
+                    request_id=uuid4(), command="resume", expected_revision=recovered.revision
+                ),
+            )
+        async with databases[0].session_factory() as session:
+            row = await session.get(GoalRow, goal.goal_id)
+            assert row and row.workspace_payload and row.workspace_payload["version"] == 10
+            assert LegacyGoal.model_validate(row.payload).status == "cancelled"
+    finally:
+        for database in databases:
+            await database.dispose()
+
+
 async def test_postgres_atomic_chat_stream_stop_recovery_and_bounds() -> None:
     from tests.test_chat_text_stream import assert_stream_atomicity
 

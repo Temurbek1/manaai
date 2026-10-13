@@ -1,6 +1,6 @@
 # Native agent workspace: release and application rollback
 
-Status: the scoped release is deployed; see [current versions and checks](operation-agent-workspace-report-pages-release.md).
+Status: the scoped release is deployed; see [current versions and checks](operation-manual-analytics-release.md).
 This document is a bounded release checklist,
 not authorization to change unrelated services or activate sources/schedules. The full
 objective remains in [operation-agent-workspace.md](operation-agent-workspace.md).
@@ -77,6 +77,12 @@ mixed-version writable Goals deployment. The local compatibility probe does not 
 these release controls.
 
 ## Before activation
+
+Opt-in tracked Goal limit extensions require private checkpoint v10. They preserve
+the original request/scope and legacy projection, with exact human grants and
+unsettled model holds. `38292de` is not a compatible native v10 fallback. See
+[the bounded limit-extension contract](operation-goal-limit-extensions.md); keep
+execution disabled in `2ea7b9a` fallback and never downgrade source/history state.
 
 The saved-report paging addition, released in `9020b06`, uses private checkpoint v8 whenever a page tool,
 page receipt or evidence longer than 5000 characters is present. It retains contiguous exact

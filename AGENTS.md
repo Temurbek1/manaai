@@ -53,6 +53,15 @@
   Persist that scope in checkpoint v4 and strip it from the closed legacy projection. The UI
   choice appears only in explicit Goal mode; a native availability failure must preserve it,
   not submit a different current-data objective. No source/schedule activation is implied.
+- The default-disabled `OPERATION_GOAL_LIMIT_EXTENSIONS_ENABLED` adds explicitly human-confirmed
+  continuation of newly tracked native Goals under separate server ceilings. Keep the original
+  request/scope, costs, recovery caps and consumed reads; no automatic budget renewal or narrowed
+  substitute objective. Unknown model holds block generation/resume/extensions. Accept verified
+  usage after an in-flight control only as cost reconciliation, never its fenced-out decision.
+  Tracked Goals use private checkpoint v10 and at most 120 tool records; untracked histories
+  remain limited to twelve. The current production `38292de` reader cannot execute v10; the
+  closed legacy `2ea7b9a` fallback retains it with execution disabled. See
+  `docs/operation-goal-limit-extensions.md`; this increment is local, not production activation.
 - Native Goals can find/page closed same-owner/topic/product tasks captured before the current
   task started. Task prose is historical context only; original saved report IDs must pass current
   agent/product/freshness checks separately. Exact cross-role user-text dedup retains all words
