@@ -57,9 +57,10 @@ async def test_exclusive_attempt_marker_prevents_settings_or_model_recreation(
         await exercise.evaluate(tmp_path)
 
 
+@pytest.mark.parametrize("project_pages", [False, True])
 @pytest.mark.parametrize("failure", [None, "quota", "incomplete"])
 async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences(
-    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None
+    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None, project_pages: bool
 ) -> None:
     settings = Settings(_env_file=None, openai_api_key="fixture")
     monkeypatch.setattr(exercise, "get_settings", lambda: settings)
@@ -159,12 +160,13 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", forbidden)
     monkeypatch.setattr(exercise, "OpenAIGoalModel", SyntheticSDK)
-    result = await exercise.evaluate(tmp_path / "independent")
+    result = await exercise.evaluate(tmp_path / "independent", project_pages=project_pages)
     assert result["semantic_review"] == "pending" and result["original_request_retained"]
     assert result["production_changes"] == result["source_attempts"] == 0
     assert "PRIVATE" not in json.dumps(result)
     goal = result["goal"]
     assert isinstance(goal, dict) and goal["report_discovery_enabled"]
+    assert goal["page_projection_enabled"] == project_pages
     assert (
         not goal["read_attempted"] and not goal["approved_capability"] and not goal["limit_grants"]
     )

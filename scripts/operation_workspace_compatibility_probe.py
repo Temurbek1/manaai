@@ -7,6 +7,7 @@ an isolated database and pins the legacy process to a local, networkless contain
 import argparse
 import asyncio
 import hashlib
+import json
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -32,10 +33,18 @@ OWNER = "local-workspace-rollback-audit"
 
 
 async def probe(
-    path: Path, *, stage: str, paused: bool, catalog: bool = False, snapshots: bool = False
+    path: Path,
+    *,
+    stage: str,
+    paused: bool,
+    catalog: bool = False,
+    snapshots: bool = False,
+    pages: bool = False,
 ) -> None:
     if snapshots and not catalog:
         raise ValueError("Snapshot compatibility auditing requires the captured catalog contract")
+    if pages and not snapshots:
+        raise ValueError("Page compatibility auditing requires captured snapshot replacement")
     if stage == "setup" and path.exists():
         raise RuntimeError("Synthetic compatibility setup requires a nonexistent database file")
     database = OperationDatabase(f"sqlite+aiosqlite:///{path}")
@@ -51,6 +60,7 @@ async def probe(
             limit_extensions_enabled=True,
             **({"report_discovery_enabled": True} if catalog else {}),
             **({"snapshot_replacement_enabled": True} if snapshots else {}),
+            **({"page_projection_enabled": True} if pages else {}),
         )
     )
     try:
@@ -265,6 +275,86 @@ async def probe(
                                 result="References only; no collection.",
                             )
                         )
+                    if pages and not lost:
+                        source = updated.evidence[0]
+                        page_call = AgentToolCall(
+                            name="read_saved_report_page", report_id=source.report_id, offset=0
+                        )
+                        page_pending = finish_continuation(
+                            prepare_continuation(
+                                context=json.dumps(
+                                    {
+                                        "goal": updated.model_dump(
+                                            mode="json", exclude={"model_continuation"}
+                                        )
+                                    }
+                                ),
+                                owner=OWNER,
+                                state=None,
+                                model="compatibility-fake",
+                                maximum_bytes=192000,
+                            ),
+                            [
+                                {
+                                    "type": "function_call",
+                                    "id": "fc_page",
+                                    "call_id": "call_page",
+                                    "name": page_call.name,
+                                    "arguments": json.dumps(
+                                        {"report_id": source.report_id, "offset": 0}
+                                    ),
+                                }
+                            ],
+                            model="compatibility-fake",
+                            call=page_call,
+                            maximum_bytes=192000,
+                        )
+                        updated.tools.append(
+                            AgentToolRecord(
+                                call_id="synthetic-page",
+                                call=page_call,
+                                status="completed",
+                                started_at=clock.now(),
+                                result=json.dumps(
+                                    {
+                                        "report_id": source.report_id,
+                                        "offset": 0,
+                                        "text": source.summary[:4000],
+                                        "total_characters": len(source.summary),
+                                        "next_offset": 4000,
+                                        "loaded_into_evidence": True,
+                                        "reading_not_population_coverage": True,
+                                    },
+                                    ensure_ascii=False,
+                                ),
+                            )
+                        )
+                        updated.model_continuation = finish_continuation(
+                            prepare_continuation(
+                                context=json.dumps(
+                                    {
+                                        "goal": updated.model_dump(
+                                            mode="json", exclude={"model_continuation"}
+                                        )
+                                    }
+                                ),
+                                owner=OWNER,
+                                state=page_pending,
+                                model="compatibility-fake",
+                                maximum_bytes=192000,
+                            ),
+                            [
+                                {
+                                    "type": "reasoning",
+                                    "id": "rs_page",
+                                    "summary": [],
+                                    "encrypted_content": "test-compat-private-model-state",
+                                }
+                            ],
+                            model="compatibility-fake",
+                            call=None,
+                            maximum_bytes=192000,
+                        )
                     assert await repository.save(OWNER, goal, updated)
             return
 
@@ -332,6 +422,7 @@ async def probe(
                 assert goal.limit_tracking
                 assert getattr(goal, "report_discovery_enabled", False) == catalog
                 assert getattr(goal, "snapshot_replacement_enabled", False) == snapshots
+                assert getattr(goal, "page_projection_enabled", False) == pages
                 if catalog:
                     assert goal.tools[1].call.name == "find_saved_reports"
                     assert (
@@ -370,9 +461,20 @@ async def probe(
                 assert "test-compat-private-model-state" in goal.model_continuation.payload
                 assert goal.model_continuation.compactions == (0 if snapshots else 1)
                 if snapshots:
-                    assert goal.model_continuation.protocol == "goal-model-continuation-v3"
+                    assert goal.model_continuation.protocol == (
+                        "goal-model-continuation-v4" if pages else "goal-model-continuation-v3"
+                    )
                     assert len(goal.model_continuation.runtime_snapshots) == 1
-                    assert goal.model_continuation.runtime_snapshots[0].position == 0
+                    assert goal.model_continuation.runtime_snapshots[0].position == (
+                        2 if pages and not lost else 0
+                    )
+                if pages and not lost:
+                    assert len(goal.model_continuation.page_outputs) == 1
+                    assert goal.model_continuation.page_outputs[0].position == 1
+                    assert goal.model_continuation.page_outputs[0].tool_position == 2
+                    assert (
+                        json.loads(goal.tools[2].result)["text"] == goal.evidence[0].summary[:4000]
+                    )
                 if not lost:
                     assert goal.evidence[0].summary.endswith("EXACT FOOTER \t\n")
                     assert len(goal.evidence[0].summary) > 5000
@@ -407,6 +509,7 @@ def main() -> None:
     parser.add_argument("--paused", action="store_true")
     parser.add_argument("--catalog", action="store_true")
     parser.add_argument("--snapshots", action="store_true")
+    parser.add_argument("--pages", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -415,6 +518,7 @@ def main() -> None:
             paused=args.paused,
             catalog=args.catalog,
             snapshots=args.snapshots,
+            pages=args.pages,
         )
     )
 

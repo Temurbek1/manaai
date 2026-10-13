@@ -8,6 +8,8 @@ from app.mana_operation_ai.domain.model_continuation import ContinuationProtocol
 
 
 def continuation_protocol(goal: OperationGoal) -> ContinuationProtocol:
+    if goal.page_projection_enabled:
+        return "goal-model-continuation-v4"
     if goal.snapshot_replacement_enabled:
         return "goal-model-continuation-v3"
     if goal.report_discovery_enabled:
@@ -32,6 +34,8 @@ def continuation_scope_digest(owner: str, goal: OperationGoal) -> str:
         payload["report_discovery_enabled"] = True
     if goal.snapshot_replacement_enabled:
         payload["snapshot_replacement_enabled"] = True
+    if goal.page_projection_enabled:
+        payload["page_projection_enabled"] = True
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     ).hexdigest()

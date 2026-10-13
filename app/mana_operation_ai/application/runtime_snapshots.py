@@ -67,6 +67,7 @@ def snapshot_superseded(previous: OperationGoal, current: OperationGoal) -> bool
         or previous.request != current.request
         or previous.report_discovery_enabled != current.report_discovery_enabled
         or previous.snapshot_replacement_enabled != current.snapshot_replacement_enabled
+        or previous.page_projection_enabled != current.page_projection_enabled
         or previous.instructions != current.instructions[: len(previous.instructions)]
         or _memory_facts(previous.session_memory) != _memory_facts(current.session_memory)
         or len(previous.tools) > len(current.tools)

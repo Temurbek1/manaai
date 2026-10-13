@@ -132,7 +132,7 @@ def oracle() -> dict[str, object]:
     }
 
 
-def plan() -> dict[str, object]:
+def plan(*, project_pages: bool = False) -> dict[str, object]:
     return {
         "max_calls": MAX_STEPS,
         "budget_microusd": BUDGET,
@@ -140,7 +140,7 @@ def plan() -> dict[str, object]:
         "reasoning": "medium",
         "max_output_tokens": OUTPUT_TOKENS,
         "analysis_scope": "saved_snapshot",
-        "workspace_contract": "v11/v2",
+        "workspace_contract": "v13/v4" if project_pages else "v11/v2",
         "source_attempts": 0,
         "production_changes": 0,
         "replay": False,
@@ -210,14 +210,18 @@ async def seed(repository: SqlAlchemyOperationRepository, clock: SystemClock) ->
         )
 
 
-async def evaluate(directory: Path) -> dict[str, object]:
+async def evaluate(directory: Path, *, project_pages: bool = False) -> dict[str, object]:
     os.umask(0o077)
     directory.mkdir(parents=True, exist_ok=False)
-    (directory / "plan.json").write_text(json.dumps(plan(), ensure_ascii=False, indent=2))
+    (directory / "plan.json").write_text(
+        json.dumps(plan(project_pages=project_pages), ensure_ascii=False, indent=2)
+    )
     settings = get_settings().model_copy(
         update={
             "operation_agent_workspace_enabled": True,
             "operation_workspace_report_discovery_enabled": True,
+            "operation_workspace_snapshot_replacement_enabled": project_pages,
+            "operation_workspace_page_projection_enabled": project_pages,
             "operation_workspace_model_continuation_enabled": True,
             "operation_model_selection_enabled": True,
             "operation_goal_limit_extensions_enabled": True,
@@ -248,6 +252,8 @@ async def evaluate(directory: Path) -> dict[str, object]:
         events_enabled=True,
         limit_extensions_enabled=True,
         report_discovery_enabled=True,
+        snapshot_replacement_enabled=project_pages,
+        page_projection_enabled=project_pages,
     )
     reports = SqlAlchemyOperationRepository(database)
     await seed(reports, clock)
@@ -261,6 +267,8 @@ async def evaluate(directory: Path) -> dict[str, object]:
         admin=cast(OperationAdminService, fixture),
         clock=clock,
         report_discovery_enabled=True,
+        snapshot_replacement_enabled=project_pages,
+        page_projection_enabled=project_pages,
         session_context=OperationSessionContext(chats, goals),
         availability=GoalAvailability(
             enabled=True,
@@ -358,13 +366,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--confirm-paid", action="store_true")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--project-saved-pages", action="store_true")
     args = parser.parse_args()
     if not args.confirm_paid:
-        print(json.dumps(plan(), ensure_ascii=False, indent=2))
+        print(
+            json.dumps(plan(project_pages=args.project_saved_pages), ensure_ascii=False, indent=2)
+        )
         return
     if args.output is None:
         parser.error("A fresh directory is required; no existing/lost attempt can be resumed")
-    asyncio.run(evaluate(args.output))
+    asyncio.run(evaluate(args.output, project_pages=args.project_saved_pages))
 
 
 if __name__ == "__main__":

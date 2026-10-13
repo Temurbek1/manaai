@@ -5262,6 +5262,46 @@
         "title": "EvidenceRef",
         "type": "object"
       },
+      "EvidenceTextPointer": {
+        "additionalProperties": false,
+        "properties": {
+          "characters": {
+            "maximum": 4000.0,
+            "minimum": 1.0,
+            "title": "Characters",
+            "type": "integer"
+          },
+          "full_text_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Full Text Sha256",
+            "type": "string"
+          },
+          "location": {
+            "const": "goal.evidence.summary",
+            "default": "goal.evidence.summary",
+            "title": "Location",
+            "type": "string"
+          },
+          "source_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Fingerprint",
+            "type": "string"
+          },
+          "text_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Text Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "characters",
+          "text_sha256",
+          "source_fingerprint",
+          "full_text_sha256"
+        ],
+        "title": "EvidenceTextPointer",
+        "type": "object"
+      },
       "ExecuteApprovedRequest": {
         "additionalProperties": false,
         "properties": {
@@ -9814,6 +9854,14 @@
             "title": "Model",
             "type": "string"
           },
+          "page_outputs": {
+            "items": {
+              "$ref": "#/components/schemas/PageOutputRef"
+            },
+            "maxItems": 120,
+            "title": "Page Outputs",
+            "type": "array"
+          },
           "payload": {
             "maxLength": 262144,
             "minLength": 1,
@@ -9853,7 +9901,8 @@
             "enum": [
               "goal-model-continuation-v1",
               "goal-model-continuation-v2",
-              "goal-model-continuation-v3"
+              "goal-model-continuation-v3",
+              "goal-model-continuation-v4"
             ],
             "title": "Protocol",
             "type": "string"
@@ -10183,6 +10232,11 @@
             "minimum": 0.0,
             "title": "Model Recoveries",
             "type": "integer"
+          },
+          "page_projection_enabled": {
+            "default": false,
+            "title": "Page Projection Enabled",
+            "type": "boolean"
           },
           "phase": {
             "default": "plan",
@@ -10576,6 +10630,47 @@
         ],
         "title": "OutcomeEvaluationStatus",
         "type": "string"
+      },
+      "PageOutputRef": {
+        "additionalProperties": false,
+        "description": "Runtime provenance of a reduced function result; never a read grant.",
+        "properties": {
+          "item_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Item Digest",
+            "type": "string"
+          },
+          "page": {
+            "$ref": "#/components/schemas/ProjectedSavedPageReceipt"
+          },
+          "position": {
+            "maximum": 127.0,
+            "minimum": 0.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "tool_call_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "tool_position": {
+            "maximum": 119.0,
+            "minimum": 0.0,
+            "title": "Tool Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "item_digest",
+          "tool_position",
+          "tool_call_id",
+          "page"
+        ],
+        "title": "PageOutputRef",
+        "type": "object"
       },
       "Page_ActionExecution_": {
         "additionalProperties": false,
@@ -11364,6 +11459,66 @@
         ],
         "title": "ProductScope",
         "type": "string"
+      },
+      "ProjectedSavedPageReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "loaded_into_evidence": {
+            "const": true,
+            "title": "Loaded Into Evidence",
+            "type": "boolean"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "maximum": 32000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          },
+          "offset": {
+            "maximum": 32000.0,
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "reading_not_population_coverage": {
+            "const": true,
+            "title": "Reading Not Population Coverage",
+            "type": "boolean"
+          },
+          "report_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Report Id",
+            "type": "string"
+          },
+          "text_reference": {
+            "$ref": "#/components/schemas/EvidenceTextPointer"
+          },
+          "total_characters": {
+            "maximum": 32000.0,
+            "minimum": 1.0,
+            "title": "Total Characters",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "report_id",
+          "offset",
+          "text_reference",
+          "total_characters",
+          "next_offset",
+          "loaded_into_evidence",
+          "reading_not_population_coverage"
+        ],
+        "title": "ProjectedSavedPageReceipt",
+        "type": "object"
       },
       "ProposedFamilyRule": {
         "additionalProperties": false,

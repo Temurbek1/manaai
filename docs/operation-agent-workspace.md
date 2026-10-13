@@ -85,6 +85,13 @@ Actual fake browser/SQL/rollback flows passed. A byte-count reduction is not a
 financial saving or full real-model analytical acceptance; duplicate page payloads
 and broader context/quality/release work remain. No production source is activated.
 
+The subsequent local [exact page projection](operation-saved-page-projection.md)
+removes proved duplicate page text from model-facing journal/output copies on new
+tracked v13/v4 Goals. Full source text and original SQL receipts remain; provenance
+and current-source proof gate each continuation. Old tasks are not upgraded and
+no source or production is activated. Fake SDK/SQL/browser/actual-image checks
+passed; full new real-model analytical acceptance remains pending.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

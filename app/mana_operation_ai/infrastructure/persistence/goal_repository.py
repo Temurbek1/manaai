@@ -44,7 +44,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -84,13 +84,28 @@ def _goal(row: GoalRow) -> OperationGoal:
     limit_state = goal.limit_tracking
     discovery = goal.report_discovery_enabled
     replacement = goal.snapshot_replacement_enabled
+    projection = goal.page_projection_enabled
     raw_goal = (row.workspace_payload or {}).get("goal")
-    version = _context_version(goal) if checkpoint.version in (10, 11, 12) else checkpoint.version
+    version = (
+        _context_version(goal) if checkpoint.version in (10, 11, 12, 13) else checkpoint.version
+    )
     if (
-        (checkpoint.version in (11, 12)) != discovery
-        or (checkpoint.version == 12) != replacement
+        (checkpoint.version in (11, 12, 13)) != discovery
+        or (checkpoint.version in (12, 13)) != replacement
+        or (checkpoint.version == 13) != projection
         or (
-            checkpoint.version != 12
+            checkpoint.version != 13
+            and isinstance(raw_goal, dict)
+            and (
+                "page_projection_enabled" in raw_goal
+                or (
+                    isinstance(raw_goal.get("model_continuation"), dict)
+                    and "page_outputs" in raw_goal["model_continuation"]
+                )
+            )
+        )
+        or (
+            checkpoint.version not in (12, 13)
             and isinstance(raw_goal, dict)
             and (
                 "snapshot_replacement_enabled" in raw_goal
@@ -106,7 +121,7 @@ def _goal(row: GoalRow) -> OperationGoal:
             and any(record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools)
         )
         or (
-            checkpoint.version not in (11, 12)
+            checkpoint.version not in (11, 12, 13)
             and isinstance(raw_goal, dict)
             and (
                 "report_discovery_enabled" in raw_goal
@@ -141,15 +156,15 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8, 9, 10, 11, 12)
+            checkpoint.version in (5, 6, 7, 8, 9, 10, 11, 12, 13)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13)
             and checkpoint.analysis_scope is not None
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (version == 1 and memory is not None)
@@ -251,6 +266,7 @@ class SqlAlchemyGoalRepository:
         limit_extensions_enabled: bool = False,
         report_discovery_enabled: bool = False,
         snapshot_replacement_enabled: bool = False,
+        page_projection_enabled: bool = False,
     ) -> None:
         if not 1 <= context_goal_limit <= 10000:
             raise ValueError("Session Goal archive capacity must be between 1 and 10000")
@@ -265,6 +281,9 @@ class SqlAlchemyGoalRepository:
         ):
             raise ValueError("Runtime snapshot replacement requires tracked report discovery")
         self._snapshot_replacement_enabled = snapshot_replacement_enabled
+        if page_projection_enabled and not snapshot_replacement_enabled:
+            raise ValueError("Saved-page projection requires captured snapshot replacement")
+        self._page_projection_enabled = page_projection_enabled
         self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
@@ -304,6 +323,7 @@ class SqlAlchemyGoalRepository:
                 "unsettled_microusd",
                 "report_discovery_enabled",
                 "snapshot_replacement_enabled",
+                "page_projection_enabled",
             },
         )
         payload["request"] = goal.request.model_dump(
@@ -360,6 +380,7 @@ class SqlAlchemyGoalRepository:
         limit_state = goal.limit_tracking
         discovery = goal.report_discovery_enabled
         replacement = goal.snapshot_replacement_enabled
+        projection = goal.page_projection_enabled
         if not discovery and any(
             record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools
         ):
@@ -373,7 +394,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=12
+                version=13
+                if projection
+                else 12
                 if replacement
                 else 11
                 if discovery
@@ -403,17 +426,19 @@ class SqlAlchemyGoalRepository:
                         else {}
                     ),
                     "goal": {
+                        **({"page_projection_enabled": True} if not projection else {}),
+                        "model_continuation": {
+                            **({"page_outputs": True} if not projection else {}),
+                            **({"runtime_snapshots": True} if not replacement else {}),
+                            **(
+                                {"pending_tool_call": {"catalog_capability"}}
+                                if not discovery
+                                else {}
+                            ),
+                        },
                         **(
                             {
                                 "snapshot_replacement_enabled": True,
-                                "model_continuation": {
-                                    "runtime_snapshots": True,
-                                    **(
-                                        {"pending_tool_call": {"catalog_capability"}}
-                                        if not discovery
-                                        else {}
-                                    ),
-                                },
                             }
                             if not replacement
                             else {}
@@ -510,6 +535,9 @@ class SqlAlchemyGoalRepository:
                 ),
                 snapshot_replacement_enabled=(
                     self._snapshot_replacement_enabled and request.execution_mode == "agent"
+                ),
+                page_projection_enabled=(
+                    self._page_projection_enabled and request.execution_mode == "agent"
                 ),
                 session_memory=session_memory,
                 created_at=now,
@@ -869,6 +897,8 @@ class SqlAlchemyGoalRepository:
             return queued_row.owner, goal
 
     async def save(self, owner: str, before: OperationGoal, after: OperationGoal) -> bool:
+        if before.page_projection_enabled != after.page_projection_enabled:
+            raise ChatError("Договор ссылок на страницы нельзя менять молча.", 409)
         if before.snapshot_replacement_enabled != after.snapshot_replacement_enabled:
             raise ChatError("Договор контекста сохранённой цели нельзя менять молча.", 409)
         if before.report_discovery_enabled != after.report_discovery_enabled:

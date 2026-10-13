@@ -145,6 +145,15 @@
   Byte reduction is not financial/model-quality acceptance. The current production
   `a7752dc` cannot execute v12/v3; only the closed `2ea7b9a` fallback is verified with
   native execution disabled. See `docs/operation-runtime-snapshot-replacement.md`.
+- The local default-disabled `OPERATION_WORKSPACE_PAGE_PROJECTION_ENABLED` captures
+  exact saved-page references only on new tracked snapshot Goals, private v13/v4.
+  Preserve the original SQL receipt and full evidence; project only an exact typed,
+  hash/range-proved duplicate present in that same input. Private output provenance
+  binds its runtime position and original SQL call; revalidate/rebind it, never use
+  provider lookalike heuristics. Missing/changed retained proof stops before generation
+  without refetch/replay. Byte reduction and fake completion are not model-quality or
+  financial acceptance. Only closed `2ea7b9a` rollback is verified; `a7752dc`/`dfe098f`
+  cannot execute v13/v4. See `docs/operation-saved-page-projection.md`.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

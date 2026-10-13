@@ -18,12 +18,14 @@ export type Goal = Omit<
   | "unsettled_microusd"
   | "report_discovery_enabled"
   | "snapshot_replacement_enabled"
+  | "page_projection_enabled"
 > & {
   limit_tracking?: StoredGoal["limit_tracking"];
   unsettled_microusd?: StoredGoal["unsettled_microusd"];
   model_recoveries?: StoredGoal["model_recoveries"];
   report_discovery_enabled?: StoredGoal["report_discovery_enabled"];
   snapshot_replacement_enabled?: StoredGoal["snapshot_replacement_enabled"];
+  page_projection_enabled?: StoredGoal["page_projection_enabled"];
   request: Omit<
     StoredGoal["request"],
     "execution_mode" | "analysis_scope" | "older_turns_omitted"

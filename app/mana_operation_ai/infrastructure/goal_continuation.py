@@ -13,10 +13,12 @@ from app.mana_operation_ai.application.model_continuation import (
     continuation_protocol,
     continuation_scope_digest,
 )
+from app.mana_operation_ai.application.page_projection import page_output_covered, page_reference
 from app.mana_operation_ai.application.runtime_snapshots import snapshot_superseded
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.goals import OperationGoal
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation, RuntimeSnapshotRef
+from app.mana_operation_ai.domain.page_projection import PageOutputRef
 from app.mana_operation_ai.infrastructure.agent_tool_schema import parse_agent_function
 
 ITEMS = TypeAdapter(list[ResponseInputItemParam])
@@ -73,6 +75,7 @@ class PreparedContinuation:
     items: list[ResponseInputItemParam]
     prior_compactions: int
     runtime_snapshots: tuple[RuntimeSnapshotRef, ...] = ()
+    page_outputs: tuple[PageOutputRef, ...] = ()
 
 
 def _item_digest(item: ResponseInputItemParam) -> str:
@@ -81,7 +84,7 @@ def _item_digest(item: ResponseInputItemParam) -> str:
 
 def _replace_snapshots(
     items: list[ResponseInputItemParam], refs: list[RuntimeSnapshotRef], goal: OperationGoal
-) -> tuple[list[ResponseInputItemParam], list[RuntimeSnapshotRef]]:
+) -> tuple[list[ResponseInputItemParam], list[RuntimeSnapshotRef], set[int]]:
     discarded: set[int] = set()
     for ref in refs:
         if ref.position >= len(items):
@@ -110,7 +113,31 @@ def _replace_snapshots(
         for ref in refs
         if ref.position not in discarded
     ]
-    return retained, rebound
+    return retained, rebound, discarded
+
+
+def _validate_page_outputs(
+    items: list[ResponseInputItemParam], refs: list[PageOutputRef], goal: OperationGoal
+) -> None:
+    for ref in refs:
+        if ref.position >= len(items):
+            raise ChatError("Квитанция страницы не соответствует сохранённому окну.")
+        item = items[ref.position]
+        expected = json.dumps(
+            {
+                "status": "completed",
+                "result": ref.page.model_dump_json(),
+                "result_shortened": False,
+            },
+            ensure_ascii=False,
+        )
+        if (
+            item.get("type") != "function_call_output"
+            or item.get("output") != expected
+            or _item_digest(item) != ref.item_digest
+            or not page_output_covered(goal, ref)
+        ):
+            raise ChatError("Точный текст страницы больше не подтверждён. AI не вызван.")
 
 
 def prepare_continuation(
@@ -122,6 +149,7 @@ def prepare_continuation(
     scope = continuation_scope_digest(owner, goal)
     items: list[ResponseInputItemParam] = []
     refs: list[RuntimeSnapshotRef] = []
+    pages: list[PageOutputRef] = []
     if state:
         if state.protocol != continuation_protocol(goal):
             raise ChatError(
@@ -135,7 +163,16 @@ def prepare_continuation(
             json.loads(state.payload), report_discovery_enabled=goal.report_discovery_enabled
         )
         if goal.snapshot_replacement_enabled:
-            items, refs = _replace_snapshots(items, state.runtime_snapshots, goal)
+            items, refs, removed = _replace_snapshots(items, state.runtime_snapshots, goal)
+            pages = [
+                ref.model_copy(
+                    update={
+                        "position": ref.position - sum(index < ref.position for index in removed)
+                    }
+                )
+                for ref in state.page_outputs
+            ]
+            _validate_page_outputs(items, pages, goal)
         pending = [item for item in items if item.get("type") == "function_call"]
         outputs = {
             item.get("call_id") for item in items if item.get("type") == "function_call_output"
@@ -157,6 +194,7 @@ def prepare_continuation(
                 or record.status == "started"
             ):
                 raise ChatError("Результат инструмента ещё не подтверждён. Повтор не запущен.")
+            reference = page_reference(goal, record)
             items.append(
                 {
                     "type": "function_call_output",
@@ -164,19 +202,32 @@ def prepare_continuation(
                     "output": json.dumps(
                         {
                             "status": record.status,
-                            "result": record.result,
+                            "result": reference.model_dump_json()
+                            if reference is not None
+                            else record.result,
                             "result_shortened": record.result_shortened,
                         },
                         ensure_ascii=False,
                     ),
                 }
             )
+            if reference is not None:
+                pages.append(
+                    PageOutputRef(
+                        position=len(items) - 1,
+                        item_digest=_item_digest(items[-1]),
+                        tool_position=position,
+                        tool_call_id=record.call_id,
+                        page=reference,
+                    )
+                )
         elif pending:
             raise ChatError("Контекст модели содержит неподтверждённый инструмент.")
     # Review is intentionally independent of the investigator's opaque reasoning.
     if goal.phase == "review":
         items = []
         refs = []
+        pages = []
     # Reassert every original condition and the current evidence/permission snapshot.
     items.append({"type": "message", "role": "user", "content": context})
     if goal.snapshot_replacement_enabled:
@@ -191,6 +242,7 @@ def prepare_continuation(
         validate_items(items, report_discovery_enabled=goal.report_discovery_enabled),
         state.compactions if state else 0,
         tuple(refs),
+        tuple(pages),
     )
 
 
@@ -209,12 +261,18 @@ def finish_continuation(
     compactions = [index for index, item in enumerate(values) if item.get("type") == "compaction"]
     new_count = sum(item.get("type") == "compaction" for item in output)
     refs = list(prepared.runtime_snapshots)
+    pages = list(prepared.page_outputs)
     if compactions:
         cutoff = compactions[-1]
         values = values[cutoff:]
         refs = [
             ref.model_copy(update={"position": ref.position - cutoff})
             for ref in refs
+            if ref.position >= cutoff
+        ]
+        pages = [
+            ref.model_copy(update={"position": ref.position - cutoff})
+            for ref in pages
             if ref.position >= cutoff
         ]
     items = validate_items(values, report_discovery_enabled=prepared.goal.report_discovery_enabled)
@@ -234,4 +292,5 @@ def finish_continuation(
         pending_tool_position=len(prepared.goal.tools) if call is not None else None,
         pending_tool_call=call,
         runtime_snapshots=refs,
+        page_outputs=pages,
     )

@@ -141,6 +141,11 @@ class OpenAIGoalModel:
             or not self._report_discovery_mode(context)
         ):
             raise ValueError("Runtime snapshot replacement is disabled")
+        if (
+            json.loads(context).get("goal", {}).get("page_projection_enabled") is True
+            and not self._settings.operation_workspace_page_projection_enabled
+        ):
+            raise ValueError("Saved-page projection is disabled")
         # Preserve the same current-snapshot bound before handling a separate private window.
         self.reservation(context)
         plan = selected_inference(context, goal=True) if self._catalog else None

@@ -25,6 +25,7 @@ from app.mana_operation_ai.application.inference_errors import (
     inference_failure_message,
 )
 from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
+from app.mana_operation_ai.application.page_projection import page_reference
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.application.session_context import session_memory_payload
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
@@ -106,6 +107,10 @@ saved reports before citing facts. Do not collect a provider merely to retrieve 
 If its text is shortened, read_saved_report_page starts at offset 0 and then follows the exact
 next_offset until goal.evidence contains the full report. A partial page cannot complete an
 analysis; full text does not prove complete population/payment coverage or current freshness.
+When goal.page_projection_enabled=true, a saved-page receipt may have text_reference instead
+of repeated text. Select its report_id in goal.evidence and read the exact summary range
+[offset, offset + text_reference.characters). The complete loaded text is in that same input,
+not an external URL, read grant, population claim or instruction to fetch the page again.
 The saved-report bound is 32000 characters; context/step/dollar limits still apply. Never drop
 the original objective or request a new provider read merely to retrieve an existing text tail.
 request_source_read only asks for separate human approval; it does not run a provider read.
@@ -161,6 +166,7 @@ class OperationGoalService:
         continuing_model: ContinuingGoalModel | None = None,
         report_discovery_enabled: bool = False,
         snapshot_replacement_enabled: bool = False,
+        page_projection_enabled: bool = False,
     ) -> None:
         self.repository = repository
         self._chats = chats
@@ -176,6 +182,7 @@ class OperationGoalService:
         self._continuing_model = continuing_model
         self._report_discovery_enabled = report_discovery_enabled
         self._snapshot_replacement_enabled = snapshot_replacement_enabled
+        self._page_projection_enabled = page_projection_enabled
 
     async def _access(self, owner: str) -> None:
         if self._auth is not None:
@@ -336,8 +343,15 @@ class OperationGoalService:
         context_goal = goal.model_copy(deep=True)
         # Keep the full journal in SQL. Do not repeatedly spend tokens on obsolete catalogs.
         # User messages, constraints, current plan/draft and loaded evidence are never shortened.
-        for record in context_goal.tools[:-2]:
-            if len(record.result) > 320 and record.call.name != "read_saved_task":
+        for position, record in enumerate(context_goal.tools):
+            reference = page_reference(context_goal, record)
+            if reference is not None:
+                record.result = reference.model_dump_json()
+            elif (
+                position < len(context_goal.tools) - 2
+                and len(record.result) > 320
+                and record.call.name != "read_saved_task"
+            ):
                 record.result = record.result[:320]
                 record.result_shortened = True
         if context_goal.session_memory is not None:
@@ -386,6 +400,8 @@ class OperationGoalService:
                 raise ChatError("Рабочий режим агента отключён. История и результат сохранены.")
             if goal.report_discovery_enabled and not self._report_discovery_enabled:
                 raise ChatError("Поиск сохранённых отчётов временно отключён. История сохранена.")
+            if goal.page_projection_enabled and not self._page_projection_enabled:
+                raise ChatError("Продолжение со ссылками на страницы отключено. История сохранена.")
             if goal.snapshot_replacement_enabled and (
                 not self._snapshot_replacement_enabled or self._continuing_model is None
             ):

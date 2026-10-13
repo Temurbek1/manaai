@@ -3844,6 +3844,23 @@ export interface components {
             /** Subject Scope */
             subject_scope: string;
         };
+        /** EvidenceTextPointer */
+        EvidenceTextPointer: {
+            /** Characters */
+            characters: number;
+            /** Full Text Sha256 */
+            full_text_sha256: string;
+            /**
+             * Location
+             * @default goal.evidence.summary
+             * @constant
+             */
+            location: "goal.evidence.summary";
+            /** Source Fingerprint */
+            source_fingerprint: string;
+            /** Text Sha256 */
+            text_sha256: string;
+        };
         /** ExecuteApprovedRequest */
         ExecuteApprovedRequest: {
             /** Correlation Id */
@@ -5447,6 +5464,8 @@ export interface components {
             compactions: number;
             /** Model */
             model: string;
+            /** Page Outputs */
+            page_outputs?: components["schemas"]["PageOutputRef"][];
             /** Payload */
             payload: string;
             /** Payload Digest */
@@ -5459,7 +5478,7 @@ export interface components {
              * @default goal-model-continuation-v1
              * @enum {string}
              */
-            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2" | "goal-model-continuation-v3";
+            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2" | "goal-model-continuation-v3" | "goal-model-continuation-v4";
             /** Runtime Snapshots */
             runtime_snapshots?: components["schemas"]["RuntimeSnapshotRef"][];
             /** Scope Digest */
@@ -5568,6 +5587,11 @@ export interface components {
              * @default 0
              */
             model_recoveries: number;
+            /**
+             * Page Projection Enabled
+             * @default false
+             */
+            page_projection_enabled: boolean;
             /**
              * Phase
              * @default plan
@@ -5728,6 +5752,21 @@ export interface components {
          * @enum {string}
          */
         OutcomeEvaluationStatus: "pending" | "measured" | "inconclusive";
+        /**
+         * PageOutputRef
+         * @description Runtime provenance of a reduced function result; never a read grant.
+         */
+        PageOutputRef: {
+            /** Item Digest */
+            item_digest: string;
+            page: components["schemas"]["ProjectedSavedPageReceipt"];
+            /** Position */
+            position: number;
+            /** Tool Call Id */
+            tool_call_id: string;
+            /** Tool Position */
+            tool_position: number;
+        };
         /** Page[ActionExecution] */
         Page_ActionExecution_: {
             /** Items */
@@ -6013,6 +6052,28 @@ export interface components {
          * @enum {string}
          */
         ProductScope: "mana" | "360rec" | "unverified";
+        /** ProjectedSavedPageReceipt */
+        ProjectedSavedPageReceipt: {
+            /**
+             * Loaded Into Evidence
+             * @constant
+             */
+            loaded_into_evidence: true;
+            /** Next Offset */
+            next_offset: number | null;
+            /** Offset */
+            offset: number;
+            /**
+             * Reading Not Population Coverage
+             * @constant
+             */
+            reading_not_population_coverage: true;
+            /** Report Id */
+            report_id: string;
+            text_reference: components["schemas"]["EvidenceTextPointer"];
+            /** Total Characters */
+            total_characters: number;
+        };
         /** ProposedFamilyRule */
         ProposedFamilyRule: {
             /** Description */

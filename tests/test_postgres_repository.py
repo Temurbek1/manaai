@@ -208,6 +208,120 @@ async def test_postgres_catalog_capture_cursor_restart_and_legacy_projection(
         await database.dispose()
 
 
+async def test_postgres_v13_page_receipts_and_unknown_hold_restart() -> None:
+    import json
+
+    from app.mana_operation_ai.infrastructure.goal_continuation import (
+        finish_continuation,
+        prepare_continuation,
+    )
+    from tests.legacy_goal_contract import LegacyGoal
+    from tests.test_page_projection import TEXT, page_goal
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    clock = Clock()
+    owner = f"page-owner-{uuid4()}"
+    repository = SqlAlchemyGoalRepository(
+        database,
+        clock,
+        limit_extensions_enabled=True,
+        report_discovery_enabled=True,
+        snapshot_replacement_enabled=True,
+        page_projection_enabled=True,
+    )
+    chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
+    try:
+        await chats.initialize()
+        topic = await chats.create(
+            owner,
+            TopicCreate(
+                agent_id="operations-orchestrator", product="mana", title="Page references"
+            ),
+        )
+        original = await repository.create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Keep the complete original parent analysis",
+                execution_mode="agent",
+            ),
+        )
+        fixture = page_goal()
+        changed = original.model_copy(
+            update={
+                "tools": fixture.tools,
+                "evidence": fixture.evidence,
+                "accounted_microusd": 50000,
+                "unsettled_microusd": 50000,
+                "status": "waiting",
+            }
+        )
+        before = changed.model_copy(update={"tools": []})
+        prepared = prepare_continuation(
+            context=json.dumps(
+                {"goal": before.model_dump(mode="json", exclude={"model_continuation"})}
+            ),
+            owner=owner,
+            state=None,
+            model="fake-pg",
+            maximum_bytes=192000,
+        )
+        call = changed.tools[0].call
+        pending = finish_continuation(
+            prepared,
+            [
+                {
+                    "type": "function_call",
+                    "id": "pg-fc",
+                    "call_id": "pg-call",
+                    "name": call.name,
+                    "arguments": json.dumps({"report_id": call.report_id, "offset": call.offset}),
+                }
+            ],
+            model="fake-pg",
+            call=call,
+            maximum_bytes=192000,
+        )
+        ready = prepare_continuation(
+            context=json.dumps(
+                {"goal": changed.model_dump(mode="json", exclude={"model_continuation"})}
+            ),
+            owner=owner,
+            state=pending,
+            model="fake-pg",
+            maximum_bytes=192000,
+        )
+        changed.model_continuation = finish_continuation(
+            ready, [], model="fake-pg", call=None, maximum_bytes=192000
+        )
+        assert await repository.save(owner, original, changed)
+        restored = await SqlAlchemyGoalRepository(database, clock).get(owner, original.goal_id)
+        assert restored.model_continuation == changed.model_continuation
+        assert (
+            restored.model_continuation is not None
+            and len(restored.model_continuation.page_outputs) == 1
+        )
+        assert (
+            restored.tools[0].result == fixture.tools[0].result
+            and restored.evidence[0].summary == TEXT
+        )
+        assert (
+            restored.request == original.request
+            and restored.accounted_microusd == restored.unsettled_microusd == 50000
+        )
+        storage = repository._storage(restored)
+        assert (
+            storage["workspace_payload"] is not None
+            and storage["workspace_payload"]["version"] == 13
+        )
+        assert "page_outputs" not in json.dumps(storage["payload"])
+        assert LegacyGoal.model_validate(storage["payload"]).status == "cancelled"
+    finally:
+        await database.dispose()
+
+
 async def test_postgres_limit_grant_v10_atomic_replay_unknown_hold_and_read_fence() -> None:
     from app.mana_operation_ai.domain.first_party_analytics import CHILD_TELEMETRY_CAPABILITY
     from app.mana_operation_ai.infrastructure.persistence.models import GoalRow

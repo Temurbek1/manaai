@@ -4,6 +4,10 @@ Status: **local implementation, default disabled, not deployed**, 2026-10-14
 (Asia/Samarkand). Production remains `a7752dc`. The full four-agent workspace
 objective and real-model analytical acceptance remain open.
 
+The later [exact saved-page projection](operation-saved-page-projection.md) implements
+the next duplicate-page lane on separately captured v13/v4 Goals. This v12 checkpoint
+remains historical and does not authorize upgrading earlier tasks or production.
+
 ## User story and boundary
 
 An administrator starts a private MANA analysis from chat. The API saves the exact

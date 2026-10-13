@@ -182,6 +182,7 @@ class OperationGoal(ChatModel):
     # Captured by the server on creation; never a source permission or public create option.
     report_discovery_enabled: bool = Field(default=False, strict=True)
     snapshot_replacement_enabled: bool = Field(default=False, strict=True)
+    page_projection_enabled: bool = Field(default=False, strict=True)
 
     @property
     def execution_limits(self) -> GoalExecutionLimits:
@@ -196,6 +197,8 @@ class OperationGoal(ChatModel):
 
     @model_validator(mode="after")
     def validate_limit_grants(self) -> "OperationGoal":
+        if self.page_projection_enabled and not self.snapshot_replacement_enabled:
+            raise ValueError("Saved-page projection requires captured runtime snapshot replacement")
         if self.snapshot_replacement_enabled and (
             self.request.execution_mode != "agent"
             or not self.report_discovery_enabled
