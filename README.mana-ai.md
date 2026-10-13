@@ -114,8 +114,12 @@ curl http://localhost:8000/api/v1/mana-ai/capabilities
 
 Swagger UI is at `/docs`, ReDoc at `/redoc`, schema at `/openapi.json`. Every capability endpoint
 ships a worked request example in the schema, so Swagger doubles as the fastest way to see a valid
-payload. **All three are disabled when `APP_ENV=production`** — to browse them or generate an SDK,
-run the same factory in a trusted staging environment with `APP_ENV=staging`.
+payload. The application factory disables all three when `APP_ENV=production`.
+The scoped production ingress can separately publish the MANA AI contract at
+`https://ai.360rec.uz/docs`, with its schema at `/openapi.json`. This is a static export
+from the exact running product API image, not an application-environment downgrade;
+internal operational and 360REC audio routes are excluded. See
+[the production docs runbook](docs/mana-ai-production-swagger.md). ReDoc remains disabled.
 
 ## Configuration
 

@@ -60,11 +60,13 @@ component test does not establish feature parity or close the overall goal.
 
 ## Architecture
 
-The local [inference-receipt checkpoint](operation-inference-receipts-checkpoint.md)
+The [inference-receipt checkpoint](operation-inference-receipts-checkpoint.md)
 separates verified pricing from structured output and rejects SDK-coerced stream
 usage. Typed failures stop safely without exposing provider bodies or reissuing
 requests. A new one-call synthetic stream receipt passed; prior unknown holds and
-real-model Goal-review acceptance remain unresolved. This increment is not deployed.
+real-model Goal-review acceptance remain unresolved. Production now runs `b81f458`
+only in the operational API/Goals sidecar; main/audio, UI, sources and schedules
+were not updated by this increment.
 
 The 2026-10-13 [explicit Goal-limit continuation](operation-goal-limit-extensions.md)
 is default disabled and explicitly enabled in the scoped production sidecar.

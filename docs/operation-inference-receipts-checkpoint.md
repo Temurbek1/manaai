@@ -1,6 +1,7 @@
-# Local checkpoint: verified inference receipts and safe failures
+# Verified inference receipts and safe failures
 
-Status: local, **not deployed**. Production remains the scoped
+Status: **deployed to the operational API/Goals sidecar on 2026-10-13**, commit
+`b81f45848d43a8b4e48496fac6234f74af44e7b8`. It builds on the scoped
 [Goal-continuation release](operation-goal-limit-release.md). This checkpoint
 strengthens the existing four-agent workspace; it is not a new agent or a claim
 of complete Codex/Claude parity.
@@ -105,6 +106,54 @@ analytical quality, fresh GA4 publication, deployed authenticated-browser accept
 extended-context acceptance and owning-domain action delivery.
 
 Ignored evidence: `output/inference-receipts-20261013/`.
+
+## Scoped production release
+
+Explicit owner approval authorized the operational API/Goals worker only. The
+candidate was built from `git archive b81f458`, using the unchanged actual
+`mana-ai-operation:0d27000` dependency/runtime image and replacing application
+code only. New unfinished local cohort-evaluation files were excluded.
+
+- Runtime: `mana-ai-operation:b81f458`, image
+  `sha256:a684007679dbc4daf25c08e9ac9903990805458acc99e5fa646a4446846758a8`;
+  operational sidecar healthy, `APP_ENV=production`. Existing workspace, Goals,
+  worker and explicit-limit flags restored exactly; sidecar scheduler still off.
+- Protected backup: `/var/backups/mana-ai/inference-docs-b81f458`, custom PostgreSQL
+  dump 1,769,288 bytes, SHA-256
+  `11a543e12438aa303127dadcf466b435e405f1122f7a14c5730c21b8ea04670f`;
+  `pg_restore --list` verified. No migration or database restore was performed.
+- Fresh preflight found no queued/running Goal, active chat/source run or lease.
+  Admission was disabled before staging, then existing flags restored.
+- Actual production images `0d27000`, `2ea7b9a` and the candidate passed isolated,
+  networkless synthetic compatibility checks before/after explicit pause. The
+  first harness order assertion failed locally because the legacy synthetic
+  control had not yet run; a new isolated fixture with the documented ordering
+  passed. Neither audit mounted customer data or changed production Goals.
+- Main/audio, UI `0d27000`, scheduler `2ea7b9a`, PostgreSQL containers retained
+  exact IDs, starts, configurations and mounts. Existing sidecar environment,
+  mounts and host configuration are unchanged. All 25 protected original files
+  are unchanged except the separately authorized public Swagger ingress include.
+- Seven source configurations, six schedule configurations, two source gates,
+  controls and schema `a36d9f7b802c` retained their SQL fingerprints. Schedule
+  configuration comparison excludes only normal `next_run_at`/`last_run_at`
+  progression by the pre-existing scheduler; it includes enabled flags, cron,
+  scope and circuit configuration. No source activation or new schedule occurred.
+- All three pre-existing unknown reservation rows retained their exact fingerprint.
+  The original review Goal `cd91c5e9-07fd-4959-ba4b-15ed51498e66` retained its
+  exact full-state fingerprint: waiting, revision 16, four steps, accounted
+  $0.215847 including unknown hold $0.157238. It was not resumed or retried.
+- Authenticated read-only API availability and main health checks passed. Release
+  verification dispatched no model inference, source read, action or Goal command.
+
+The compatible application-only rollback is the immediately previous `0d27000`
+image with the same environment/mounts and private v10 state. Drain admission and
+inspect active work before switching; retain unknown holds and never restore an
+older database dump over newer work. The separate `2ea7b9a` legacy fallback still
+requires native execution disabled and the established pause procedure.
+
+Ignored production evidence: `output/docs-release-20261013/`. Public MANA AI
+[Swagger publishing](mana-ai-production-swagger.md) was independently authorized
+and does not update the main/audio image or expose operational schemas.
 
 The error mapping follows the SDK classes in
 [official OpenAI guidance](https://developers.openai.com/api/docs/guides/error-codes#python-library-error-types).
