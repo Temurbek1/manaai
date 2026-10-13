@@ -42,6 +42,12 @@
   usage. A successful new synthetic diagnostic does not resolve historical lost calls or prove
   full model quality. The scoped production sidecar runs `b81f458`; main/audio and UI
   remain unchanged. See `docs/operation-inference-receipts-checkpoint.md`.
+- The local decision-schema diagnostic adds at most three allowlisted field/code
+  facts to existing private recovery feedback after verified usage. Never persist raw
+  validation input/context/messages or extra-key names, and do not treat unrelated SDK
+  metadata validation as a decision correction. It changes neither the two-step cap nor
+  checkpoint/approval/budget contracts. The complete synthetic cohort diagnostic is not
+  real source or broad model-quality acceptance; see `docs/operation-cohort-quality-checkpoint.md`.
 - Topic-owned session memory preserves user constraints and bounded completed/cancelled Goal
   result excerpts across chat/task continuation. It is private historical context, not fresh
   evidence or permission; never inherit previous source approvals or budgets. Freeze it before

@@ -6,7 +6,7 @@ from typing import TypedDict
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI
 from openai.types.responses import FunctionToolParam, ResponseIncludable, ResponseInputItemParam
 from openai.types.responses.response_create_params import ContextManagement
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field, JsonValue, ValidationError
 
 from app.core.config import Settings
 from app.mana_operation_ai.application.cost_control import CostLedger
@@ -24,6 +24,10 @@ from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.infrastructure.agent_tool_schema import (
     agent_function_tools,
     parse_agent_function,
+)
+from app.mana_operation_ai.infrastructure.decision_validation import (
+    decision_issues,
+    is_decision_validation,
 )
 from app.mana_operation_ai.infrastructure.goal_continuation import (
     PreparedContinuation,
@@ -316,6 +320,13 @@ class OpenAIGoalModel:
                 if response.output_parsed is None:
                     raise ValueError("Missing structured decision")
                 decision = GoalDecision.model_validate(response.output_parsed.model_dump())
+            except ValidationError as exc:
+                raise GoalModelResponseError(
+                    "Формат ответа AI не прошёл проверку. Расходы учтены; повтор не запущен.",
+                    actual.llm_microusd,
+                    output_failure="invalid_decision" if is_decision_validation(exc) else None,
+                    validation_issues=decision_issues(exc),
+                ) from None
             except (ValueError, TypeError, KeyError, AttributeError):
                 raise GoalModelResponseError(
                     "Формат ответа AI не прошёл проверку. Расходы учтены; повтор не запущен.",

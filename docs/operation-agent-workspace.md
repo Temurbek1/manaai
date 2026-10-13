@@ -4,6 +4,8 @@
 
 Latest status: the scoped native workspace release is deployed, with bounded production
 checks recorded in [the active release report](operation-goal-limit-release.md).
+The operational receipt/error sidecar increment is recorded in
+[the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Earlier checkpoints below are historical; they do not override that report or establish
 complete Codex/Claude parity, current-source coverage or unbuilt business actions.
 
@@ -59,6 +61,13 @@ These items define the objective throughout implementation; passing a narrow
 component test does not establish feature parity or close the overall goal.
 
 ## Architecture
+
+The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
+completed one full original historical synthetic analysis with six verified model
+calls, independent review and manually checked weighted arithmetic ($0.137379;
+no unknown hold or source read). A subsequent bounded typed schema-feedback
+improvement remains unreleased. This is not real MANA measurement, broad model
+quality, a new source grant or overall completion.
 
 The [inference-receipt checkpoint](operation-inference-receipts-checkpoint.md)
 separates verified pricing from structured output and rejects SDK-coerced stream
