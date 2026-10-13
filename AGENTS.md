@@ -28,7 +28,7 @@
   automatically retry a lost source read. See `docs/operation-goals.md`.
 - The opt-in native agent workspace remains default disabled via
   `OPERATION_AGENT_WORKSPACE_ENABLED`; the scoped production deployment explicitly enables it.
-  See `docs/operation-agent-workspace-report-pages-release.md` for current versions and limits.
+  See `docs/operation-manual-analytics-release.md` for current versions and limits.
   It adds conversational handoff, typed scoped evidence
   tools and in-flight steering, not unrestricted SQL/shell or full Orchestrator handlers.
   Read `docs/operation-agent-workspace.md` for the full acceptance scope and known release/rollback
@@ -102,15 +102,16 @@
   `retention.parents.analyze` is a separate manual-only, MANA-only minimized Parent API summary;
   opt-in source, one bounded page, shared six-hour read cooldown, no default schedule. Do not
   treat current tariffs as paid subscriptions or mix these reports into 360REC chat context.
-- The local `retention.parent_activity.analyze` and `retention.child_telemetry.analyze`
-  capabilities are manual-only and default disabled. Parent GA4 uses one approved stream,
+- The `retention.parent_activity.analyze` and `retention.child_telemetry.analyze`
+  capabilities are manual-only and default disabled; the scoped production sidecar enables them.
+  Parent GA4 uses one approved stream,
   five bounded HTTP attempts and qualified ten-group breakdowns. Child telemetry uses two
   document-ID prefix samples of at most 100 each, never full-population statistics. No auto-
   refresh, schedule, listener, pagination or transport retry is permitted. Only validated saved
   reports are shared between MANA rooms; read/write authority is not shared. New native reads
-  use private checkpoint v9 even after grant consumption. The deployed `9020b06` reader cannot
+  use private checkpoint v9 even after grant consumption. The previous `9020b06` reader cannot
   roll back v9; supported legacy `2ea7b9a` sees a closed projection and preserves private state.
-  See `docs/operation-manual-analytics.md` for limits and outstanding release acceptance.
+  See `docs/operation-manual-analytics.md` for limits and outstanding GA4 live acceptance.
 - Owner-confirmed MANA behavioral events (screens, button clicks, sessions and navigation)
   describe parents only. Keep backend child inventories separate; never use child counts as
   the denominator for parent activity/retention. User/event geography and profile cities are

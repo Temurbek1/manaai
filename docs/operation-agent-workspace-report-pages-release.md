@@ -1,7 +1,12 @@
-# Active operational workspace release — 2026-10-12
+# Operational workspace release record — 2026-10-12
+
+Superseded for active versions by the
+[2026-10-13 manual analytics release](operation-manual-analytics-release.md).
+This dated record remains evidence for the previous release; its version and
+source-activation statements are not the current deployment state.
 
 Application revision: `9020b060979ff8546da7758948f8fcaa1a55e203`.
-This report supersedes the old server release record for operational API/UI only.
+At publication this report superseded the old server release record for operational API/UI only.
 
 ## Actual versions and scope
 

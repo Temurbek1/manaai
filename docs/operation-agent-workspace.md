@@ -3,7 +3,7 @@
 ## Objective and evidence
 
 Latest status: the scoped native workspace release is deployed, with bounded production
-checks recorded in [the active release report](operation-agent-workspace-report-pages-release.md).
+checks recorded in [the active release report](operation-manual-analytics-release.md).
 Earlier checkpoints below are historical; they do not override that report or establish
 complete Codex/Claude parity, current-source coverage or unbuilt business actions.
 
@@ -62,11 +62,15 @@ component test does not establish feature parity or close the overall goal.
 
 The 2026-10-13 [manual first-party analytics checkpoint](operation-manual-analytics.md)
 adds default-disabled, independently bound GA4 parent activity and Firestore child
-telemetry tools. Local final verification: 879 backend/127 UI tests, 16 isolated
+telemetry tools, explicitly enabled in the production sidecar. Final verification:
+881 backend/127 UI tests, 16 isolated
 PostgreSQL cases including v9 restart/unknown-cost fencing, scoped native browser
-regression and actual networkless legacy rollback passed. The 43 new adapter/workspace
-cases use fake transports only. Production release/source activation is a separate
-approved next step; no automatic refresh or full-goal completion is implied.
+regression and actual networkless legacy rollback passed. The 45 new adapter/workspace
+cases use fake transports only. The approved scoped release collected 100+100
+Firestore documents and completed a native Goal on the saved minimized report
+without new source reads. GA4's first collection encountered a parsing collision;
+the corrected adapter is deployed, but a fresh post-cooldown collection is still
+pending. No automatic refresh or full-goal completion is implied.
 
 Exactly four top-level rooms remain. The shared workspace is infrastructure,
 not a fifth agent or a claim that full Orchestrator/Technical handlers are built.
@@ -919,7 +923,7 @@ Do not mark the overall Codex/Claude interaction objective complete from this ch
   Growth draft lane, following Retention-first delivery and explicit live authority. Do not
   claim unbuilt Retention/Orchestrator/Technical handlers or real payment/conversion evidence.
 - The scoped sidecar/UI release and production diagnostic are recorded in
-  [the active release report](operation-agent-workspace-report-pages-release.md). Repeat that scoped
+  [the active release report](operation-manual-analytics-release.md). Repeat that scoped
   verification after further changes; preserve the independent main API/audio and scheduler.
 - Retain the actual deployment's rollback controls and additive schema. The local older-image
   proof is not a destructive production restore drill or permission to downgrade history;

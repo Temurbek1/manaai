@@ -52,8 +52,10 @@ MANAKIDS_PARENT_MIN_INTERVAL_SECONDS=21600
 
 Enabled separately from `OPERATION_PRODUCT_ACTIVITY_PROVIDER`; enabling this source does not
 activate Firebase, GA4 or the old engagement collector. Repository default is disabled.
-The local ignored `.env` is configured. **This increment has not been deployed to production.**
-Existing production processes, source limits, credentials and schedules were not modified.
+The existing scoped production sidecar enables this manual-only source with a maximum
+ten-parent page and six-hour cooldown. The 2026-10-13 analytics release retained those
+source settings; no Parent API refresh was performed as part of that release.
+See [current versions and checks](operation-manual-analytics-release.md).
 
 ## Manual workflow and safety
 

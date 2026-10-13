@@ -16,7 +16,7 @@ implement the full Orchestrator or Technical agent. See [Goals](docs/operation-g
 The opt-in **agent workspace** (`OPERATION_AGENT_WORKSPACE_ENABLED=true`, default false)
 adds automatic conversation-to-task handoff, native model-selected scoped evidence tools,
 in-flight steering and inline questions/approvals. The scoped production release explicitly
-enables it; see [versions, checks and limits](docs/operation-agent-workspace-production-release.md)
+enables it; see [versions, checks and limits](docs/operation-manual-analytics-release.md)
 and [scope and acceptance evidence](docs/operation-agent-workspace.md).
 Its public progress now uses an owner/topic-scoped SQL journal and authenticated SSE,
 with cursor replay and read-only reconnection. This streams task/plan/tool states, not model
@@ -55,6 +55,13 @@ The manual `retention.parents.analyze` capability adds minimized tariff/connecti
 without enabling new scheduled reads, Firebase access or customer actions. The existing scoped
 deployment already enables this manual-only source with a maximum ten-parent page and shared
 six-hour cooldown. The workspace release did not change those source settings.
+
+Manual first-party analytics: [source contracts](docs/operation-manual-analytics.md).
+The production sidecar now exposes independently bound parent GA4 and child Firestore
+tools, with no automatic refresh. A bounded child report and its native Goal passed live
+checks; corrected GA4 publication still awaits a separately approved post-cooldown read.
+Validated minimized reports are reusable across MANA rooms, never across into 360REC.
+New collection remains separately approved and gated, not triggered by opening a chat.
 
 Growth and Retention chats can explain saved evidence and offer a confirmation card for the
 existing analysis workflow. With the workspace flag disabled, Orchestrator and Technical chats

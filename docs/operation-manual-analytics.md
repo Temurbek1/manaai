@@ -1,6 +1,8 @@
 # Manual MANA analytics for agents
 
-Local checkpoint, 2026-10-13. Not deployed or activated. Two read-only capabilities
+Scoped production checkpoint, 2026-10-13: operational API `38292de`, UI `04048d7`.
+See [the release evidence and remaining acceptance](operation-manual-analytics-release.md).
+Two read-only capabilities
 extend the existing Retention owner; they do not create new agents, schedules,
 customer actions, full Orchestrator handlers or Technical handlers.
 
@@ -91,7 +93,7 @@ checksum, period, observation age, completeness and minimized-aggregate privacy.
 New native source requests use private Goal checkpoint v9, including after grant
 consumption. Analysis scope, paging, continuation, memory and recovery invariants
 remain validated. The supported `2ea7b9a` application sees a closed projection with
-no read grant and retains private state. The deployed `9020b06` native reader cannot
+no read grant and retains private state. The previous `9020b06` native reader cannot
 read v9 and is NOT a safe v9 rollback target without a verified compatibility bridge.
 Follow the existing worker-stop/pause protocol; never downgrade a populated schema.
 
@@ -109,8 +111,15 @@ shape, product/role isolation, native approval/result loading, failed/lost HTTP,
 retained holds, disabled construction and actual legacy-image rollback. No real
 model/source requests are part of these tests. Fakes are not production acceptance.
 
-Before activation: production backup and compatible rollback images, authenticated
-browser checks for these exact new source flows, read-only credential mounts,
-budget review and separately scoped live acceptance remain required. The full
+The approved release retained a protected backup, read-only credential mounts,
+the original six-hour gate, existing services/configuration and compatible legacy
+rollback. Firestore's bounded live collection and an authenticated public-proxy
+native Goal on its saved report passed. GA4 access returned four successful report
+responses, but normalization collisions prevented saving that first collection.
+The parser is corrected and its local circuit rearmed without resetting cooldown;
+no automatic retry was made. A fresh, separately approved GA4 collection after
+23:13 Samarkand on 2026-10-13 and authenticated deployed-browser checks for the
+new source-approval interactions remain open. API/proxy checks and fake browser
+regressions are not a claim of that exact deployed-browser acceptance. The full
 Codex/Claude objective also retains other context, quality, source coverage and
 owning-domain action obligations. This checkpoint does not close that objective.
