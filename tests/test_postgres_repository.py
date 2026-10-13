@@ -58,6 +58,44 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+async def test_postgres_saved_report_catalog_keyset_json_literal_and_scope_fences() -> None:
+    from app.mana_operation_ai.application.report_catalog import catalog_cursor
+    from tests.test_saved_report_catalog import NOW, catalog_agents, catalog_report, search
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    repository = SqlAlchemyOperationRepository(database)
+    prefix = f"cat-{uuid4()}"
+    query = search(query=prefix + " %_", scope_id=prefix)
+    try:
+        await catalog_agents(repository)
+        for index in range(23):
+            await catalog_report(repository, f"{prefix}-{index:03}", text=prefix + " %_")
+        await catalog_report(repository, prefix + "-foreign", product="360rec", text=prefix + " %_")
+        await catalog_report(repository, prefix + "-new", created_at=NOW, text=prefix + " %_")
+        await catalog_report(repository, prefix + "-wildcard", text=prefix + " abcXYZ")
+        first = await repository.page_report_candidates(query)
+        assert first.next_cursor is not None
+        second = await repository.page_report_candidates(query, cursor=first.next_cursor)
+        assert second.next_cursor is not None
+        third = await repository.page_report_candidates(query, cursor=second.next_cursor)
+        ids = [item.report_id for page in (first, second, third) for item in page.reports]
+        assert ids == [f"{prefix}-{index:03}" for index in range(22, -1, -1)]
+        assert third.next_cursor is None
+        assert await repository.page_report_candidates(query, cursor=first.next_cursor) == second
+        with pytest.raises(ChatError, match="Курсор"):
+            await repository.page_report_candidates(
+                query.model_copy(update={"product": "360rec"}), cursor=first.next_cursor
+            )
+        forged = catalog_cursor(
+            query, report_id=f"{prefix}-002", created_at=NOW - timedelta(seconds=4)
+        )
+        with pytest.raises(ChatError, match="Позиция"):
+            await repository.page_report_candidates(query, cursor=forged)
+    finally:
+        await database.dispose()
+
+
 async def test_postgres_limit_grant_v10_atomic_replay_unknown_hold_and_read_fence() -> None:
     from app.mana_operation_ai.domain.first_party_analytics import CHILD_TELEMETRY_CAPABILITY
     from app.mana_operation_ai.infrastructure.persistence.models import GoalRow

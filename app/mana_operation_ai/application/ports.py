@@ -4,6 +4,10 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import JsonValue
 
+from app.mana_operation_ai.application.report_catalog import (
+    SavedReportCandidatePage,
+    SavedReportCatalogQuery,
+)
 from app.mana_operation_ai.domain.enums import (
     ActionStatus,
     AgentRunStatus,
@@ -256,6 +260,10 @@ class OperationRepository(Protocol):
         limit: int = 100,
         offset: int = 0,
     ) -> tuple[list[AgentReport], int]: ...
+
+    async def page_report_candidates(
+        self, query: SavedReportCatalogQuery, *, cursor: str | None = None
+    ) -> SavedReportCandidatePage: ...
 
     async def save_outcome_evaluation(self, evaluation: OutcomeEvaluation) -> None: ...
 

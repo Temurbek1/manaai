@@ -119,6 +119,12 @@
   The supported `2ea7b9a` rollback sees a closed 5000-character evidence projection and retains
   full private state; the released `737b75d` native reader does not understand v8. Never choose
   that image as a v8 rollback target without a separately verified compatibility bridge.
+- The local saved-report discovery foundation adds bounded SQL keyset candidates and
+  application revalidation; it is not exposed as a native function or deployed. Cursor
+  positions are observation metadata, not grants, fresh measurements or complete catalog
+  coverage. Preserve empty-page continuation and never treat the preview as the whole database.
+  Adding the native tool requires explicit new checkpoint/rollback compatibility, not quiet
+  insertion into v10. See `docs/operation-saved-report-discovery.md` for the remaining integration.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

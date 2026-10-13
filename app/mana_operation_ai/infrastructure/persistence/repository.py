@@ -2,11 +2,19 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import cast
 
-from pydantic import BaseModel
-from sqlalchemy import delete, func, or_, select, update
+from pydantic import BaseModel, ValidationError
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
+from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.ports import ConcurrentOperationError
+from app.mana_operation_ai.application.report_catalog import (
+    REPORT_CATALOG_PAGE_SIZE,
+    SavedReportCandidatePage,
+    SavedReportCatalogQuery,
+    catalog_cursor,
+    catalog_position,
+)
 from app.mana_operation_ai.domain.enums import (
     ActionStatus,
     AgentRunStatus,
@@ -848,6 +856,94 @@ class SqlAlchemyOperationRepository:
                 ).all(),
             )
         return [AgentReport.model_validate(row.payload) for row in rows], total
+
+    async def page_report_candidates(
+        self, query: SavedReportCatalogQuery, *, cursor: str | None = None
+    ) -> SavedReportCandidatePage:
+        # Product JSON is a coarse filter, not a verified application binding.
+        # No COUNT, offset, source read, automatic pagination or transport retry.
+        filters = [
+            AgentReportRow.agent_id.in_(query.agent_ids),
+            AgentReportRow.created_at < query.before,
+            AgentReportRow.payload["structured"]["product"].as_string() == query.product,
+        ]
+        if query.capability_key is not None:
+            filters.append(
+                AgentReportRow.payload["capability_key"].as_string() == query.capability_key
+            )
+        if query.query:
+            filters.append(
+                or_(
+                    AgentReportRow.report_type.contains(query.query, autoescape=True),
+                    AgentReportRow.human_readable.contains(query.query, autoescape=True),
+                )
+            )
+        position = catalog_position(query, cursor) if cursor is not None else None
+        async with self._database.session_factory() as session:
+            if position is not None:
+                anchor = await session.scalar(
+                    select(AgentReportRow.report_id).where(
+                        *filters,
+                        AgentReportRow.report_id == position.report_id,
+                        AgentReportRow.created_at == position.created_at,
+                    )
+                )
+                if anchor is None:
+                    raise ChatError("Позиция сохранённого каталога больше недоступна.", 422)
+                filters.append(
+                    or_(
+                        AgentReportRow.created_at < position.created_at,
+                        and_(
+                            AgentReportRow.created_at == position.created_at,
+                            AgentReportRow.report_id < position.report_id,
+                        ),
+                    )
+                )
+            rows = list(
+                (
+                    await session.scalars(
+                        select(AgentReportRow)
+                        .where(*filters)
+                        .order_by(AgentReportRow.created_at.desc(), AgentReportRow.report_id.desc())
+                        .limit(REPORT_CATALOG_PAGE_SIZE + 1)
+                    )
+                ).all()
+            )
+        page = rows[:REPORT_CATALOG_PAGE_SIZE]
+        # Use the SQL ordering columns, not potentially different JSON timestamps.
+        # SQLite returns naive timestamps from aware columns; their storage timezone is UTC.
+        try:
+            reports = tuple(AgentReport.model_validate(row.payload) for row in page)
+            if any(
+                report.report_id != row.report_id
+                or report.agent_id != row.agent_id
+                or report.run_id != row.run_id
+                or report.report_type != row.report_type
+                or report.human_readable != row.human_readable
+                or report.created_at.utcoffset() is None
+                or report.created_at.astimezone(UTC)
+                != (
+                    row.created_at.replace(tzinfo=UTC)
+                    if row.created_at.tzinfo is None
+                    else row.created_at.astimezone(UTC)
+                )
+                for report, row in zip(reports, page, strict=True)
+            ):
+                raise ValueError("Report columns and payload disagree")
+            next_cursor = (
+                catalog_cursor(
+                    query,
+                    report_id=page[-1].report_id,
+                    created_at=page[-1].created_at.replace(tzinfo=UTC)
+                    if page[-1].created_at.tzinfo is None
+                    else page[-1].created_at,
+                )
+                if len(rows) > REPORT_CATALOG_PAGE_SIZE
+                else None
+            )
+        except (ValidationError, ValueError) as exc:
+            raise ChatError("Сохранённый каталог требует проверки целостности.", 503) from exc
+        return SavedReportCandidatePage(reports, next_cursor)
 
     async def save_outcome_evaluation(self, evaluation: OutcomeEvaluation) -> None:
         async with self._database.session_factory.begin() as session:

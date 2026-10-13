@@ -10,6 +10,12 @@ from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.chat_service import _report_source, _verified_report_product
 from app.mana_operation_ai.application.goal_ports import GoalRepository
 from app.mana_operation_ai.application.ports import Clock
+from app.mana_operation_ai.application.report_catalog import (
+    REPORT_CATALOG_PAGE_SIZE,
+    SavedReportCatalogQuery,
+    catalog_position,
+    catalog_report_matches,
+)
 from app.mana_operation_ai.domain.goals import GoalEvidence, OperationGoal, ReportReadProgress
 from app.mana_operation_ai.domain.models import AgentReport
 
@@ -107,6 +113,87 @@ class GoalEvidenceTools:
             },
             ensure_ascii=False,
         )
+
+    async def find_reports(
+        self,
+        goal: OperationGoal,
+        *,
+        query: str,
+        cursor: str | None,
+        capability_key: str | None = None,
+    ) -> str:
+        """SQL discovery foundation; not yet exposed as a native model tool."""
+        if goal.request.execution_mode != "agent":
+            raise ChatError("Поиск отчётов требует рабочей среды агента.")
+        agents = (
+            {"growth-agent", "retention-agent"}
+            if goal.agent_id == "operations-orchestrator"
+            else {goal.agent_id, "retention-agent"}
+        )
+        identifiers = sorted(
+            {identifier for agent in agents for identifier in self._admin.agent_identifiers(agent)}
+        )
+        search = SavedReportCatalogQuery(
+            scope_id=goal.goal_id,
+            product=goal.product,
+            agent_ids=tuple(identifiers),
+            before=goal.created_at,
+            query=query,
+            capability_key=capability_key,
+        )
+        page = await self._admin.repository.page_report_candidates(search, cursor=cursor)
+        if len(page.reports) > REPORT_CATALOG_PAGE_SIZE:
+            raise ChatError("Страница сохранённого каталога превышает разрешённый размер.", 503)
+        if page.next_cursor is not None:
+            position = catalog_position(search, page.next_cursor)
+            if not page.reports or (
+                position.report_id != page.reports[-1].report_id
+                or position.created_at != page.reports[-1].created_at
+            ):
+                raise ChatError("Курсор каталога не соответствует возвращённой странице.", 503)
+        reports = [
+            report
+            for report in page.reports
+            if catalog_report_matches(search, report)
+            and _verified_report_product(report) == goal.product
+            and (
+                report.agent_id in self._admin.agent_identifiers(goal.agent_id)
+                or goal.agent_id == "operations-orchestrator"
+                or shared_mana_analytics(report)
+            )
+        ]
+        payload = {
+            "product": goal.product,
+            "saved_reports": [
+                {
+                    "report_id": report.report_id,
+                    "capability": report.capability_key,
+                    "title": report.report_type[:120],
+                    "collected_at": source.collected_at.isoformat()
+                    if source.collected_at
+                    else None,
+                    "freshness": source.refresh_status,
+                }
+                for report in reports
+                for source in [_report_source(report, now=self._clock.now())]
+            ],
+            "next_cursor": page.next_cursor,
+            "created_before": goal.created_at.isoformat(),
+            "references_only": True,
+            "loaded_into_evidence": False,
+            "permission_granted": False,
+            "notes": [
+                "An empty page is not an empty database; follow next_cursor when present.",
+                "Read original reports separately; references do not prove freshness or coverage.",
+                "No new source call, read grant, budget or action is created by discovery.",
+            ],
+        }
+        result = json.dumps(payload, ensure_ascii=False)
+        if len(result) > 7800:
+            raise ChatError(
+                "Метаданные каталога превышают безопасный размер; страница не обрезана."
+            )
+        return result
 
     async def read(self, goal: OperationGoal, report_id: str) -> GoalEvidence:
         report = await self._report(goal, report_id)
