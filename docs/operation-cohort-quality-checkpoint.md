@@ -1,7 +1,9 @@
 # Complete historical cohort analysis and bounded schema feedback
 
-Status: **local diagnostic/implementation, not a new production release**.
-The operational sidecar remains the approved `b81f458` inference-receipt release.
+Status: **bounded schema-feedback diagnostic deployed to the operational sidecar
+on 2026-10-14 (Asia/Samarkand)**, immutable commit
+`a7752dc3c8a0d0c4a8db14c2620826551d9c3e5d`. The complete synthetic analysis remains
+a separate local quality diagnostic, not a production customer measurement.
 This work advances the existing four-agent workspace, not a fifth agent or full
 Codex/Claude parity. The broad objective remains open.
 
@@ -110,11 +112,76 @@ The additional secret scanner has seven pre-existing false positives for explici
 `synthetic-only`/`synthetic-key` SDK fixture credentials in unchanged older tests;
 no new file is flagged. This is not reported as a green secret-scan command.
 
-Outstanding: approved production rollout of the new diagnostic; broader model
-quality coverage; corrected live GA4 publication; authenticated production-browser
-acceptance; scalable extended session context; Retention-first owning-domain actions,
-then full Orchestrator and Technical last. A completed fixture analysis does not
+Outstanding: broader model quality coverage; corrected live GA4 publication;
+authenticated production-browser acceptance; scalable extended session context;
+Retention-first owning-domain actions, then full Orchestrator and Technical last.
+A completed fixture analysis does not
 close those requirements or prove real retention improvement.
+
+## Scoped production release
+
+Explicit owner approval covered only the operational API and its single in-process
+Goals worker. The candidate uses a clean `git archive a7752dc` application overlay
+on the exact existing `b81f458` runtime; immutable base identity and dependency-layer
+prefix were verified. No UI, main/audio, scheduler, provider, SSH or source change
+was included. No migration or production database restore was needed.
+
+- Runtime: `mana-ai-operation:a7752dc`, image
+  `sha256:36de524c701947b39e5c2f9142ebf48f4d241819d06a188a1b6315dd440a67d6`.
+  The container is healthy with `APP_ENV=production`. Its original environment,
+  mounts and host configuration match exactly; workspace, Goals, worker and
+  explicit-limit flags are restored, and the sidecar scheduler remains disabled.
+- Root-only backup: `/var/backups/mana-ai/decision-feedback-a7752dc`, including
+  the existing container/configuration inventory and a custom PostgreSQL dump
+  of 1,771,571 bytes, SHA-256
+  `7abff83078bc0674ea2ced1380b0bc810214beba5d410910764e4c5eec4181f4`.
+  `pg_restore --list` verified the dump; it was not restored.
+- Fresh preflight/drain/stage/final SQL inspections found no queued/running Goal,
+  lease, active chat turn or source run. Admission/execution were temporarily
+  disabled for staging, then the exact prior flags were restored.
+- Actual candidate, `b81f458` and `2ea7b9a` images passed networkless synthetic
+  read/pause compatibility checks, retaining private state, consumed reads,
+  unknown holds and grants. A pure candidate schema probe passed without
+  settings/provider I/O. Its first invocation selected the installed package
+  because the external probe omitted the working-directory import path; fixing
+  the probe resolved this without changing application startup or release code.
+- Main/audio `e73c10a`, UI `0d27000`, scheduler `2ea7b9a` and PostgreSQL retained
+  their exact container IDs, starts, configurations and mounts. All **34** protected
+  original files, including credentials, SSH, Nginx and public Swagger assets,
+  retained their hashes.
+- Seven source configurations, six schedule configurations, two source gates,
+  controls and schema `a36d9f7b802c` retained their SQL fingerprints. Schedule
+  comparison excludes only ordinary `next_run_at`/`last_run_at` progression,
+  not enabled flags, cron, scope or circuit configuration. No auto-refresh,
+  listener, source activation, cooldown reset or new schedule was introduced.
+- All three original unknown reservation rows retained their full fingerprint.
+  Goal `cd91c5e9-07fd-4959-ba4b-15ed51498e66` retained its complete state:
+  waiting in review, revision 16, four steps, conservative accounted $0.215847
+  including unknown hold $0.157238. It was not resumed, extended or retried.
+- Authenticated read-only API availability matched the pre-release result.
+  Public main health, Swagger/schema/assets and frontend GETs passed; existing
+  capability authentication still denies anonymous requests and accepts the
+  unchanged token. The unauthenticated frontend operational proxy returns 401.
+  The same proxy accepts an authenticated availability GET with the unchanged
+  technical key and advertises the original enabled flags and 120-step/$0.50 ceilings.
+  An isolated browser rendered the protected login and, after expanding the
+  initially collapsed Swagger tag, all twelve product contracts without page errors.
+  The first browser assertion incorrectly expected expanded contracts; the corrected
+  read-only check passed without any docs/application change or inference POST.
+  Release verification made **zero model inferences, external source reads,
+  actions or Goal commands**. A public login-page check is not authenticated
+  production-browser Goal acceptance.
+
+The compatible application-only rollback is the immediately previous `b81f458`
+image with the same environment/mounts and private v10 state. Drain admission and
+inspect active work before switching; retain unknown holds and never overwrite
+newer SQL history with the backup. The separate `2ea7b9a` legacy fallback still
+requires the established pause procedure and disabled native execution.
+The initial 30-second health observation expired while Docker reported `starting`;
+the subsequent exact runtime check confirmed `healthy`, not an unhealthy rollback.
+
+Ignored release evidence: `output/decision-feedback-release-20261013/`.
+The source-catalog paging investigation is not implemented or included in this release.
 
 This evaluates the whole decision/tool/review trace, following
 [official OpenAI trace-grading guidance](https://developers.openai.com/api/docs/guides/trace-grading),

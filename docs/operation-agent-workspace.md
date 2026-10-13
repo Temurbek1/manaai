@@ -6,6 +6,8 @@ Latest status: the scoped native workspace release is deployed, with bounded pro
 checks recorded in [the active release report](operation-goal-limit-release.md).
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
+Its subsequent bounded decision-schema diagnostic is deployed as `a7752dc`, recorded in
+[the cohort-quality release checkpoint](operation-cohort-quality-checkpoint.md).
 Earlier checkpoints below are historical; they do not override that report or establish
 complete Codex/Claude parity, current-source coverage or unbuilt business actions.
 
@@ -65,17 +67,17 @@ component test does not establish feature parity or close the overall goal.
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;
-no unknown hold or source read). A subsequent bounded typed schema-feedback
-improvement remains unreleased. This is not real MANA measurement, broad model
-quality, a new source grant or overall completion.
+no unknown hold or source read). The subsequent bounded typed schema-feedback
+improvement is deployed only to the operational sidecar as `a7752dc`. This is not
+real MANA measurement, broad model quality, a new source grant or overall completion.
 
 The [inference-receipt checkpoint](operation-inference-receipts-checkpoint.md)
 separates verified pricing from structured output and rejects SDK-coerced stream
 usage. Typed failures stop safely without exposing provider bodies or reissuing
 requests. A new one-call synthetic stream receipt passed; prior unknown holds and
-real-model Goal-review acceptance remain unresolved. Production now runs `b81f458`
-only in the operational API/Goals sidecar; main/audio, UI, sources and schedules
-were not updated by this increment.
+real-model Goal-review acceptance remain unresolved. Production now runs `a7752dc`
+only in the operational API/Goals sidecar, retaining that `b81f458` receipt boundary;
+main/audio, UI, sources and schedules were not updated by either increment.
 
 The 2026-10-13 [explicit Goal-limit continuation](operation-goal-limit-extensions.md)
 is default disabled and explicitly enabled in the scoped production sidecar.
