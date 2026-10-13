@@ -3,7 +3,7 @@
 ## Objective and evidence
 
 Latest status: the scoped native workspace release is deployed, with bounded production
-checks recorded in [the active release report](operation-manual-analytics-release.md).
+checks recorded in [the active release report](operation-goal-limit-release.md).
 Earlier checkpoints below are historical; they do not override that report or establish
 complete Codex/Claude parity, current-source coverage or unbuilt business actions.
 
@@ -61,12 +61,14 @@ component test does not establish feature parity or close the overall goal.
 ## Architecture
 
 The 2026-10-13 [explicit Goal-limit continuation](operation-goal-limit-extensions.md)
-is a local, default-disabled increment. It keeps the original objective/context,
+is default disabled and explicitly enabled in the scoped production sidecar.
+It keeps the original objective/context,
 accepts separately confirmed monotonic limits and reserves unknown model costs;
 tracked native state uses v10. It does not renew budgets automatically or approve
 reads/writes. Older/untracked histories are not reclassified or rewritten.
-The active production `38292de` image cannot execute v10; release approval and
-deployed acceptance for this increment remain separate from its local checks.
+The previous production `38292de` image cannot execute v10; the supported
+`2ea7b9a` fallback must keep Goals/workspace execution disabled. Actual bounded
+deployed acceptance is recorded separately from the local fake-provider checks.
 
 The 2026-10-13 [manual first-party analytics checkpoint](operation-manual-analytics.md)
 adds default-disabled, independently bound GA4 parent activity and Firestore child

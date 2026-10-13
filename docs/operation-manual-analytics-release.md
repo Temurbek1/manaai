@@ -1,4 +1,8 @@
-# Active operational release — 2026-10-13
+# Manual analytics operational release — 2026-10-13
+
+API/UI versions below are superseded by
+[the confirmed Goal-continuation release](operation-goal-limit-release.md).
+Source outcomes, cooldowns and the outstanding fresh GA4 acceptance remain as recorded here.
 
 This record supersedes [the 2026-10-12 versions](operation-agent-workspace-report-pages-release.md)
 for operational API/UI only. The owner approved connecting confirmed sources on

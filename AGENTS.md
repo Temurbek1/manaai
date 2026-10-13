@@ -28,7 +28,7 @@
   automatically retry a lost source read. See `docs/operation-goals.md`.
 - The opt-in native agent workspace remains default disabled via
   `OPERATION_AGENT_WORKSPACE_ENABLED`; the scoped production deployment explicitly enables it.
-  See `docs/operation-manual-analytics-release.md` for current versions and limits.
+  See `docs/operation-goal-limit-release.md` for current versions and limits.
   It adds conversational handoff, typed scoped evidence
   tools and in-flight steering, not unrestricted SQL/shell or full Orchestrator handlers.
   Read `docs/operation-agent-workspace.md` for the full acceptance scope and known release/rollback
@@ -59,9 +59,11 @@
   substitute objective. Unknown model holds block generation/resume/extensions. Accept verified
   usage after an in-flight control only as cost reconciliation, never its fenced-out decision.
   Tracked Goals use private checkpoint v10 and at most 120 tool records; untracked histories
-  remain limited to twelve. The current production `38292de` reader cannot execute v10; the
+  remain limited to twelve. The previous production `38292de` reader cannot execute v10; the
   closed legacy `2ea7b9a` fallback retains it with execution disabled. See
-  `docs/operation-goal-limit-extensions.md`; this increment is local, not production activation.
+  `docs/operation-goal-limit-extensions.md`; scoped production activation and actual checks
+  are recorded in `docs/operation-goal-limit-release.md`. Keep the feature default disabled
+  outside that explicit sidecar configuration.
 - Native Goals can find/page closed same-owner/topic/product tasks captured before the current
   task started. Task prose is historical context only; original saved report IDs must pass current
   agent/product/freshness checks separately. Exact cross-role user-text dedup retains all words

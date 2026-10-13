@@ -1,7 +1,8 @@
 # Продолжение той же Goal с подтверждёнными лимитами
 
-Локальный checkpoint от 13.10.2026; **не включён в production**. Текущий релиз
-остаётся указанным в [production-записи](operation-manual-analytics-release.md).
+Checkpoint от 13.10.2026 включён в scoped production `0d27000` после согласования.
+Версии, защищённые границы и результаты проверок — в
+[production-записи](operation-goal-limit-release.md).
 Функционал относится к общей рабочей среде четырёх агентов, не к новому агенту.
 
 ## Пользовательский сценарий
@@ -29,12 +30,13 @@
 
 ```dotenv
 OPERATION_AGENT_WORKSPACE_ENABLED=true
-OPERATION_GOAL_LIMIT_EXTENSIONS_ENABLED=false
+OPERATION_GOAL_LIMIT_EXTENSIONS_ENABLED=true
 OPERATION_GOALS_EXTENSION_MAX_STEPS=120
 OPERATION_GOALS_EXTENSION_BUDGET_MICROUSD=500000
 ```
 
-Отдельный флаг по умолчанию выключен. Включение применяется только к вновь
+Отдельный флаг по умолчанию выключен; выше показан согласованный production override.
+Включение применяется только к вновь
 созданным native Goals: старая история не переписывается и старые неизвестные
 расходы не объявляются подтверждёнными. Первоначальные лимиты создания Goal
 остаются 3–12 шагов; отдельный серверный ceiling продолжения допускает до 120
@@ -93,7 +95,7 @@ pre-I/O hold снимается; неизвестные расходы не во
 их private JSON и старые idempotent command receipts не получают новых полей.
 
 Закрытая legacy projection не содержит grants/holds/flags. `2ea7b9a` может
-прочитать её, но не выполнить native Goal. **Текущий production `38292de` не
+прочитать её, но не выполнить native Goal. **Прежний production `38292de` не
 понимает v10**: после активации его нельзя выбирать native rollback executor.
 Сохраняется прежний stop/drain/inspect/pause протокол и схема `a36d9f7b802c`;
 миграция или downgrade не требуются и не выполняются.
@@ -127,8 +129,9 @@ idempotency, конкурентные команды, ownership/RBAC, disabled f
 проверяют grants, unknown holds, scope, consumed reads и pause. Все эти проверки
 используют fake model/source boundaries, не вызывают реальный OpenAI/Firebase/GA4.
 
-До production-активации нужны согласованный scoped release, защищённая backup,
-совместимый rollback, проверки развёрнутого API/UI и отдельно ограниченная
-real-model приёмка. Активная общая цель Codex/Claude остаётся открытой: этот
+Согласованный scoped release выполнен с защищённой backup и совместимым rollback.
+Проверки развёрнутого API/UI и отдельно ограниченная real-model приёмка
+описаны в production-записи выше; они не заменяют широкую приёмку качества.
+Активная общая цель Codex/Claude остаётся открытой: этот
 шаг не заменяет расширенную работу с контекстом, качество исследований,
 GA4-публикацию и owning-domain actions по установленному порядку реализации.

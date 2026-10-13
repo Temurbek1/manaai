@@ -1,6 +1,6 @@
 # Native agent workspace: release and application rollback
 
-Status: the scoped release is deployed; see [current versions and checks](operation-manual-analytics-release.md).
+Status: the scoped release is deployed; see [current versions and checks](operation-goal-limit-release.md).
 This document is a bounded release checklist,
 not authorization to change unrelated services or activate sources/schedules. The full
 objective remains in [operation-agent-workspace.md](operation-agent-workspace.md).
