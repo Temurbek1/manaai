@@ -31,7 +31,11 @@ from app.mana_operation_ai.infrastructure.persistence.goal_repository import (  
 OWNER = "local-workspace-rollback-audit"
 
 
-async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) -> None:
+async def probe(
+    path: Path, *, stage: str, paused: bool, catalog: bool = False, snapshots: bool = False
+) -> None:
+    if snapshots and not catalog:
+        raise ValueError("Snapshot compatibility auditing requires the captured catalog contract")
     if stage == "setup" and path.exists():
         raise RuntimeError("Synthetic compatibility setup requires a nonexistent database file")
     database = OperationDatabase(f"sqlite+aiosqlite:///{path}")
@@ -46,6 +50,7 @@ async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) 
             events_enabled=True,
             limit_extensions_enabled=True,
             **({"report_discovery_enabled": True} if catalog else {}),
+            **({"snapshot_replacement_enabled": True} if snapshots else {}),
         )
     )
     try:
@@ -164,9 +169,10 @@ async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) 
                         prepared,
                         [
                             {
-                                "type": "compaction",
+                                "type": "reasoning" if snapshots else "compaction",
                                 "id": "cmp_compat",
                                 "encrypted_content": "test-compat-private-model-state",
+                                **({"summary": []} if snapshots else {}),
                             },
                             {
                                 "type": "function_call",
@@ -325,6 +331,7 @@ async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) 
                 lost = topic.title == "Native lost"
                 assert goal.limit_tracking
                 assert getattr(goal, "report_discovery_enabled", False) == catalog
+                assert getattr(goal, "snapshot_replacement_enabled", False) == snapshots
                 if catalog:
                     assert goal.tools[1].call.name == "find_saved_reports"
                     assert (
@@ -361,7 +368,11 @@ async def probe(path: Path, *, stage: str, paused: bool, catalog: bool = False) 
                 assert goal.read_attempted == lost
                 assert goal.model_continuation is not None
                 assert "test-compat-private-model-state" in goal.model_continuation.payload
-                assert goal.model_continuation.compactions == 1
+                assert goal.model_continuation.compactions == (0 if snapshots else 1)
+                if snapshots:
+                    assert goal.model_continuation.protocol == "goal-model-continuation-v3"
+                    assert len(goal.model_continuation.runtime_snapshots) == 1
+                    assert goal.model_continuation.runtime_snapshots[0].position == 0
                 if not lost:
                     assert goal.evidence[0].summary.endswith("EXACT FOOTER \t\n")
                     assert len(goal.evidence[0].summary) > 5000
@@ -395,10 +406,15 @@ def main() -> None:
     parser.add_argument("--stage", choices=("setup", "legacy", "verify"), required=True)
     parser.add_argument("--paused", action="store_true")
     parser.add_argument("--catalog", action="store_true")
+    parser.add_argument("--snapshots", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
-            args.database_file.resolve(), stage=args.stage, paused=args.paused, catalog=args.catalog
+            args.database_file.resolve(),
+            stage=args.stage,
+            paused=args.paused,
+            catalog=args.catalog,
+            snapshots=args.snapshots,
         )
     )
 

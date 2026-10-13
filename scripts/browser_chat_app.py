@@ -176,13 +176,18 @@ class BrowserGoalFake:
         if prepared.goal.phase == "review":
             assert len(prepared.items) == 1
         output = await self.decide(context=context, owner=owner)
-        items: list[dict[str, JsonValue]] = [
-            {
-                "type": "compaction",
-                "id": f"browser-cmp-{prepared.goal.steps_used}",
-                "encrypted_content": "test-browser-private-continuation",
-            }
-        ]
+        items: list[dict[str, JsonValue]] = []
+        if prepared.goal.snapshot_replacement_enabled:
+            # Exercise actual runtime replacement; do not hide it behind a forced compaction.
+            assert prepared.runtime_snapshots
+        else:
+            items.append(
+                {
+                    "type": "compaction",
+                    "id": f"browser-cmp-{prepared.goal.steps_used}",
+                    "encrypted_content": "test-browser-private-continuation",
+                }
+            )
         call = output.decision.tool_call
         if call:
             schema = next(

@@ -160,6 +160,7 @@ class OperationGoalService:
         session_context: SessionContextReader | None = None,
         continuing_model: ContinuingGoalModel | None = None,
         report_discovery_enabled: bool = False,
+        snapshot_replacement_enabled: bool = False,
     ) -> None:
         self.repository = repository
         self._chats = chats
@@ -174,6 +175,7 @@ class OperationGoalService:
         self._session_context = session_context
         self._continuing_model = continuing_model
         self._report_discovery_enabled = report_discovery_enabled
+        self._snapshot_replacement_enabled = snapshot_replacement_enabled
 
     async def _access(self, owner: str) -> None:
         if self._auth is not None:
@@ -384,6 +386,10 @@ class OperationGoalService:
                 raise ChatError("Рабочий режим агента отключён. История и результат сохранены.")
             if goal.report_discovery_enabled and not self._report_discovery_enabled:
                 raise ChatError("Поиск сохранённых отчётов временно отключён. История сохранена.")
+            if goal.snapshot_replacement_enabled and (
+                not self._snapshot_replacement_enabled or self._continuing_model is None
+            ):
+                raise ChatError("Продолжение контекста временно отключено. История сохранена.")
             if (
                 await self._admin.repository.get_control(
                     "global_kill_switch", default=self._global_kill_switch_default

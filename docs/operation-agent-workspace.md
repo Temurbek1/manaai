@@ -74,8 +74,16 @@ The subsequent [independent catalog-quality checkpoint](operation-catalog-qualit
 found and loaded the complete synthetic report in seven verified real-model calls,
 then stopped at conservative budget admission ($0.259170 estimated known cost,
 no unknown hold or source request). It did **not** complete numerical analysis or
-review. Exact saved-text whitespace is fixed locally; safe lossless runtime-context
-replacement remains future work, not a reason to weaken budgets or shorten objectives.
+review. Exact saved-text whitespace is fixed locally. That earlier diagnostic does
+not itself implement context replacement or justify weaker budgets/narrower objectives.
+
+The next local [runtime-snapshot checkpoint](operation-runtime-snapshot-replacement.md)
+implements default-disabled exact provenance/coverage replacement on new tracked
+catalog Goals, private v12/v3. Original conditions, complete source text, provider
+history, control fences and unknown holds remain; old tasks are not upgraded.
+Actual fake browser/SQL/rollback flows passed. A byte-count reduction is not a
+financial saving or full real-model analytical acceptance; duplicate page payloads
+and broader context/quality/release work remain. No production source is activated.
 
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model

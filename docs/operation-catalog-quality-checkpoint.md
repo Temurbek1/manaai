@@ -5,6 +5,11 @@ Production remains the independently approved `a7752dc` operational sidecar.
 The broader Codex/Claude-style workspace objective remains open. A completed
 source read is not a completed analysis or a measured business improvement.
 
+The following [runtime-snapshot checkpoint](operation-runtime-snapshot-replacement.md)
+implements the first exact-provenance replacement lane locally, default disabled,
+with its own tests/rollback evidence. It does not change this diagnostic's stopped
+result or complete the remaining page-duplication/preflight/real-model acceptance.
+
 ## One independent real-model attempt
 
 `scripts/operation_catalog_goal_evaluate.py` is offline by default. Explicit paid

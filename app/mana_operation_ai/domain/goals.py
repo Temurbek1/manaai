@@ -181,6 +181,7 @@ class OperationGoal(ChatModel):
     unsettled_microusd: int = Field(default=0, ge=0)
     # Captured by the server on creation; never a source permission or public create option.
     report_discovery_enabled: bool = Field(default=False, strict=True)
+    snapshot_replacement_enabled: bool = Field(default=False, strict=True)
 
     @property
     def execution_limits(self) -> GoalExecutionLimits:
@@ -195,6 +196,12 @@ class OperationGoal(ChatModel):
 
     @model_validator(mode="after")
     def validate_limit_grants(self) -> "OperationGoal":
+        if self.snapshot_replacement_enabled and (
+            self.request.execution_mode != "agent"
+            or not self.report_discovery_enabled
+            or not self.limit_tracking
+        ):
+            raise ValueError("Runtime snapshot replacement requires a tracked native catalog Goal")
         if self.report_discovery_enabled and self.request.execution_mode != "agent":
             raise ValueError("Saved-report discovery requires the native workspace")
         if not self.limit_tracking and len(self.tools) > 12:

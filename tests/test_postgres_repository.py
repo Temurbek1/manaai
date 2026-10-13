@@ -96,7 +96,10 @@ async def test_postgres_saved_report_catalog_keyset_json_literal_and_scope_fence
         await database.dispose()
 
 
-async def test_postgres_catalog_v11_capture_cursor_restart_and_legacy_projection() -> None:
+@pytest.mark.parametrize("snapshots", [False, True])
+async def test_postgres_catalog_capture_cursor_restart_and_legacy_projection(
+    snapshots: bool,
+) -> None:
     from app.mana_operation_ai.domain.agent_tools import AgentToolCall, AgentToolRecord
     from app.mana_operation_ai.infrastructure.persistence.goal_repository import (
         SqlAlchemyGoalRepository,
@@ -108,7 +111,11 @@ async def test_postgres_catalog_v11_capture_cursor_restart_and_legacy_projection
     database = OperationDatabase(POSTGRES_URL)
     clock = Clock()
     repository = SqlAlchemyGoalRepository(
-        database, clock, report_discovery_enabled=True, limit_extensions_enabled=True
+        database,
+        clock,
+        report_discovery_enabled=True,
+        limit_extensions_enabled=True,
+        snapshot_replacement_enabled=snapshots,
     )
     chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
     owner = f"catalog-owner-{uuid4()}"
@@ -127,9 +134,9 @@ async def test_postgres_catalog_v11_capture_cursor_restart_and_legacy_projection
             ),
         )
         before = SqlAlchemyGoalRepository._storage(goal)
-        assert (
-            before["workspace_payload"] is not None and before["workspace_payload"]["version"] == 11
-        )
+        assert before["workspace_payload"] is not None and before["workspace_payload"][
+            "version"
+        ] == (12 if snapshots else 11)
         changed = goal.model_copy(
             update={
                 "tools": [
@@ -152,9 +159,35 @@ async def test_postgres_catalog_v11_capture_cursor_restart_and_legacy_projection
                 "status": "waiting",
             }
         )
+        if snapshots:
+            import json
+
+            from app.mana_operation_ai.infrastructure.goal_continuation import (
+                finish_continuation,
+                prepare_continuation,
+            )
+
+            prepared = prepare_continuation(
+                context=json.dumps(
+                    {"goal": changed.model_dump(mode="json", exclude={"model_continuation"})}
+                ),
+                owner=owner,
+                state=None,
+                model="synthetic-pg-model",
+                maximum_bytes=192000,
+            )
+            changed.model_continuation = finish_continuation(
+                prepared, [], model="synthetic-pg-model", call=None, maximum_bytes=192000
+            )
         assert await repository.save(owner, goal, changed)
         restored = await SqlAlchemyGoalRepository(database, clock).get(owner, goal.goal_id)
         assert restored.report_discovery_enabled and restored.request == goal.request
+        assert restored.snapshot_replacement_enabled == snapshots
+        if snapshots:
+            assert restored.model_continuation is not None
+            assert changed.model_continuation is not None
+            assert restored.model_continuation == changed.model_continuation
+            assert len(restored.model_continuation.runtime_snapshots) == 1
         assert restored.tools[0].call.cursor == changed.tools[0].call.cursor
         assert restored.requested_capability is None and not restored.read_attempted
         assert restored.unsettled_microusd == restored.accounted_microusd == 50000
@@ -166,8 +199,9 @@ async def test_postgres_catalog_v11_capture_cursor_restart_and_legacy_projection
             row = await session.get(GoalRow, goal.goal_id)
             assert row is not None and row.workspace_payload is not None
             assert (
-                row.workspace_payload["version"] == 11
+                row.workspace_payload["version"] == (12 if snapshots else 11)
                 and "report_discovery_enabled" not in row.payload
+                and "snapshot_replacement_enabled" not in row.payload
             )
             assert LegacyGoal.model_validate(row.payload).status == "cancelled"
     finally:

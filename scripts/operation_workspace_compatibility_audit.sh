@@ -35,6 +35,9 @@ catalog_args=()
 if [[ "${WORKSPACE_REPORT_DISCOVERY_AUDIT:-false}" == true ]]; then
   catalog_args=(--catalog)
 fi
+if [[ "${WORKSPACE_SNAPSHOT_REPLACEMENT_AUDIT:-false}" == true ]]; then
+  catalog_args=(--catalog --snapshots)
+fi
 
 .venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {

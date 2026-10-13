@@ -9852,10 +9852,19 @@
             "default": "goal-model-continuation-v1",
             "enum": [
               "goal-model-continuation-v1",
-              "goal-model-continuation-v2"
+              "goal-model-continuation-v2",
+              "goal-model-continuation-v3"
             ],
             "title": "Protocol",
             "type": "string"
+          },
+          "runtime_snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/RuntimeSnapshotRef"
+            },
+            "maxItems": 128,
+            "title": "Runtime Snapshots",
+            "type": "array"
           },
           "scope_digest": {
             "pattern": "^[a-f0-9]{64}$",
@@ -10252,6 +10261,11 @@
                 "type": "null"
               }
             ]
+          },
+          "snapshot_replacement_enabled": {
+            "default": false,
+            "title": "Snapshot Replacement Enabled",
+            "type": "boolean"
           },
           "status": {
             "default": "queued",
@@ -13121,6 +13135,29 @@
           }
         },
         "title": "RunNowRequest",
+        "type": "object"
+      },
+      "RuntimeSnapshotRef": {
+        "additionalProperties": false,
+        "description": "Exact provenance of a runtime-owned input item, never inferred from provider text.",
+        "properties": {
+          "item_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Item Digest",
+            "type": "string"
+          },
+          "position": {
+            "maximum": 127.0,
+            "minimum": 0.0,
+            "title": "Position",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "item_digest"
+        ],
+        "title": "RuntimeSnapshotRef",
         "type": "object"
       },
       "SafetyEventSignal": {

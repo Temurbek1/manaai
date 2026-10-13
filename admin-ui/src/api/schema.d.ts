@@ -5459,7 +5459,9 @@ export interface components {
              * @default goal-model-continuation-v1
              * @enum {string}
              */
-            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2";
+            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2" | "goal-model-continuation-v3";
+            /** Runtime Snapshots */
+            runtime_snapshots?: components["schemas"]["RuntimeSnapshotRef"][];
             /** Scope Digest */
             scope_digest: string;
         };
@@ -5603,6 +5605,11 @@ export interface components {
              */
             revision: number;
             session_memory?: components["schemas"]["SessionMemory"] | null;
+            /**
+             * Snapshot Replacement Enabled
+             * @default false
+             */
+            snapshot_replacement_enabled: boolean;
             /**
              * Status
              * @default queued
@@ -6650,6 +6657,16 @@ export interface components {
              * @default analysis
              */
             job_type: string;
+        };
+        /**
+         * RuntimeSnapshotRef
+         * @description Exact provenance of a runtime-owned input item, never inferred from provider text.
+         */
+        RuntimeSnapshotRef: {
+            /** Item Digest */
+            item_digest: string;
+            /** Position */
+            position: number;
         };
         /** SafetyEventSignal */
         SafetyEventSignal: {

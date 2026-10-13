@@ -136,6 +136,11 @@ class OpenAIGoalModel:
             or not self._settings.operation_workspace_model_continuation_enabled
         ):
             raise ValueError("Native model continuation is disabled")
+        if json.loads(context).get("goal", {}).get("snapshot_replacement_enabled") is True and (
+            not self._settings.operation_workspace_snapshot_replacement_enabled
+            or not self._report_discovery_mode(context)
+        ):
+            raise ValueError("Runtime snapshot replacement is disabled")
         # Preserve the same current-snapshot bound before handling a separate private window.
         self.reservation(context)
         plan = selected_inference(context, goal=True) if self._catalog else None

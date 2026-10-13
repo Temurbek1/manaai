@@ -82,6 +82,7 @@ OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
 OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
+OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED="${AUDIT_SNAPSHOT_REPLACEMENT:-false}" \
 OPERATION_WORKSPACE_CHAT_STREAMING_ENABLED="${AUDIT_CHAT_STREAMING:-false}" \
 OPERATION_WORKSPACE_EVENTS_ENABLED=true \
 OPERATION_WORKSPACE_STREAM_SECONDS=15 \
@@ -173,6 +174,9 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   assert_browser '!document.querySelector(".goal-details[open]")' 'agent exposes audit details by default'
   browser wait --fn 'window.__workspaceStreams?.some(item => item.status === 200 && item.type?.startsWith("text/event-stream")) && [...Array(sessionStorage.length).keys()].some(index => sessionStorage.key(index).startsWith("mana:workspace-cursor:v1:") && Number(sessionStorage.getItem(sessionStorage.key(index))) > 0)' >/dev/null
   browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const goals = await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if (goals.length !== 1 || goals[0].tools.length !== 3 || goals[0].status !== "waiting") throw new Error("Unexpected task before reconnection"); window.__progressBaseline = JSON.stringify({id:goals[0].goal_id,revision:goals[0].revision,tools:goals[0].tools.map(tool => tool.call_id),cost:goals[0].accounted_microusd,steps:goals[0].steps_used}); return "task checkpoint captured"; })()' >/dev/null
+  if [[ "${AUDIT_SNAPSHOT_REPLACEMENT:-false}" == "true" ]]; then
+    browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const goals = await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if (!goals[0].snapshot_replacement_enabled || goals[0].model_continuation !== null) throw new Error("Captured snapshot contract missing or private continuation exposed"); return "captured native snapshot contract; private payload withheld"; })()' >/dev/null
+  fi
   # Leave the question unanswered until the bounded stream rotates. This must only
   # reconnect observation from the cursor, not repeat the question/tool/task.
   browser wait --fn 'window.__workspaceStreams?.some(item => Number(new URL(item.url, location.origin).searchParams.get("after")) > 0)' >/dev/null

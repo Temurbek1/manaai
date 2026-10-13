@@ -11,7 +11,10 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.mana_operation_ai.application.chat_ports import ChatError, SessionContextTooLarge
 from app.mana_operation_ai.application.goal_ports import SavedTaskPage
-from app.mana_operation_ai.application.model_continuation import continuation_scope_digest
+from app.mana_operation_ai.application.model_continuation import (
+    continuation_protocol,
+    continuation_scope_digest,
+)
 from app.mana_operation_ai.application.ports import Clock
 from app.mana_operation_ai.domain.agent_tools import (
     REPORT_DISCOVERY_TOOL,
@@ -41,7 +44,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -80,17 +83,30 @@ def _goal(row: GoalRow) -> OperationGoal:
     manual_reads = _manual_reads(goal)
     limit_state = goal.limit_tracking
     discovery = goal.report_discovery_enabled
+    replacement = goal.snapshot_replacement_enabled
     raw_goal = (row.workspace_payload or {}).get("goal")
-    version = _context_version(goal) if checkpoint.version in (10, 11) else checkpoint.version
+    version = _context_version(goal) if checkpoint.version in (10, 11, 12) else checkpoint.version
     if (
-        (checkpoint.version == 11) != discovery
+        (checkpoint.version in (11, 12)) != discovery
+        or (checkpoint.version == 12) != replacement
+        or (
+            checkpoint.version != 12
+            and isinstance(raw_goal, dict)
+            and (
+                "snapshot_replacement_enabled" in raw_goal
+                or (
+                    isinstance(raw_goal.get("model_continuation"), dict)
+                    and "runtime_snapshots" in raw_goal["model_continuation"]
+                )
+            )
+        )
         or (not discovery and (checkpoint.version == 10) != limit_state)
         or (
             not discovery
             and any(record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools)
         )
         or (
-            checkpoint.version != 11
+            checkpoint.version not in (11, 12)
             and isinstance(raw_goal, dict)
             and (
                 "report_discovery_enabled" in raw_goal
@@ -125,15 +141,15 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8, 9, 10, 11)
+            checkpoint.version in (5, 6, 7, 8, 9, 10, 11, 12)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12)
             and checkpoint.analysis_scope is not None
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (version == 1 and memory is not None)
@@ -157,7 +173,7 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is not None
             and (
                 goal.request.execution_mode != "agent"
-                or (continuation.protocol == "goal-model-continuation-v2") != discovery
+                or continuation.protocol != continuation_protocol(goal)
                 or continuation.scope_digest != continuation_scope_digest(row.owner, goal)
             )
         )
@@ -234,6 +250,7 @@ class SqlAlchemyGoalRepository:
         context_goal_limit: int = 10000,
         limit_extensions_enabled: bool = False,
         report_discovery_enabled: bool = False,
+        snapshot_replacement_enabled: bool = False,
     ) -> None:
         if not 1 <= context_goal_limit <= 10000:
             raise ValueError("Session Goal archive capacity must be between 1 and 10000")
@@ -243,6 +260,11 @@ class SqlAlchemyGoalRepository:
         self._context_goal_limit = context_goal_limit
         self._limit_extensions_enabled = limit_extensions_enabled
         self._report_discovery_enabled = report_discovery_enabled
+        if snapshot_replacement_enabled and (
+            not report_discovery_enabled or not limit_extensions_enabled
+        ):
+            raise ValueError("Runtime snapshot replacement requires tracked report discovery")
+        self._snapshot_replacement_enabled = snapshot_replacement_enabled
         self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
@@ -281,6 +303,7 @@ class SqlAlchemyGoalRepository:
                 "limit_tracking",
                 "unsettled_microusd",
                 "report_discovery_enabled",
+                "snapshot_replacement_enabled",
             },
         )
         payload["request"] = goal.request.model_dump(
@@ -336,6 +359,7 @@ class SqlAlchemyGoalRepository:
         manual_reads = _manual_reads(goal)
         limit_state = goal.limit_tracking
         discovery = goal.report_discovery_enabled
+        replacement = goal.snapshot_replacement_enabled
         if not discovery and any(
             record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools
         ):
@@ -349,7 +373,13 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=11 if discovery else 10 if limit_state else _context_version(goal),
+                version=12
+                if replacement
+                else 11
+                if discovery
+                else 10
+                if limit_state
+                else _context_version(goal),
                 analysis_scope=goal.request.analysis_scope
                 if extended_context
                 or continuation
@@ -375,9 +405,23 @@ class SqlAlchemyGoalRepository:
                     "goal": {
                         **(
                             {
+                                "snapshot_replacement_enabled": True,
+                                "model_continuation": {
+                                    "runtime_snapshots": True,
+                                    **(
+                                        {"pending_tool_call": {"catalog_capability"}}
+                                        if not discovery
+                                        else {}
+                                    ),
+                                },
+                            }
+                            if not replacement
+                            else {}
+                        ),
+                        **(
+                            {
                                 "report_discovery_enabled": True,
                                 "tools": {"__all__": {"call": {"catalog_capability"}}},
-                                "model_continuation": {"pending_tool_call": {"catalog_capability"}},
                             }
                             if not discovery
                             else {}
@@ -463,6 +507,9 @@ class SqlAlchemyGoalRepository:
                 limit_tracking=self._limit_extensions_enabled and request.execution_mode == "agent",
                 report_discovery_enabled=(
                     self._report_discovery_enabled and request.execution_mode == "agent"
+                ),
+                snapshot_replacement_enabled=(
+                    self._snapshot_replacement_enabled and request.execution_mode == "agent"
                 ),
                 session_memory=session_memory,
                 created_at=now,
@@ -822,6 +869,8 @@ class SqlAlchemyGoalRepository:
             return queued_row.owner, goal
 
     async def save(self, owner: str, before: OperationGoal, after: OperationGoal) -> bool:
+        if before.snapshot_replacement_enabled != after.snapshot_replacement_enabled:
+            raise ChatError("Договор контекста сохранённой цели нельзя менять молча.", 409)
         if before.report_discovery_enabled != after.report_discovery_enabled:
             raise ChatError("Набор инструментов сохранённой цели нельзя менять молча.", 409)
         after = after.model_copy(
