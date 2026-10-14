@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import Link from "next/link";
 import { useRef, useState } from "react";
 import useSWR from "swr";
@@ -50,6 +52,8 @@ export function AnalysisButton({
   kind?: "default" | "mana_parents";
   confirmation?: ReadConfirmation | null;
 }): React.JSX.Element {
+  const { t } = useI18n();
+
   const { session } = useSession();
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -64,7 +68,7 @@ export function AnalysisButton({
           unit: "hour",
           unitDisplay: "long",
         }).format(intervalSeconds / 3600)
-      : `${intervalSeconds} с`;
+      : t("{0} с", { "0": intervalSeconds });
   async function launch(): Promise<void> {
     if (guard.current || submitted || disabled || !hasRole(session, "operator"))
       return;
@@ -82,14 +86,18 @@ export function AnalysisButton({
       setSubmitted(true);
       await onDone().catch(() => {
         setError(
-          "Запрос принят. Не запускайте повторно: обновите переписку, чтобы увидеть результат.",
+          t(
+            "Запрос принят. Не запускайте повторно: обновите переписку, чтобы увидеть результат.",
+          ),
         );
       });
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Не удалось подтвердить запуск. Обновите переписку перед повтором.",
+          : t(
+              "Не удалось подтвердить запуск. Обновите переписку перед повтором.",
+            ),
       );
       await onDone().catch(() => undefined);
     } finally {
@@ -100,19 +108,25 @@ export function AnalysisButton({
   return (
     <section
       className="chat-action-suggestion"
-      aria-label="Предлагаемый следующий шаг"
+      aria-label={t("Предлагаемый следующий шаг")}
     >
       <strong>
         {kind === "mana_parents"
-          ? "Проверить родителей MANA?"
-          : "Собрать свежие данные?"}
+          ? t("Проверить родителей MANA?")
+          : t("Собрать свежие данные?")}
       </strong>
       <p>
         {kind === "mana_parents"
-          ? `Одна ограниченная страница родителей MANA, не чаще раза в ${parentIntervalLabel}. Firebase не вызывается, данные не изменяются. Тариф может быть бесплатным — это не отчёт о выручке.`
-          : "Обращусь к настроенным источникам агента. Возможны платные чтения API/Firebase в пределах серверных лимитов. Выбор приложения в теме НЕ фильтрует источники. Изменений данных и сообщений клиентам не будет."}{" "}
-        Подтверждение не гарантирует сбор: доступ, соответствие источника
-        приложению, бюджет или интервал между чтениями могут остановить запрос.
+          ? t(
+              "Одна ограниченная страница родителей MANA, не чаще раза в {0}. Firebase не вызывается, данные не изменяются. Тариф может быть бесплатным — это не отчёт о выручке.",
+              { "0": parentIntervalLabel },
+            )
+          : t(
+              "Обращусь к настроенным источникам агента. Возможны платные чтения API/Firebase в пределах серверных лимитов. Выбор приложения в теме НЕ фильтрует источники. Изменений данных и сообщений клиентам не будет.",
+            )}{" "}
+        {t(
+          "Подтверждение не гарантирует сбор: доступ, соответствие источника приложению, бюджет или интервал между чтениями могут остановить запрос.",
+        )}{" "}
       </p>
       <button
         type="button"
@@ -123,12 +137,12 @@ export function AnalysisButton({
         onClick={() => void launch()}
       >
         {submitted
-          ? "Запрос принят"
+          ? t("Запрос принят")
           : busy
-            ? "Отправляем подтверждение…"
-            : "Подтвердить сбор данных"}
+            ? t("Отправляем подтверждение…")
+            : t("Подтвердить сбор данных")}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{t(error)}</p>}
     </section>
   );
 }
@@ -140,6 +154,8 @@ export function AnalysisResult({
   topicId: string;
   turnId: string;
 }): React.JSX.Element {
+  const { t } = useI18n();
+
   const [startedAt] = useState(() => Date.now());
   const { data, error, isValidating, mutate } = useSWR<AnalysisState, Error>(
     `${CHAT_BASE}/topics/${topicId}/analysis/${turnId}`,
@@ -161,34 +177,37 @@ export function AnalysisResult({
     },
   );
   return (
-    <section className="chat-analysis-result" aria-label="Результат анализа">
+    <section
+      className="chat-analysis-result"
+      aria-label={t("Результат анализа")}
+    >
       <strong>
         {error
-          ? "Состояние недоступно"
+          ? t("Состояние недоступно")
           : data
             ? data.state === "unconfirmed"
-              ? "Ожидаем подтверждение запуска"
-              : labelFor(data.state)
-            : "Проверяем запуск…"}
+              ? t("Ожидаем подтверждение запуска")
+              : t(labelFor(data.state))
+            : t("Проверяем запуск…")}
       </strong>
       {data && <p>{data.summary}</p>}
       {data?.state === "waiting_approval" && data.run_id && (
         <ChatApprovals runId={data.run_id} />
       )}
       <details className="chat-result-details">
-        <summary>Подробности запуска</summary>
+        <summary>{t("Подробности запуска")}</summary>
         {(error || data?.state === "unconfirmed") && (
           <button
             type="button"
             disabled={isValidating}
             onClick={() => void mutate().catch(() => undefined)}
           >
-            Обновить состояние
+            {t("Обновить состояние")}{" "}
           </button>
         )}
         {data?.run_id && (
           <Link href={`/runs?run=${encodeURIComponent(data.run_id)}`}>
-            Открыть журнал ↗
+            {t("Открыть журнал ↗")}{" "}
           </Link>
         )}
       </details>

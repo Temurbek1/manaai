@@ -1,21 +1,29 @@
-export function formatDate(value: string | null | undefined): string {
+import { translate, type Locale } from "@/i18n/catalog";
+
+export function formatDate(
+  value: string | null | undefined,
+  locale: Locale = "ru",
+): string {
   if (!value || !Number.isFinite(new Date(value).getTime())) {
-    return "Нет данных";
+    return translate("Нет данных", locale);
   }
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(locale === "uz" ? "uz-Latn-UZ" : "ru-RU", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
 
-export function formatDuration(milliseconds: number | null): string {
+export function formatDuration(
+  milliseconds: number | null,
+  locale: Locale = "ru",
+): string {
   if (milliseconds === null) {
     return "—";
   }
   if (milliseconds < 1_000) {
-    return `${String(milliseconds)} мс`;
+    return `${String(milliseconds)} ${locale === "uz" ? "ms" : "мс"}`;
   }
-  return `${(milliseconds / 1_000).toFixed(1)} с`;
+  return `${(milliseconds / 1_000).toFixed(1)} ${locale === "uz" ? "s" : "с"}`;
 }
 
 export function compactId(value: string): string {

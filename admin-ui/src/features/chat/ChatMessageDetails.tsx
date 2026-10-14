@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ChatViewTurn } from "./contracts";
@@ -14,6 +16,8 @@ export function ChatMessageDetails({
 }: {
   turn: ChatViewTurn;
 }): React.JSX.Element {
+  const { t, locale } = useI18n();
+
   const [notice, setNotice] = useState("");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -33,23 +37,23 @@ export function ChatMessageDetails({
     turn.sources?.map((source) => evidenceState(source, now)) ?? [];
   const warnings = [
     ...(states.includes("stale")
-      ? ["Есть устаревшие данные — только для исторического разбора."]
+      ? [t("Есть устаревшие данные — только для исторического разбора.")]
       : []),
     ...(states.includes("unknown")
-      ? ["Свежесть части данных не подтверждена."]
+      ? [t("Свежесть части данных не подтверждена.")]
       : []),
     ...(turn.sources?.some(
       (source) => !source.scope_verified || !source.product,
     )
-      ? ["Приложение источника не подтверждено."]
+      ? [t("Приложение источника не подтверждено.")]
       : []),
   ];
   async function copy(): Promise<void> {
     try {
       await navigator.clipboard.writeText(turn.answer);
-      setNotice("Ответ скопирован");
+      setNotice(t("Ответ скопирован"));
     } catch {
-      setNotice("Не удалось скопировать. Выделите текст вручную.");
+      setNotice(t("Не удалось скопировать. Выделите текст вручную."));
     }
   }
   return (
@@ -61,8 +65,10 @@ export function ChatMessageDetails({
       )}
       <details className="chat-message-details">
         <summary>
-          Детали ответа
-          {turn.sources?.length ? ` · ${turn.sources.length} ист.` : ""}
+          {t("Детали ответа")}{" "}
+          {turn.sources?.length
+            ? t(" · {0} ист.", { "0": turn.sources.length })
+            : ""}
         </summary>
         {turn.model && (
           <p>
@@ -71,7 +77,7 @@ export function ChatMessageDetails({
         )}
         {Boolean(turn.plan?.length) && (
           <div className="chat-plan">
-            <strong>План работы</strong>
+            <strong>{t("План работы")}</strong>
             <ol>
               {turn.plan?.map((step, index) => (
                 <li key={index}>{step}</li>
@@ -81,17 +87,20 @@ export function ChatMessageDetails({
         )}
         {Boolean(turn.sources?.length) && (
           <div className="chat-sources">
-            <p>Сохранённые отчёты, без нового сбора.</p>
+            <p>{t("Сохранённые отчёты, без нового сбора.")}</p>
             {turn.sources?.map((source) => (
               <Link
                 key={source.report_id}
                 href={`/runs?run=${encodeURIComponent(source.run_id)}`}
               >
-                {source.title} · {evidenceCollectionLabel(source.collected_at)}{" "}
-                · {evidenceStateLabel(evidenceState(source, now))} ·{" "}
+                {source.title} ·{" "}
+                {evidenceCollectionLabel(source.collected_at, locale)} ·{" "}
+                {t(evidenceStateLabel(evidenceState(source, now)))} ·{" "}
                 {source.scope_verified && source.product
-                  ? `Только ${source.product === "mana" ? "MANA" : "360REC"}`
-                  : "Приложение не подтверждено"}{" "}
+                  ? t("Только {0}", {
+                      "0": source.product === "mana" ? "MANA" : "360REC",
+                    })
+                  : t("Приложение не подтверждено")}{" "}
                 ↗
               </Link>
             ))}
@@ -101,11 +110,11 @@ export function ChatMessageDetails({
           className="copy-answer"
           type="button"
           onClick={() => void copy()}
-          aria-label="Скопировать ответ"
+          aria-label={t("Скопировать ответ")}
         >
-          Копировать
+          {t("Копировать")}{" "}
         </button>
-        <span role="status">{notice}</span>
+        <span role="status">{t(notice)}</span>
       </details>
     </>
   );

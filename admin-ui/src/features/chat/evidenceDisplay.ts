@@ -1,4 +1,5 @@
 import { formatDate } from "@/ui/format";
+import { translate, type Locale } from "@/i18n/catalog";
 
 type EvidenceMetadata = {
   collected_at?: string | null;
@@ -29,10 +30,13 @@ export function evidenceState(
 
 export function evidenceCollectionLabel(
   collectedAt: string | null | undefined,
+  locale: Locale = "ru",
 ): string {
   if (!Number.isFinite(Date.parse(collectedAt ?? "")))
-    return "Дата сбора неизвестна";
-  return `Сбор данных: ${formatDate(collectedAt)}`;
+    return translate("Дата сбора неизвестна", locale);
+  return translate("Сбор данных: {0}", locale, {
+    0: formatDate(collectedAt, locale),
+  });
 }
 
 export function evidenceStateLabel(state: EvidenceState): string {

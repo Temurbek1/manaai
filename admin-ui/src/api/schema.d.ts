@@ -3284,6 +3284,17 @@ export interface components {
              */
             parent_summary_enabled: boolean;
             /**
+             * Response Languages
+             * @default [
+             *       "ru",
+             *       "uz"
+             *     ]
+             */
+            response_languages: [
+                "ru",
+                "uz"
+            ];
+            /**
              * Transcript Pagination Enabled
              * @default false
              */
@@ -3514,6 +3525,8 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+            /** Response Language */
+            response_language?: ("ru" | "uz") | null;
             session_memory?: components["schemas"]["SessionMemory"] | null;
             /** Sources */
             sources?: components["schemas"]["ChatSource"][];
@@ -4308,6 +4321,17 @@ export interface components {
             read_products?: {
                 [key: string]: "mana" | "360rec";
             };
+            /**
+             * Response Languages
+             * @default [
+             *       "ru",
+             *       "uz"
+             *     ]
+             */
+            response_languages: [
+                "ru",
+                "uz"
+            ];
         };
         /** GoalCommand */
         GoalCommand: {
@@ -5288,6 +5312,8 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+            /** Response Language */
+            response_language?: ("ru" | "uz") | null;
         };
         /** MetaDiscoveryResponse */
         MetaDiscoveryResponse: {

@@ -1,3 +1,5 @@
+"use client";
+import { useI18n } from "@/i18n/LanguageProvider";
 import type { ReactNode } from "react";
 
 const HEADING = /^ {0,3}#{1,3}\s/;
@@ -74,6 +76,8 @@ function inline(text: string): ReactNode[] {
 
 // Deliberately small text renderer: React escapes HTML; no HTML, arbitrary URLs or tool actions.
 export function GoalReport({ text }: { text: string }): React.JSX.Element {
+  const { t } = useI18n();
+
   return (
     <>
       {reportBlocks(text).map((lines, index) => {
@@ -96,10 +100,10 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
                 key={index}
                 className="goal-report-table"
                 role="region"
-                aria-label="Таблица анализа"
+                aria-label={t("Таблица анализа")}
                 tabIndex={0}
               >
-                <table aria-label="Данные анализа">
+                <table aria-label={t("Данные анализа")}>
                   <thead>
                     <tr>
                       {headers.map((cell, column) => (

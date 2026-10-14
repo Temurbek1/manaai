@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 interface QueryStateProps {
   error?: Error | undefined;
   loading: boolean;
@@ -18,15 +20,21 @@ export function QueryState({
   onRetry,
   subject,
 }: QueryStateProps): React.JSX.Element | null {
+  const { t } = useI18n();
+
   if (error) {
     return (
       <div className="error-banner query-state" role="alert">
         <div>
-          <strong>Не удалось загрузить {subject}.</strong>
+          <strong>
+            {t("Не удалось загрузить")} {subject}.
+          </strong>
           <p>
             {hasData
-              ? "Показаны ранее полученные данные. Они могут быть устаревшими."
-              : "Данные недоступны — это не означает, что записей нет."}
+              ? t(
+                  "Показаны ранее полученные данные. Они могут быть устаревшими.",
+                )
+              : t("Данные недоступны — это не означает, что записей нет.")}
           </p>
         </div>
         <button
@@ -35,7 +43,7 @@ export function QueryState({
           onClick={() => void onRetry().catch(() => undefined)}
           type="button"
         >
-          {retrying ? "Обновляем…" : "Повторить загрузку"}
+          {retrying ? t("Обновляем…") : t("Повторить загрузку")}
         </button>
       </div>
     );
@@ -43,7 +51,7 @@ export function QueryState({
   if (loading && !hasData) {
     return (
       <p className="notice" role="status">
-        Загружаем {subject}…
+        {t("Загружаем")} {subject}…
       </p>
     );
   }

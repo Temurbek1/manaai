@@ -311,3 +311,4 @@ class GoalAvailability(ChatModel):
     limit_extensions_enabled: bool = False
     extension_max_steps: int = Field(default=0, ge=0, le=120)
     extension_budget_microusd: int = Field(default=0, ge=0, le=10_000_000)
+    response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")

@@ -2456,3 +2456,15 @@ input[type="checkbox"] {
   outline: 2px solid #526079;
   border-radius: 4px;
 }
+.language-select {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border, #d8deea);
+  border-radius: 0.5rem;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}

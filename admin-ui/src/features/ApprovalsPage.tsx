@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
@@ -41,6 +43,8 @@ function parameterValue(
 }
 
 export function ApprovalsPage(): React.JSX.Element {
+  const { t, locale } = useI18n();
+
   const { session } = useSession();
   const canDecide = hasRole(session, "approver");
   const {
@@ -85,7 +89,9 @@ export function ApprovalsPage(): React.JSX.Element {
     if (busyProposal !== null || queueUnavailable || !canDecide) return;
     const reason = reasonByProposal[proposal.proposal_id]?.trim();
     if (!reason) {
-      setMessage("Укажите причину решения перед одобрением или отклонением.");
+      setMessage(
+        t("Укажите причину решения перед одобрением или отклонением."),
+      );
       setInvalidReasons((current) =>
         new Set(current).add(proposal.proposal_id),
       );
@@ -101,7 +107,7 @@ export function ApprovalsPage(): React.JSX.Element {
       );
       if (!freshProposal || freshProposal.status !== "awaiting_approval") {
         throw new Error(
-          "Предложение больше не ожидает согласования. Очередь обновлена.",
+          t("Предложение больше не ожидает согласования. Очередь обновлена."),
         );
       }
       const result = await apiPost<ApprovalLifecycle>(
@@ -115,9 +121,13 @@ export function ApprovalsPage(): React.JSX.Element {
       setMessage(
         approve
           ? proposal.execution_forbidden
-            ? "Ознакомление подтверждено. Выполнение изменений по-прежнему запрещено."
-            : `Одобрено. ${labelFor(result.execution?.status ?? "queued")}.`
-          : "Предложение отклонено.",
+            ? t(
+                "Ознакомление подтверждено. Выполнение изменений по-прежнему запрещено.",
+              )
+            : t("Одобрено. {0}.", {
+                "0": labelFor(result.execution?.status ?? "queued"),
+              })
+          : t("Предложение отклонено."),
       );
       await Promise.all([
         mutate(PENDING_APPROVALS_KEY),
@@ -127,7 +137,9 @@ export function ApprovalsPage(): React.JSX.Element {
       ]);
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Не удалось сохранить решение",
+        error instanceof Error
+          ? error.message
+          : t("Не удалось сохранить решение"),
       );
     } finally {
       setBusyProposal(null);
@@ -144,7 +156,7 @@ export function ApprovalsPage(): React.JSX.Element {
         (proposal) => selected.has(proposal.proposal_id),
       );
       if (!bulkReason.trim() || selectedProposals.length === 0) {
-        throw new Error("Выберите предложения и укажите причину решения.");
+        throw new Error(t("Выберите предложения и укажите причину решения."));
       }
       const actionTypes = new Set(
         selectedProposals.map((proposal) => proposal.action_type),
@@ -154,7 +166,9 @@ export function ApprovalsPage(): React.JSX.Element {
         (approve && !actionTypes.has("decrease_budget"))
       ) {
         throw new Error(
-          "Одновременно можно одобрить только однотипные действия по снижению бюджета.",
+          t(
+            "Одновременно можно одобрить только однотипные действия по снижению бюджета.",
+          ),
         );
       }
       await apiPost("/api/v1/admin/operation/approvals/bulk-decision", {
@@ -165,8 +179,8 @@ export function ApprovalsPage(): React.JSX.Element {
       });
       setMessage(
         approve
-          ? "Снижения бюджета одобрены."
-          : "Выбранные действия отклонены.",
+          ? t("Снижения бюджета одобрены.")
+          : t("Выбранные действия отклонены."),
       );
       setSelected(new Set());
       setBulkReason("");
@@ -179,7 +193,7 @@ export function ApprovalsPage(): React.JSX.Element {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Не удалось сохранить групповое решение",
+          : t("Не удалось сохранить групповое решение"),
       );
     } finally {
       setBusyProposal(null);
@@ -193,9 +207,11 @@ export function ApprovalsPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Ожидают вашего решения"
-        title="Согласования"
-        description="Перед решением проверьте, что изменится, на чём основано предложение и какие есть риски."
+        eyebrow={t("Ожидают вашего решения")}
+        title={t("Согласования")}
+        description={t(
+          "Перед решением проверьте, что изменится, на чём основано предложение и какие есть риски.",
+        )}
       />
       <QueryState
         error={approvalsError || proposalsError}
@@ -205,37 +221,40 @@ export function ApprovalsPage(): React.JSX.Element {
         onRetry={() =>
           Promise.all([mutate(PENDING_APPROVALS_KEY), mutate(PROPOSALS_KEY)])
         }
-        subject="очередь согласований"
+        subject={t("очередь согласований")}
       />
       {!canDecide ? (
         <p className="notice">
-          Вы можете просматривать предложения. Принимать решения могут
-          согласующие и администраторы.
+          {t(
+            "Вы можете просматривать предложения. Принимать решения могут согласующие и администраторы.",
+          )}{" "}
         </p>
       ) : null}
       {historyError ? (
         <p className="error-banner" role="alert">
-          Не удалось обновить историю решений.
+          {t("Не удалось обновить историю решений.")}{" "}
         </p>
       ) : null}
       {message ? (
         <p className="notice" role="status">
-          {message}
+          {t(message)}
         </p>
       ) : null}
       {items.length > 0 ? (
         <section
           className="panel bulk-bar"
-          aria-label="Решение по выбранным действиям"
+          aria-label={t("Решение по выбранным действиям")}
         >
           <label className="field">
-            <span>Причина решения по выбранным действиям</span>
+            <span>{t("Причина решения по выбранным действиям")}</span>
             <input
               onChange={(event) => setBulkReason(event.target.value)}
               value={bulkReason}
             />
           </label>
-          <span>Выбрано: {selected.size}</span>
+          <span>
+            {t("Выбрано:")} {selected.size}
+          </span>
           <button
             className="button secondary compact"
             disabled={
@@ -247,7 +266,7 @@ export function ApprovalsPage(): React.JSX.Element {
             onClick={() => void bulkDecide(false)}
             type="button"
           >
-            Отклонить выбранные
+            {t("Отклонить выбранные")}{" "}
           </button>
           <button
             className="button compact"
@@ -260,7 +279,7 @@ export function ApprovalsPage(): React.JSX.Element {
             onClick={() => void bulkDecide(true)}
             type="button"
           >
-            Одобрить снижение бюджетов
+            {t("Одобрить снижение бюджетов")}{" "}
           </button>
         </section>
       ) : null}
@@ -281,7 +300,9 @@ export function ApprovalsPage(): React.JSX.Element {
             <article className="approval-card" key={proposal.proposal_id}>
               <header>
                 <input
-                  aria-label={`Выбрать: ${labelFor(proposal.action_type)}`}
+                  aria-label={t("Выбрать: {0}", {
+                    "0": labelFor(proposal.action_type),
+                  })}
                   checked={selected.has(proposal.proposal_id)}
                   disabled={decisionDisabled || isLiveAdvisory}
                   onChange={(event) => {
@@ -296,81 +317,83 @@ export function ApprovalsPage(): React.JSX.Element {
                 />
                 <div>
                   <p className="eyebrow">{proposal.object_type}</p>
-                  <h2>{labelFor(proposal.action_type)}</h2>
+                  <h2>{t(labelFor(proposal.action_type))}</h2>
                 </div>
                 <StatusBadge status={proposal.status} />
               </header>
               {isLiveAdvisory ? (
                 <p className="live-advisory-note">
-                  <strong>META — РЕКОМЕНДАЦИЯ БЕЗ ИЗМЕНЕНИЙ</strong>
-                  Одобрение не отправляет изменения в Meta. Это рекомендация для
-                  ознакомления.
+                  <strong>{t("META — РЕКОМЕНДАЦИЯ БЕЗ ИЗМЕНЕНИЙ")}</strong>
+                  {t(
+                    "Одобрение не отправляет изменения в Meta. Это рекомендация для ознакомления.",
+                  )}{" "}
                 </p>
               ) : null}
               {isSelfApproval ? (
                 <p className="error-banner" role="status">
-                  Нельзя согласовать собственное предложение. Решение должен
-                  принять другой сотрудник.
+                  {t(
+                    "Нельзя согласовать собственное предложение. Решение должен принять другой сотрудник.",
+                  )}{" "}
                 </p>
               ) : null}
               <dl className="detail-grid">
                 <div>
-                  <dt>Объект источника</dt>
+                  <dt>{t("Объект источника")}</dt>
                   <dd>
                     <code>{compactId(proposal.provider_object_id)}</code>
                   </dd>
                 </div>
                 <div>
-                  <dt>Уверенность</dt>
+                  <dt>{t("Уверенность")}</dt>
                   <dd>{proposal.confidence}</dd>
                 </div>
                 <div>
-                  <dt>Кто предложил</dt>
+                  <dt>{t("Кто предложил")}</dt>
                   <dd>{approval?.requested_by ?? "unknown"}</dd>
                 </div>
                 <div>
-                  <dt>Действует до</dt>
-                  <dd>{formatDate(proposal.expires_at)}</dd>
+                  <dt>{t("Действует до")}</dt>
+                  <dd>{formatDate(proposal.expires_at, locale)}</dd>
                 </div>
                 <div>
-                  <dt>Режим источника</dt>
-                  <dd>{labelFor(proposal.provider_mode)}</dd>
+                  <dt>{t("Режим источника")}</dt>
+                  <dd>{t(labelFor(proposal.provider_mode))}</dd>
                 </div>
               </dl>
               <div className="old-new-grid">
                 <div>
-                  <span>Сейчас</span>
+                  <span>{t("Сейчас")}</span>
                   <strong>
                     {parameterValue(
                       proposal.parameters,
                       ["current_daily_budget", "current_status"],
-                      "Смотрите основания",
+                      t("Смотрите основания"),
                     )}
                   </strong>
                 </div>
                 <div>
-                  <span>Предлагается</span>
+                  <span>{t("Предлагается")}</span>
                   <strong>
                     {parameterValue(
                       proposal.parameters,
                       ["proposed_daily_budget", "proposed_status"],
-                      "Параметры изменения",
+                      t("Параметры изменения"),
                     )}
                   </strong>
                 </div>
               </div>
               <details className="change-box">
-                <summary>Технические параметры изменения</summary>
+                <summary>{t("Технические параметры изменения")}</summary>
                 <pre
                   tabIndex={0}
                   role="region"
-                  aria-label="Технические параметры изменения"
+                  aria-label={t("Технические параметры изменения")}
                 >
                   {JSON.stringify(proposal.parameters, null, 2)}
                 </pre>
               </details>
               <div className="evidence-block">
-                <h3>Основания</h3>
+                <h3>{t("Основания")}</h3>
                 {proposal.evidence.map((evidence) => (
                   <div key={evidence.name}>
                     <span>{evidence.name}</span>
@@ -387,7 +410,7 @@ export function ApprovalsPage(): React.JSX.Element {
               </ul>
               {isLiveAdvisory ? (
                 <div className="manual-instructions">
-                  <h3>Как выполнить вручную в рекламном кабинете</h3>
+                  <h3>{t("Как выполнить вручную в рекламном кабинете")}</h3>
                   <ol>
                     {(proposal.manual_action_instructions ?? []).map(
                       (instruction) => (
@@ -399,7 +422,7 @@ export function ApprovalsPage(): React.JSX.Element {
               ) : null}
               <div className="field">
                 <label htmlFor={`reason-${proposal.proposal_id}`}>
-                  Причина решения
+                  {t("Причина решения")}{" "}
                 </label>
                 <textarea
                   id={`reason-${proposal.proposal_id}`}
@@ -423,7 +446,7 @@ export function ApprovalsPage(): React.JSX.Element {
                       [proposal.proposal_id]: event.target.value,
                     }));
                   }}
-                  placeholder="Объясните, почему вы принимаете это решение"
+                  placeholder={t("Объясните, почему вы принимаете это решение")}
                   value={reasonByProposal[proposal.proposal_id] ?? ""}
                 />
                 {invalidReasons.has(proposal.proposal_id) ? (
@@ -431,7 +454,7 @@ export function ApprovalsPage(): React.JSX.Element {
                     className="field-error"
                     id={`reason-error-${proposal.proposal_id}`}
                   >
-                    Укажите причину решения.
+                    {t("Укажите причину решения.")}{" "}
                   </span>
                 ) : null}
               </div>
@@ -442,7 +465,7 @@ export function ApprovalsPage(): React.JSX.Element {
                   onClick={() => void decide(proposal, false)}
                   type="button"
                 >
-                  Отклонить
+                  {t("Отклонить")}{" "}
                 </button>
                 <button
                   className="button"
@@ -451,10 +474,10 @@ export function ApprovalsPage(): React.JSX.Element {
                   type="button"
                 >
                   {isBusy
-                    ? "Сохраняем…"
+                    ? t("Сохраняем…")
                     : isLiveAdvisory
-                      ? "Подтвердить ознакомление"
-                      : "Одобрить"}
+                      ? t("Подтвердить ознакомление")
+                      : t("Одобрить")}
                 </button>
               </footer>
             </article>
@@ -463,8 +486,8 @@ export function ApprovalsPage(): React.JSX.Element {
         {proposals && !proposalsError && items.length === 0 ? (
           <div className="panel">
             <EmptyState
-              title="Всё рассмотрено"
-              detail="Нет действий, ожидающих согласования."
+              title={t("Всё рассмотрено")}
+              detail={t("Нет действий, ожидающих согласования.")}
             />
           </div>
         ) : null}
@@ -472,8 +495,8 @@ export function ApprovalsPage(): React.JSX.Element {
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">История решений</p>
-            <h2>Принятые решения</h2>
+            <p className="eyebrow">{t("История решений")}</p>
+            <h2>{t("Принятые решения")}</h2>
           </div>
         </div>
         <div className="compact-history">
@@ -483,7 +506,7 @@ export function ApprovalsPage(): React.JSX.Element {
               <div key={approval.approval_id}>
                 <code>{compactId(approval.proposal_id)}</code>
                 <StatusBadge status={approval.status} />
-                <time>{formatDate(approval.requested_at)}</time>
+                <time>{formatDate(approval.requested_at, locale)}</time>
               </div>
             ))}
           {approvalHistory &&
@@ -491,7 +514,9 @@ export function ApprovalsPage(): React.JSX.Element {
           approvalHistory.items.every(
             (approval) => approval.status === "pending",
           ) ? (
-            <div className="empty-inline">Принятых решений пока нет.</div>
+            <div className="empty-inline">
+              {t("Принятых решений пока нет.")}
+            </div>
           ) : null}
         </div>
       </section>

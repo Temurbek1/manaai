@@ -8,6 +8,10 @@ runs without any of this — see [README.mana-ai.md](README.mana-ai.md).
 
 ## Conversation-first workspace
 
+The local interface supports **Русский / O‘zbekcha**, with persistent selection and
+language-aware chat/Goals requests. Saved evidence/history is not rewritten. See
+[language contracts and release boundaries](docs/operation-interface-languages.md).
+
 Durable analysis **Goals** are available inside chat: create an objective, watch its saved plan
 and background progress, pause/resume, clarify, and retrieve the reviewed result. New source
 reads need separate confirmation. This is not arbitrary business-action execution and does not

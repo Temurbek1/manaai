@@ -3851,6 +3851,26 @@
             "title": "Parent Summary Enabled",
             "type": "boolean"
           },
+          "response_languages": {
+            "default": [
+              "ru",
+              "uz"
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "ru",
+                "type": "string"
+              },
+              {
+                "const": "uz",
+                "type": "string"
+              }
+            ],
+            "title": "Response Languages",
+            "type": "array"
+          },
           "transcript_pagination_enabled": {
             "default": false,
             "title": "Transcript Pagination Enabled",
@@ -4357,6 +4377,21 @@
             "format": "uuid",
             "title": "Request Id",
             "type": "string"
+          },
+          "response_language": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ru",
+                  "uz"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Language"
           },
           "session_memory": {
             "anyOf": [
@@ -6532,6 +6567,26 @@
             },
             "title": "Read Products",
             "type": "object"
+          },
+          "response_languages": {
+            "default": [
+              "ru",
+              "uz"
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "ru",
+                "type": "string"
+              },
+              {
+                "const": "uz",
+                "type": "string"
+              }
+            ],
+            "title": "Response Languages",
+            "type": "array"
           }
         },
         "required": [
@@ -9340,6 +9395,21 @@
             "format": "uuid",
             "title": "Request Id",
             "type": "string"
+          },
+          "response_language": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ru",
+                  "uz"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Language"
           }
         },
         "required": [

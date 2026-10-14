@@ -114,7 +114,7 @@ async def test_sdk_receipts_are_independent_of_answer_validation_and_errors_are_
     await database.create_schema()
     ledger = SqlAlchemyCostLedger(database, clock=Clock(), limits=policy())
     settings = Settings(
-        _env_file=None, openai_api_key="synthetic-only", openai_model="gpt-5.4-nano"
+        _env_file=None, openai_api_key="test-synthetic-only", openai_model="gpt-5.4-nano"
     )
     model = (
         settings.effective_operation_chat_model
@@ -182,7 +182,7 @@ async def test_sdk_receipts_are_independent_of_answer_validation_and_errors_are_
     )
     await gateway._client.close()
     gateway._client = AsyncOpenAI(
-        api_key="synthetic-only",
+        api_key="test-synthetic-only",
         max_retries=0,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
     )
@@ -269,7 +269,7 @@ async def test_typed_goal_failure_keeps_durable_hold_and_blocks_controls_without
         gateway = OpenAIGoalModel(get_settings(), app.state.operation_cost_ledger)
         await gateway._client.close()
         gateway._client = AsyncOpenAI(
-            api_key="synthetic-only",
+            api_key="test-synthetic-only",
             max_retries=0,
             http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
         )

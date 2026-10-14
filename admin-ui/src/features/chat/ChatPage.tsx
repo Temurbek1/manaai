@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
@@ -34,7 +36,14 @@ export function ChatPage({
   agentId: ChatAgentId;
   topicId?: string | undefined;
 }): React.JSX.Element {
-  const agent = CHAT_AGENTS.find((item) => item.id === agentId)!;
+  const { t, locale } = useI18n();
+
+  const specification = CHAT_AGENTS.find((item) => item.id === agentId)!;
+  const agent = {
+    ...specification,
+    name: t(specification.name),
+    description: t(specification.description),
+  };
   const router = useRouter();
   const { session } = useSession();
   const draftKey = `mana:chat-draft:${session.user.user_id}:${topicId ?? agentId}`;
@@ -161,8 +170,18 @@ export function ChatPage({
         ? workspaceEnabled && !goalsAvailabilityError && !availabilityError
         : availability?.enabled && !availabilityError,
   );
+  const languageReady = Boolean(
+    workingGoal ||
+    locale === "ru" ||
+    (mode === "goal"
+      ? goalsAvailability?.response_languages?.includes("uz")
+      : availability?.response_languages?.includes("uz") &&
+        (mode !== "agent" ||
+          goalsAvailability?.response_languages?.includes("uz"))),
+  );
   const executionReady = Boolean(
     providerReady &&
+    languageReady &&
     (!currentTopicId || (data && !error && data.topic.agent_id === agentId)),
   );
   const active = turns.find((turn) => ACTIVE.includes(turn.status));
@@ -311,6 +330,14 @@ export function ChatPage({
             {
               request_id: requestId.current,
               objective: message,
+              ...(locale === "uz"
+                ? {
+                    success_criteria:
+                      "Tekshirilgan tahlil va keyingi qadamlar rejasini tayyorlang.",
+                    constraints:
+                      "Ma’lumotlarni o‘zgartirmang va mijozlarga murojaat qilmang. O‘zbek tilida (lotin yozuvida) javob bering.",
+                  }
+                : {}),
               max_steps: goalsAvailability!.max_steps,
               budget_microusd: goalsAvailability!.budget_microusd,
               ...(workspaceEnabled && analysisScope === "saved_snapshot"
@@ -334,6 +361,9 @@ export function ChatPage({
         {
           request_id: requestId.current,
           message,
+          ...(availability?.response_languages?.includes(locale)
+            ? { response_language: locale }
+            : {}),
           ...(mode === "agent" ? { execution_mode: "agent" } : {}),
           ...inference,
         },
@@ -348,7 +378,7 @@ export function ChatPage({
       setActionError(
         caught instanceof Error
           ? caught.message
-          : "Не удалось отправить сообщение. Черновик сохранён.",
+          : t("Не удалось отправить сообщение. Черновик сохранён."),
       );
       // A lost handoff response may still have created a durable Goal. Observe
       // it without resubmitting the message or restarting the analysis.
@@ -389,7 +419,7 @@ export function ChatPage({
         setActionError(
           caught instanceof Error
             ? caught.message
-            : "Не удалось приостановить цель.",
+            : t("Не удалось приостановить цель."),
         );
         await refreshGoals().catch(() => undefined);
       }
@@ -406,7 +436,9 @@ export function ChatPage({
       await refresh();
       if (!topicId) router.push(`/chat/${agentId}/topic/${currentTopicId}`);
     } catch {
-      setActionError("Не удалось остановить ответ. Проверьте состояние темы.");
+      setActionError(
+        t("Не удалось остановить ответ. Проверьте состояние темы."),
+      );
     }
   }
 
@@ -422,7 +454,7 @@ export function ChatPage({
   return (
     <section
       className={`chat-page${!currentTopicId ? " chat-page-new" : ""}`}
-      aria-label={`Чат: ${agent.name}`}
+      aria-label={t("Чат: {0}", { "0": agent.name })}
     >
       <header className="chat-header">
         <div>
@@ -433,9 +465,13 @@ export function ChatPage({
             <h1>{agent.name}</h1>
             {(currentTopicId || (agent.planned && !workspaceOffered)) && (
               <p>
-                {currentTopicId ? (data?.topic.title ?? "Загружаем тему…") : ""}
+                {currentTopicId
+                  ? (data?.topic.title ?? t("Загружаем тему…"))
+                  : ""}
                 {agent.planned && !workspaceOffered
-                  ? `${currentTopicId ? " · " : ""}Только планирование`
+                  ? t("{0}Только планирование", {
+                      "0": currentTopicId ? " · " : "",
+                    })
                   : ""}
               </p>
             )}
@@ -444,13 +480,15 @@ export function ChatPage({
         {currentTopicId ? (
           <span
             className="product-chip"
-            aria-label={`Приложение: ${scope === "mana" ? "MANA" : "360REC"}`}
+            aria-label={t("Приложение: {0}", {
+              "0": scope === "mana" ? "MANA" : "360REC",
+            })}
           >
             {scope === "mana" ? "MANA" : "360REC"}
           </span>
         ) : (
           <label className="chat-product-picker">
-            <span className="sr-only">Приложение</span>
+            <span className="sr-only">{t("Приложение")}</span>
             <select
               value={product}
               onChange={(event) =>
@@ -471,12 +509,12 @@ export function ChatPage({
           hasData={Boolean(data)}
           retrying={isValidating}
           onRetry={refresh}
-          subject="переписку"
+          subject={t("переписку")}
         />
       )}
       {wrongAgent ? (
         <p role="alert">
-          Эта тема принадлежит другому агенту. Выберите её в меню.
+          {t("Эта тема принадлежит другому агенту. Выберите её в меню.")}{" "}
         </p>
       ) : (
         <>
@@ -484,7 +522,7 @@ export function ChatPage({
             ref={transcript}
             className="chat-transcript"
             role="log"
-            aria-label="Переписка"
+            aria-label={t("Переписка")}
             aria-live="polite"
             aria-relevant="additions text"
             onScroll={(event) => {
@@ -505,13 +543,13 @@ export function ChatPage({
                   disabled={loadingOlder}
                   onClick={() => void earlier()}
                 >
-                  {loadingOlder ? "Загружаем…" : "Ранние сообщения"}
+                  {loadingOlder ? t("Загружаем…") : t("Ранние сообщения")}
                 </button>
               </div>
             )}
             {!currentTopicId && (
               <div className="chat-welcome">
-                <h2>Над чем поработаем?</h2>
+                <h2>{t("Над чем поработаем?")}</h2>
               </div>
             )}
             {topicId &&
@@ -520,20 +558,20 @@ export function ChatPage({
               turns.length === 0 &&
               goals.length === 0 && (
                 <p className="chat-empty">
-                  Тема создана. Напишите первое сообщение.
+                  {t("Тема создана. Напишите первое сообщение.")}{" "}
                 </p>
               )}
             {turns.map((turn) => (
               <div className="chat-turn" key={turn.turn_id}>
                 <article
                   className="chat-message user-message"
-                  aria-label="Ваше сообщение"
+                  aria-label={t("Ваше сообщение")}
                 >
                   <p>{turn.message}</p>
                 </article>
                 <article
                   className="chat-message agent-message"
-                  aria-label={`Ответ: ${agent.name}`}
+                  aria-label={t("Ответ: {0}", { "0": agent.name })}
                 >
                   <span
                     className={`agent-avatar ${agent.id}`}
@@ -547,16 +585,19 @@ export function ChatPage({
                         {turn.preview && (
                           <p aria-live="off">
                             {turn.preview}
-                            <span className="sr-only"> · Черновик ответа</span>
+                            <span className="sr-only">
+                              {" "}
+                              {t("· Черновик ответа")}
+                            </span>
                           </p>
                         )}
                         <p className="chat-progress" role="status">
                           <span className="working-dot" />
                           {turn.status === "reading"
-                            ? "Проверяю сохранённые отчёты…"
+                            ? t("Проверяю сохранённые отчёты…")
                             : turn.preview
-                              ? "Пишу ответ…"
-                              : "Готовлю ответ с учётом контекста…"}
+                              ? t("Пишу ответ…")
+                              : t("Готовлю ответ с учётом контекста…")}
                         </p>
                       </>
                     ) : (
@@ -572,7 +613,7 @@ export function ChatPage({
                       turn.status !== "completed" &&
                       turn.preview && (
                         <details>
-                          <summary>Прерванный черновик</summary>
+                          <summary>{t("Прерванный черновик")}</summary>
                           <p>{turn.preview}</p>
                         </details>
                       )}
@@ -635,12 +676,12 @@ export function ChatPage({
                 <div className="chat-turn">
                   <article
                     className="chat-message user-message"
-                    aria-label="Отправляемое сообщение"
+                    aria-label={t("Отправляемое сообщение")}
                   >
                     <p>{optimistic}</p>
                   </article>
                   <p className="chat-progress" role="status">
-                    Отправляем сообщение и ожидаем ответ…
+                    {t("Отправляем сообщение и ожидаем ответ…")}{" "}
                   </p>
                 </div>
               )}
@@ -658,7 +699,14 @@ export function ChatPage({
           <div className="chat-compose-area">
             {actionError && (
               <p className="chat-error" role="alert">
-                {actionError}
+                {t(actionError)}
+              </p>
+            )}
+            {!languageReady && (
+              <p className="chat-notice" role="status">
+                {t(
+                  "Выбранный язык ответов пока недоступен на сервере. Черновик сохранён.",
+                )}
               </p>
             )}
             {mode === "agent" && !providerReady && (
@@ -666,10 +714,12 @@ export function ChatPage({
                 {!goalsAvailabilityError &&
                 !availabilityError &&
                 (!goalsAvailability || !availability) ? (
-                  "Проверяем рабочий режим…"
+                  t("Проверяем рабочий режим…")
                 ) : (
                   <>
-                    <span>Рабочий режим недоступен. Запрос не отправлен.</span>{" "}
+                    <span>
+                      {t("Рабочий режим недоступен. Запрос не отправлен.")}
+                    </span>{" "}
                     <button
                       type="button"
                       onClick={() =>
@@ -679,7 +729,7 @@ export function ChatPage({
                         ]).catch(() => undefined)
                       }
                     >
-                      Повторить проверку
+                      {t("Повторить проверку")}{" "}
                     </button>
                   </>
                 )}
@@ -688,10 +738,12 @@ export function ChatPage({
             {mode === "goal" && !providerReady && (
               <p className="chat-notice" role="status">
                 {!goalsAvailability && !goalsAvailabilityError ? (
-                  "Проверяем работу с целями…"
+                  t("Проверяем работу с целями…")
                 ) : (
                   <>
-                    <span>Работа с целями недоступна. Черновик сохранён.</span>{" "}
+                    <span>
+                      {t("Работа с целями недоступна. Черновик сохранён.")}
+                    </span>{" "}
                     <button
                       type="button"
                       onClick={() =>
@@ -701,7 +753,7 @@ export function ChatPage({
                         ]).catch(() => undefined)
                       }
                     >
-                      Повторить проверку
+                      {t("Повторить проверку")}{" "}
                     </button>
                   </>
                 )}
@@ -712,20 +764,20 @@ export function ChatPage({
                 <p className="chat-notice">
                   {availabilityError ? (
                     <>
-                      <span>Не удалось проверить доступность AI.</span>{" "}
+                      <span>{t("Не удалось проверить доступность AI.")}</span>{" "}
                       <button
                         type="button"
                         onClick={() =>
                           void refreshAvailability().catch(() => undefined)
                         }
                       >
-                        Повторить проверку
+                        {t("Повторить проверку")}{" "}
                       </button>
                     </>
                   ) : availability ? (
-                    "AI временно недоступен. Переписка сохранена."
+                    t("AI временно недоступен. Переписка сохранена.")
                   ) : (
-                    "Проверяем доступность AI…"
+                    t("Проверяем доступность AI…")
                   )}
                 </p>
               )}
@@ -737,7 +789,7 @@ export function ChatPage({
               }}
             >
               <label className="sr-only" htmlFor="chat-message">
-                {workingGoal ? "Уточнение цели" : "Сообщение агенту"}
+                {workingGoal ? t("Уточнение цели") : t("Сообщение агенту")}
               </label>
               <textarea
                 id="chat-message"
@@ -746,10 +798,10 @@ export function ChatPage({
                 maxLength={6000}
                 placeholder={
                   workingGoal
-                    ? "Уточните цель или добавьте контекст…"
+                    ? t("Уточните цель или добавьте контекст…")
                     : mode === "goal"
-                      ? "Опишите цель и ожидаемый результат…"
-                      : "Опишите задачу…"
+                      ? t("Опишите цель и ожидаемый результат…")
+                      : t("Опишите задачу…")
                 }
                 rows={2}
                 onChange={(event) => updateDraft(event.target.value)}
@@ -768,10 +820,10 @@ export function ChatPage({
               />
               <div className="composer-toolbar">
                 {workingGoal ? (
-                  <span>Цель</span>
+                  <span>{t("Цель")}</span>
                 ) : workspaceOffered ? (
                   <select
-                    aria-label="Режим работы"
+                    aria-label={t("Режим работы")}
                     value={selectedMode}
                     disabled={busy}
                     onChange={(event) => {
@@ -779,17 +831,17 @@ export function ChatPage({
                       requestId.current = null;
                     }}
                   >
-                    <option value="auto">Агент</option>
-                    <option value="chat">Обсудить</option>
+                    <option value="auto">{t("Агент")}</option>
+                    <option value="chat">{t("Обсудить")}</option>
                     <option value="goal" disabled={!goalsEnabled}>
-                      Цель
+                      {t("Цель")}{" "}
                     </option>
                   </select>
                 ) : goalsEnabled ? (
                   <div
                     className="composer-mode"
                     role="group"
-                    aria-label="Режим работы"
+                    aria-label={t("Режим работы")}
                   >
                     <button
                       type="button"
@@ -800,7 +852,7 @@ export function ChatPage({
                         requestId.current = null;
                       }}
                     >
-                      Чат
+                      {t("Чат")}{" "}
                     </button>
                     <button
                       type="button"
@@ -811,7 +863,7 @@ export function ChatPage({
                         requestId.current = null;
                       }}
                     >
-                      Цель
+                      {t("Цель")}{" "}
                     </button>
                   </div>
                 ) : (
@@ -823,7 +875,7 @@ export function ChatPage({
                   (workspaceEnabled || analysisScope === "saved_snapshot") &&
                   !workingGoal && (
                     <select
-                      aria-label="Область анализа"
+                      aria-label={t("Область анализа")}
                       value={analysisScope}
                       disabled={busy}
                       onChange={(event) => {
@@ -833,19 +885,19 @@ export function ChatPage({
                         requestId.current = null;
                       }}
                     >
-                      <option value="current">Текущее положение</option>
+                      <option value="current">{t("Текущее положение")}</option>
                       <option
                         value="saved_snapshot"
                         disabled={!workspaceEnabled}
                       >
-                        Сохранённый срез
+                        {t("Сохранённый срез")}{" "}
                       </option>
                     </select>
                   )}
                 {modelSelectionEnabled && !workingGoal && (
                   <div className="composer-inference">
                     <select
-                      aria-label="Модель AI"
+                      aria-label={t("Модель AI")}
                       value={modelChoice}
                       disabled={busy}
                       onChange={(event) => {
@@ -853,13 +905,13 @@ export function ChatPage({
                         requestId.current = null;
                       }}
                     >
-                      <option value="auto">Авто</option>
+                      <option value="auto">{t("Авто")}</option>
                       <option value="gpt-5.4-mini">GPT-5.4 Mini</option>
                       <option value="gpt-6.1-sol">GPT-6.1 Sol</option>
                       <option value="gpt-6-astra">GPT-6 Astra</option>
                     </select>
                     <select
-                      aria-label="Глубина анализа"
+                      aria-label={t("Глубина анализа")}
                       value={reasoning}
                       disabled={busy}
                       onChange={(event) => {
@@ -867,10 +919,10 @@ export function ChatPage({
                         requestId.current = null;
                       }}
                     >
-                      <option value="auto">Размышление: авто</option>
-                      <option value="low">Быстро</option>
-                      <option value="medium">Обычное</option>
-                      <option value="high">Глубокое</option>
+                      <option value="auto">{t("Размышление: авто")}</option>
+                      <option value="low">{t("Быстро")}</option>
+                      <option value="medium">{t("Обычное")}</option>
+                      <option value="high">{t("Глубокое")}</option>
                     </select>
                   </div>
                 )}
@@ -881,7 +933,9 @@ export function ChatPage({
                     disabled={sending}
                     onClick={() => void stop()}
                     aria-label={
-                      goalBusy ? "Поставить цель на паузу" : "Остановить ответ"
+                      goalBusy
+                        ? t("Поставить цель на паузу")
+                        : t("Остановить ответ")
                     }
                   >
                     ■
@@ -902,10 +956,10 @@ export function ChatPage({
                     }
                     aria-label={
                       workingGoal
-                        ? "Уточнить цель"
+                        ? t("Уточнить цель")
                         : mode === "goal"
-                          ? "Поставить цель"
-                          : "Отправить сообщение"
+                          ? t("Поставить цель")
+                          : t("Отправить сообщение")
                     }
                   >
                     ↑
@@ -914,14 +968,15 @@ export function ChatPage({
               </div>
             </form>
             <p id="chat-composer-hint" className="sr-only">
-              AI может ошибаться. Не отправляйте ключи и личные данные. Новые
-              сборы и изменения требуют подтверждения. Enter — отправить,
-              Shift+Enter — новая строка.
+              {t(
+                "AI может ошибаться. Не отправляйте ключи и личные данные. Новые сборы и изменения требуют подтверждения. Enter — отправить, Shift+Enter — новая строка.",
+              )}{" "}
             </p>
             {mode === "goal" && !workingGoal && (
               <p className="goal-update">
-                Агент продолжит работу в фоне. Новое чтение данных — только с
-                подтверждением.
+                {t(
+                  "Агент продолжит работу в фоне. Новое чтение данных — только с подтверждением.",
+                )}{" "}
               </p>
             )}
           </div>

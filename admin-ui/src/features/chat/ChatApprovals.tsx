@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import Link from "next/link";
 import useSWR from "swr";
 import { type ProposalPage } from "@/api/client";
@@ -12,6 +14,8 @@ export function ChatApprovals({
 }: {
   runId?: string | undefined;
 }): React.JSX.Element {
+  const { t } = useI18n();
+
   const query = new URLSearchParams({ limit: "20" });
   if (runId) query.set("run_id", runId);
   const { data, error, isLoading, isValidating, mutate } = useSWR<
@@ -24,11 +28,12 @@ export function ChatApprovals({
     )
     .slice(0, 3);
   return (
-    <section className="chat-approvals" aria-label="Предложения агента">
-      <h3>Предложения агента</h3>
+    <section className="chat-approvals" aria-label={t("Предложения агента")}>
+      <h3>{t("Предложения агента")}</h3>
       <p>
-        Привязка к MANA / 360REC не подтверждена. Согласование в этом чате
-        недоступно.
+        {t(
+          "Привязка к MANA / 360REC не подтверждена. Согласование в этом чате недоступно.",
+        )}{" "}
       </p>
       <QueryState
         error={error}
@@ -36,25 +41,27 @@ export function ChatApprovals({
         hasData={Boolean(data)}
         retrying={isValidating}
         onRetry={() => mutate()}
-        subject="предложения"
+        subject={t("предложения")}
       />
       {!error && data && proposals.length === 0 && (
-        <p>В сохранённой выборке предложений нет.</p>
+        <p>{t("В сохранённой выборке предложений нет.")}</p>
       )}
       {!error &&
         proposals.map((proposal) => (
           <article key={proposal.proposal_id} className="chat-proposal-card">
             <header>
-              <strong>{labelFor(proposal.action_type)}</strong>
-              <span>{labelFor(proposal.status)}</span>
+              <strong>{t(labelFor(proposal.action_type))}</strong>
+              <span>{t(labelFor(proposal.status))}</span>
             </header>
             <p>{proposal.reasoning}</p>
             {proposal.execution_forbidden && (
-              <p>Только рекомендация: изменения в Meta запрещены.</p>
+              <p>{t("Только рекомендация: изменения в Meta запрещены.")}</p>
             )}
           </article>
         ))}
-      <Link href="/approvals">Профессиональная очередь согласований ↗</Link>
+      <Link href="/approvals">
+        {t("Профессиональная очередь согласований ↗")}
+      </Link>
     </section>
   );
 }

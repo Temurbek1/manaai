@@ -1,4 +1,7 @@
+"use client";
+import { useI18n } from "@/i18n/LanguageProvider";
 import { useEffect, useRef, useState } from "react";
+import { LanguageSelect } from "@/i18n/LanguageSelect";
 
 import {
   ApiError,
@@ -20,6 +23,8 @@ export function LoginPanel({
   notice,
   onAuthenticated,
 }: LoginPanelProps): React.JSX.Element {
+  const { t } = useI18n();
+
   const [stage, setStage] = useState<"identity" | "code">("identity");
   const [telegramId, setTelegramId] = useState("");
   const [code, setCode] = useState("");
@@ -46,7 +51,7 @@ export function LoginPanel({
   async function requestCode(): Promise<void> {
     const normalized = telegramId.trim();
     if (!/^\d+$/.test(normalized)) {
-      setError("Введите Telegram ID цифрами.");
+      setError(t("Введите Telegram ID цифрами."));
       return;
     }
     const numericId = Number(normalized);
@@ -55,7 +60,7 @@ export function LoginPanel({
       numericId <= 0 ||
       numericId > MAX_TELEGRAM_ID
     ) {
-      setError("Telegram ID указан неверно.");
+      setError(t("Telegram ID указан неверно."));
       return;
     }
     setBusy(true);
@@ -73,7 +78,7 @@ export function LoginPanel({
       setCode("");
       setStage("code");
     } catch (requestError) {
-      setError(authErrorMessage(requestError));
+      setError(t(authErrorMessage(requestError)));
     } finally {
       setBusy(false);
     }
@@ -81,11 +86,11 @@ export function LoginPanel({
 
   async function verifyCode(): Promise<void> {
     if (!/^\d{6}$/.test(code)) {
-      setError("Введите код из шести цифр.");
+      setError(t("Введите код из шести цифр."));
       return;
     }
     if (secondsLeft === 0) {
-      setError("Срок действия кода истёк. Запросите новый код.");
+      setError(t("Срок действия кода истёк. Запросите новый код."));
       return;
     }
     setBusy(true);
@@ -96,11 +101,11 @@ export function LoginPanel({
         { telegram_id: Number(telegramId), code },
       );
       if (!isAuthenticatedSession(result)) {
-        throw new Error("Сервер не создал сессию.");
+        throw new Error(t("Сервер не создал сессию."));
       }
       onAuthenticated(result);
     } catch (verifyError) {
-      setError(authErrorMessage(verifyError));
+      setError(t(authErrorMessage(verifyError)));
       setCode("");
       window.requestAnimationFrame(() => codeInput.current?.focus());
     } finally {
@@ -126,13 +131,15 @@ export function LoginPanel({
             <small>Operation AI</small>
           </div>
         </div>
-        <p className="eyebrow">Защищённый вход</p>
-        <h1>{stage === "identity" ? "Вход в MANA" : "Введите код"}</h1>
+        <p className="eyebrow">{t("Защищённый вход")}</p>
+        <LanguageSelect />
+        <h1>{stage === "identity" ? t("Вход в MANA") : t("Введите код")}</h1>
         {stage === "identity" ? (
           <>
             <p className="page-description">
-              Укажите числовой Telegram ID. Если доступ разрешён, бот MANA
-              отправит одноразовый код.
+              {t(
+                "Укажите числовой Telegram ID. Если доступ разрешён, бот MANA отправит одноразовый код.",
+              )}{" "}
             </p>
             <label className="field">
               <span>Telegram ID</span>
@@ -145,21 +152,23 @@ export function LoginPanel({
                     event.target.value.replace(/\D/g, "").slice(0, 16),
                   )
                 }
-                placeholder="Например, 976835256"
+                placeholder={t("Например, 976835256")}
                 required
                 value={telegramId}
               />
             </label>
             <p className="bot-hint">
-              Числовой ID можно узнать через служебного Telegram-бота и передать
-              администратору MANA для выдачи доступа.
+              {t(
+                "Числовой ID можно узнать через служебного Telegram-бота и передать администратору MANA для выдачи доступа.",
+              )}{" "}
             </p>
           </>
         ) : (
           <>
             <p className="page-description">
-              Проверьте сообщения от бота MANA. Код действует ровно 60 секунд и
-              используется только один раз.
+              {t(
+                "Проверьте сообщения от бота MANA. Код действует ровно 60 секунд и используется только один раз.",
+              )}{" "}
             </p>
             <div className="identity-summary">
               <span>Telegram ID</span>
@@ -173,11 +182,11 @@ export function LoginPanel({
                 }}
                 type="button"
               >
-                Изменить
+                {t("Изменить")}{" "}
               </button>
             </div>
             <label className="field otp-field">
-              <span>Код из Telegram</span>
+              <span>{t("Код из Telegram")}</span>
               <input
                 aria-describedby="otp-timer"
                 autoComplete="one-time-code"
@@ -198,8 +207,10 @@ export function LoginPanel({
               id="otp-timer"
             >
               {secondsLeft > 0
-                ? `Код действителен ещё ${String(secondsLeft)} сек.`
-                : "Срок действия кода истёк."}
+                ? t("Код действителен ещё {0} сек.", {
+                    "0": String(secondsLeft),
+                  })
+                : t("Срок действия кода истёк.")}
             </div>
             <div className="auth-secondary-actions">
               <button
@@ -209,24 +220,27 @@ export function LoginPanel({
                 type="button"
               >
                 {resendLeft > 0
-                  ? `Отправить снова через ${String(resendLeft)} сек.`
-                  : "Отправить новый код"}
+                  ? t("Отправить снова через {0} сек.", {
+                      "0": String(resendLeft),
+                    })
+                  : t("Отправить новый код")}
               </button>
               {requestInfo?.bot_url ? (
                 <a href={requestInfo.bot_url} rel="noreferrer" target="_blank">
-                  Открыть бота
+                  {t("Открыть бота")}{" "}
                 </a>
               ) : null}
             </div>
             <p className="bot-hint">
-              Бот пока не может отправить сообщение? Откройте MANA Bot, нажмите
-              Start и повторите отправку кода.
+              {t(
+                "Бот пока не может отправить сообщение? Откройте MANA Bot, нажмите Start и повторите отправку кода.",
+              )}{" "}
             </p>
           </>
         )}
         {(error ?? notice) ? (
           <p className="error-banner" role="alert">
-            {error ?? notice}
+            {t(error ?? notice ?? "")}
           </p>
         ) : null}
         <button
@@ -235,13 +249,15 @@ export function LoginPanel({
           type="submit"
         >
           {busy
-            ? "Подождите…"
+            ? t("Подождите…")
             : stage === "identity"
-              ? "Получить код"
-              : "Войти"}
+              ? t("Получить код")
+              : t("Войти")}
         </button>
         <small className="credential-note">
-          Пароль не требуется. Доступ подтверждается одноразовым кодом.
+          {t(
+            "Пароль не требуется. Доступ подтверждается одноразовым кодом.",
+          )}{" "}
         </small>
       </form>
     </main>

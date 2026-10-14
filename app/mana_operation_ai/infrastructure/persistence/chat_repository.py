@@ -50,6 +50,7 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
             "model_choice",
             "reasoning",
             "execution_mode",
+            "response_language",
             "session_memory",
             "preview",
             "preview_revision",
@@ -80,8 +81,10 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         or turn.next_action == "start_goal"
         or turn.session_memory
         or turn.preview_revision
+        or turn.response_language is not None
     ):
         workspace = {
+            **({"response_language": turn.response_language} if turn.response_language else {}),
             "execution_mode": turn.execution_mode,
             "next_action": turn.next_action,
             "session_memory": turn.session_memory.model_dump(mode="json")
@@ -361,6 +364,7 @@ class SqlAlchemyChatRepository:
                     or turn.model_choice != payload.model_choice
                     or turn.reasoning != payload.reasoning
                     or turn.execution_mode != payload.execution_mode
+                    or turn.response_language != payload.response_language
                 ):
                     raise ChatError("Идентификатор запроса уже использован для другого сообщения.")
                 return turn, False
@@ -404,6 +408,7 @@ class SqlAlchemyChatRepository:
                 model_choice=payload.model_choice,
                 reasoning=payload.reasoning,
                 execution_mode=payload.execution_mode,
+                response_language=payload.response_language,
                 status="reading",
                 created_at=now,
             )

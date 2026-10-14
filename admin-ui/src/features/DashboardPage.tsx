@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useState } from "react";
 import Link from "next/link";
 import useSWR, { useSWRConfig } from "swr";
@@ -19,6 +21,8 @@ import { labelFor } from "../ui/labels";
 const DASHBOARD_KEY = "/api/v1/admin/operation/dashboard";
 
 export function DashboardPage(): React.JSX.Element {
+  const { t, locale } = useI18n();
+
   const { session } = useSession();
   const canRun = hasRole(session, "operator");
   const canAdminister = hasRole(session, "admin");
@@ -44,10 +48,12 @@ export function DashboardPage(): React.JSX.Element {
     try {
       const freshDashboard = await mutate<Dashboard>(DASHBOARD_KEY);
       if (!freshDashboard)
-        throw new Error("Текущее состояние ограничений недоступно");
+        throw new Error(t("Текущее состояние ограничений недоступно"));
       if (freshDashboard.global_kill_switch !== data.global_kill_switch)
         throw new Error(
-          "Состояние уже изменилось. Проверьте обновлённый обзор и подтвердите действие заново.",
+          t(
+            "Состояние уже изменилось. Проверьте обновлённый обзор и подтвердите действие заново.",
+          ),
         );
       await apiPut("/api/v1/admin/operation/kill-switch/global", {
         enabled: !freshDashboard.global_kill_switch,
@@ -55,14 +61,18 @@ export function DashboardPage(): React.JSX.Element {
       await mutate(DASHBOARD_KEY);
       setMessage(
         freshDashboard.global_kill_switch
-          ? "Остановка снята. Действия по-прежнему ограничены политиками доступа."
-          : "Новые действия остановлены. Уже начатую работу проверяйте в журнале.",
+          ? t(
+              "Остановка снята. Действия по-прежнему ограничены политиками доступа.",
+            )
+          : t(
+              "Новые действия остановлены. Уже начатую работу проверяйте в журнале.",
+            ),
       );
     } catch (caught) {
       setActionError(
         caught instanceof Error
           ? caught.message
-          : "Не удалось изменить ограничения",
+          : t("Не удалось изменить ограничения"),
       );
     } finally {
       setBusy(false);
@@ -80,13 +90,15 @@ export function DashboardPage(): React.JSX.Element {
       });
       await mutate(DASHBOARD_KEY);
       setMessage(
-        "Запрос на анализ принят. Состояние и результат доступны в журнале запусков.",
+        t(
+          "Запрос на анализ принят. Состояние и результат доступны в журнале запусков.",
+        ),
       );
     } catch (caught) {
       setActionError(
         caught instanceof Error
           ? caught.message
-          : "Не удалось запустить анализ",
+          : t("Не удалось запустить анализ"),
       );
     } finally {
       setBusy(false);
@@ -105,9 +117,11 @@ export function DashboardPage(): React.JSX.Element {
   return (
     <>
       <PageHeader
-        eyebrow="Администрация"
-        title="Обзор работы"
-        description="Состояние агентов, ожидающие решения, расписание и ограничения. Просмотр страницы не запускает сбор данных."
+        eyebrow={t("Администрация")}
+        title={t("Обзор работы")}
+        description={t(
+          "Состояние агентов, ожидающие решения, расписание и ограничения. Просмотр страницы не запускает сбор данных.",
+        )}
         actions={
           <div className="header-actions">
             <button
@@ -116,7 +130,7 @@ export function DashboardPage(): React.JSX.Element {
               onClick={() => void refresh().catch(() => undefined)}
               type="button"
             >
-              {isValidating ? "Обновляем…" : "Обновить экран"}
+              {isValidating ? t("Обновляем…") : t("Обновить экран")}
             </button>
             <ConfirmAction
               className={
@@ -124,15 +138,17 @@ export function DashboardPage(): React.JSX.Element {
               }
               confirmLabel={
                 data?.global_kill_switch
-                  ? "Подтвердить возобновление"
-                  : "Подтвердить остановку"
+                  ? t("Подтвердить возобновление")
+                  : t("Подтвердить остановку")
               }
               disabled={!data || Boolean(error) || busy || !canAdminister}
-              description="Меняет запрет на новые действия агентов. Не отменяет уже начатую работу и не снимает ограничения отдельных источников."
+              description={t(
+                "Меняет запрет на новые действия агентов. Не отменяет уже начатую работу и не снимает ограничения отдельных источников.",
+              )}
               label={
                 data?.global_kill_switch
-                  ? "Возобновить действия"
-                  : "Остановить действия"
+                  ? t("Возобновить действия")
+                  : t("Остановить действия")
               }
               onConfirm={() => void toggleKillSwitch()}
             />
@@ -145,129 +161,136 @@ export function DashboardPage(): React.JSX.Element {
         hasData={Boolean(data)}
         retrying={isValidating}
         onRetry={refresh}
-        subject="обзор"
+        subject={t("обзор")}
       />
       {message ? (
         <p className="notice" role="status">
-          {message} <Link href="/runs">Открыть журнал</Link>
+          {t(message)} <Link href="/runs">{t("Открыть журнал")}</Link>
         </p>
       ) : null}
       {actionError ? (
         <p className="error-banner" role="alert">
-          {actionError}
+          {t(actionError)}
         </p>
       ) : null}
-      <section className="metric-grid" aria-label="Показатели работы агентов">
+      <section
+        className="metric-grid"
+        aria-label={t("Показатели работы агентов")}
+      >
         <MetricCard
-          label="Подключено агентов"
+          label={t("Подключено агентов")}
           value={data ? agents.length : "—"}
         />
         <MetricCard
-          label="Ожидают согласования"
+          label={t("Ожидают согласования")}
           value={data ? pending : "—"}
           accent="amber"
         />
         <MetricCard
-          label="Запуски с ошибками"
+          label={t("Запуски с ошибками")}
           value={data ? incidents : "—"}
           accent="rose"
         />
         <MetricCard
-          label="Выполнение действий"
+          label={t("Выполнение действий")}
           value={
             !data
-              ? "Нет данных"
+              ? t("Нет данных")
               : data.global_kill_switch
-                ? "Остановлено"
-                : "Разрешено политикой"
+                ? t("Остановлено")
+                : t("Разрешено политикой")
           }
-          detail="Изменения в реальном рекламном кабинете запрещены"
+          detail={t("Изменения в реальном рекламном кабинете запрещены")}
           accent="blue"
         />
       </section>
-      <section className="task-grid" aria-label="Быстрые переходы">
+      <section className="task-grid" aria-label={t("Быстрые переходы")}>
         <Link className="task-card" href="/approvals">
-          <span className="eyebrow">Решения</span>
+          <span className="eyebrow">{t("Решения")}</span>
           <strong>
-            Рассмотреть согласования <span aria-hidden="true">→</span>
+            {t("Рассмотреть согласования")} <span aria-hidden="true">→</span>
           </strong>
           <span>
             {data
-              ? `Ожидают решения: ${pending}.`
-              : "Проверить очередь предложений."}{" "}
-            Проверяйте основания до одобрения.
+              ? t("Ожидают решения: {0}.", { "0": pending })
+              : t("Проверить очередь предложений.")}{" "}
+            {t("Проверяйте основания до одобрения.")}{" "}
           </span>
         </Link>
         <Link className="task-card" href="/retention">
-          <span className="eyebrow">Данные</span>
+          <span className="eyebrow">{t("Данные")}</span>
           <strong>
-            Проверить активность <span aria-hidden="true">→</span>
-          </strong>
-          <span>Сохранённый отчёт, дата сбора и ограничения источников.</span>
-        </Link>
-        <Link className="task-card" href="/runs">
-          <span className="eyebrow">Контроль</span>
-          <strong>
-            Разобрать запуски <span aria-hidden="true">→</span>
+            {t("Проверить активность")} <span aria-hidden="true">→</span>
           </strong>
           <span>
-            Результаты, ошибки и история. Без повторного запуска анализа.
+            {t("Сохранённый отчёт, дата сбора и ограничения источников.")}
+          </span>
+        </Link>
+        <Link className="task-card" href="/runs">
+          <span className="eyebrow">{t("Контроль")}</span>
+          <strong>
+            {t("Разобрать запуски")} <span aria-hidden="true">→</span>
+          </strong>
+          <span>
+            {t(
+              "Результаты, ошибки и история. Без повторного запуска анализа.",
+            )}{" "}
           </span>
         </Link>
       </section>
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Агенты и настройки</p>
-            <h2>Агенты</h2>
+            <p className="eyebrow">{t("Агенты и настройки")}</p>
+            <h2>{t("Агенты")}</h2>
           </div>
           <span className="muted">
-            Обновлено {formatDate(data?.generated_at)}
+            {t("Обновлено")} {formatDate(data?.generated_at, locale)}
           </span>
         </div>
         <DataTable
-          caption="Состояние агентов"
+          caption={t("Состояние агентов")}
           columns={[
             {
               key: "agent",
-              label: "Агент",
+              label: t("Агент"),
               render: (item) => (
                 <div className="primary-cell">
-                  <strong>{labelFor(item.agent_id)}</strong>
+                  <strong>{t(labelFor(item.agent_id))}</strong>
                 </div>
               ),
             },
             {
               key: "status",
-              label: "Состояние",
+              label: t("Состояние"),
               render: (item) => <StatusBadge status={item.status} />,
             },
             {
               key: "health",
-              label: "Подключения",
+              label: t("Подключения"),
               render: (item) => <StatusBadge status={item.health} />,
             },
             {
               key: "last",
-              label: "Последний запуск",
-              render: (item) => formatDate(item.last_run),
+              label: t("Последний запуск"),
+              render: (item) => formatDate(item.last_run, locale),
             },
             {
               key: "next",
-              label: "Следующий запуск",
-              render: (item) => formatDate(item.next_run),
+              label: t("Следующий запуск"),
+              render: (item) => formatDate(item.next_run, locale),
             },
             {
               key: "duration",
-              label: "Длительность",
-              render: (item) => formatDuration(item.last_duration_ms),
+              label: t("Длительность"),
+              render: (item) => formatDuration(item.last_duration_ms, locale),
             },
             {
               key: "success",
-              label: "Успешно",
+              label: t("Успешно"),
               render: (item) =>
                 item.success_rate === "unavailable"
-                  ? "Нет запусков"
+                  ? t("Нет запусков")
                   : new Intl.NumberFormat("ru-RU", {
                       style: "percent",
                       maximumFractionDigits: 0,
@@ -275,7 +298,7 @@ export function DashboardPage(): React.JSX.Element {
             },
             {
               key: "actions",
-              label: "Действия",
+              label: t("Действия"),
               render: (item) => (
                 <ConfirmAction
                   className="button compact"
@@ -285,10 +308,13 @@ export function DashboardPage(): React.JSX.Element {
                     item.status !== "enabled" ||
                     !canRun
                   }
-                  description={`Агент «${labelFor(item.agent_id)}» обратится к настроенным источникам. Это может расходовать квоты и бюджет. Для просмотра сохранённых данных запуск не нужен.`}
+                  description={t(
+                    "Агент «{0}» обратится к настроенным источникам. Это может расходовать квоты и бюджет. Для просмотра сохранённых данных запуск не нужен.",
+                    { "0": labelFor(item.agent_id) },
+                  )}
                   onConfirm={() => void runAgent(item.agent_id)}
-                  label="Запустить анализ"
-                  confirmLabel="Подтвердить сбор данных"
+                  label={t("Запустить анализ")}
+                  confirmLabel={t("Подтвердить сбор данных")}
                 />
               ),
             },
@@ -298,16 +324,17 @@ export function DashboardPage(): React.JSX.Element {
           empty={
             data ? (
               <EmptyState
-                title="Агентов пока нет"
-                detail="Здесь появятся подключённые агенты."
+                title={t("Агентов пока нет")}
+                detail={t("Здесь появятся подключённые агенты.")}
               />
             ) : null
           }
         />
       </section>
       <p className="notice">
-        Обновление экрана читает только сохранённые данные. Кнопка «Запустить
-        анализ» обращается к внешним источникам в пределах настроенных лимитов.
+        {t(
+          "Обновление экрана читает только сохранённые данные. Кнопка «Запустить анализ» обращается к внешним источникам в пределах настроенных лимитов.",
+        )}{" "}
       </p>
     </>
   );

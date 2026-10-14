@@ -1,3 +1,5 @@
+"use client";
+import { useI18n } from "@/i18n/LanguageProvider";
 import type { BreakdownPerformance, Metric } from "../api/client";
 import { DataTable } from "./DataTable";
 import { EmptyState } from "./EmptyState";
@@ -16,23 +18,25 @@ function metricValue(metric: Metric): string {
 export function PerformanceBreakdownTable({
   rows,
 }: PerformanceBreakdownTableProps): React.JSX.Element {
+  const { t } = useI18n();
+
   return (
     <DataTable
       columns={[
         {
           key: "dimension",
-          label: "Разрез данных",
-          render: (item) => labelFor(item.dimension),
+          label: t("Разрез данных"),
+          render: (item) => t(labelFor(item.dimension)),
         },
-        { key: "value", label: "Значение", render: (item) => item.value },
+        { key: "value", label: t("Значение"), render: (item) => item.value },
         {
           key: "spend",
-          label: "Расходы",
+          label: t("Расходы"),
           render: (item) => metricValue(item.metrics.spend),
         },
         {
           key: "leads",
-          label: "Заявки",
+          label: t("Заявки"),
           render: (item) => metricValue(item.metrics.leads),
         },
         {
@@ -55,8 +59,10 @@ export function PerformanceBreakdownTable({
       getKey={(item) => `${item.dimension}:${item.value}`}
       empty={
         <EmptyState
-          title="Нет данных по разрезам"
-          detail="Данные по времени, регионам, площадкам и демографии появятся после сбора."
+          title={t("Нет данных по разрезам")}
+          detail={t(
+            "Данные по времени, регионам, площадкам и демографии появятся после сбора.",
+          )}
         />
       }
     />

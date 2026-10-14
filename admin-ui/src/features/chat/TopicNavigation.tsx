@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import Link from "next/link";
 import useSWR from "swr";
 import type { components } from "@/api/schema";
@@ -14,10 +16,12 @@ export function TopicNavigation({
   pathname: string;
   onNavigate: () => void;
 }): React.JSX.Element {
+  const { t } = useI18n();
+
   const { data, error } = useSWR<Topic[], Error>(`${CHAT_BASE}/topics`);
   return (
     <>
-      <p className="nav-section-label">Ваши агенты</p>
+      <p className="nav-section-label">{t("Ваши агенты")}</p>
       {CHAT_AGENTS.map((agent) => {
         const selected =
           pathname.includes(`/chat/${agent.id}`) ||
@@ -38,8 +42,8 @@ export function TopicNavigation({
                 {agent.short}
               </span>
               <span>
-                {agent.name}
-                {agent.planned && <small>Планирование</small>}
+                {t(agent.name)}
+                {agent.planned && <small>{t("Планирование")}</small>}
               </span>
             </Link>
             {selected &&
@@ -50,10 +54,10 @@ export function TopicNavigation({
                     className="new-topic-link"
                     onClick={onNavigate}
                   >
-                    ＋ Новая тема
+                    {t("＋ Новая тема")}{" "}
                   </Link>
                   {error ? (
-                    <p className="nav-hint">Не удалось загрузить темы</p>
+                    <p className="nav-hint">{t("Не удалось загрузить темы")}</p>
                   ) : (
                     topics.map((topic) => (
                       <Link

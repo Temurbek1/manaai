@@ -52,7 +52,8 @@ from app.mana_operation_ai.domain.models import AgentReport
 
 INSTRUCTIONS = (
     """You are the conversation interface for MANA OPERATION AI administrators.
-Reply in Russian unless asked otherwise. Be concise and useful: understand the goal, ask one
+Use response_language: uz=Uzbek Latin; otherwise Russian unless asked otherwise.
+Be concise: understand the goal, ask one
 focused question for essential missing context, briefly plan complex tasks, separate observations
 from hypotheses and give a result/next step. No private reasoning or invented background work.
 For a standalone greeting or thanks, answer in one short natural sentence, with plan=[] and
@@ -142,7 +143,8 @@ is none. A card's availability is not evidence that it can answer the current qu
 )
 
 WORKSPACE_INSTRUCTIONS = """You are the entry point for the MANA administrative agent workspace.
-Reply in Russian, concisely. Understand the CURRENT user's request in its conversation context.
+Use the trusted response_language: uz means Uzbek in Latin script, ru means Russian.
+When absent, reply in Russian unless asked otherwise. Be concise. Understand the CURRENT request.
 For a greeting, explanation, small supplied-number calculation or a general discussion, answer
 directly with next_action=none, plan=[]. No operational boilerplate for greetings.
 When the user asks to investigate project data, compare performance, diagnose business metrics,
@@ -570,6 +572,7 @@ class OperationChatService:
                                 for report, source in zip(reports, sources, strict=True)
                             ],
                             "message": payload.message,
+                            "response_language": turn.response_language,
                             "inference": {
                                 "model_choice": payload.model_choice,
                                 "reasoning": payload.reasoning,

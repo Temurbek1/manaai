@@ -157,11 +157,45 @@ assert_browser '!document.body.innerText.includes("Internal API key")' 'human lo
 assert_browser '!document.querySelector("nextjs-portal")?.shadowRoot?.querySelector("[data-nextjs-dialog-overlay]")' 'Next.js error overlay is visible'
 assert_accessible
 
+# Locale selection changes presentation only, never authentication or source settings.
+browser select '.language-select' uz >/dev/null
+browser wait --fn 'document.documentElement.lang === "uz" && document.body.innerText.includes("MANA’ga kirish")' >/dev/null
+assert_accessible
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/login-uzbek.png" --full >/dev/null
+fi
+browser reload >/dev/null
+browser wait --fn 'document.querySelector(".language-select")?.value === "uz"' >/dev/null
+browser select '.language-select' ru >/dev/null
+
 login_browser 976835256
 assert_browser 'document.body.innerText.includes("Над чем поработаем?")' 'chat-first home did not render'
 assert_browser 'document.querySelectorAll(".agent-nav-group").length === 4' 'four agent chats are missing'
 assert_browser '!document.querySelector(".task-grid") && !document.querySelector("a[href=\"/users\"]")' 'professional controls leaked into chat mode'
 assert_browser '!document.querySelector(".topic-options, .chat-starters, .chat-tools-links")' 'manual setup controls leaked into the simple chat'
+browser find label "Сообщение агенту" fill 'Не изменять исходную задачу 🧒' >/dev/null
+browser select '.language-select' uz >/dev/null
+browser wait --fn 'document.documentElement.lang === "uz" && document.body.innerText.includes("Nima ustida ishlaymiz?")' >/dev/null
+assert_browser 'document.querySelector(".chat-page textarea")?.value === "Не изменять исходную задачу 🧒"' 'language switch changed the user draft'
+assert_browser 'document.querySelectorAll(".agent-nav-group").length === 4 && document.body.innerText.includes("O‘sish va konversiya")' 'Uzbek agent navigation is missing'
+assert_accessible
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/chat-uzbek-desktop.png" --full >/dev/null
+fi
+browser reload >/dev/null
+browser wait --fn 'document.querySelector(".language-select")?.value === "uz" && document.querySelector(".chat-page textarea")?.value === "Не изменять исходную задачу 🧒"' >/dev/null
+browser set viewport 320 812 >/dev/null
+assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'Uzbek chat overflows on mobile'
+assert_accessible
+if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+  browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/chat-uzbek-mobile.png" --full >/dev/null
+fi
+# Use the mobile menu to reach the same locale selector, not a hidden element.
+browser find role button click --name "Menyuni ochish" >/dev/null
+browser select '.language-select' ru >/dev/null
+browser find role button click --name "Открыть меню" >/dev/null
+browser set viewport 1440 1000 >/dev/null
+browser find label "Сообщение агенту" fill '' >/dev/null
 if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   assert_browser 'document.querySelector("select[aria-label=\"Режим работы\"]")?.value === "auto" && document.querySelectorAll(".chat-page button").length === 1' 'unified agent mode has extra controls or is not the default'
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
@@ -614,4 +648,4 @@ browser open "http://127.0.0.1:${AUDIT_UI_PORT}/runs" >/dev/null
 browser wait --load networkidle >/dev/null
 assert_browser 'document.body.innerText.includes("Вход в MANA")' 'protected route did not return to login after logout'
 
-echo "Browser E2E passed: private chats, durable Goals, scope/freshness guards, mobile accessibility, approvals and logout"
+echo "Browser E2E passed: RU/UZ persistence, unchanged drafts, private chats, durable Goals, scope/freshness guards, mobile accessibility, approvals and logout"

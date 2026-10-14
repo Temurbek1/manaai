@@ -51,6 +51,12 @@ class OperationWorkspaceService:
                 model_choice=request.model_choice,
                 reasoning=request.reasoning,
                 execution_mode="agent",
+                constraints=(
+                    "Ma’lumotlarni o‘zgartirmang va mijozlarga murojaat qilmang. "
+                    "O‘zbek tilida (lotin yozuvida) javob bering."
+                    if turn.response_language == "uz"
+                    else "Не изменять данные и не связываться с клиентами."
+                ),
                 conversation_history=[
                     GoalConversationTurn(
                         user=item.message,

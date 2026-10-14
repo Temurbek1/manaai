@@ -1,11 +1,14 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useSession } from "@/auth/SessionContext";
+import { LanguageSelect } from "@/i18n/LanguageSelect";
 import { labelFor } from "../ui/labels";
 import { TopicNavigation } from "../features/chat/TopicNavigation";
 
@@ -36,6 +39,8 @@ const NAVIGATION = [
 export function AuthenticatedShell({
   children,
 }: AuthenticatedShellProps): React.JSX.Element {
+  const { t } = useI18n();
+
   const pathname = usePathname() ?? "/";
   const chatMode = pathname === "/" || pathname.startsWith("/chat");
   const { session, signOut } = useSession();
@@ -73,18 +78,19 @@ export function AuthenticatedShell({
   return (
     <div className={chatMode ? "app-shell chat-shell" : "app-shell"}>
       <a className="skip-link" href="#main-content">
-        Перейти к содержимому
+        {t("Перейти к содержимому")}{" "}
       </a>
       <header className="mobile-bar">
         <button
           ref={menuButton}
           aria-controls="primary-menu"
           aria-expanded={menuOpen}
-          aria-label="Открыть меню"
+          aria-label={t("Открыть меню")}
           onClick={() => setMenuOpen(!menuOpen)}
           type="button"
         >
-          <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span> Меню
+          <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>{" "}
+          {t("Меню")}{" "}
         </button>
         <strong>MANA Operation AI</strong>
       </header>
@@ -101,7 +107,7 @@ export function AuthenticatedShell({
             <small>Operation AI</small>
           </div>
         </div>
-        <nav ref={navigation} aria-label="Основное меню">
+        <nav ref={navigation} aria-label={t("Основное меню")}>
           {chatMode ? (
             <TopicNavigation
               pathname={pathname}
@@ -113,9 +119,9 @@ export function AuthenticatedShell({
           ) : (
             <>
               <Link className="nav-item" href="/">
-                ← К чатам с агентами
+                {t("← К чатам с агентами")}{" "}
               </Link>
-              <p className="nav-section-label">Профессиональный режим</p>
+              <p className="nav-section-label">{t("Профессиональный режим")}</p>
             </>
           )}
           {!chatMode &&
@@ -136,7 +142,7 @@ export function AuthenticatedShell({
                   }}
                 >
                   <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               );
             })}
@@ -147,7 +153,7 @@ export function AuthenticatedShell({
             href="/overview"
             onClick={() => setMenuOpen(false)}
           >
-            Профессиональный режим <span aria-hidden="true">↗</span>
+            {t("Профессиональный режим")} <span aria-hidden="true">↗</span>
           </Link>
         )}
         {!chatMode && (
@@ -156,13 +162,13 @@ export function AuthenticatedShell({
             <div>
               <strong>
                 {session.live_meta_read_only
-                  ? "Meta: только чтение"
-                  : "Контролируемые действия"}
+                  ? t("Meta: только чтение")
+                  : t("Контролируемые действия")}
               </strong>
               <small>
                 {session.live_meta_read_only
-                  ? "Изменения в Meta отключены"
-                  : "Ограничения · согласование · журнал"}
+                  ? t("Изменения в Meta отключены")
+                  : t("Ограничения · согласование · журнал")}
               </small>
             </div>
           </div>
@@ -174,20 +180,22 @@ export function AuthenticatedShell({
                 session.user.username ??
                 String(session.user.telegram_id)}
             </strong>
-            <small>{labelFor(session.user.role)}</small>
+            <small>{t(labelFor(session.user.role))}</small>
           </span>
           <button onClick={() => void signOut()} type="button">
-            Выйти
+            {t("Выйти")}{" "}
           </button>
         </div>
+        <LanguageSelect />
       </aside>
       <div className="workspace">
         {!chatMode && session.live_meta_read_only ? (
           <div className="live-readonly-banner" role="status">
-            <strong>META — ТОЛЬКО ЧТЕНИЕ</strong>
+            <strong>{t("META — ТОЛЬКО ЧТЕНИЕ")}</strong>
             <span>
-              Доступны только рекомендации. Бюджеты, статусы, таргетинг и
-              креативы не изменяются.
+              {t(
+                "Доступны только рекомендации. Бюджеты, статусы, таргетинг и креативы не изменяются.",
+              )}{" "}
             </span>
           </div>
         ) : null}

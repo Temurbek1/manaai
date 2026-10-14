@@ -4,6 +4,10 @@
 
 - Work in English for code, comments, commit messages, and identifiers.
 - User-facing documentation may be Russian when the product audience is Russian.
+- Preserve Russian and Uzbek Latin interface support. Response language is presentation,
+  never a source/action grant. Freeze it on chat admission and preserve exact Goal objectives,
+  evidence/history and idempotent replay. Recipient language/consent remain independently
+  verified. See `docs/operation-interface-languages.md`.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 

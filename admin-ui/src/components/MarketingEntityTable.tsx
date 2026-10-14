@@ -1,3 +1,5 @@
+"use client";
+import { useI18n } from "@/i18n/LanguageProvider";
 import type { AdEntity } from "../api/client";
 import { compactId } from "../ui/format";
 import { DataTable } from "./DataTable";
@@ -13,6 +15,8 @@ export function MarketingEntityTable({
   entities,
   label,
 }: MarketingEntityTableProps): React.JSX.Element {
+  const { t } = useI18n();
+
   return (
     <DataTable
       columns={[
@@ -28,22 +32,26 @@ export function MarketingEntityTable({
         },
         {
           key: "status",
-          label: "Показы",
+          label: t("Показы"),
           render: (item) => <StatusBadge status={item.effective_status} />,
         },
         {
           key: "budget",
-          label: "Дневной бюджет",
+          label: t("Дневной бюджет"),
           render: (item) => item.daily_budget ?? "—",
         },
-        { key: "currency", label: "Валюта", render: (item) => item.currency },
+        {
+          key: "currency",
+          label: t("Валюта"),
+          render: (item) => item.currency,
+        },
       ]}
       items={entities}
       getKey={(item) => item.provider_id}
       empty={
         <EmptyState
-          title="Нет подходящих объектов"
-          detail="В последнем сборе нет подходящих объектов."
+          title={t("Нет подходящих объектов")}
+          detail={t("В последнем сборе нет подходящих объектов.")}
         />
       }
     />

@@ -40,9 +40,12 @@ export type ChatViewDetail = Omit<
 
 export type ChatViewAvailability = Omit<
   components["schemas"]["ChatAvailability"],
-  "transcript_pagination_enabled" | "chat_streaming_enabled"
+  | "transcript_pagination_enabled"
+  | "chat_streaming_enabled"
+  | "response_languages"
 > & {
   chat_streaming_enabled?: boolean;
   transcript_pagination_enabled?: boolean;
   parent_summary_enabled?: boolean;
+  response_languages?: components["schemas"]["ChatAvailability"]["response_languages"];
 };

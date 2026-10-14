@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -21,6 +23,8 @@ interface AdminShellProps {
 }
 
 export function AdminShell({ children }: AdminShellProps): React.JSX.Element {
+  const { t } = useI18n();
+
   const [session, setSession] = useState<AuthenticatedSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export function AdminShell({ children }: AdminShellProps): React.JSX.Element {
     return (
       <main className="login-page" aria-busy="true">
         <div className="auth-loading" role="status">
-          Проверяем защищённую сессию…
+          {t("Проверяем защищённую сессию…")}{" "}
         </div>
       </main>
     );

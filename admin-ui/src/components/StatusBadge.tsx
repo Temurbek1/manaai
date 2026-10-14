@@ -1,8 +1,12 @@
+"use client";
+import { useI18n } from "@/i18n/LanguageProvider";
 interface StatusBadgeProps {
   status: string;
 }
 
 export function StatusBadge({ status }: StatusBadgeProps): React.JSX.Element {
+  const { t } = useI18n();
+
   const tone =
     status.includes("fail") ||
     status === "unhealthy" ||
@@ -19,7 +23,7 @@ export function StatusBadge({ status }: StatusBadgeProps): React.JSX.Element {
           ? "success"
           : "neutral";
   return (
-    <span className={`status-badge status-${tone}`}>{labelFor(status)}</span>
+    <span className={`status-badge status-${tone}`}>{t(labelFor(status))}</span>
   );
 }
 import { labelFor } from "../ui/labels";

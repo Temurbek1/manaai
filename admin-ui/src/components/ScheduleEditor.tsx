@@ -1,3 +1,5 @@
+"use client";
+import { useI18n } from "@/i18n/LanguageProvider";
 import { useState } from "react";
 
 import type { Schedule } from "../api/client";
@@ -21,6 +23,8 @@ export function ScheduleEditor({
   schedule,
   onSave,
 }: ScheduleEditorProps): React.JSX.Element {
+  const { t } = useI18n();
+
   const [values, setValues] = useState<ScheduleValues>({
     cron_expression: schedule.cron_expression,
     timezone: schedule.timezone,
@@ -38,7 +42,7 @@ export function ScheduleEditor({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Не удалось сохранить расписание",
+          : t("Не удалось сохранить расписание"),
       );
     } finally {
       setBusy(false);
@@ -47,17 +51,18 @@ export function ScheduleEditor({
 
   return (
     <fieldset className="schedule-editor" disabled={disabled || busy}>
-      <legend>{labelFor(schedule.job_type)}</legend>
+      <legend>{t(labelFor(schedule.job_type))}</legend>
       {schedule.circuit_open ? (
         <p className="error-banner" role="alert">
-          Автоматически остановлено после{" "}
-          {schedule.consecutive_permanent_failures} постоянных ошибок подряд.
-          Исправьте подключение перед включением расписания. Сохранение
-          включённого расписания сбрасывает защитную остановку.
+          {t("Автоматически остановлено после")}{" "}
+          {schedule.consecutive_permanent_failures}{" "}
+          {t(
+            "постоянных ошибок подряд. Исправьте подключение перед включением расписания. Сохранение включённого расписания сбрасывает защитную остановку.",
+          )}{" "}
         </p>
       ) : null}
       <label>
-        <span>Расписание (cron)</span>
+        <span>{t("Расписание (cron)")}</span>
         <input
           aria-label={`${schedule.job_type} cron expression`}
           onChange={(event) =>
@@ -70,7 +75,7 @@ export function ScheduleEditor({
         />
       </label>
       <label>
-        <span>Часовой пояс</span>
+        <span>{t("Часовой пояс")}</span>
         <input
           aria-label={`${schedule.job_type} timezone`}
           onChange={(event) =>
@@ -93,7 +98,7 @@ export function ScheduleEditor({
           }
           type="checkbox"
         />
-        Включено
+        {t("Включено")}{" "}
       </label>
       <StatusBadge status={schedule.enabled ? "enabled" : "disabled"} />
       <button
@@ -101,11 +106,11 @@ export function ScheduleEditor({
         onClick={() => void save()}
         type="button"
       >
-        Сохранить расписание
+        {t("Сохранить расписание")}{" "}
       </button>
       {error ? (
         <p className="error-banner" role="alert">
-          {error}
+          {t(error)}
         </p>
       ) : null}
     </fieldset>

@@ -5,6 +5,10 @@ import { renderWithSession as renderSession } from "@/test/render";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReactNode } from "react";
 import { requestUrl } from "@/test/http";
+import {
+  LANGUAGE_STORAGE_KEY,
+  LanguageProvider,
+} from "@/i18n/LanguageProvider";
 
 const push = jest.fn();
 function renderWithSession(
@@ -63,6 +67,119 @@ describe("ChatPage", () => {
     sessionStorage.clear();
     push.mockClear();
   });
+
+  it("never silently submits Russian when an older server cannot honor Uzbek", async () => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, "uz");
+    sessionStorage.setItem(
+      "mana:chat-draft:00000000-0000-4000-8000-000000000001:topic-1",
+      "Asl vazifa saqlansin",
+    );
+    const posts: string[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") posts.push(url);
+      if (url.endsWith("/chat/availability"))
+        return response({ enabled: true });
+      if (url.endsWith("/chat/topics/topic-1"))
+        return response({ topic, turns: [] });
+      return response([]);
+    });
+    try {
+      renderWithSession(
+        <LanguageProvider>
+          <ChatPage agentId="growth-agent" topicId="topic-1" />
+        </LanguageProvider>,
+      );
+      expect(
+        await screen.findByText(
+          "Tanlangan javob tili serverda hali mavjud emas. Qoralama saqlandi.",
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("textbox", { name: "Agentga xabar" }),
+      ).toHaveValue("Asl vazifa saqlansin");
+      const send = screen.getByRole("button", { name: "Xabar yuborish" });
+      expect(send).toBeDisabled();
+      fireEvent.click(send);
+      expect(posts).toEqual([]);
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  it.each(["chat", "goal"] as const)(
+    "submits the selected Uzbek %s language without replacing the objective",
+    async (mode) => {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, "uz");
+      const submitted: Array<{ url: string; body: Record<string, unknown> }> =
+        [];
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") {
+          submitted.push({
+            url,
+            body: JSON.parse(String(init.body)) as Record<string, unknown>,
+          });
+          return response({});
+        }
+        if (url.endsWith("/chat/availability"))
+          return response({ enabled: true, response_languages: ["ru", "uz"] });
+        if (url.endsWith("/goals/availability"))
+          return response({
+            enabled: true,
+            max_steps: 6,
+            budget_microusd: 500000,
+            response_languages: ["ru", "uz"],
+          });
+        if (url.endsWith("/chat/topics/topic-1"))
+          return response({ topic, turns: [] });
+        return response([]);
+      });
+      try {
+        renderWithSession(
+          <LanguageProvider>
+            <ChatPage agentId="growth-agent" topicId="topic-1" />
+          </LanguageProvider>,
+        );
+        await waitFor(() =>
+          expect(
+            screen.getByRole("button", { name: "Chat" }),
+          ).not.toBeDisabled(),
+        );
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: mode === "goal" ? "Maqsad" : "Chat",
+          }),
+        );
+        const objective = "MANA mijozlarini saqlashni tahlil qil.";
+        fireEvent.change(
+          screen.getByRole("textbox", { name: "Agentga xabar" }),
+          { target: { value: objective } },
+        );
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: mode === "goal" ? "Maqsad qo‘yish" : "Xabar yuborish",
+          }),
+        );
+        await waitFor(() => expect(submitted).toHaveLength(1));
+        const body = submitted[0]!.body;
+        if (mode === "chat") {
+          expect(body.message).toBe(objective);
+          expect(body.response_language).toBe("uz");
+        } else {
+          expect(body.objective).toBe(objective);
+          expect(body.constraints).toBe(
+            "Ma’lumotlarni o‘zgartirmang va mijozlarga murojaat qilmang. O‘zbek tilida (lotin yozuvida) javob bering.",
+          );
+          expect(body.max_steps).toBe(6);
+          expect(body.budget_microusd).toBe(500000);
+        }
+        expect(submitted[0]!.url).not.toMatch(/analysis|commands/);
+      } finally {
+        localStorage.clear();
+      }
+    },
+  );
 
   it.each(["thinking", "cancelled"] as const)(
     "keeps a %s preview separate from the result and actions",

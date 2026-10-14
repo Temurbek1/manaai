@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
@@ -24,6 +26,8 @@ export function RunsPage({
 }: {
   initialRunId?: string | null;
 }): React.JSX.Element {
+  const { t, locale } = useI18n();
+
   const [status, setStatus] = useState("");
   const [agentId, setAgentId] = useState("");
   const [offset, setOffset] = useState(0);
@@ -68,9 +72,11 @@ export function RunsPage({
   return (
     <>
       <PageHeader
-        eyebrow="История работы"
-        title="Запуски и журнал"
-        description="История работы агентов: этапы, результаты, ошибки и подтверждающие данные."
+        eyebrow={t("История работы")}
+        title={t("Запуски и журнал")}
+        description={t(
+          "История работы агентов: этапы, результаты, ошибки и подтверждающие данные.",
+        )}
         actions={
           <button
             className="button secondary"
@@ -78,48 +84,55 @@ export function RunsPage({
             onClick={() => void mutate().catch(() => undefined)}
             type="button"
           >
-            {isValidating ? "Обновляем…" : "Обновить экран"}
+            {isValidating ? t("Обновляем…") : t("Обновить экран")}
           </button>
         }
       />
-      <section className="panel list-controls" aria-label="Фильтры запусков">
+      <section
+        className="panel list-controls"
+        aria-label={t("Фильтры запусков")}
+      >
         <label>
-          <span>Агент</span>
+          <span>{t("Агент")}</span>
           <select
-            aria-label="Фильтр запусков по агенту"
+            aria-label={t("Фильтр запусков по агенту")}
             value={agentId}
             onChange={(event) => {
               setAgentId(event.target.value);
               setOffset(0);
             }}
           >
-            <option value="">Все агенты</option>
-            <option value="growth-agent">Рост и конверсия</option>
-            <option value="retention-agent">Удержание и лояльность</option>
+            <option value="">{t("Все агенты")}</option>
+            <option value="growth-agent">{t("Рост и конверсия")}</option>
+            <option value="retention-agent">
+              {t("Удержание и лояльность")}
+            </option>
             <option value="marketing-agent">
-              Маркетинг — исторические запуски
+              {t("Маркетинг — исторические запуски")}{" "}
             </option>
           </select>
         </label>
         <label>
-          <span>Состояние</span>
+          <span>{t("Состояние")}</span>
           <select
-            aria-label="Фильтр запусков по статусу"
+            aria-label={t("Фильтр запусков по статусу")}
             onChange={(event) => {
               setStatus(event.target.value);
               setOffset(0);
             }}
             value={status}
           >
-            <option value="">Все статусы</option>
-            <option value="completed">Завершён</option>
-            <option value="failed">Ошибка</option>
-            <option value="waiting_approval">Ожидает согласования</option>
-            <option value="executing">Выполняется</option>
-            <option value="queued">В очереди</option>
-            <option value="collecting">Сбор данных</option>
-            <option value="analyzing">Анализируется</option>
-            <option value="cancelled">Отменён</option>
+            <option value="">{t("Все статусы")}</option>
+            <option value="completed">{t("Завершён")}</option>
+            <option value="failed">{t("Ошибка")}</option>
+            <option value="waiting_approval">
+              {t("Ожидает согласования")}
+            </option>
+            <option value="executing">{t("Выполняется")}</option>
+            <option value="queued">{t("В очереди")}</option>
+            <option value="collecting">{t("Сбор данных")}</option>
+            <option value="analyzing">{t("Анализируется")}</option>
+            <option value="cancelled">{t("Отменён")}</option>
           </select>
         </label>
         {status || agentId ? (
@@ -132,15 +145,19 @@ export function RunsPage({
               setOffset(0);
             }}
           >
-            Сбросить фильтры
+            {t("Сбросить фильтры")}{" "}
           </button>
         ) : null}
         <span role="status">
           {data
             ? data.total === 0
-              ? "Запусков: 0"
-              : `${offset + 1}–${Math.min(offset + PAGE_SIZE, data.total)} из ${data.total}`
-            : "Количество неизвестно"}
+              ? t("Запусков: 0")
+              : t("{0}–{1} из {2}", {
+                  "0": offset + 1,
+                  "1": Math.min(offset + PAGE_SIZE, data.total),
+                  "2": data.total,
+                })
+            : t("Количество неизвестно")}
         </span>
         <button
           className="button secondary compact"
@@ -148,7 +165,7 @@ export function RunsPage({
           onClick={() => setOffset(Math.max(offset - PAGE_SIZE, 0))}
           type="button"
         >
-          Назад
+          {t("Назад")}{" "}
         </button>
         <button
           className="button secondary compact"
@@ -156,7 +173,7 @@ export function RunsPage({
           onClick={() => setOffset(offset + PAGE_SIZE)}
           type="button"
         >
-          Далее
+          {t("Далее")}{" "}
         </button>
       </section>
       <QueryState
@@ -165,15 +182,15 @@ export function RunsPage({
         hasData={Boolean(data)}
         retrying={isValidating}
         onRetry={mutate}
-        subject="запуски"
+        subject={t("запуски")}
       />
       <section className="panel">
         <DataTable
-          caption="История запусков агентов"
+          caption={t("История запусков агентов")}
           columns={[
             {
               key: "run",
-              label: "Запуск",
+              label: t("Запуск"),
               render: (item) => (
                 <button
                   className="link-button"
@@ -195,27 +212,27 @@ export function RunsPage({
             },
             {
               key: "agent",
-              label: "Агент",
-              render: (item) => labelFor(item.agent_id),
+              label: t("Агент"),
+              render: (item) => t(labelFor(item.agent_id)),
             },
             {
               key: "status",
-              label: "Состояние",
+              label: t("Состояние"),
               render: (item) => <StatusBadge status={item.status} />,
             },
             {
               key: "trigger",
-              label: "Инициатор",
+              label: t("Инициатор"),
               render: (item) => `${item.trigger} · ${item.initiated_by}`,
             },
             {
               key: "start",
-              label: "Начало",
-              render: (item) => formatDate(item.started_at),
+              label: t("Начало"),
+              render: (item) => formatDate(item.started_at, locale),
             },
             {
               key: "correlation",
-              label: "Связь событий",
+              label: t("Связь событий"),
               render: (item) => <code>{compactId(item.correlation_id)}</code>,
             },
           ]}
@@ -224,11 +241,13 @@ export function RunsPage({
           empty={
             data && !error ? (
               <EmptyState
-                title={isLoading ? "Загружаем запуски" : "Запусков пока нет"}
+                title={
+                  isLoading ? t("Загружаем запуски") : t("Запусков пока нет")
+                }
                 detail={
                   isLoading
-                    ? "Загружаем историю работы."
-                    : "Нет запусков с выбранным фильтром."
+                    ? t("Загружаем историю работы.")
+                    : t("Нет запусков с выбранным фильтром.")
                 }
               />
             ) : null
@@ -243,9 +262,9 @@ export function RunsPage({
         >
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Этапы запуска</p>
+              <p className="eyebrow">{t("Этапы запуска")}</p>
               <h2 ref={detailHeading} tabIndex={-1} id="run-detail-heading">
-                Запуск {compactId(selectedRunId)}
+                {t("Запуск")} {compactId(selectedRunId)}
               </h2>
             </div>
             {detail ? <StatusBadge status={detail.run.status} /> : null}
@@ -257,7 +276,7 @@ export function RunsPage({
                 selectedButton.current?.focus();
               }}
             >
-              Закрыть подробности
+              {t("Закрыть подробности")}{" "}
             </button>
           </div>
           <QueryState
@@ -266,7 +285,7 @@ export function RunsPage({
             hasData={Boolean(detail)}
             retrying={detailValidating}
             onRetry={refreshDetail}
-            subject="подробности запуска"
+            subject={t("подробности запуска")}
           />
           <ol className="timeline">
             {(detail?.timeline ?? [])
@@ -279,27 +298,27 @@ export function RunsPage({
                     <strong>{event.summary}</strong>
                     <p>{event.event_type}</p>
                   </div>
-                  <time>{formatDate(event.occurred_at)}</time>
+                  <time>{formatDate(event.occurred_at, locale)}</time>
                 </li>
               ))}
           </ol>
           <dl className="detail-grid summary-grid">
             <div>
-              <dt>Идентификатор связи событий</dt>
+              <dt>{t("Идентификатор связи событий")}</dt>
               <dd>
                 <code>{detail?.run.correlation_id ?? "…"}</code>
               </dd>
             </div>
             <div>
-              <dt>Длительность</dt>
-              <dd>{formatDuration(duration)}</dd>
+              <dt>{t("Длительность")}</dt>
+              <dd>{formatDuration(duration, locale)}</dd>
             </div>
             <div>
-              <dt>Повторы</dt>
+              <dt>{t("Повторы")}</dt>
               <dd>{detail?.run.retry_count ?? "…"}</dd>
             </div>
             <div>
-              <dt>Кто запустил</dt>
+              <dt>{t("Кто запустил")}</dt>
               <dd>
                 {detail
                   ? `${detail.run.trigger} · ${detail.run.initiated_by}`
@@ -307,19 +326,19 @@ export function RunsPage({
               </dd>
             </div>
             <div>
-              <dt>Снимки данных</dt>
+              <dt>{t("Снимки данных")}</dt>
               <dd>{detail?.snapshots.length ?? "…"}</dd>
             </div>
             <div>
-              <dt>Выводы</dt>
+              <dt>{t("Выводы")}</dt>
               <dd>{detail?.findings.length ?? "…"}</dd>
             </div>
             <div>
-              <dt>Предложения</dt>
+              <dt>{t("Предложения")}</dt>
               <dd>{detail?.recommendations.length ?? "…"}</dd>
             </div>
             <div>
-              <dt>Предложения действий</dt>
+              <dt>{t("Предложения действий")}</dt>
               <dd>{detail?.proposals.length ?? "…"}</dd>
             </div>
           </dl>
@@ -330,11 +349,11 @@ export function RunsPage({
             </div>
           ) : null}
           <details className="inspection-block">
-            <summary>Технические сведения об этапах</summary>
+            <summary>{t("Технические сведения об этапах")}</summary>
             <pre
               tabIndex={0}
               role="region"
-              aria-label="Технические сведения об этапах"
+              aria-label={t("Технические сведения об этапах")}
             >
               {JSON.stringify(
                 redactForDisplay(
@@ -349,11 +368,11 @@ export function RunsPage({
             </pre>
           </details>
           <details className="inspection-block">
-            <summary>Исходные данные</summary>
+            <summary>{t("Исходные данные")}</summary>
             <pre
               tabIndex={0}
               role="region"
-              aria-label="Исходные данные запуска"
+              aria-label={t("Исходные данные запуска")}
             >
               {JSON.stringify(
                 redactForDisplay(detail?.snapshots ?? []),
@@ -363,11 +382,11 @@ export function RunsPage({
             </pre>
           </details>
           <details className="inspection-block">
-            <summary>Технические результаты</summary>
+            <summary>{t("Технические результаты")}</summary>
             <pre
               tabIndex={0}
               role="region"
-              aria-label="Технические результаты запуска"
+              aria-label={t("Технические результаты запуска")}
             >
               {JSON.stringify(
                 redactForDisplay({

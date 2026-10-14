@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useId, useRef } from "react";
 
 interface ConfirmActionProps {
@@ -19,6 +21,8 @@ export function ConfirmAction({
   onConfirm,
   description = "Проверьте выбранное действие. Изменение будет отправлено только после подтверждения.",
 }: ConfirmActionProps): React.JSX.Element {
+  const { t } = useI18n();
+
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -70,12 +74,14 @@ export function ConfirmAction({
           close();
         }}
       >
-        <p className="eyebrow">Подтверждение действия</p>
+        <p className="eyebrow">{t("Подтверждение действия")}</p>
         <h2 id={`${id}-title`}>{label}</h2>
-        <p id={`${id}-description`}>{description}</p>
+        <p id={`${id}-description`}>{t(description)}</p>
         {disabled ? (
           <p role="status">
-            Действие сейчас недоступно. Закройте окно и проверьте состояние.
+            {t(
+              "Действие сейчас недоступно. Закройте окно и проверьте состояние.",
+            )}{" "}
           </p>
         ) : null}
         <div className="dialog-actions">
@@ -85,7 +91,7 @@ export function ConfirmAction({
             onClick={close}
             type="button"
           >
-            Отмена
+            {t("Отмена")}{" "}
           </button>
           <button
             className={className}

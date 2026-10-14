@@ -399,7 +399,7 @@ async def test_raw_sdk_sse_framing_and_midstream_failures_do_not_reissue(
     await database.create_schema()
     ledger = SqlAlchemyCostLedger(database, clock=Clock(), limits=policy())
     settings = Settings(
-        _env_file=None, openai_api_key="synthetic-only", openai_model="gpt-5.4-nano"
+        _env_file=None, openai_api_key="test-synthetic-only", openai_model="gpt-5.4-nano"
     )
     model = OpenAIConversationModel(settings, ledger=ledger)
     body = synthetic_response(settings.openai_model, "chat")
@@ -444,7 +444,7 @@ async def test_raw_sdk_sse_framing_and_midstream_failures_do_not_reissue(
 
     await model._client.close()
     model._client = AsyncOpenAI(
-        api_key="synthetic-only",
+        api_key="test-synthetic-only",
         max_retries=0,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
     )

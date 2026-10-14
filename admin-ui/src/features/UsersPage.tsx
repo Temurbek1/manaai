@@ -1,5 +1,8 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+import { translate, type Locale } from "@/i18n/catalog";
+
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -19,6 +22,8 @@ type UserRole = AdminUser["role"];
 const ROLES: readonly UserRole[] = ["viewer", "operator", "approver", "admin"];
 
 export function UsersPage(): React.JSX.Element {
+  const { t, locale } = useI18n();
+
   const { session } = useSession();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(session.user.role === "admin");
@@ -119,9 +124,11 @@ export function UsersPage(): React.JSX.Element {
     return (
       <section>
         <PageHeader
-          description="Управление доступом доступно только администраторам."
-          eyebrow="Доступ сотрудников"
-          title="Недостаточно прав"
+          description={t(
+            "Управление доступом доступно только администраторам.",
+          )}
+          eyebrow={t("Доступ сотрудников")}
+          title={t("Недостаточно прав")}
         />
       </section>
     );
@@ -130,9 +137,11 @@ export function UsersPage(): React.JSX.Element {
   return (
     <section>
       <PageHeader
-        description="Выдавайте доступ по Telegram ID, меняйте роли и немедленно отзывайте сессии."
-        eyebrow="Доступ сотрудников"
-        title="Пользователи"
+        description={t(
+          "Выдавайте доступ по Telegram ID, меняйте роли и немедленно отзывайте сессии.",
+        )}
+        eyebrow={t("Доступ сотрудников")}
+        title={t("Пользователи")}
       />
 
       <form
@@ -143,9 +152,11 @@ export function UsersPage(): React.JSX.Element {
         }}
       >
         <div>
-          <strong>Добавить пользователя</strong>
+          <strong>{t("Добавить пользователя")}</strong>
           <small>
-            Пользователь сможет запросить код сразу после сохранения.
+            {t(
+              "Пользователь сможет запросить код сразу после сохранения.",
+            )}{" "}
           </small>
         </div>
         <label className="field">
@@ -160,7 +171,7 @@ export function UsersPage(): React.JSX.Element {
           />
         </label>
         <label className="field">
-          <span>Имя</span>
+          <span>{t("Имя")}</span>
           <input
             maxLength={160}
             onChange={(event) => setDisplayName(event.target.value)}
@@ -176,7 +187,7 @@ export function UsersPage(): React.JSX.Element {
           />
         </label>
         <label className="field">
-          <span>Роль</span>
+          <span>{t("Роль")}</span>
           <select
             onChange={(event) => setRole(event.target.value as UserRole)}
             value={role}
@@ -189,19 +200,19 @@ export function UsersPage(): React.JSX.Element {
           </select>
         </label>
         <button className="button" disabled={busyId === "create"} type="submit">
-          {busyId === "create" ? "Сохраняем…" : "Добавить"}
+          {busyId === "create" ? t("Сохраняем…") : t("Добавить")}
         </button>
       </form>
 
       {error ? (
         <p className="error-banner" role="alert">
-          {error}
+          {t(error)}
         </p>
       ) : null}
 
       {loading ? (
         <p className="panel auth-loading" role="status">
-          Загружаем пользователей…
+          {t("Загружаем пользователей…")}{" "}
         </p>
       ) : (
         <div className="user-list">
@@ -212,7 +223,7 @@ export function UsersPage(): React.JSX.Element {
               <article className="panel user-card" key={user.user_id}>
                 <div className="user-card-heading">
                   <div>
-                    <strong>{user.display_name ?? "Без имени"}</strong>
+                    <strong>{user.display_name ?? t("Без имени")}</strong>
                     <span>
                       {user.username ? `@${user.username} · ` : ""}
                       Telegram {String(user.telegram_id)}
@@ -224,7 +235,7 @@ export function UsersPage(): React.JSX.Element {
                 </div>
                 <div className="user-fields">
                   <label className="field">
-                    <span>Имя</span>
+                    <span>{t("Имя")}</span>
                     <input
                       defaultValue={user.display_name ?? ""}
                       disabled={busy}
@@ -253,13 +264,15 @@ export function UsersPage(): React.JSX.Element {
                     />
                   </label>
                   <label className="field">
-                    <span>Роль</span>
+                    <span>{t("Роль")}</span>
                     <select
                       disabled={busy || isSelf}
                       onChange={(event) => {
                         if (
                           window.confirm(
-                            `Изменить роль пользователя на ${event.target.value}?`,
+                            t("Изменить роль пользователя на {0}?", {
+                              "0": event.target.value,
+                            }),
                           )
                         ) {
                           void updateUser(user.user_id, {
@@ -279,18 +292,18 @@ export function UsersPage(): React.JSX.Element {
                     </select>
                   </label>
                   <div className="user-meta">
-                    <span>Последний вход</span>
-                    <strong>{formatDate(user.last_login_at)}</strong>
-                    <span>Создан</span>
-                    <strong>{formatDate(user.created_at)}</strong>
-                    <span>Кем создан</span>
+                    <span>{t("Последний вход")}</span>
+                    <strong>{formatDate(user.last_login_at, locale)}</strong>
+                    <span>{t("Создан")}</span>
+                    <strong>{formatDate(user.created_at, locale)}</strong>
+                    <span>{t("Кем создан")}</span>
                     <strong>{user.created_by}</strong>
                   </div>
                 </div>
                 {disableId === user.user_id ? (
                   <div className="disable-reason">
                     <label className="field">
-                      <span>Причина отключения</span>
+                      <span>{t("Причина отключения")}</span>
                       <input
                         autoFocus
                         maxLength={500}
@@ -311,14 +324,14 @@ export function UsersPage(): React.JSX.Element {
                       }
                       type="button"
                     >
-                      Подтвердить
+                      {t("Подтвердить")}{" "}
                     </button>
                     <button
                       className="button secondary compact"
                       onClick={() => setDisableId(null)}
                       type="button"
                     >
-                      Отмена
+                      {t("Отмена")}{" "}
                     </button>
                   </div>
                 ) : null}
@@ -330,7 +343,7 @@ export function UsersPage(): React.JSX.Element {
                       onClick={() => setDisableId(user.user_id)}
                       type="button"
                     >
-                      Отключить
+                      {t("Отключить")}{" "}
                     </button>
                   ) : (
                     <button
@@ -339,7 +352,7 @@ export function UsersPage(): React.JSX.Element {
                       onClick={() => {
                         if (
                           window.confirm(
-                            "Снова разрешить вход этому пользователю?",
+                            t("Снова разрешить вход этому пользователю?"),
                           )
                         ) {
                           void updateUser(user.user_id, { status: "active" });
@@ -347,7 +360,7 @@ export function UsersPage(): React.JSX.Element {
                       }}
                       type="button"
                     >
-                      Включить
+                      {t("Включить")}{" "}
                     </button>
                   )}
                   <button
@@ -356,7 +369,7 @@ export function UsersPage(): React.JSX.Element {
                     onClick={() => {
                       if (
                         window.confirm(
-                          "Отозвать все активные сессии пользователя?",
+                          t("Отозвать все активные сессии пользователя?"),
                         )
                       ) {
                         void revokeSessions(user.user_id);
@@ -364,7 +377,7 @@ export function UsersPage(): React.JSX.Element {
                     }}
                     type="button"
                   >
-                    Отозвать сессии
+                    {t("Отозвать сессии")}{" "}
                   </button>
                   <button
                     className="button secondary compact"
@@ -372,12 +385,12 @@ export function UsersPage(): React.JSX.Element {
                     onClick={() => void showAudit(user.user_id)}
                     type="button"
                   >
-                    Аудит
+                    {t("Аудит")}{" "}
                   </button>
                 </div>
                 {user.disabled_reason ? (
                   <p className="disabled-reason">
-                    Причина: {user.disabled_reason}
+                    {t("Причина:")} {user.disabled_reason}
                   </p>
                 ) : null}
               </article>
@@ -391,28 +404,28 @@ export function UsersPage(): React.JSX.Element {
           className="audit-drawer"
           role="dialog"
           aria-modal="true"
-          aria-label="Аудит доступа"
+          aria-label={t("Аудит доступа")}
         >
           <div className="audit-drawer-heading">
             <div>
-              <strong>Аудит доступа</strong>
+              <strong>{t("Аудит доступа")}</strong>
               <small>{auditUserId}</small>
             </div>
             <button
               onClick={() => setAudit(null)}
               type="button"
-              aria-label="Закрыть аудит"
+              aria-label={t("Закрыть аудит")}
             >
               ×
             </button>
           </div>
-          {audit.items.length === 0 ? <p>Событий пока нет.</p> : null}
+          {audit.items.length === 0 ? <p>{t("Событий пока нет.")}</p> : null}
           <ol>
             {audit.items.map((event) => (
               <li key={event.event_id}>
                 <strong>{event.event_type}</strong>
                 <span>{event.summary}</span>
-                <time>{formatDate(event.occurred_at)}</time>
+                <time>{formatDate(event.occurred_at, locale)}</time>
               </li>
             ))}
           </ol>
@@ -422,9 +435,9 @@ export function UsersPage(): React.JSX.Element {
   );
 }
 
-function formatDate(value: string | null): string {
-  if (value === null) return "Ещё не входил";
-  return new Intl.DateTimeFormat("ru-RU", {
+function formatDate(value: string | null, locale: Locale = "ru"): string {
+  if (value === null) return translate("Ещё не входил", locale);
+  return new Intl.DateTimeFormat(locale === "uz" ? "uz-Latn-UZ" : "ru-RU", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));

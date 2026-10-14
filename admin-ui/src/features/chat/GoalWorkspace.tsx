@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { apiPost } from "@/api/client";
@@ -46,7 +48,12 @@ export type Goal = Omit<
       >
     >;
 };
-export type GoalsAvailability = components["schemas"]["GoalAvailability"];
+export type GoalsAvailability = Omit<
+  components["schemas"]["GoalAvailability"],
+  "response_languages"
+> & {
+  response_languages?: components["schemas"]["GoalAvailability"]["response_languages"];
+};
 type Command = components["schemas"]["GoalCommand"]["command"];
 const LABELS: Record<Goal["status"], string> = {
   queued: "Продолжаем",
@@ -92,6 +99,8 @@ export function GoalWorkspace({
   progressStream?: WorkspaceStreamState;
   availability?: GoalsAvailability | undefined;
 }): React.JSX.Element | null {
+  const { t, locale } = useI18n();
+
   const { session } = useSession();
   const canControl = hasRole(session, "operator");
   const { data, error, mutate } = useSWR<Goal[], Error>(
@@ -210,7 +219,9 @@ export function GoalWorkspace({
       await mutate();
     } catch (caught) {
       setActionError(
-        caught instanceof Error ? caught.message : "Не удалось изменить цель.",
+        caught instanceof Error
+          ? caught.message
+          : t("Не удалось изменить цель."),
       );
       // Fetch state before any further choice. A lost response is not a failed command.
       await mutate().catch(() => undefined);
@@ -221,31 +232,35 @@ export function GoalWorkspace({
   }
 
   return (
-    <section className="goal-workspace" aria-label="Рабочая цель">
+    <section className="goal-workspace" aria-label={t("Рабочая цель")}>
       <div className="goal-heading">
-        <span>Цель</span>
-        <span role="status">{LABELS[goal.status]}</span>
+        <span>{t("Цель")}</span>
+        <span role="status">{t(LABELS[goal.status])}</span>
       </div>
       <h2>{goal.request.objective}</h2>
       {goal.request.analysis_scope === "saved_snapshot" && (
-        <p className="goal-update">Исторический срез · не текущее состояние</p>
+        <p className="goal-update">
+          {t("Исторический срез · не текущее состояние")}
+        </p>
       )}
       {error && (
         <p role="alert">
-          Не удалось обновить прогресс. Сохранённое состояние показано ниже.
+          {t(
+            "Не удалось обновить прогресс. Сохранённое состояние показано ниже.",
+          )}{" "}
         </p>
       )}
       {plan.length > 0 && (
-        <ol className="goal-plan" aria-label="План цели">
+        <ol className="goal-plan" aria-label={t("План цели")}>
           {plan.map((task, index) => (
             <li key={index} data-status={task.status}>
               <span
                 aria-label={
                   task.status === "done"
-                    ? "Готово"
+                    ? t("Готово")
                     : task.status === "blocked"
-                      ? "Заблокировано"
-                      : "В плане"
+                      ? t("Заблокировано")
+                      : t("В плане")
                 }
               >
                 {task.status === "done"
@@ -264,21 +279,23 @@ export function GoalWorkspace({
           {liveUpdate?.message ??
             events.filter((e) => e.kind === "progress").at(-1)?.message ??
             (goal.status === "queued"
-              ? "Задача в очереди."
-              : "Готовлю следующий шаг…")}
+              ? t("Задача в очереди.")
+              : t("Готовлю следующий шаг…"))}
         </p>
       )}
       {(goal.tools ?? []).length > 0 && (
         <details className="goal-details">
-          <summary>Инструменты · {goal.tools!.length}</summary>
+          <summary>
+            {t("Инструменты ·")} {goal.tools!.length}
+          </summary>
           <ol>
             {goal.tools!.map((tool) => (
               <li key={tool.call_id}>
-                {TOOL_LABELS[tool.call.name]} · {TOOL_STATUS[tool.status]}
+                {t(TOOL_LABELS[tool.call.name])} · {t(TOOL_STATUS[tool.status])}
                 {tool.call.report_id && <span> · {tool.call.report_id}</span>}
                 {tool.result && (
                   <details>
-                    <summary>Результат</summary>
+                    <summary>{t("Результат")}</summary>
                     <pre>{tool.result}</pre>
                   </details>
                 )}
@@ -310,7 +327,9 @@ export function GoalWorkspace({
         )}
       {evidence.some((item) => evidenceState(item, now) !== "recent") && (
         <p className="goal-update">
-          Есть устаревшие данные или источники с неподтверждённой свежестью.
+          {t(
+            "Есть устаревшие данные или источники с неподтверждённой свежестью.",
+          )}{" "}
         </p>
       )}
       {goal.result && (
@@ -318,8 +337,8 @@ export function GoalWorkspace({
           className="goal-result"
           aria-label={
             goal.status === "completed"
-              ? "Результат цели"
-              : "Промежуточный результат"
+              ? t("Результат цели")
+              : t("Промежуточный результат")
           }
         >
           <GoalReport text={goal.result} />
@@ -327,10 +346,10 @@ export function GoalWorkspace({
       )}
       {goal.status === "completed" && (
         <p className="goal-update">
-          Анализ завершён. Изменения в приложении не выполнялись.
+          {t("Анализ завершён. Изменения в приложении не выполнялись.")}{" "}
         </p>
       )}
-      {actionError && <p role="alert">{actionError}</p>}
+      {actionError && <p role="alert">{t(actionError)}</p>}
       {!terminal && canControl && (
         <div className="goal-controls">
           {["running", "queued"].includes(goal.status) ? (
@@ -340,7 +359,7 @@ export function GoalWorkspace({
                 disabled={busy}
                 onClick={() => void control("pause")}
               >
-                Пауза
+                {t("Пауза")}{" "}
               </button>
             ) : null
           ) : goal.requested_capability ||
@@ -353,7 +372,7 @@ export function GoalWorkspace({
               disabled={busy || Boolean(inFlight)}
               onClick={() => void control("resume")}
             >
-              Продолжить
+              {t("Продолжить")}{" "}
             </button>
           )}
           {goal.limit_stop && canExtend && limitFormGoalId !== goal.goal_id && (
@@ -380,28 +399,29 @@ export function GoalWorkspace({
                 setLimitFormGoalId(goal.goal_id);
               }}
             >
-              Продолжить эту цель
+              {t("Продолжить эту цель")}{" "}
             </button>
           )}
           {goal.requested_capability && goal.status === "waiting" && (
             <div className="goal-read">
               <p>
-                Один read-only анализ{" "}
-                {goal.product === "mana" ? "MANA" : "360REC"}. Проверяются
-                доступ, привязка приложения, интервал 6 ч и общий бюджет. Без
-                изменения данных.
+                {t("Один read-only анализ")}{" "}
+                {goal.product === "mana" ? "MANA" : "360REC"}
+                {t(
+                  ". Проверяются доступ, привязка приложения, интервал 6 ч и общий бюджет. Без изменения данных.",
+                )}{" "}
               </p>
               <button
                 type="button"
                 disabled={busy || Boolean(inFlight)}
                 onClick={() => void control("approve_read")}
               >
-                Разрешить чтение данных
+                {t("Разрешить чтение данных")}{" "}
               </button>
             </div>
           )}
           {inFlight && goal.status === "paused" && (
-            <span>Заканчивается текущий запрос…</span>
+            <span>{t("Заканчивается текущий запрос…")}</span>
           )}
         </div>
       )}
@@ -412,7 +432,7 @@ export function GoalWorkspace({
         limitFormGoalId === goal.goal_id && (
           <form
             className="goal-limit-form"
-            aria-label="Увеличить лимиты цели"
+            aria-label={t("Увеличить лимиты цели")}
             onSubmit={(event) => {
               event.preventDefault();
               if (validLimits && !inFlight)
@@ -423,7 +443,7 @@ export function GoalWorkspace({
             }}
           >
             <label>
-              Всего шагов
+              {t("Всего шагов")}{" "}
               <input
                 type="number"
                 min={limits.max_steps}
@@ -435,7 +455,7 @@ export function GoalWorkspace({
               />
             </label>
             <label>
-              Общий бюджет, $
+              {t("Общий бюджет, $")}{" "}
               <input
                 type="number"
                 min={limits.budget_microusd / 1_000_000}
@@ -447,31 +467,37 @@ export function GoalWorkspace({
               />
             </label>
             <p>
-              Расходы сохраняются. Это не разрешение на новое чтение данных.
+              {t(
+                "Расходы сохраняются. Это не разрешение на новое чтение данных.",
+              )}{" "}
             </p>
             <button
               type="submit"
               disabled={busy || Boolean(inFlight) || !validLimits}
             >
-              Подтвердить и продолжить
+              {t("Подтвердить и продолжить")}{" "}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={() => setLimitFormGoalId(null)}
             >
-              Назад
+              {t("Назад")}{" "}
             </button>
           </form>
         )}
       {goal.status === "waiting" && Boolean(goal.unsettled_microusd) && (
         <p className="goal-update">
-          Исход AI-запроса неизвестен. Резерв сохранён; повтор не запускается.
+          {t(
+            "Исход AI-запроса неизвестен. Резерв сохранён; повтор не запускается.",
+          )}{" "}
         </p>
       )}
       {goal.limit_stop && !canExtend && (
         <p className="goal-update">
-          Продолжение с новыми лимитами сейчас недоступно. Результат сохранён.
+          {t(
+            "Продолжение с новыми лимитами сейчас недоступно. Результат сохранён.",
+          )}{" "}
         </p>
       )}
       {!terminal && canControl && inlineSteering && (
@@ -483,11 +509,11 @@ export function GoalWorkspace({
           }}
         >
           <label className="sr-only" htmlFor={`goal-steer-${goal.goal_id}`}>
-            Уточнение цели
+            {t("Уточнение цели")}{" "}
           </label>
           <input
             id={`goal-steer-${goal.goal_id}`}
-            placeholder="Уточните цель или добавьте контекст…"
+            placeholder={t("Уточните цель или добавьте контекст…")}
             value={message}
             maxLength={6000}
             disabled={busy}
@@ -497,24 +523,30 @@ export function GoalWorkspace({
             }}
           />
           <button type="submit" disabled={busy || !message.trim()}>
-            Отправить
+            {t("Отправить")}{" "}
           </button>
         </form>
       )}
       <details className="goal-details">
-        <summary>История и источники</summary>
+        <summary>{t("История и источники")}</summary>
         <p>
-          {goal.steps_used} / {limits.max_steps} шагов · Учтено с резервом: $
+          {goal.steps_used} / {limits.max_steps}{" "}
+          {t("шагов · Учтено с резервом: $")}{" "}
           {(goal.accounted_microusd / 1_000_000).toFixed(3)} / $
           {(limits.budget_microusd / 1_000_000).toFixed(2)}
         </p>
-        <p>Критерий: {goal.request.success_criteria}</p>
-        <p>Ограничения: {goal.request.constraints}</p>
+        <p>
+          {t("Критерий:")} {goal.request.success_criteria}
+        </p>
+        <p>
+          {t("Ограничения:")} {goal.request.constraints}
+        </p>
         <ul>
           {evidence.map((item) => (
             <li key={item.report_id}>
-              {item.report_id} · {evidenceStateLabel(evidenceState(item, now))}{" "}
-              · {evidenceCollectionLabel(item.collected_at)}
+              {item.report_id} ·{" "}
+              {t(evidenceStateLabel(evidenceState(item, now)))} ·{" "}
+              {evidenceCollectionLabel(item.collected_at, locale)}
             </li>
           ))}
         </ul>
@@ -532,17 +564,17 @@ export function GoalWorkspace({
             disabled={busy}
             onClick={() => void control("cancel")}
           >
-            Отменить цель
+            {t("Отменить цель")}{" "}
           </button>
         )}
       </details>
       {data.length > 1 && (
         <details className="goal-details">
-          <summary>Предыдущие цели</summary>
+          <summary>{t("Предыдущие цели")}</summary>
           {data.slice(1).map((old) => (
             <article key={old.goal_id}>
               <h3>{old.request.objective}</h3>
-              <p>{LABELS[old.status]}</p>
+              <p>{t(LABELS[old.status])}</p>
               <p className="goal-result">{old.result || old.waiting_reason}</p>
             </article>
           ))}

@@ -51,7 +51,7 @@ async def test_single_sdk_boundary_is_bounded_and_records_only_safe_costs(
     tmp_path: Path,
     quota: bool,
 ) -> None:
-    settings = Settings(_env_file=None, openai_api_key="synthetic-key")
+    settings = Settings(_env_file=None, openai_api_key="test-synthetic-key")
     monkeypatch.setattr(diagnostic, "get_settings", lambda: settings)
     calls: list[str] = []
     body = wire(diagnostic.MODEL, "chat")
@@ -89,7 +89,7 @@ async def test_single_sdk_boundary_is_bounded_and_records_only_safe_costs(
         ) -> AsyncGenerator[str | ChatTurnOutput, None]:
             await self._client.close()
             self._client = AsyncOpenAI(
-                api_key="synthetic-only",
+                api_key="test-synthetic-only",
                 max_retries=0,
                 http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
             )

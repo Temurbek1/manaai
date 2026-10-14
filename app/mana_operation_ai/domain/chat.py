@@ -13,6 +13,7 @@ ChatAgent = Literal["operations-orchestrator", "growth-agent", "retention-agent"
 ProductScope = Literal["mana", "360rec"]
 TurnStatus = Literal["reading", "thinking", "completed", "failed", "cancelled"]
 ChatNextAction = Literal["none", "analyze", "approvals", "mana_parents", "start_goal"]
+ResponseLanguage = Literal["ru", "uz"]
 
 
 class ChatModel(BaseModel):
@@ -37,6 +38,7 @@ class MessageCreate(ChatModel):
     model_choice: ModelChoice = "auto"
     reasoning: ReasoningChoice = "auto"
     execution_mode: Literal["discussion", "agent"] = "discussion"
+    response_language: ResponseLanguage | None = None
 
 
 class ChatSource(ChatModel):
@@ -77,6 +79,7 @@ class ChatTurn(ChatModel):
     model_choice: ModelChoice = "auto"
     reasoning: ReasoningChoice = "auto"
     execution_mode: Literal["discussion", "agent"] = "discussion"
+    response_language: ResponseLanguage | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
     analysis_requested: bool = False
@@ -122,6 +125,7 @@ class ChatAvailability(ChatModel):
     action_reviews_enabled: bool = False
     transcript_pagination_enabled: bool = False
     chat_streaming_enabled: bool = False
+    response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")
 
 
 class AnalysisRequest(ChatModel):

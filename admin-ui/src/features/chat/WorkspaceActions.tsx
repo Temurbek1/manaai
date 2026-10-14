@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useId, useRef, useState } from "react";
 import useSWR from "swr";
 import { apiPost } from "@/api/client";
@@ -19,6 +21,8 @@ export function WorkspaceActions({
   topicId: string;
   turnId: string;
 }): React.JSX.Element {
+  const { t } = useI18n();
+
   const url = `/api/v1/admin/operation/workspace/topics/${encodeURIComponent(topicId)}/messages/${encodeURIComponent(turnId)}/actions`;
   const { data, error, isLoading, isValidating, mutate } = useSWR<Page, Error>(
     url,
@@ -35,19 +39,19 @@ export function WorkspaceActions({
     },
   );
   return (
-    <section className="chat-approvals" aria-label="Действия в этой теме">
-      <h3>Тестовые эксперименты MANA</h3>
-      <p>Sandbox. Реальные пользователи и платежи не меняются.</p>
+    <section className="chat-approvals" aria-label={t("Действия в этой теме")}>
+      <h3>{t("Тестовые эксперименты MANA")}</h3>
+      <p>{t("Sandbox. Реальные пользователи и платежи не меняются.")}</p>
       <QueryState
         error={error}
         loading={isLoading}
         hasData={Boolean(data)}
         retrying={isValidating}
         onRetry={() => mutate()}
-        subject="действия"
+        subject={t("действия")}
       />
       {data && !error && (data.items ?? []).length === 0 && (
-        <p>Подходящих предложений пока нет.</p>
+        <p>{t("Подходящих предложений пока нет.")}</p>
       )}
       {data &&
         !error &&
@@ -62,7 +66,7 @@ export function WorkspaceActions({
           />
         ))}
       {data?.more_omitted && (
-        <p>Показаны только три предложения из ограниченной выборки.</p>
+        <p>{t("Показаны только три предложения из ограниченной выборки.")}</p>
       )}
     </section>
   );
@@ -77,6 +81,8 @@ function ActionCard({
   url: string;
   refresh: () => Promise<void>;
 }): React.JSX.Element {
+  const { t } = useI18n();
+
   const { session } = useSession();
   const id = useId();
   const [reason, setReason] = useState("");
@@ -111,10 +117,12 @@ function ActionCard({
         },
       );
     } catch {
-      setNotice("Ответ не подтверждён. Повтор не отправлен. Обновите статус.");
+      setNotice(
+        t("Ответ не подтверждён. Повтор не отправлен. Обновите статус."),
+      );
     } finally {
       await refresh().catch(() => {
-        setNotice("Статус недоступен. Повтор не отправлен.");
+        setNotice(t("Статус недоступен. Повтор не отправлен."));
       });
       setBusy(false);
     }
@@ -123,44 +131,54 @@ function ActionCard({
   return (
     <article className="chat-proposal-card">
       <header>
-        <strong>Создать тестовый черновик эксперимента</strong>
-        <span>{labelFor(action.status)}</span>
+        <strong>{t("Создать тестовый черновик эксперимента")}</strong>
+        <span>{t(labelFor(action.status))}</span>
       </header>
       <details open={!action.receipt}>
-        <summary>Параметры и результат</summary>
-        <p>Гипотеза: {action.parameters.hypothesis}</p>
+        <summary>{t("Параметры и результат")}</summary>
+        <p>
+          {t("Гипотеза:")} {action.parameters.hypothesis}
+        </p>
         <p>{action.reasoning}</p>
         <dl>
-          <dt>Метрика</dt>
-          <dd>{labelFor(action.parameters.primary_metric)}</dd>
-          <dt>Аудитория</dt>
-          <dd>{labelFor(action.parameters.audience_segment)}</dd>
-          <dt>Доля и срок</dt>
+          <dt>{t("Метрика")}</dt>
+          <dd>{t(labelFor(action.parameters.primary_metric))}</dd>
+          <dt>{t("Аудитория")}</dt>
+          <dd>{t(labelFor(action.parameters.audience_segment))}</dd>
+          <dt>{t("Доля и срок")}</dt>
           <dd>
             {action.parameters.allocation_percent}% ·{" "}
-            {action.parameters.duration_days} дней
+            {action.parameters.duration_days} {t("дней")}{" "}
           </dd>
-          <dt>Объект</dt>
+          <dt>{t("Объект")}</dt>
           <dd>{action.parameters.experiment_key}</dd>
         </dl>
-        {action.risks.length > 0 && <p>Риски: {action.risks.join("; ")}</p>}
-        <p>Ожидаемый эффект — гипотеза: {action.expected_effect}</p>
+        {action.risks.length > 0 && (
+          <p>
+            {t("Риски:")} {action.risks.join("; ")}
+          </p>
+        )}
+        <p>
+          {t("Ожидаемый эффект — гипотеза:")} {action.expected_effect}
+        </p>
       </details>
       {action.receipt ? (
         <div role="status">
           <p>{action.receipt.message}</p>
           <p>
-            Исполнение: {labelFor(action.execution_status ?? "not_started")}.
-            Проверка: {labelFor(action.verification_status ?? "not_started")}.
+            {t("Исполнение:")}{" "}
+            {t(labelFor(action.execution_status ?? "not_started"))}
+            {t(". Проверка:")}{" "}
+            {t(labelFor(action.verification_status ?? "not_started"))}.
           </p>
-          <p>Влияние на конверсию не измерено.</p>
+          <p>{t("Влияние на конверсию не измерено.")}</p>
         </div>
       ) : (
         <>
           {action.self_approval_forbidden && (
-            <p>Решение должен принять другой сотрудник.</p>
+            <p>{t("Решение должен принять другой сотрудник.")}</p>
           )}
-          <label htmlFor={id}>Причина решения</label>
+          <label htmlFor={id}>{t("Причина решения")}</label>
           <textarea
             id={id}
             value={reason}
@@ -172,32 +190,39 @@ function ActionCard({
           <div className="chat-decision-buttons">
             <ConfirmAction
               className="button secondary compact"
-              label="Создать в sandbox"
-              confirmLabel="Подтвердить создание"
+              label={t("Создать в sandbox")}
+              confirmLabel={t("Подтвердить создание")}
               disabled={disabled || attempted || !reason.trim()}
-              description={`Создать только тестовый черновик ${action.parameters.experiment_key}: ${action.parameters.allocation_percent}% аудитории, ${action.parameters.duration_days} дней. Реальные пользователи не затрагиваются.`}
+              description={t(
+                "Создать только тестовый черновик {0}: {1}% аудитории, {2} дней. Реальные пользователи не затрагиваются.",
+                {
+                  "0": action.parameters.experiment_key,
+                  "1": action.parameters.allocation_percent,
+                  "2": action.parameters.duration_days,
+                },
+              )}
               onConfirm={() => void decide(true)}
             />
             <ConfirmAction
               className="button secondary compact"
-              label="Отклонить"
-              confirmLabel="Подтвердить отклонение"
+              label={t("Отклонить")}
+              confirmLabel={t("Подтвердить отклонение")}
               disabled={disabled || attempted || !reason.trim()}
               onConfirm={() => void decide(false)}
             />
           </div>
         </>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p role="status">{t(notice)}</p>}
       <button
         type="button"
         className="button secondary compact"
         disabled={busy}
         onClick={() =>
-          void refresh().catch(() => setNotice("Статус недоступен."))
+          void refresh().catch(() => setNotice(t("Статус недоступен.")))
         }
       >
-        Обновить статус
+        {t("Обновить статус")}{" "}
       </button>
     </article>
   );

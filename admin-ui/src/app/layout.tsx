@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { AdminShell } from "@/components/AdminShell";
 import { Providers } from "@/components/Providers";
+import { LanguageProvider } from "@/i18n/LanguageProvider";
 
 import "../styles.css";
 
@@ -25,9 +26,11 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body>
-        <Providers>
-          <AdminShell>{children}</AdminShell>
-        </Providers>
+        <LanguageProvider>
+          <Providers>
+            <AdminShell>{children}</AdminShell>
+          </Providers>
+        </LanguageProvider>
       </body>
     </html>
   );

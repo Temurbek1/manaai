@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/i18n/LanguageProvider";
+
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -23,6 +25,8 @@ const ADVERTISING = "growth.advertising";
 const FUNNEL = "growth.funnel.analyze";
 
 export function GrowthPage(): React.JSX.Element {
+  const { t, locale } = useI18n();
+
   const [selectedCapability, setSelectedCapability] = useState(ADVERTISING);
   const { data: detail, error: detailError } = useSWR<AgentDetail, Error>(
     "/api/v1/admin/operation/agents/growth-agent",
@@ -68,20 +72,22 @@ export function GrowthPage(): React.JSX.Element {
     <>
       <PageHeader
         eyebrow="MANA Operation AI"
-        title="Рост и конверсия"
-        description="Анализ рекламы и воронки, предложения по росту конверсии и согласованные эксперименты. Режим данных указан в каждом разделе."
+        title={t("Рост и конверсия")}
+        description={t(
+          "Анализ рекламы и воронки, предложения по росту конверсии и согласованные эксперименты. Режим данных указан в каждом разделе.",
+        )}
         actions={detail ? <StatusBadge status={detail.agent.status} /> : null}
       />
       {detailError || runsError ? (
         <p className="error-banner" role="alert">
-          Не удалось обновить данные агента роста.
+          {t("Не удалось обновить данные агента роста.")}{" "}
         </p>
       ) : null}
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Возможности агента</p>
-            <h2>Возможности агента</h2>
+            <p className="eyebrow">{t("Возможности агента")}</p>
+            <h2>{t("Возможности агента")}</h2>
           </div>
           <span className="counter">
             {detail?.agent.capabilities.length ?? 0}
@@ -105,11 +111,11 @@ export function GrowthPage(): React.JSX.Element {
                 type="button"
               >
                 <span>
-                  <strong>{labelFor(capability.key)}</strong>
-                  <small>{descriptionFor(capability.key)}</small>
+                  <strong>{t(labelFor(capability.key))}</strong>
+                  <small>{t(descriptionFor(capability.key))}</small>
                   <small>
-                    Версия настроек {configuration?.version ?? "—"} ·{" "}
-                    расписаний: {schedules.length}
+                    {t("Версия настроек")} {configuration?.version ?? "—"} ·{" "}
+                    {t("расписаний:")} {schedules.length}
                   </small>
                 </span>
                 <StatusBadge status={capability.risk} />
@@ -125,44 +131,44 @@ export function GrowthPage(): React.JSX.Element {
         <>
           <section
             className="metric-grid"
-            aria-label="Состояние анализа воронки"
+            aria-label={t("Состояние анализа воронки")}
           >
             <MetricCard
-              label="Последний запуск"
+              label={t("Последний запуск")}
               value={
                 latestFunnelRun
                   ? compactId(latestFunnelRun.run_id)
-                  : "Нет данных"
+                  : t("Нет данных")
               }
-              detail={formatDate(latestFunnelRun?.started_at)}
+              detail={formatDate(latestFunnelRun?.started_at, locale)}
             />
             <MetricCard
-              label="Выводы"
+              label={t("Выводы")}
               value={findings?.total ?? 0}
               accent="amber"
             />
             <MetricCard
-              label="Предложения действий"
+              label={t("Предложения действий")}
               value={proposals?.total ?? 0}
               accent="blue"
             />
             <MetricCard
-              label="Оценки результата"
+              label={t("Оценки результата")}
               value={outcomes?.total ?? 0}
               accent="rose"
             />
           </section>
           <p className="notice" role="status">
-            Воронка пока использует тестовые данные. Эксперименты выполняются
-            только в тестовой среде и требуют согласования. Это не показатели
-            реальных продаж.
+            {t(
+              "Воронка пока использует тестовые данные. Эксперименты выполняются только в тестовой среде и требуют согласования. Это не показатели реальных продаж.",
+            )}{" "}
           </p>
           <div className="split-grid">
             <section className="panel">
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">Расчёт по данным</p>
-                  <h2>Последние выводы</h2>
+                  <p className="eyebrow">{t("Расчёт по данным")}</p>
+                  <h2>{t("Последние выводы")}</h2>
                 </div>
               </div>
               {(findings?.items ?? []).map((finding) => (
@@ -172,7 +178,7 @@ export function GrowthPage(): React.JSX.Element {
                       <strong>{finding.title}</strong>
                       <small>
                         {finding.deterministic_calculation ??
-                          "Показатель рассчитан по данным"}
+                          t("Показатель рассчитан по данным")}
                       </small>
                     </span>
                     <StatusBadge status={finding.severity} />
@@ -181,23 +187,25 @@ export function GrowthPage(): React.JSX.Element {
               ))}
               {(findings?.items.length ?? 0) === 0 ? (
                 <EmptyState
-                  title="Нет выводов по воронке"
-                  detail="После анализа воронки здесь появятся рассчитанные показатели."
+                  title={t("Нет выводов по воронке")}
+                  detail={t(
+                    "После анализа воронки здесь появятся рассчитанные показатели.",
+                  )}
                 />
               ) : null}
             </section>
             <section className="panel">
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">Действия под контролем</p>
-                  <h2>Эксперименты и результаты</h2>
+                  <p className="eyebrow">{t("Действия под контролем")}</p>
+                  <h2>{t("Эксперименты и результаты")}</h2>
                 </div>
               </div>
               {(proposals?.items ?? []).map((proposal) => (
                 <div className="compact-history" key={proposal.proposal_id}>
                   <div>
                     <code>{compactId(proposal.proposal_id)}</code>
-                    <span>{labelFor(proposal.action_type)}</span>
+                    <span>{t(labelFor(proposal.action_type))}</span>
                     <StatusBadge status={proposal.status} />
                   </div>
                 </div>
@@ -208,7 +216,8 @@ export function GrowthPage(): React.JSX.Element {
                     <span>
                       <strong>{outcome.metric_name}</strong>
                       <small>
-                        Исходное значение {displayValue(outcome.baseline_value)}
+                        {t("Исходное значение")}{" "}
+                        {displayValue(outcome.baseline_value)}
                       </small>
                     </span>
                     <StatusBadge status={outcome.status} />
@@ -218,8 +227,10 @@ export function GrowthPage(): React.JSX.Element {
               {(proposals?.items.length ?? 0) === 0 &&
               (outcomes?.items.length ?? 0) === 0 ? (
                 <EmptyState
-                  title="Экспериментов пока нет"
-                  detail="В режиме наблюдения сохраняются рекомендации без запросов на выполнение."
+                  title={t("Экспериментов пока нет")}
+                  detail={t(
+                    "В режиме наблюдения сохраняются рекомендации без запросов на выполнение.",
+                  )}
                 />
               ) : null}
             </section>
@@ -227,8 +238,8 @@ export function GrowthPage(): React.JSX.Element {
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Предложения</p>
-                <h2>Гипотезы роста конверсии</h2>
+                <p className="eyebrow">{t("Предложения")}</p>
+                <h2>{t("Гипотезы роста конверсии")}</h2>
               </div>
             </div>
             {(recommendations?.items ?? []).map((recommendation) => (
@@ -238,7 +249,7 @@ export function GrowthPage(): React.JSX.Element {
               >
                 <div>
                   <span>
-                    <strong>{labelFor(recommendation.action_type)}</strong>
+                    <strong>{t(labelFor(recommendation.action_type))}</strong>
                     <small>{recommendation.reasoning}</small>
                   </span>
                   <StatusBadge status={String(recommendation.confidence)} />
@@ -249,8 +260,8 @@ export function GrowthPage(): React.JSX.Element {
         </>
       ) : (
         <EmptyState
-          title="Возможность пока недоступна"
-          detail="Эта возможность агента роста пока не реализована."
+          title={t("Возможность пока недоступна")}
+          detail={t("Эта возможность агента роста пока не реализована.")}
         />
       )}
     </>
