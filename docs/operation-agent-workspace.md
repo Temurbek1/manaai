@@ -691,7 +691,10 @@ solve arbitrarily large original user-condition histories or imply unlimited con
 Local configuration, disabled by default and gated by the native workspace:
 
 - `OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED=false`;
-- `OPERATION_WORKSPACE_COMPACT_THRESHOLD=8000`;
+- `OPERATION_WORKSPACE_COMPACT_THRESHOLD=8000` is the preserved code fallback;
+  the disabled `.env.example` now explicitly recommends 24000 for new scoped native
+  setups, based on [the complete long-topic diagnostic](operation-long-session-deferred-checkpoint.md).
+  This does not update an existing `.env`, task or production deployment;
 - `OPERATION_WORKSPACE_MODEL_WINDOW_BYTES=192000`;
 - `OPERATION_WORKSPACE_MODEL_MAX_OUTPUT_TOKENS=8192` (legacy calls remain 4096).
 

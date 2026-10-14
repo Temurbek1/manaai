@@ -1,5 +1,63 @@
 import type { ReactNode } from "react";
 
+const HEADING = /^ {0,3}#{1,3}\s/;
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-+:?\s*\|/;
+
+function listKind(line: string): "unordered" | "ordered" | null {
+  if (/^[-•]\s/.test(line)) return "unordered";
+  if (/^\d+\.\s/.test(line)) return "ordered";
+  return null;
+}
+
+function reportBlocks(text: string): string[][] {
+  const lines = text.split(/\r?\n/);
+  const blocks: string[][] = [];
+  let index = 0;
+  function tableAt(position: number): boolean {
+    return (
+      Boolean(lines[position]?.includes("|")) &&
+      TABLE_SEPARATOR.test(lines[position + 1] ?? "")
+    );
+  }
+  while (index < lines.length) {
+    const line = lines[index]!;
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+    if (HEADING.test(line)) {
+      blocks.push([line]);
+      index += 1;
+      continue;
+    }
+    if (tableAt(index)) {
+      const table = [line, lines[index + 1]!];
+      index += 2;
+      while (index < lines.length && lines[index]!.includes("|")) {
+        table.push(lines[index]!);
+        index += 1;
+      }
+      blocks.push(table);
+      continue;
+    }
+    const kind = listKind(line);
+    const paragraph = [line];
+    index += 1;
+    while (
+      index < lines.length &&
+      lines[index]!.trim() &&
+      !HEADING.test(lines[index]!) &&
+      !tableAt(index) &&
+      listKind(lines[index]!) === kind
+    ) {
+      paragraph.push(lines[index]!);
+      index += 1;
+    }
+    blocks.push(paragraph);
+  }
+  return blocks;
+}
+
 function inline(text: string): ReactNode[] {
   return text
     .split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g)
@@ -18,8 +76,8 @@ function inline(text: string): ReactNode[] {
 export function GoalReport({ text }: { text: string }): React.JSX.Element {
   return (
     <>
-      {text.split(/\n\s*\n/).map((block, index) => {
-        const lines = block.split("\n");
+      {reportBlocks(text).map((lines, index) => {
+        const block = lines.join("\n");
         if (lines.length >= 3 && /^\s*\|?\s*:?-+:?\s*\|/.test(lines[1]!)) {
           const cells = lines.map((line) =>
             line
@@ -64,8 +122,10 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
               </div>
             );
         }
-        if (lines.length === 1 && /^#{1,3}\s/.test(block))
-          return <h3 key={index}>{inline(block.replace(/^#{1,3}\s+/, ""))}</h3>;
+        if (lines.length === 1 && HEADING.test(block))
+          return (
+            <h3 key={index}>{inline(block.replace(/^ {0,3}#{1,3}\s+/, ""))}</h3>
+          );
         if (lines.every((line) => /^[-•]\s/.test(line)))
           return (
             <ul key={index}>
