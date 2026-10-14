@@ -115,6 +115,12 @@ the report. New tracked paged-catalog Goals use opt-in v14/v5; old tasks remain
 unchanged. Private completion retains its receipt; HTTP omits it. This is not a
 smaller analysis, semantic-quality proof, token/dollar guarantee or production release.
 
+The later isolated full-input review pair accepted a correct handwritten synthetic
+artifact and rejected its deliberately wrong pooled-D7 counterpart ($0.052719
+estimated, no unknown hold). It verifies that stage, not a complete catalog/analysis
+Goal, real MANA data or production readiness; the original full-loop failure remains.
+See the review-verdict checkpoint for immutable evidence and remaining acceptance.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

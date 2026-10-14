@@ -159,7 +159,52 @@ seven pre-existing synthetic keys in unchanged SDK tests; that nonzero result is
 not called a successful security gate. No key, SSH, Firebase/GA4, source, schedule,
 main API/audio or production setting was changed.
 
-Remaining acceptance: complete strong-model review/full original catalog analysis,
+## Independent review-stage pair, not full-loop acceptance
+
+One new party subsequently exercised the isolated review stage on two fresh
+handwritten synthetic artifacts, not prior model results or stopped tasks.
+`scripts/operation_review_verdict_evaluate.py` is offline by default, uses an
+exclusive directory and one shared two-call/$0.49 ledger, and stops the whole
+party on any unknown hold. There is no application factory, Goals worker, source
+executor or production connection. `catalog_request()` is shared with the full-loop
+evaluator without changing any original objective, criteria, constraints or limits. Both stage
+inputs retain all 7607 source characters; only one pooled-D7 formula differs.
+Expected labels and manual arithmetic are outside model input. No test calls a
+real provider; the paid CLI is an explicit separate opt-in diagnostic.
+
+The actual `gpt-6.1-sol`/medium reviewer accepted the correct analysis and revised
+the erroneous `(25%+50%)/2=37.5%`, identifying `(200+100)/(800+200)=30%` and preserving
+the other correct metrics and caveats. Full quote/hash/plan/citation bindings passed
+and neither stored draft was rewritten. Two priced calls estimated **$0.052719**
+(26969+25750 microusd), unknown hold 0, under the single shared budget. This is not
+a billing invoice or a model-quality rate. Rates were checked against
+[official API pricing](https://developers.openai.com/api/docs/pricing).
+Output 8192 and test-only 210/240 timeouts
+were unchanged from the preceding diagnostic; no retry/second party followed.
+
+Separate manual validation recomputed every requested metric and inspected both
+verdicts, scope, dates, denominators, priorities and caveats. Both verdicts explicitly
+note that supplied text does not prove catalog-discovery history. Thus the positive
+acceptance establishes this **review-stage pair only**, not full original Goal
+acceptance, generated analysis, worker/UI completion, long-history review or real
+MANA measurement. The full-loop failure above remains untouched. Original ignored
+evidence and separate review: `output/review-stage-quality-20261014/independent-01/`.
+Original result SHA-256:
+`a60f3bdaafb756ac9afbc330133d166df7affacdd9129ba27fba7a0447d33a46`.
+
+Ten new offline cases cover plan-only/exclusive admission, exact full inputs,
+expected-label isolation, strict SDK output, false acceptance exposure, binding
+failure, incomplete/pending/timeout/quota receipts and no retry/next case after
+unknown usage. Combined review/catalog suites passed 53 tests. Final `make verify`
+passed **1189 backend /136 UI**, Ruff, mypy 346 files, TypeScript/build and npm audit.
+The 23 PostgreSQL cases remain skipped there and unchanged; no persistence/runtime
+contract was changed by this evaluator. Local source-fixture whitespace issues were
+resolved before the paid run; the source itself was never trimmed. Production,
+sources, schedules, SSH, keys and all prior evidence/unknown holds remain unchanged.
+The validation/data-quality skills keep this stage result qualified and the broader
+workspace acceptance open, rather than equating two expected verdicts with readiness.
+
+Remaining acceptance: complete strong-model full original catalog analysis/review,
 broader quality cases, corrected fresh GA4/deployed-browser flows, scalable extended
 session context and Retention-first governed actions before full Orchestrator and
 Technical. This feature alone does not close the full Codex/Claude-style objective.
