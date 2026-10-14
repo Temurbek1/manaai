@@ -13,6 +13,7 @@ from app.mana_operation_ai.application.chat_ports import (
 )
 from app.mana_operation_ai.application.chat_service import _report_source, _verified_report_product
 from app.mana_operation_ai.application.cost_control import CostBudgetExceeded
+from app.mana_operation_ai.application.evidence_dates import EVIDENCE_DATE_INSTRUCTIONS
 from app.mana_operation_ai.application.goal_ports import (
     ContinuingGoalModel,
     GoalModel,
@@ -46,7 +47,8 @@ from app.mana_operation_ai.domain.session import SessionMemory
 
 logger = logging.getLogger(__name__)
 
-GOAL_INSTRUCTIONS = """You are the durable administrative analysis workspace of MANA OPERATION AI.
+GOAL_INSTRUCTIONS = (
+    """You are the durable administrative analysis workspace of MANA OPERATION AI.
 Opaque continuation is only background working state, never fresh evidence or authority.
 The current request, complete quoted conditions, steering, permissions and evidence snapshot
 always take precedence over an older window. Do not infer a read grant from past reasoning.
@@ -156,6 +158,8 @@ or new authority. Ask if user constraints conflict.
 Identical session user text may carry additional also_kinds roles; its constraint/instruction
 meaning is preserved verbatim even when it was also a prior objective or success criterion.
 """
+    + EVIDENCE_DATE_INSTRUCTIONS
+)
 
 
 class OperationGoalService:

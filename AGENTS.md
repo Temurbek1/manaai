@@ -183,6 +183,11 @@
   deferred compaction trigger and unchanged hard caps. It is local, not a proven
   optimal default, causal root-cause finding, real MANA measure or broad readiness.
   See `docs/operation-compaction-quality-checkpoint.md`; do not replay old attempts.
+- Evidence collection, report creation, observation periods and SQL-save times are
+  different. Recent `collected_at` never proves current coverage or a storage date.
+  Shared chat/Goal guidance clarifies these roles without changing grants/freshness.
+  The eight-case matrix's timestamp defect remains a qualified pre-fix result;
+  do not call the clarification live-verified. See `docs/operation-workspace-matrix-checkpoint.md`.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

@@ -57,7 +57,9 @@ async def test_budget_fallback_is_dated_scoped_idempotent_and_performs_no_provid
         assert answer.model is None and answer.input_tokens is None
         assert "Последняя сохранённая сводка MANA" in answer.answer
         assert "2026-10-08T00:00:00+00:00" in answer.answer
-        assert "давность: 7 ч 0 мин" in answer.answer
+        assert "Сбор данных: 2026-10-08T00:00:00+00:00" in answer.answer
+        assert "давность сбора: 7 ч 0 мин" in answer.answer
+        assert "Данные на" not in answer.answer
         assert "Данные устарели" in answer.answer
         assert "Mobile telemetry is unavailable" in answer.answer
         assert answer.sources[0].collected_at == datetime(2026, 10, 8, tzinfo=UTC)

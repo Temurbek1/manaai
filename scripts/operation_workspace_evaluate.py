@@ -9,6 +9,7 @@ The deterministic protocol checks do not replace manual semantic review.
 import argparse
 import asyncio
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,11 +38,20 @@ from app.mana_operation_ai.domain.chat import (  # noqa: E402
     TopicCreate,
 )
 from app.mana_operation_ai.domain.cost_control import CostLimits, ResourceUsage  # noqa: E402
+from app.mana_operation_ai.domain.enums import (  # noqa: E402
+    AgentRunStatus,
+    AgentStatus,
+    TriggerType,
+)
 from app.mana_operation_ai.domain.goals import (  # noqa: E402
     GoalAvailability,
     GoalCommand,
 )
-from app.mana_operation_ai.domain.models import AgentReport  # noqa: E402
+from app.mana_operation_ai.domain.models import (  # noqa: E402
+    AgentDefinition,
+    AgentReport,  # noqa: E402
+    AgentRun,
+)
 from app.mana_operation_ai.infrastructure.chat_model import OpenAIConversationModel  # noqa: E402
 from app.mana_operation_ai.infrastructure.goal_model import OpenAIGoalModel  # noqa: E402
 from app.mana_operation_ai.infrastructure.persistence.chat_repository import (  # noqa: E402
@@ -57,6 +67,9 @@ from app.mana_operation_ai.infrastructure.persistence.goal_repository import (  
     SqlAlchemyGoalRepository,
 )
 from app.mana_operation_ai.infrastructure.persistence.models import CostReservationRow  # noqa: E402
+from app.mana_operation_ai.infrastructure.persistence.repository import (  # noqa: E402
+    SqlAlchemyOperationRepository,
+)
 from scripts.operation_goal_evaluate import SyntheticAdmin  # noqa: E402
 
 
@@ -202,6 +215,74 @@ class SavedOnlyAdmin(SyntheticAdmin):
         raise AssertionError("Source and domain execution are forbidden in this benchmark")
 
 
+class SqlSavedOnlyAdmin:
+    """Candidate fixtures use actual saved SQL, never shared across independent cases."""
+
+    def __init__(self, database: OperationDatabase) -> None:
+        self.repository = SqlAlchemyOperationRepository(database)
+        self.source_attempts = 0
+
+    def agent_identifiers(self, agent_id: str) -> set[str]:
+        return {"growth-agent", "marketing-agent"} if agent_id == "growth-agent" else {agent_id}
+
+    async def list_reports(
+        self, *, agent_id: str | None, capability_key: str | None, limit: int, offset: int
+    ) -> tuple[list[AgentReport], int]:
+        return await self.repository.list_reports(
+            agent_id=agent_id, capability_key=capability_key, limit=limit, offset=offset
+        )
+
+    async def get_report(self, report_id: str) -> AgentReport | None:
+        return await self.repository.get_report(report_id)
+
+    async def run_now(self, **kwargs: object) -> None:
+        self.source_attempts += 1
+        raise AssertionError("Source and domain execution are forbidden in this benchmark")
+
+    async def seed(self, case: WorkspaceCase, clock: SystemClock) -> None:
+        if not case.report_text:
+            return
+        await self.repository.register_agent(
+            AgentDefinition(
+                agent_id="retention-agent",
+                display_name="Synthetic Retention",
+                description="Isolated local quality fixture, no real application source",
+                version="fixture",
+                status=AgentStatus.ENABLED,
+                capabilities=[],
+                default_capability_key="retention.engagement.analyze",
+                configuration_schema={},
+                registered_at=clock.now(),
+            )
+        )
+        now = clock.now()
+        run_id = f"synthetic-run-{uuid4()}"
+        run = AgentRun(
+            run_id=run_id,
+            agent_id="retention-agent",
+            capability_key="retention.engagement.analyze",
+            correlation_id="isolated-native-quality",
+            trigger=TriggerType.API,
+            initiated_by="synthetic-evaluator",
+            status=AgentRunStatus.COMPLETED,
+            configuration_version=1,
+            idempotency_key=run_id,
+            started_at=now,
+            updated_at=now,
+            completed_at=now,
+        )
+        await self.repository.create_run(run)
+        await self.repository.save_report(
+            SyntheticAdmin(clock).report.model_copy(
+                update={
+                    "report_id": f"synthetic-evidence-{uuid4()}",
+                    "run_id": run.run_id,
+                    "human_readable": case.report_text,
+                }
+            )
+        )
+
+
 async def receipts(database: OperationDatabase) -> dict[str, int]:
     async with database.session_factory() as session:
         rows = list(await session.scalars(select(CostReservationRow)))
@@ -220,18 +301,73 @@ async def receipts(database: OperationDatabase) -> dict[str, int]:
     }
 
 
-async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
+def profile(*, tracked_limits: bool = False, candidate_native: bool = False) -> dict[str, object]:
+    if candidate_native and not tracked_limits:
+        raise ValueError("The candidate native contract requires explicit tracked limits")
+    return {
+        "tracked_limits": tracked_limits,
+        "candidate_native": candidate_native,
+        "workspace_contract": "v14/v5"
+        if candidate_native
+        else "v10/v1"
+        if tracked_limits
+        else "legacy",
+        "isolated_case_databases": candidate_native,
+        "compact_threshold": 24000 if candidate_native else "configured",
+        "max_calls": 16,
+        "cap_microusd": 490000,
+        "sources": 0,
+        "production_changes": 0,
+        "replay": False,
+    }
+
+
+async def evaluate(
+    directory: Path, *, tracked_limits: bool = False, candidate_native: bool = False
+) -> None:
+    configuration = profile(tracked_limits=tracked_limits, candidate_native=candidate_native)
     # Exclusive creation is a durable attempt marker, even before a paid hold exists.
+    os.umask(0o077)
     directory.mkdir(parents=True, exist_ok=False)
     plan = [case.__dict__ for case in cases()]
     (directory / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2))
+    (directory / "profile.json").write_text(json.dumps(configuration, indent=2))
     settings = get_settings().model_copy(
         update={
             "operation_agent_workspace_enabled": True,
             "operation_workspace_model_continuation_enabled": True,
             "operation_model_selection_enabled": True,
             "operation_goal_limit_extensions_enabled": tracked_limits,
+            "operation_workspace_report_discovery_enabled": candidate_native,
+            "operation_workspace_snapshot_replacement_enabled": candidate_native,
+            "operation_workspace_page_projection_enabled": candidate_native,
+            "operation_workspace_review_verdicts_enabled": candidate_native,
+            **(
+                {
+                    "operation_workspace_compact_threshold": 24000,
+                    "operation_workspace_model_max_output_tokens": 8192,
+                    "operation_chat_max_output_tokens": 8192,
+                }
+                if candidate_native
+                else {}
+            ),
         }
+    )
+    (directory / "runtime-configuration.json").write_text(
+        json.dumps(
+            {
+                "goal_request_timeout_seconds": settings.operation_goals_request_timeout_seconds,
+                "goal_step_timeout_seconds": settings.operation_goals_model_step_timeout_seconds,
+                "goal_output_tokens": settings.operation_workspace_model_max_output_tokens,
+                "chat_output_tokens": settings.operation_chat_max_output_tokens,
+                "compact_threshold": settings.operation_workspace_compact_threshold,
+                "model_window_bytes": settings.operation_workspace_model_window_bytes,
+                "goal_context_bytes": settings.operation_goals_max_context_bytes,
+                "chat_context_bytes": settings.operation_chat_max_context_bytes,
+                "sdk_max_retries": 0,
+            },
+            indent=2,
+        )
     )
     clock = SystemClock()
     database = OperationDatabase(f"sqlite+aiosqlite:///{directory.resolve() / 'budget.db'}")
@@ -247,15 +383,189 @@ async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
     ledger = SqlAlchemyCostLedger(database, clock=clock, limits=CostLimits(daily=cap, monthly=cap))
     chat_model = OpenAIConversationModel(settings, ledger=ledger)
     goal_model = OpenAIGoalModel(settings, ledger)
+    results: list[dict[str, object]] = []
+    source_attempts = 0
+    try:
+        for model in (chat_model, goal_model):
+            if str(model._client.base_url).rstrip("/") != "https://api.openai.com/v1":
+                raise ValueError("Unapproved inference endpoint")
+        for case in cases():
+            current_fixture: SavedOnlyAdmin | SqlSavedOnlyAdmin | None = None
+            case_database = (
+                OperationDatabase(
+                    f"sqlite+aiosqlite:///{directory.resolve() / (case.case_id + '.db')}"
+                )
+                if candidate_native
+                else database
+            )
+            try:
+                if candidate_native:
+                    await case_database.create_schema()
+                workspace, goals, repository, chats, fixture = await case_services(
+                    case_database,
+                    case=case,
+                    clock=clock,
+                    chat_model=chat_model,
+                    goal_model=goal_model,
+                    tracked_limits=tracked_limits,
+                    candidate_native=candidate_native,
+                    model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
+                    extension_max_steps=settings.operation_goals_extension_max_steps,
+                    goal_context_bytes=settings.operation_goals_max_context_bytes,
+                    chat_context_bytes=settings.operation_chat_max_context_bytes,
+                )
+                current_fixture = fixture
+                topic = await chats.create(
+                    "native-quality",
+                    TopicCreate(
+                        agent_id=case.agent_id,
+                        product=case.product,
+                        title="Independent administrative task"
+                        if candidate_native
+                        else case.case_id,
+                    ),
+                )
+                response = await workspace.send(
+                    "native-quality",
+                    topic.topic_id,
+                    MessageCreate(
+                        request_id=uuid4(),
+                        message=case.message,
+                        model_choice="gpt-6.1-sol",
+                        reasoning="medium",
+                        execution_mode="agent",
+                    ),
+                )
+                outcome: dict[str, object] = {
+                    "case_id": case.case_id,
+                    "turn": response.turn.model_dump(mode="json", exclude={"session_memory"}),
+                    "expected_action": case.expected_action,
+                    "routing_matches": response.turn.next_action == case.expected_action,
+                    "review_checks": case.review_checks,
+                    "manual_review": "pending",
+                }
+                goal = response.goal
+                if goal is not None and not case.full_goal:
+                    # Route-only checks never leave a runnable task for another case's ticks.
+                    await goals.command(
+                        "native-quality",
+                        goal.goal_id,
+                        GoalCommand(
+                            request_id=uuid4(), command="cancel", expected_revision=goal.revision
+                        ),
+                    )
+                    outcome["route_goal_created_then_cancelled"] = True
+                elif goal is not None:
+                    # Do not narrow the original request merely to finish available metrics.
+                    for _ in range(8):
+                        await goals.tick()
+                        goal = await repository.get("native-quality", goal.goal_id)
+                        document = goal.model_dump(mode="json", exclude={"model_continuation"})
+                        (directory / f"goal-step-{goal.steps_used}.json").write_text(
+                            json.dumps(document, ensure_ascii=False, indent=2)
+                        )
+                        if goal.status in ("waiting", "completed", "paused", "cancelled"):
+                            break
+                    outcome["goal"] = goal.model_dump(mode="json", exclude={"model_continuation"})
+                results.append(outcome)
+                (directory / f"{case.case_id}.json").write_text(
+                    json.dumps(outcome, ensure_ascii=False, indent=2)
+                )
+                state = await receipts(database)
+                print(
+                    json.dumps(
+                        {
+                            "case_id": case.case_id,
+                            "status": response.turn.status,
+                            "next_action": response.turn.next_action,
+                            **state,
+                        }
+                    ),
+                    flush=True,
+                )
+                if response.turn.status != "completed" or state["unknown_hold_microusd"]:
+                    break
+            finally:
+                if current_fixture is not None:
+                    source_attempts += current_fixture.source_attempts
+                if case_database is not database:
+                    await case_database.dispose()
+    finally:
+        accounting = await receipts(database)
+        (directory / "results.json").write_text(
+            json.dumps(
+                {
+                    "results": results,
+                    "accounting": accounting,
+                    "source_attempts": source_attempts,
+                    "production_changes": 0,
+                    "budget_cap_microusd": 490000,
+                    "manual_review_required": True,
+                    "tracked_limits": tracked_limits,
+                    "candidate_native": candidate_native,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        await chat_model.close()
+        await goal_model.close()
+        await database.dispose()
+
+
+async def case_services(
+    database: OperationDatabase,
+    *,
+    case: WorkspaceCase,
+    clock: SystemClock,
+    chat_model: OpenAIConversationModel,
+    goal_model: OpenAIGoalModel,
+    tracked_limits: bool,
+    candidate_native: bool,
+    model_step_timeout_seconds: float,
+    extension_max_steps: int,
+    goal_context_bytes: int,
+    chat_context_bytes: int,
+) -> tuple[
+    OperationWorkspaceService,
+    OperationGoalService,
+    SqlAlchemyGoalRepository,
+    SqlAlchemyChatRepository,
+    SavedOnlyAdmin | SqlSavedOnlyAdmin,
+]:
     chats = SqlAlchemyChatRepository(
         database, hourly_limit=20, daily_limit=20, stream_events_enabled=True
     )
     await chats.initialize()
     repository = SqlAlchemyGoalRepository(
-        database, clock, events_enabled=True, limit_extensions_enabled=tracked_limits
+        database,
+        clock,
+        events_enabled=True,
+        limit_extensions_enabled=tracked_limits,
+        report_discovery_enabled=candidate_native,
+        snapshot_replacement_enabled=candidate_native,
+        page_projection_enabled=candidate_native,
+        review_verdict_enabled=candidate_native,
     )
     memory = OperationSessionContext(chats, repository)
-    fixture = SavedOnlyAdmin(clock)
+    fixture: SavedOnlyAdmin | SqlSavedOnlyAdmin
+    if candidate_native:
+        fixture = SqlSavedOnlyAdmin(database)
+        await fixture.seed(case, clock)
+    else:
+        fixture = SavedOnlyAdmin(clock)
+        fixture.current = (
+            [
+                fixture.report.model_copy(
+                    update={
+                        "report_id": f"synthetic-{case.case_id}",
+                        "human_readable": case.report_text,
+                    }
+                )
+            ]
+            if case.report_text
+            else []
+        )
     admin = cast(OperationAdminService, fixture)
     goals = OperationGoalService(
         repository=repository,
@@ -264,7 +574,12 @@ async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
         continuing_model=goal_model,
         admin=admin,
         clock=clock,
-        model_step_timeout_seconds=settings.operation_goals_model_step_timeout_seconds,
+        model_step_timeout_seconds=model_step_timeout_seconds,
+        max_context_bytes=goal_context_bytes,
+        report_discovery_enabled=candidate_native,
+        snapshot_replacement_enabled=candidate_native,
+        page_projection_enabled=candidate_native,
+        review_verdict_enabled=candidate_native,
         session_context=memory,
         availability=GoalAvailability(
             enabled=True,
@@ -275,9 +590,7 @@ async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
             agent_workspace_enabled=True,
             model_selection_enabled=True,
             limit_extensions_enabled=tracked_limits,
-            extension_max_steps=settings.operation_goals_extension_max_steps
-            if tracked_limits
-            else 0,
+            extension_max_steps=extension_max_steps if tracked_limits else 0,
             extension_budget_microusd=490000 if tracked_limits else 0,
         ),
     )
@@ -289,6 +602,7 @@ async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
         clock=clock,
         session_context=memory,
         shared_goals_enabled=True,
+        max_context_bytes=chat_context_bytes,
         availability=ChatAvailability(
             enabled=True,
             hourly_limit=20,
@@ -299,112 +613,14 @@ async def evaluate(directory: Path, *, tracked_limits: bool = False) -> None:
         ),
     )
     workspace = OperationWorkspaceService(chat, goals)
-    results: list[dict[str, object]] = []
-    try:
-        for case in cases():
-            fixture.current = (
-                [
-                    fixture.report.model_copy(
-                        update={
-                            "report_id": f"synthetic-{case.case_id}",
-                            "human_readable": case.report_text,
-                        }
-                    )
-                ]
-                if case.report_text
-                else []
-            )
-            topic = await chats.create(
-                "native-quality",
-                TopicCreate(agent_id=case.agent_id, product=case.product, title=case.case_id),
-            )
-            response = await workspace.send(
-                "native-quality",
-                topic.topic_id,
-                MessageCreate(
-                    request_id=uuid4(),
-                    message=case.message,
-                    model_choice="gpt-6.1-sol",
-                    reasoning="medium",
-                    execution_mode="agent",
-                ),
-            )
-            outcome: dict[str, object] = {
-                "case_id": case.case_id,
-                "turn": response.turn.model_dump(mode="json", exclude={"session_memory"}),
-                "expected_action": case.expected_action,
-                "routing_matches": response.turn.next_action == case.expected_action,
-                "review_checks": case.review_checks,
-                "manual_review": "pending",
-            }
-            goal = response.goal
-            if goal is not None and not case.full_goal:
-                # Route-only tests do not accidentally keep a runnable task for later ticks.
-                await goals.command(
-                    "native-quality",
-                    goal.goal_id,
-                    GoalCommand(
-                        request_id=uuid4(), command="cancel", expected_revision=goal.revision
-                    ),
-                )
-                outcome["route_goal_created_then_cancelled"] = True
-            elif goal is not None:
-                # Preserve the original unqualified objective. A partial-analysis benchmark
-                # would evade the expected stop on missing payments/funnel evidence.
-                for _ in range(8):
-                    await goals.tick()
-                    goal = await repository.get("native-quality", goal.goal_id)
-                    document = goal.model_dump(mode="json", exclude={"model_continuation"})
-                    (directory / f"goal-step-{goal.steps_used}.json").write_text(
-                        json.dumps(document, ensure_ascii=False, indent=2)
-                    )
-                    if goal.status in ("waiting", "completed", "paused", "cancelled"):
-                        break
-                outcome["goal"] = goal.model_dump(mode="json", exclude={"model_continuation"})
-            results.append(outcome)
-            (directory / f"{case.case_id}.json").write_text(
-                json.dumps(outcome, ensure_ascii=False, indent=2)
-            )
-            state = await receipts(database)
-            print(
-                json.dumps(
-                    {
-                        "case_id": case.case_id,
-                        "status": response.turn.status,
-                        "next_action": response.turn.next_action,
-                        **state,
-                    }
-                ),
-                flush=True,
-            )
-            if response.turn.status != "completed" or state["unknown_hold_microusd"]:
-                break  # Never restart a failed/unknown generation or the paid party.
-    finally:
-        accounting = await receipts(database)
-        (directory / "results.json").write_text(
-            json.dumps(
-                {
-                    "results": results,
-                    "accounting": accounting,
-                    "source_attempts": fixture.source_attempts,
-                    "production_changes": 0,
-                    "budget_cap_microusd": 490000,
-                    "manual_review_required": True,
-                    "tracked_limits": tracked_limits,
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-        await chat_model.close()
-        await goal_model.close()
-        await database.dispose()
+    return workspace, goals, repository, chats, fixture
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--confirm-paid", action="store_true")
     parser.add_argument("--tracked-limits", action="store_true")
+    parser.add_argument("--candidate-native", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not args.confirm_paid:
@@ -412,10 +628,9 @@ def main() -> None:
             json.dumps(
                 {
                     "cases": [case.__dict__ for case in cases()],
-                    "max_calls": 16,
-                    "cap_microusd": 490000,
-                    "sources": 0,
-                    "tracked_limits": args.tracked_limits,
+                    **profile(
+                        tracked_limits=args.tracked_limits, candidate_native=args.candidate_native
+                    ),
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -424,7 +639,11 @@ def main() -> None:
         return
     if args.output is None:
         parser.error("A fresh --output directory is required for the authorized paid check")
-    asyncio.run(evaluate(args.output, tracked_limits=args.tracked_limits))
+    asyncio.run(
+        evaluate(
+            args.output, tracked_limits=args.tracked_limits, candidate_native=args.candidate_native
+        )
+    )
 
 
 if __name__ == "__main__":

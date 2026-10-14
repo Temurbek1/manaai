@@ -128,6 +128,12 @@ paged evidence, generated numerical analysis and accepted independent review
 manually checked. This is one full historical synthetic case, not broad model
 quality, fresh MANA coverage, production readiness or closure of this objective.
 
+The [eight-case matrix checkpoint](operation-workspace-matrix-checkpoint.md) adds
+neutral-label, isolated-SQL evidence for routing, numerical/permission/product
+boundaries and preserving a missing-data full objective. It found a timestamp-role
+citation defect; the subsequent shared clarification is locally tested, not yet
+live-retested. Eight routing matches do not establish full workspace readiness.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;
