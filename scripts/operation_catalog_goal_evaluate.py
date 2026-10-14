@@ -132,15 +132,25 @@ def oracle() -> dict[str, object]:
     }
 
 
-def plan(*, project_pages: bool = False, review_verdicts: bool = False) -> dict[str, object]:
+def plan(
+    *,
+    project_pages: bool = False,
+    review_verdicts: bool = False,
+    compact_threshold: int | None = None,
+) -> dict[str, object]:
     if review_verdicts and not project_pages:
         raise ValueError("Verdict diagnostics require the captured paged-catalog contract")
+    if compact_threshold is not None and (
+        type(compact_threshold) is not int or compact_threshold not in {8000, 24000}
+    ):
+        raise ValueError("Only the two explicit existing compaction profiles are supported")
     return {
         "max_calls": MAX_STEPS,
         "budget_microusd": BUDGET,
         "model": "gpt-6.1-sol",
         "reasoning": "medium",
         "max_output_tokens": OUTPUT_TOKENS,
+        "requested_compact_threshold": compact_threshold,
         "analysis_scope": "saved_snapshot",
         "workspace_contract": "v14/v5"
         if review_verdicts
@@ -246,9 +256,17 @@ def catalog_request() -> GoalCreate:
 
 
 async def evaluate(
-    directory: Path, *, project_pages: bool = False, review_verdicts: bool = False
+    directory: Path,
+    *,
+    project_pages: bool = False,
+    review_verdicts: bool = False,
+    compact_threshold: int | None = None,
 ) -> dict[str, object]:
-    diagnostic_plan = plan(project_pages=project_pages, review_verdicts=review_verdicts)
+    diagnostic_plan = plan(
+        project_pages=project_pages,
+        review_verdicts=review_verdicts,
+        compact_threshold=compact_threshold,
+    )
     os.umask(0o077)
     directory.mkdir(parents=True, exist_ok=False)
     (directory / "plan.json").write_text(json.dumps(diagnostic_plan, ensure_ascii=False, indent=2))
@@ -263,6 +281,11 @@ async def evaluate(
             "operation_model_selection_enabled": True,
             "operation_goal_limit_extensions_enabled": True,
             "operation_workspace_model_max_output_tokens": OUTPUT_TOKENS,
+            **(
+                {"operation_workspace_compact_threshold": compact_threshold}
+                if compact_threshold is not None
+                else {}
+            ),
         }
     )
     (directory / "runtime-configuration.json").write_text(
@@ -271,6 +294,9 @@ async def evaluate(
                 "model_request_timeout_seconds": settings.operation_goals_request_timeout_seconds,
                 "model_step_timeout_seconds": settings.operation_goals_model_step_timeout_seconds,
                 "sdk_max_retries": 0,
+                "compact_threshold": settings.operation_workspace_compact_threshold,
+                "model_window_bytes": settings.operation_workspace_model_window_bytes,
+                "goal_context_bytes": settings.operation_goals_max_context_bytes,
             },
             indent=2,
         )
@@ -394,11 +420,16 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--project-saved-pages", action="store_true")
     parser.add_argument("--review-verdicts", action="store_true")
+    parser.add_argument("--compact-threshold", type=int, choices=(8000, 24000))
     args = parser.parse_args()
     if not args.confirm_paid:
         print(
             json.dumps(
-                plan(project_pages=args.project_saved_pages, review_verdicts=args.review_verdicts),
+                plan(
+                    project_pages=args.project_saved_pages,
+                    review_verdicts=args.review_verdicts,
+                    compact_threshold=args.compact_threshold,
+                ),
                 ensure_ascii=False,
                 indent=2,
             )
@@ -411,6 +442,7 @@ def main() -> None:
             args.output,
             project_pages=args.project_saved_pages,
             review_verdicts=args.review_verdicts,
+            compact_threshold=args.compact_threshold,
         )
     )
 

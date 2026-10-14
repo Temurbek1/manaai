@@ -204,7 +204,12 @@ sources, schedules, SSH, keys and all prior evidence/unknown holds remain unchan
 The validation/data-quality skills keep this stage result qualified and the broader
 workspace acceptance open, rather than equating two expected verdicts with readiness.
 
-Remaining acceptance: complete strong-model full original catalog analysis/review,
+The following [deferred-compaction checkpoint](operation-compaction-quality-checkpoint.md)
+passed one complete model-driven original catalog/analysis/review task with manual
+full-criteria verification. It neither relabels the earlier incomplete attempt nor
+closes broader acceptance, and remains local without source/production activation.
+
+Remaining acceptance: broader strong-model full-task quality,
 broader quality cases, corrected fresh GA4/deployed-browser flows, scalable extended
 session context and Retention-first governed actions before full Orchestrator and
 Technical. This feature alone does not close the full Codex/Claude-style objective.

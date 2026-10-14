@@ -131,7 +131,8 @@ analysis/review, not shorten the supplied report or remove inconvenient criteria
 
 An additional possible admission improvement is the documented exact
 [`/v1/responses/input_tokens` preflight](https://developers.openai.com/api/docs/guides/token-counting).
-The installed SDK has no dedicated helper. Price, opaque-state support and required
+The current pinned SDK includes a dedicated `responses.input_tokens.count` helper.
+The previous statement that no helper existed was incorrect. Price, opaque-state support and required
 request-accounting behavior have not been established for this deployment; **no
 token-count endpoint was called**. It is not implemented, a promised free operation
 or authority to resume this stopped attempt. Any future integration needs a typed,

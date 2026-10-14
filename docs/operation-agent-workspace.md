@@ -121,6 +121,13 @@ estimated, no unknown hold). It verifies that stage, not a complete catalog/anal
 Goal, real MANA data or production readiness; the original full-loop failure remains.
 See the review-verdict checkpoint for immutable evidence and remaining acceptance.
 
+The later [deferred-compaction diagnostic](operation-compaction-quality-checkpoint.md)
+completed the full original buried-catalog task: model-driven discovery, complete
+paged evidence, generated numerical analysis and accepted independent review
+($0.182368 estimated, ten calls, no unknown hold). All original criteria were
+manually checked. This is one full historical synthetic case, not broad model
+quality, fresh MANA coverage, production readiness or closure of this objective.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

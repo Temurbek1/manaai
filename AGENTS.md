@@ -179,6 +179,10 @@
   feedback is historical model opinion, not evidence/grants. Old tasks never upgrade;
   only the closed `2ea7b9a` fallback is verified with execution disabled. See
   `docs/operation-review-verdicts.md`; production is unchanged.
+- One full native catalog/analysis/review synthetic task passed with an explicitly
+  deferred compaction trigger and unchanged hard caps. It is local, not a proven
+  optimal default, causal root-cause finding, real MANA measure or broad readiness.
+  See `docs/operation-compaction-quality-checkpoint.md`; do not replay old attempts.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

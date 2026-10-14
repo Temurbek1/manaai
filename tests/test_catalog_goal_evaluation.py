@@ -33,19 +33,26 @@ def test_new_fixture_is_full_historical_scope_and_oracle_is_not_model_input() ->
     assert "30.00" not in exercise.REPORT and "17.00" not in exercise.REPORT
 
 
+@pytest.mark.parametrize("compact_threshold", [None, 24000])
 def test_offline_default_does_not_load_credentials_or_start_a_workflow(
-    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], compact_threshold: int | None
 ) -> None:
     def forbidden() -> None:
         raise AssertionError("Plan-only inspection must not load settings")
 
     monkeypatch.setattr(exercise, "get_settings", forbidden)
-    monkeypatch.setattr(sys, "argv", ["operation_catalog_goal_evaluate.py"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["operation_catalog_goal_evaluate.py"]
+        + (["--compact-threshold", str(compact_threshold)] if compact_threshold else []),
+    )
     exercise.main()
     plan = json.loads(capsys.readouterr().out)
     assert plan["budget_microusd"] == 490000 and plan["max_calls"] == 12
     assert plan["source_attempts"] == plan["production_changes"] == 0
     assert not plan["replay"]
+    assert plan["requested_compact_threshold"] == compact_threshold
 
 
 async def test_exclusive_attempt_marker_prevents_settings_or_model_recreation(
@@ -59,10 +66,26 @@ async def test_exclusive_attempt_marker_prevents_settings_or_model_recreation(
         await exercise.evaluate(tmp_path)
 
 
+def test_compaction_profile_changes_no_task_fixture_or_admission_limits() -> None:
+    baseline = exercise.plan(project_pages=True, review_verdicts=True)
+    delayed = exercise.plan(project_pages=True, review_verdicts=True, compact_threshold=24000)
+    baseline.pop("requested_compact_threshold")
+    assert delayed.pop("requested_compact_threshold") == 24000
+    assert baseline == delayed
+    for invalid in (0, True, 23999, 25000):
+        with pytest.raises(ValueError, match="compaction profiles"):
+            exercise.plan(compact_threshold=invalid)
+
+
+@pytest.mark.parametrize("compact_threshold", [None, 24000])
 @pytest.mark.parametrize("contract", ["legacy", "pages", "verdicts"])
 @pytest.mark.parametrize("failure", [None, "quota", "incomplete", "timeout"])
 async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences(
-    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None, contract: str
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+    failure: str | None,
+    contract: str,
+    compact_threshold: int | None,
 ) -> None:
     project_pages = contract != "legacy"
     review_verdicts = contract == "verdicts"
@@ -80,6 +103,10 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         payload = json.loads(request.content)
         requests.append(payload)
         assert request.extensions["timeout"]["read"] == 210
+        assert payload["context_management"] == [
+            {"type": "compaction", "compact_threshold": compact_threshold or 8000}
+        ]
+        assert payload["max_output_tokens"] == 8192
         if failure == "timeout":
             raise httpx.ReadTimeout("PRIVATE timeout body", request=request)
         if failure == "quota":
@@ -186,13 +213,19 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
 
     monkeypatch.setattr(exercise, "OperationGoalService", CapturedService)
     result = await exercise.evaluate(
-        tmp_path / "independent", project_pages=project_pages, review_verdicts=review_verdicts
+        tmp_path / "independent",
+        project_pages=project_pages,
+        review_verdicts=review_verdicts,
+        compact_threshold=compact_threshold,
     )
     configuration = json.loads((tmp_path / "independent/runtime-configuration.json").read_text())
     assert configuration == {
         "model_request_timeout_seconds": 210,
         "model_step_timeout_seconds": 240,
         "sdk_max_retries": 0,
+        "compact_threshold": compact_threshold or 8000,
+        "model_window_bytes": 192000,
+        "goal_context_bytes": 64000,
     }
     assert result["semantic_review"] == "pending" and result["original_request_retained"]
     assert result["production_changes"] == result["source_attempts"] == 0
@@ -219,3 +252,4 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         assert [tool["call"]["name"] for tool in goal["tools"]].count("find_saved_reports") == 2
         assert "tools" not in requests[-1]
     assert settings.operation_workspace_report_discovery_enabled is False
+    assert settings.operation_workspace_compact_threshold == 8000
