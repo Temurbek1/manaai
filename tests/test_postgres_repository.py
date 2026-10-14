@@ -58,6 +58,79 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+async def test_postgres_retention_contact_cross_connection_intent_and_unknown_recipient_hold() -> (
+    None
+):
+    from app.mana_operation_ai.application.retention.contact import RetentionContactService
+    from app.mana_operation_ai.application.runtime import UuidGenerator
+    from app.mana_operation_ai.domain.retention_contact import RetentionContactTarget
+    from app.mana_operation_ai.infrastructure.persistence.retention_contact import (
+        SqlAlchemyRetentionContacts,
+    )
+    from app.mana_operation_ai.infrastructure.retention.contact_fake import (
+        FakeRetentionContactExecutor,
+    )
+    from tests.test_retention_contact import Clock as ContactClock
+    from tests.test_retention_contact import decision, request, target_payload
+
+    assert POSTGRES_URL is not None
+    first_db, second_db = OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)
+    clock = ContactClock()
+    owner = f"contact-{uuid4()}"
+    actor = ActorContext(actor_id=owner, role=UserRole.ADMIN)
+    chats = SqlAlchemyChatRepository(first_db, hourly_limit=100, daily_limit=100)
+    topic = await chats.create(
+        owner, TopicCreate(agent_id="retention-agent", product="mana", title="Synthetic contact")
+    )
+    data = target_payload()
+    data["facts"]["account_ref"] = "acct_" + hashlib.sha256(owner.encode()).hexdigest()
+    source = RetentionContactTarget.model_validate(data)
+    executor = FakeRetentionContactExecutor(clock=clock, target=source)
+
+    def service(
+        db: OperationDatabase, sender: FakeRetentionContactExecutor
+    ) -> RetentionContactService:
+        return RetentionContactService(
+            store=SqlAlchemyRetentionContacts(db),
+            executor=sender,
+            chats=chats,
+            clock=clock,
+            ids=UuidGenerator(),
+            enabled=True,
+            allow_self_approval=True,
+            controls=SqlAlchemyOperationRepository(db),
+            global_kill_switch_default=False,
+        )
+
+    first, second = service(first_db, executor), service(second_db, executor)
+    req = request()
+    req.parameters.account_ref = source.facts.account_ref
+    try:
+        action = await first.prepare(actor, topic.topic_id, req)
+        command = decision(action.fingerprint)
+        results = await asyncio.gather(
+            first.decide(actor, action.action_id, command),
+            second.decide(actor, action.action_id, command),
+            return_exceptions=True,
+        )
+        assert any(getattr(item, "status", None) == "verified" for item in results)
+        assert executor.dispatch_count == 1
+        settled = await second.get(actor, action.action_id)
+        assert settled.status == "verified"
+        assert await second.decide(actor, action.action_id, command) == settled
+        reset = FakeRetentionContactExecutor(clock=clock, target=source)
+        newer = service(second_db, reset)
+        another = request()
+        another.parameters.account_ref = source.facts.account_ref
+        next_action = await newer.prepare(actor, topic.topic_id, another)
+        with pytest.raises(ChatError, match="частоты"):
+            await newer.decide(actor, next_action.action_id, decision(next_action.fingerprint))
+        assert reset.dispatch_count == 0
+    finally:
+        await first_db.dispose()
+        await second_db.dispose()
+
+
 async def test_postgres_saved_report_catalog_keyset_json_literal_and_scope_fences() -> None:
     from app.mana_operation_ai.application.report_catalog import catalog_cursor
     from tests.test_saved_report_catalog import NOW, catalog_agents, catalog_report, search

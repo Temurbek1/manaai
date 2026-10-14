@@ -139,6 +139,39 @@ class WorkspaceEventRow(Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
 
 
+class RetentionContactRow(Base):
+    __tablename__ = "operation_retention_contacts"
+    __table_args__ = (
+        UniqueConstraint("owner", "request_id", name="uq_retention_contact_request"),
+        UniqueConstraint("owner", "decision_id", name="uq_retention_contact_decision"),
+    )
+    action_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(128), index=True)
+    topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"), index=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    decision_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    status: Mapped[str] = mapped_column(String(24))
+    revision: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class RetentionContactGuardRow(Base):
+    __tablename__ = "operation_retention_contact_guards"
+    account_ref: Mapped[str] = mapped_column(String(69), primary_key=True)
+    action_id: Mapped[str] = mapped_column(ForeignKey("operation_retention_contacts.action_id"))
+    # Unknown outcomes have no expiry and never reopen through a timer.
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RetentionContactEventRow(Base):
+    __tablename__ = "operation_retention_contact_events"
+    action_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_retention_contacts.action_id"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
 class GoalRow(Base):
     __tablename__ = "operation_goals"
     __table_args__ = (
