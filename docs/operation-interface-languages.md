@@ -1,6 +1,7 @@
 # Russian and Uzbek operational workspace
 
-Local implementation checkpoint; **not a production release**.
+Language support was released as `38cdac4` after the owner's approval. See
+[the verified language release](operation-interface-language-release.md).
 
 The website supports Russian (`ru`) and Uzbek Latin (`uz`, **O‘zbekcha**).
 One compact selector is available on login and in the agent sidebar. Selection persists
@@ -57,5 +58,7 @@ real-browser audit checks RU/UZ login and agent navigation, reload, 320px layout
 WCAG A/AA checks before returning to existing Russian flows.
 
 These are transport/UI checks, **not independent Uzbek linguistic quality acceptance**
-of a real model. No paid model call, Firebase/GA4 read, production update, new schedule,
-main/audio change or SSH/key change was performed for this language increment.
+of a real model. The later scoped release also verified one small Uzbek greeting through
+the public authenticated proxy: one settled call, estimated $0.001487, no source read,
+Goal or customer action. It does not prove full Uzbek analytical/review quality. No
+new schedule, source read, migration, main/audio change or SSH/key change was performed.

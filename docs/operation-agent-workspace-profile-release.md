@@ -1,5 +1,9 @@
 # Active operational workspace release — 2026-10-14
 
+The later [RU/UZ language release](operation-interface-language-release.md) replaces the
+sidecar/UI images below with `38cdac4`, preserving this profile's flags, limits, sources,
+history and schema. The checks below remain historical evidence, not newly rerun model cases.
+
 The owner approved this release after additional checks. This supersedes the
 operational API/UI versions in the earlier limit and cohort release reports,
 not their source findings, unknown costs or unfinished acceptance. The complete
