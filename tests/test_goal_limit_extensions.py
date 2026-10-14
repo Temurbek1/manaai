@@ -215,6 +215,9 @@ async def test_budget_stop_requires_exact_larger_budget_and_keeps_reserved_costs
         saved = await service.repository.get("alice", saved.goal_id)
         assert saved.limit_stop == "budget" and saved.steps_used == 0
         assert saved.accounted_microusd == 0 and model.contexts == []
+        assert "для безопасного допуска следующего шага" in saved.waiting_reason
+        assert "исчерпан" not in saved.waiting_reason
+        assert "расходы остаются в резерве" in saved.waiting_reason
         with pytest.raises(ChatError):
             await service.command("alice", saved.goal_id, extension(saved, steps=6))
         expanded = await service.command("alice", saved.goal_id, extension(saved, budget=100000))
@@ -222,6 +225,28 @@ async def test_budget_stop_requires_exact_larger_budget_and_keeps_reserved_costs
         assert await service.tick()
         observed = await service.repository.get("alice", saved.goal_id)
         assert observed.accounted_microusd == 5000 and observed.unsettled_microusd == 0
+
+
+async def test_context_limit_preserves_original_goal_without_requesting_a_smaller_task(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    configure(monkeypatch, tmp_path / "full-context-bound.db")
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        service = app.state.operation_goal_service
+        saved = await goal(service)
+        model = GoalFake()
+        service._model = model
+        service._max_context_bytes = 100  # Test-only hard boundary, never a production setting.
+        assert await service.tick()
+        stopped = await service.repository.get("alice", saved.goal_id)
+        assert stopped.status == "waiting" and stopped.request == saved.request
+        assert "Исходная цель, условия и результат сохранены" in stopped.waiting_reason
+        assert "не сокращены" in stopped.waiting_reason and "AI не вызван" in stopped.waiting_reason
+        assert "более узкую цель" not in stopped.waiting_reason
+        assert stopped.steps_used == stopped.accounted_microusd == stopped.unsettled_microusd == 0
+        assert not stopped.read_attempted and not stopped.approved_capability
+        assert model.contexts == [] and not await service.tick()
 
 
 async def test_extended_goal_can_cross_the_original_twelve_tool_bound_without_corrupting_storage(

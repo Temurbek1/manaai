@@ -77,6 +77,35 @@ def test_compaction_profile_changes_no_task_fixture_or_admission_limits() -> Non
             exercise.plan(compact_threshold=invalid)
 
 
+def test_long_session_plan_is_offline_and_does_not_reduce_the_catalog_task(
+    monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def forbidden() -> None:
+        raise AssertionError("Plan inspection cannot load settings or issue inference")
+
+    monkeypatch.setattr(exercise, "get_settings", forbidden)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "operation_catalog_goal_evaluate.py",
+            "--project-saved-pages",
+            "--review-verdicts",
+            "--compact-threshold",
+            "8000",
+            "--long-session",
+        ],
+    )
+    exercise.main()
+    pinned = json.loads(capsys.readouterr().out)
+    assert pinned["long_session"] and pinned["prior_synthetic_turns"] == 110
+    assert pinned["original_topic_constraint"] == exercise.LONG_SESSION_CONSTRAINT
+    assert pinned["fixture"] == exercise.REPORT
+    assert pinned["max_calls"] == 12 and pinned["budget_microusd"] == 490000
+    assert pinned["source_attempts"] == pinned["production_changes"] == 0
+    assert pinned["analysis_scope"] == "saved_snapshot" and pinned["workspace_contract"] == "v14/v5"
+
+
 @pytest.mark.parametrize("compact_threshold", [None, 24000])
 @pytest.mark.parametrize("contract", ["legacy", "pages", "verdicts"])
 @pytest.mark.parametrize("failure", [None, "quota", "incomplete", "timeout"])
@@ -86,6 +115,7 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
     failure: str | None,
     contract: str,
     compact_threshold: int | None,
+    long_session: bool = False,
 ) -> None:
     project_pages = contract != "legacy"
     review_verdicts = contract == "verdicts"
@@ -122,6 +152,13 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         goal = OperationGoal.model_validate(json.loads(current["content"])["goal"])
         assert goal.report_discovery_enabled and goal.request.analysis_scope == "saved_snapshot"
         assert "oracle_not_model_input" not in current["content"]
+        if long_session:
+            assert goal.session_memory is not None
+            records = goal.session_memory.user_context
+            assert len(records) == 2  # Exact repeated user text is deduplicated, not shortened.
+            assert records[0].text == exercise.LONG_SESSION_CONSTRAINT
+            assert records[1].text == exercise.LONG_SESSION_FOLLOWUP
+            assert not goal.session_memory.actions and not goal.session_memory.checkpoints
         name, arguments = "", {}
         if not goal.tools:
             name = "inspect_sources"
@@ -217,6 +254,7 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         project_pages=project_pages,
         review_verdicts=review_verdicts,
         compact_threshold=compact_threshold,
+        long_session=long_session,
     )
     configuration = json.loads((tmp_path / "independent/runtime-configuration.json").read_text())
     assert configuration == {
@@ -226,12 +264,18 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         "compact_threshold": compact_threshold or 8000,
         "model_window_bytes": 192000,
         "goal_context_bytes": 64000,
+        **({"topic_message_limit": 1000} if long_session else {}),
     }
     assert result["semantic_review"] == "pending" and result["original_request_retained"]
     assert result["production_changes"] == result["source_attempts"] == 0
     assert "PRIVATE" not in json.dumps(result)
     goal = result["goal"]
     assert isinstance(goal, dict) and goal["report_discovery_enabled"]
+    if long_session:
+        assert result["long_session"] and result["original_topic_constraint_retained"]
+        captured = json.loads((tmp_path / "independent/captured-memory.json").read_text())
+        assert captured["user_context"][0]["text"] == exercise.LONG_SESSION_CONSTRAINT
+        assert captured["user_context"][1]["text"] == exercise.LONG_SESSION_FOLLOWUP
     assert goal["page_projection_enabled"] == project_pages
     assert (
         not goal["read_attempted"] and not goal["approved_capability"] and not goal["limit_grants"]
@@ -253,3 +297,17 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
         assert "tools" not in requests[-1]
     assert settings.operation_workspace_report_discovery_enabled is False
     assert settings.operation_workspace_compact_threshold == 8000
+
+
+@pytest.mark.parametrize("failure", [None, "quota", "incomplete", "timeout"])
+async def test_long_native_topic_retains_first_condition_across_sdk_compactions(
+    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None
+) -> None:
+    await test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences(
+        monkeypatch,
+        tmp_path,
+        failure=failure,
+        contract="verdicts",
+        compact_threshold=8000,
+        long_session=True,
+    )

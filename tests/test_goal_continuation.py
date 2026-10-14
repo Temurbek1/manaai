@@ -185,6 +185,79 @@ def test_native_window_tool_receipt_scope_review_and_exact_conditions() -> None:
         )
 
 
+@pytest.mark.parametrize("failure", ["pruned", "provider_result", "different_call"])
+def test_compaction_cannot_leave_a_missing_or_consumed_pending_tool(failure: str) -> None:
+    goal = fixture_goal()
+    prepared = prepare_continuation(
+        context=context(goal), owner="alice", state=None, model=MODEL, maximum_bytes=192000
+    )
+    output = raw_reply(decision(), tool=True).http_response.json()["output"]
+    call = AgentToolCall(name="inspect_sources")
+    if failure == "pruned":
+        output.reverse()  # The latest compaction would discard the selected invocation.
+    elif failure == "provider_result":
+        output.append(
+            {"type": "function_call_output", "call_id": "call_test", "output": "Untrusted"}
+        )
+    else:
+        call = AgentToolCall(name="read_saved_report", report_id="not-selected-by-provider")
+    with pytest.raises(ValueError):
+        finish_continuation(prepared, output, model=MODEL, call=call, maximum_bytes=192000)
+
+
+@pytest.mark.parametrize("failure", ["pruned", "provider_result"])
+async def test_unsafe_tool_compaction_stops_before_dispatch_with_priced_usage(
+    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str
+) -> None:
+    configure_workspace(monkeypatch, tmp_path / "unsafe-tool-compaction.db")
+    monkeypatch.setenv("OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED", "true")
+    get_settings.cache_clear()
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        service = app.state.operation_goal_service
+        model = service._continuing_model
+        assert isinstance(model, OpenAIGoalModel)
+        raw = raw_reply(decision(), tool=True)
+        payload = raw.http_response.json()
+        if failure == "pruned":
+            payload["output"].reverse()
+        else:
+            payload["output"].append(
+                {"type": "function_call_output", "call_id": "call_test", "output": "Untrusted"}
+            )
+        raw.http_response.json = lambda: payload
+        parse = AsyncMock(return_value=raw)
+        inspect = AsyncMock(side_effect=AssertionError("An unsafe tool was dispatched"))
+        monkeypatch.setattr(model._client.responses.with_raw_response, "parse", parse)
+        monkeypatch.setattr(service._tools, "inspect", inspect)
+        topic = await service._chats.create(
+            "alice",
+            TopicCreate(agent_id="operations-orchestrator", product="mana", title="Bounded task"),
+        )
+        request = fixture_goal().request
+        saved = await service.create("alice", topic.topic_id, request)
+        assert await service.tick()
+        stopped = await service.repository.get("alice", saved.goal_id)
+        assert stopped.status == "waiting" and stopped.phase == "plan"
+        assert stopped.request == request and stopped.tools == []
+        assert stopped.model_continuation is None and stopped.model_recoveries == 0
+        assert not stopped.read_attempted and stopped.approved_capability is None
+        assert "Контекст продолжения" in stopped.waiting_reason
+        assert "Untrusted" not in stopped.waiting_reason
+        expected = model._rates.actual_microusd(
+            input_tokens=100, output_tokens=50, cached_tokens=0, cache_write_tokens=0
+        )
+        assert stopped.accounted_microusd == expected and stopped.unsettled_microusd == 0
+        assert all(
+            period.usage.llm_microusd == expected
+            for period in await app.state.operation_cost_ledger.periods()
+        )
+        assert not await service.tick()
+        assert parse.call_count == 1 and model._client.max_retries == 0
+        inspect.assert_not_awaited()
+    get_settings.cache_clear()
+
+
 @pytest.mark.parametrize(
     "failure", ["timeout", "unknown_model", "missing_usage", "incomplete", "unsafe_state"]
 )

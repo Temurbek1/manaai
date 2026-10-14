@@ -179,6 +179,16 @@
   feedback is historical model opinion, not evidence/grants. Old tasks never upgrade;
   only the closed `2ea7b9a` fallback is verified with execution disabled. See
   `docs/operation-review-verdicts.md`; production is unchanged.
+- A selected native tool must survive actual compaction as the same canonical
+  pending invocation before dispatch. Provider outputs cannot supply runtime/SQL
+  tool receipts. Lost/consumed/mismatched pairing stops with verified priced usage,
+  never decision-format recovery, source execution or automatic replay. Native
+  protocols, hard bounds and approval authority remain unchanged. The long-topic
+  real-model diagnostic retained the original condition/full source through three
+  compactions but stopped at next-call budget admission before analysis/review;
+  do not call it a full quality pass. Limit messages distinguish admission from
+  actual spend and never replace the task with a smaller objective. See
+  `docs/operation-continuation-pairing-checkpoint.md`.
 - One full native catalog/analysis/review synthetic task passed with an explicitly
   deferred compaction trigger and unchanged hard caps. It is local, not a proven
   optimal default, causal root-cause finding, real MANA measure or broad readiness.

@@ -138,6 +138,14 @@ are correct, and independent review retains the full missing-data Goal as waitin
 qualified cases do not retroactively fix the original matrix or establish full
 workspace readiness.
 
+The later [continuation-pairing checkpoint](operation-continuation-pairing-checkpoint.md)
+closes a reproduced pre-dispatch inconsistency without changing permissions or
+private protocols. A new 110-turn synthetic topic retained its first complete
+condition and all source text across three real server compactions, then stopped
+on conservative next-call admission ($0.216311 estimated, no unknown hold). Full
+numerical analysis/review did not run. This advances context reliability but does
+not establish full extended-session quality or allow narrower substitute tasks.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

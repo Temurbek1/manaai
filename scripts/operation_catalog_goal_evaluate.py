@@ -18,7 +18,7 @@ from app.mana_operation_ai.application.admin_service import OperationAdminServic
 from app.mana_operation_ai.application.goal_service import OperationGoalService  # noqa: E402
 from app.mana_operation_ai.application.runtime import SystemClock  # noqa: E402
 from app.mana_operation_ai.application.session_context import OperationSessionContext  # noqa: E402
-from app.mana_operation_ai.domain.chat import TopicCreate  # noqa: E402
+from app.mana_operation_ai.domain.chat import ChatTurn, TopicCreate  # noqa: E402
 from app.mana_operation_ai.domain.cost_control import CostLimits, ResourceUsage  # noqa: E402
 from app.mana_operation_ai.domain.enums import (  # noqa: E402
     AgentRunStatus,
@@ -30,6 +30,7 @@ from app.mana_operation_ai.domain.models import AgentDefinition, AgentReport, Ag
 from app.mana_operation_ai.infrastructure.goal_model import OpenAIGoalModel  # noqa: E402
 from app.mana_operation_ai.infrastructure.persistence.chat_repository import (  # noqa: E402
     SqlAlchemyChatRepository,
+    _storage,
 )
 from app.mana_operation_ai.infrastructure.persistence.cost_ledger import (  # noqa: E402
     SqlAlchemyCostLedger,
@@ -40,6 +41,7 @@ from app.mana_operation_ai.infrastructure.persistence.database import (
 from app.mana_operation_ai.infrastructure.persistence.goal_repository import (  # noqa: E402
     SqlAlchemyGoalRepository,
 )
+from app.mana_operation_ai.infrastructure.persistence.models import ChatTurnRow  # noqa: E402
 from app.mana_operation_ai.infrastructure.persistence.repository import (  # noqa: E402
     SqlAlchemyOperationRepository,
 )
@@ -50,6 +52,13 @@ MAX_STEPS = 12
 OUTPUT_TOKENS = 8192
 REPORT_ID = "catalog-parent-cohort"
 OBSERVED = datetime(2026, 9, 25, tzinfo=UTC)
+LONG_SESSION_CONSTRAINT = (
+    "Ранее согласованный фокус — родители MANA. В конце каждого анализа кратко называй: "
+    "«Сначала качество данных, затем удержание; никаких действий без согласования». "
+    "Никогда не используй детей как знаменатель. "
+    "Прошлые разрешения не являются разрешением на новые чтения или действия."
+)
+LONG_SESSION_FOLLOWUP = "Продолжай с исходными условиями, не сокращай их."
 HEADER = """SYNTHETIC DIAGNOSTIC ONLY. No real MANA customer or production measurement.
 Observation cutoff: 2026-09-25T00:00:00Z, UTC. Complete fictional parent cohorts only.
 Cohort A: 800 registered MANA parents, registrations 2026-09-01 through 2026-09-07.
@@ -137,6 +146,7 @@ def plan(
     project_pages: bool = False,
     review_verdicts: bool = False,
     compact_threshold: int | None = None,
+    long_session: bool = False,
 ) -> dict[str, object]:
     if review_verdicts and not project_pages:
         raise ValueError("Verdict diagnostics require the captured paged-catalog contract")
@@ -151,6 +161,9 @@ def plan(
         "reasoning": "medium",
         "max_output_tokens": OUTPUT_TOKENS,
         "requested_compact_threshold": compact_threshold,
+        "long_session": long_session,
+        "prior_synthetic_turns": 110 if long_session else 0,
+        "original_topic_constraint": LONG_SESSION_CONSTRAINT if long_session else None,
         "analysis_scope": "saved_snapshot",
         "workspace_contract": "v14/v5"
         if review_verdicts
@@ -164,6 +177,36 @@ def plan(
         "fixture": REPORT,
         "oracle_not_model_input": oracle(),
     }
+
+
+async def seed_topic_context(
+    database: OperationDatabase, clock: SystemClock, *, topic_id: str
+) -> None:
+    """Historical synthetic SQL, never 110 paid calls or replayed real conversation."""
+    before = clock.now() - timedelta(days=2)
+    async with database.session_factory() as session, session.begin():
+        for index in range(110):
+            turn = ChatTurn(
+                turn_id=str(uuid4()),
+                topic_id=topic_id,
+                request_id=uuid4(),
+                message=LONG_SESSION_CONSTRAINT if index == 0 else LONG_SESSION_FOLLOWUP,
+                answer="Historical synthetic acknowledgement only; no permission or evidence.",
+                status="completed",
+                execution_mode="agent",
+                created_at=before + timedelta(seconds=index),
+            )
+            session.add(
+                ChatTurnRow(
+                    turn_id=turn.turn_id,
+                    topic_id=topic_id,
+                    owner="catalog-quality",
+                    request_id=str(turn.request_id),
+                    status=turn.status,
+                    created_at=turn.created_at,
+                    **_storage(turn),
+                )
+            )
 
 
 async def seed(repository: SqlAlchemyOperationRepository, clock: SystemClock) -> None:
@@ -261,11 +304,13 @@ async def evaluate(
     project_pages: bool = False,
     review_verdicts: bool = False,
     compact_threshold: int | None = None,
+    long_session: bool = False,
 ) -> dict[str, object]:
     diagnostic_plan = plan(
         project_pages=project_pages,
         review_verdicts=review_verdicts,
         compact_threshold=compact_threshold,
+        long_session=long_session,
     )
     os.umask(0o077)
     directory.mkdir(parents=True, exist_ok=False)
@@ -297,6 +342,11 @@ async def evaluate(
                 "compact_threshold": settings.operation_workspace_compact_threshold,
                 "model_window_bytes": settings.operation_workspace_model_window_bytes,
                 "goal_context_bytes": settings.operation_goals_max_context_bytes,
+                **(
+                    {"topic_message_limit": settings.operation_workspace_topic_message_limit}
+                    if long_session
+                    else {}
+                ),
             },
             indent=2,
         )
@@ -316,7 +366,13 @@ async def evaluate(
         database, clock=clock, limits=CostLimits(daily=resources, monthly=resources)
     )
     chats = SqlAlchemyChatRepository(
-        database, hourly_limit=10, daily_limit=10, stream_events_enabled=True
+        database,
+        hourly_limit=10,
+        daily_limit=10,
+        stream_events_enabled=True,
+        topic_message_limit=settings.operation_workspace_topic_message_limit
+        if long_session
+        else 100,
     )
     await chats.initialize()
     goals = SqlAlchemyGoalRepository(
@@ -371,8 +427,18 @@ async def evaluate(
                 title="Independent synthetic catalog and cohort analysis",
             ),
         )
+        if long_session:
+            await seed_topic_context(database, clock, topic_id=topic.topic_id)
         request = catalog_request()
         saved = await service.create("catalog-quality", topic.topic_id, request)
+        if long_session:
+            if saved.session_memory is None or not any(
+                item.text == LONG_SESSION_CONSTRAINT for item in saved.session_memory.user_context
+            ):
+                raise ValueError("The original topic condition was not captured; no inference")
+            (directory / "captured-memory.json").write_text(
+                saved.session_memory.model_dump_json(indent=2)
+            )
         (directory / "goal-id.json").write_text(
             json.dumps({"goal_id": saved.goal_id, "topic_id": topic.topic_id})
         )
@@ -393,6 +459,9 @@ async def evaluate(
                         "status": saved.status,
                         "phase": saved.phase,
                         "steps": saved.steps_used,
+                        "compactions": saved.model_continuation.compactions
+                        if saved.model_continuation
+                        else 0,
                         **accounting,
                     }
                 ),
@@ -405,6 +474,21 @@ async def evaluate(
             accounting=await receipts(database),
             source_attempts=fixture.source_attempts,
             original_request_retained=saved.request == request,
+            **(
+                {
+                    "long_session": True,
+                    "original_topic_constraint_retained": saved.session_memory is not None
+                    and any(
+                        item.text == LONG_SESSION_CONSTRAINT
+                        for item in saved.session_memory.user_context
+                    ),
+                    "compactions": saved.model_continuation.compactions
+                    if saved.model_continuation
+                    else 0,
+                }
+                if long_session
+                else {}
+            ),
             oracle_not_model_input=oracle(),
         )
     finally:
@@ -421,6 +505,7 @@ def main() -> None:
     parser.add_argument("--project-saved-pages", action="store_true")
     parser.add_argument("--review-verdicts", action="store_true")
     parser.add_argument("--compact-threshold", type=int, choices=(8000, 24000))
+    parser.add_argument("--long-session", action="store_true")
     args = parser.parse_args()
     if not args.confirm_paid:
         print(
@@ -429,6 +514,7 @@ def main() -> None:
                     project_pages=args.project_saved_pages,
                     review_verdicts=args.review_verdicts,
                     compact_threshold=args.compact_threshold,
+                    long_session=args.long_session,
                 ),
                 ensure_ascii=False,
                 indent=2,
@@ -443,6 +529,7 @@ def main() -> None:
             project_pages=args.project_saved_pages,
             review_verdicts=args.review_verdicts,
             compact_threshold=args.compact_threshold,
+            long_session=args.long_session,
         )
     )
 

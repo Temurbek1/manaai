@@ -82,6 +82,17 @@ def _item_digest(item: ResponseInputItemParam) -> str:
     return hashlib.sha256(json.dumps(item, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
+def _pending_invocations(
+    items: list[ResponseInputItemParam],
+) -> list[ResponseInputItemParam]:
+    outputs = {item.get("call_id") for item in items if item.get("type") == "function_call_output"}
+    return [
+        item
+        for item in items
+        if item.get("type") == "function_call" and item.get("call_id") not in outputs
+    ]
+
+
 def _replace_snapshots(
     items: list[ResponseInputItemParam], refs: list[RuntimeSnapshotRef], goal: OperationGoal
 ) -> tuple[list[ResponseInputItemParam], list[RuntimeSnapshotRef], set[int]]:
@@ -173,11 +184,7 @@ def prepare_continuation(
                 for ref in state.page_outputs
             ]
             _validate_page_outputs(items, pages, goal)
-        pending = [item for item in items if item.get("type") == "function_call"]
-        outputs = {
-            item.get("call_id") for item in items if item.get("type") == "function_call_output"
-        }
-        pending = [item for item in pending if item.get("call_id") not in outputs]
+        pending = _pending_invocations(items)
         if state.pending_tool_position is not None:
             position = state.pending_tool_position
             if len(pending) != 1 or position >= len(goal.tools):
@@ -254,6 +261,9 @@ def finish_continuation(
     call: AgentToolCall | None,
     maximum_bytes: int,
 ) -> ModelContinuation:
+    # Only the runtime may attach a SQL-backed receipt, never the model/provider.
+    if any(item.get("type") == "function_call_output" for item in output):
+        raise ValueError("Provider output cannot supply runtime tool receipts")
     # Provider history is pruned only before the latest actual server compaction item.
     # Separately proven runtime snapshots are handled by _replace_snapshots, never by shape.
     # Standalone /compact output must not be pruned; that endpoint is not used here.
@@ -282,6 +292,22 @@ def finish_continuation(
     invocations = [item for item in output if item.get("type") == "function_call"]
     if bool(invocations) != (call is not None) or len(invocations) > 1:
         raise ValueError("Continuation and durable decision disagree")
+    pending = _pending_invocations(items)
+    if call is None:
+        if pending:
+            raise ValueError("Continuation has an unselected pending tool")
+    elif (
+        len(pending) != 1
+        or pending[0].get("call_id") != invocations[0].get("call_id")
+        or parse_agent_function(
+            str(pending[0].get("name")),
+            str(pending[0].get("arguments")),
+            report_discovery_enabled=prepared.goal.report_discovery_enabled,
+        )
+        != call
+    ):
+        # Reject before dispatch, not after a tool ran and its pairing was lost.
+        raise ValueError("Selected tool is not retained as an exact pending invocation")
     return ModelContinuation(
         protocol=continuation_protocol(prepared.goal),
         model=model,

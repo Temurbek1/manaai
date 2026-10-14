@@ -409,8 +409,8 @@ class OperationGoalService:
         )
         if len(context.encode()) > self._max_context_bytes:
             raise ChatError(
-                "Контекст цели достиг лимита. Сохранённый результат доступен; "
-                "создайте более узкую цель."
+                "Контекст цели достиг лимита. Исходная цель, условия и результат сохранены; "
+                "они не сокращены. AI не вызван."
             )
         return context
 
@@ -574,7 +574,8 @@ class OperationGoalService:
                 if goal.limit_tracking:
                     goal.limit_stop = "budget"
                 raise ChatError(
-                    "Бюджет цели исчерпан. Результат сохранён; неизвестные расходы входят в резерв."
+                    "Оставшегося бюджета недостаточно для безопасного допуска следующего шага. "
+                    "Результат сохранён; неизвестные расходы остаются в резерве."
                 )
             # Goal-local conservative hold supplements the shared atomic day/month ledger.
             goal.accounted_microusd += amount
