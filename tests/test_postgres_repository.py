@@ -3,7 +3,7 @@ import hashlib
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -161,6 +161,154 @@ async def test_postgres_retention_contact_cross_connection_intent_and_unknown_re
     finally:
         await first_db.dispose()
         await second_db.dispose()
+
+
+@pytest.mark.parametrize("revoke_race", [False, True])
+async def test_postgres_peer_review_serializes_approval_against_approval_or_revocation(
+    revoke_race: bool,
+) -> None:
+    from app.mana_operation_ai.application.contact_reviews import ContactReviewAccess
+    from app.mana_operation_ai.application.retention.contact import RetentionContactService
+    from app.mana_operation_ai.application.runtime import UuidGenerator
+    from app.mana_operation_ai.domain.auth import AdminUser, AuthAuditEvent
+    from app.mana_operation_ai.domain.contact_reviews import ContactReviewCreate, ContactReviewGrant
+    from app.mana_operation_ai.domain.enums import AdminUserStatus, AuthAuditEventType
+    from app.mana_operation_ai.domain.retention_contact import RetentionContactTarget
+    from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
+        SqlAlchemyAdminAuthRepository,
+    )
+    from app.mana_operation_ai.infrastructure.persistence.contact_review_directory import (
+        AdminContactReviewDirectory,
+    )
+    from app.mana_operation_ai.infrastructure.persistence.contact_reviews import (
+        SqlAlchemyContactReviews,
+    )
+    from app.mana_operation_ai.infrastructure.persistence.retention_contact import (
+        SqlAlchemyRetentionContacts,
+    )
+    from app.mana_operation_ai.infrastructure.retention.contact_fake import (
+        FakeRetentionContactExecutor,
+    )
+    from tests.test_retention_contact import Clock as ContactClock
+    from tests.test_retention_contact import decision, request, target_payload
+
+    assert POSTGRES_URL is not None
+    databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]
+    clock = ContactClock()
+    users = [str(uuid4()), str(uuid4())]
+    auth = SqlAlchemyAdminAuthRepository(databases[0])
+    for uid in users:
+        await auth.create_user(
+            user=AdminUser(
+                user_id=uid,
+                telegram_id=uuid4().int % 9000000000000000 + 1,
+                role=UserRole.ADMIN,
+                status=AdminUserStatus.ACTIVE,
+                created_at=clock.now(),
+                updated_at=clock.now(),
+                created_by="synthetic",
+                display_name="Synthetic PostgreSQL reviewer",
+            ),
+            event=AuthAuditEvent(
+                event_id=str(uuid4()),
+                event_type=AuthAuditEventType.USER_CREATED,
+                occurred_at=clock.now(),
+                subject_user_id=uid,
+                summary="Synthetic PostgreSQL identity",
+            ),
+        )
+    chats = SqlAlchemyChatRepository(databases[0], hourly_limit=100, daily_limit=1000)
+    await chats.initialize()
+    topic = await chats.create(
+        users[0],
+        TopicCreate(agent_id="retention-agent", product="mana", title="Synthetic peer approval"),
+    )
+    turn, _ = await chats.reserve(
+        users[0],
+        topic.topic_id,
+        MessageCreate(
+            request_id=uuid4(), message="Explicit fictional contact.", execution_mode="agent"
+        ),
+    )
+    assert await chats.update(
+        turn.model_copy(update={"status": "completed", "next_action": "retention_contacts"})
+    )
+    payload = target_payload()
+    payload["facts"]["account_ref"] = "acct_" + hashlib.sha256(users[0].encode()).hexdigest()
+    executor = FakeRetentionContactExecutor(
+        clock=clock, target=RetentionContactTarget.model_validate(payload)
+    )
+    stores = [SqlAlchemyContactReviews(db) for db in databases]
+    services = [
+        RetentionContactService(
+            store=SqlAlchemyRetentionContacts(db),
+            executor=executor,
+            chats=chats,
+            clock=clock,
+            ids=UuidGenerator(),
+            enabled=True,
+            allow_self_approval=False,
+            controls=SqlAlchemyOperationRepository(db),
+            global_kill_switch_default=False,
+            review_access=ContactReviewAccess(
+                store,
+                AdminContactReviewDirectory(SqlAlchemyAdminAuthRepository(db), db),
+                enabled=True,
+            ),
+        )
+        for db, store in zip(databases, stores, strict=True)
+    ]
+    try:
+        intent = request()
+        intent.parameters.account_ref = payload["facts"]["account_ref"]
+        action = await services[0].prepare(
+            ActorContext(actor_id=users[0], role=UserRole.ADMIN),
+            topic.topic_id,
+            intent,
+            turn_id=turn.turn_id,
+        )
+        grant = await stores[0].create(
+            ContactReviewGrant(
+                review_id=str(uuid4()),
+                owner=users[0],
+                action_id=action.action_id,
+                topic_id=topic.topic_id,
+                turn_id=turn.turn_id,
+                request=ContactReviewCreate(
+                    request_id=uuid4(),
+                    reviewer_id=UUID(users[1]),
+                    confirmed=True,
+                    fingerprint=action.fingerprint,
+                ),
+                created_at=clock.now(),
+                expires_at=action.expires_at,
+            )
+        )
+        actor = ActorContext(actor_id=users[1], role=UserRole.ADMIN)
+        vote = decision(action.fingerprint)
+        alternate = (
+            stores[1].revoke(grant, at=clock.now())
+            if revoke_race
+            else services[1].decide(actor, action.action_id, vote)
+        )
+        outcomes = await asyncio.gather(
+            services[0].decide(actor, action.action_id, vote), alternate, return_exceptions=True
+        )
+        assert any(not isinstance(item, BaseException) for item in outcomes)
+        saved = await SqlAlchemyRetentionContacts(databases[1]).get(users[0], action.action_id)
+        saved_grant = await stores[1].by_id(grant.review_id)
+        assert saved_grant is not None
+        if saved_grant.revoked_at is not None:
+            assert revoke_race and executor.dispatch_count == 0 and saved.decision is None
+        else:
+            assert (
+                executor.dispatch_count == 1
+                and saved.status == "verified"
+                and saved.decided_by == users[1]
+            )
+    finally:
+        for db in databases:
+            await db.dispose()
 
 
 async def test_postgres_saved_report_catalog_keyset_json_literal_and_scope_fences() -> None:

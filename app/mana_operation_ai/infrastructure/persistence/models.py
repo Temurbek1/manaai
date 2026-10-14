@@ -172,6 +172,34 @@ class RetentionContactEventRow(Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSON)
 
 
+class ContactReviewGrantRow(Base):
+    __tablename__ = "operation_contact_review_grants"
+    __table_args__ = (
+        UniqueConstraint("action_id", name="uq_contact_review_action"),
+        UniqueConstraint("owner", "request_id", name="uq_contact_review_request"),
+    )
+    review_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("operation_admin_users.user_id"))
+    reviewer_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_admin_users.user_id"), index=True
+    )
+    action_id: Mapped[str] = mapped_column(ForeignKey("operation_retention_contacts.action_id"))
+    request_id: Mapped[str] = mapped_column(String(36))
+    revision: Mapped[int] = mapped_column(Integer)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class ContactReviewEventRow(Base):
+    __tablename__ = "operation_contact_review_events"
+    review_id: Mapped[str] = mapped_column(
+        ForeignKey("operation_contact_review_grants.review_id"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
 class GoalRow(Base):
     __tablename__ = "operation_goals"
     __table_args__ = (

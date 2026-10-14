@@ -76,6 +76,7 @@ class WorkspaceContactPage(DomainModel):
         "renewal_reminder",
     )
     more_omitted: bool = False
+    peer_reviews_enabled: bool = False
 
 
 class WorkspaceContactHistory(DomainModel):

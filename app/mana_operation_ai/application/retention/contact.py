@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import ChatError, ChatRepository
+from app.mana_operation_ai.application.contact_review_ports import RetentionContactReviewAccess
 from app.mana_operation_ai.application.ports import Clock, IdGenerator
 from app.mana_operation_ai.application.retention.contact_policy import (
     contact_fingerprint,
@@ -44,6 +45,7 @@ class RetentionContactService:
         allow_self_approval: bool,
         controls: RetentionContactControls,
         global_kill_switch_default: bool,
+        review_access: RetentionContactReviewAccess | None = None,
     ) -> None:
         if executor.provider_name != "fake_retention_contact":
             raise ValueError("Only the explicitly fictional contact executor is supported")
@@ -51,6 +53,7 @@ class RetentionContactService:
         self._clock, self._ids = clock, ids
         self._enabled, self._allow_self_approval = enabled, allow_self_approval
         self._controls, self._global_kill_default = controls, global_kill_switch_default
+        self._review_access = review_access
 
     async def _execution_allowed(self) -> bool:
         for key, default in [
@@ -63,9 +66,12 @@ class RetentionContactService:
         return True
 
     async def _access(self, actor: ActorContext, topic_id: str) -> None:
+        await self._topic_access(actor.actor_id, topic_id)
+
+    async def _topic_access(self, owner: str, topic_id: str) -> None:
         if not self._enabled:
             raise ChatError("Контактный sandbox Retention отключён.", 503)
-        topic = await self._chats.topic(actor.actor_id, topic_id)
+        topic = await self._chats.topic(owner, topic_id)
         if topic.product != "mana" or topic.agent_id not in {
             "retention-agent",
             "operations-orchestrator",
@@ -139,8 +145,23 @@ class RetentionContactService:
         )
 
     async def get(self, actor: ActorContext, action_id: str) -> RetentionContactAction:
-        action = await self._store.get(actor.actor_id, action_id)
-        await self._access(actor, action.topic_id)
+        if not self._enabled:
+            raise ChatError("Контактный sandbox Retention отключён.", 503)
+        try:
+            action = await self._store.get(actor.actor_id, action_id)
+        except ChatError as exc:
+            if exc.status != 404 or self._review_access is None:
+                raise
+            owner = await self._review_access.owner_for_review(
+                actor, action_id, now=self._clock.now()
+            )
+            if owner is None:
+                raise ChatError("Действие не найдено.", 404) from None
+            action = await self._store.get(owner, action_id)
+            if not await self._review_access.allowed(actor, action, now=self._clock.now()):
+                raise ChatError("Доступ к согласованию отозван или истёк.", 403) from None
+        # Validate the original owner's topic; this does not share its transcript.
+        await self._topic_access(action.owner, action.topic_id)
         return action
 
     async def decide(
@@ -158,7 +179,7 @@ class RetentionContactService:
             return action
         if action.status != "proposed" or decision.fingerprint != action.fingerprint:
             raise ChatError("Предложение изменилось или недоступно для согласования.")
-        if decision.approve and not self._allow_self_approval:
+        if decision.approve and actor.actor_id == action.owner and not self._allow_self_approval:
             raise ChatError("Согласование собственного предложения отключено.", 403)
         if self._clock.now() >= action.expires_at:
             return await self._finish(action, "refused", "proposal_expired")
@@ -173,7 +194,7 @@ class RetentionContactService:
             }
         )
         if not await self._store.transition(action, updated, self._event(updated)):
-            return await self._store.get(actor.actor_id, action_id)
+            return await self._store.get(action.owner, action_id)
         if not decision.approve:
             return updated
         # Durable recipient reservation and the exact human intent already exist.
@@ -184,6 +205,13 @@ class RetentionContactService:
         if (
             self._clock.now() >= action.expires_at
             or not await self._execution_allowed()
+            or (
+                actor.actor_id != action.owner
+                and (
+                    self._review_access is None
+                    or not await self._review_access.allowed(actor, action, now=self._clock.now())
+                )
+            )
             or contact_fingerprint(current) != action.target_sha256
             or not evaluate_contact(
                 action.request.parameters,

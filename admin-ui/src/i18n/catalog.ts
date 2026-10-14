@@ -3,6 +3,28 @@ export type TranslationValues = Readonly<Record<string, string | number>>;
 
 // Source-language keys keep existing Russian text and historical artifacts unchanged.
 export const UZ: Readonly<Record<string, string>> = {
+  "Передать на согласование": "Tasdiqlashga yuborish",
+  согласование: "tasdiqlash",
+  "Согласующий сотрудник": "Tasdiqlovchi xodim",
+  "Выберите сотрудника": "Xodimni tanlang",
+  "Подтвердить передачу": "Yuborishni tasdiqlash",
+  "Показать выбранному сотруднику только это тестовое сообщение. Переписка и данные не открываются.":
+    "Tanlangan xodimga faqat shu sinov xabarini ko‘rsatish. Yozishma va ma’lumotlarga kirish berilmaydi.",
+  "Ссылка для выбранного сотрудника": "Tanlangan xodim uchun havola",
+  "Отозвать доступ": "Kirishni bekor qilish",
+  "Подтвердить отзыв": "Bekor qilishni tasdiqlash",
+  "Отозвать только это согласование до принятия решения.":
+    "Qaror qabul qilinishidan oldin faqat shu tasdiqlashni bekor qilish.",
+  "Доступ к согласованию отозван.": "Tasdiqlashga kirish bekor qilingan.",
+  "Показаны только первые 20 сотрудников.":
+    "Faqat dastlabki 20 xodim ko‘rsatilgan.",
+  "Согласования Retention": "Retention tasdiqlashlari",
+  "MANA · Только тестовые сообщения": "MANA · Faqat sinov xabarlari",
+  "Согласование другим сотрудником отключено.":
+    "Boshqa xodim tomonidan tasdiqlash o‘chirilgan.",
+  "Показаны только первые 20 согласований.":
+    "Faqat dastlabki 20 tasdiqlash ko‘rsatilgan.",
+  "Нет доступных согласований.": "Mavjud tasdiqlashlar yo‘q.",
   "Контактный sandbox Retention": "Retention aloqa sandbox’i",
   "Только вымышленные взрослые. Реальные родители не получают сообщений.":
     "Faqat xayoliy kattalar. Haqiqiy ota-onalarga xabar yuborilmaydi.",

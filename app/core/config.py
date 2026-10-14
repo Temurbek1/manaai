@@ -121,6 +121,7 @@ class Settings(BaseSettings):
     operation_workspace_events_enabled: bool = True
     operation_workspace_actions_enabled: bool = True
     operation_workspace_retention_contacts_enabled: bool = False
+    operation_workspace_retention_peer_reviews_enabled: bool = False
     operation_workspace_context_contact_event_limit: int = Field(default=400, ge=4, le=10000)
     operation_workspace_transcript_enabled: bool = True
     operation_workspace_report_discovery_enabled: bool = False

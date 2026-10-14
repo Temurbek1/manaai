@@ -36,6 +36,10 @@ from app.mana_operation_ai.application.auth_ports import TelegramOtpSender
 from app.mana_operation_ai.application.auth_service import AdminAuthService
 from app.mana_operation_ai.application.capabilities import CapabilityRegistry
 from app.mana_operation_ai.application.chat_service import OperationChatService
+from app.mana_operation_ai.application.contact_reviews import (
+    ContactReviewAccess,
+    WorkspaceContactReviews,
+)
 from app.mana_operation_ai.application.goal_service import GoalWorker, OperationGoalService
 from app.mana_operation_ai.application.growth.agent import GrowthAgent
 from app.mana_operation_ai.application.growth.funnel import GrowthFunnelCapabilityHandler
@@ -109,6 +113,12 @@ from app.mana_operation_ai.infrastructure.persistence.auth_repository import (
 )
 from app.mana_operation_ai.infrastructure.persistence.chat_repository import (
     SqlAlchemyChatRepository,
+)
+from app.mana_operation_ai.infrastructure.persistence.contact_review_directory import (
+    AdminContactReviewDirectory,
+)
+from app.mana_operation_ai.infrastructure.persistence.contact_reviews import (
+    SqlAlchemyContactReviews,
 )
 from app.mana_operation_ai.infrastructure.persistence.cost_ledger import SqlAlchemyCostLedger
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
@@ -699,6 +709,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         history_event_limit=settings.operation_workspace_context_contact_event_limit,
     )
     contact_catalog = FakeRetentionContactCatalog(clock)
+    peer_reviews_enabled = (
+        contact_reviews_enabled
+        and settings.operation_workspace_retention_peer_reviews_enabled
+        and settings.mana_telegram_auth_enabled
+    )
+    review_access = ContactReviewAccess(
+        SqlAlchemyContactReviews(operation_database),
+        AdminContactReviewDirectory(auth_repository, operation_database),
+        enabled=peer_reviews_enabled,
+    )
     contacts = RetentionContactService(
         store=contact_store,
         executor=contact_catalog,
@@ -709,6 +729,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         allow_self_approval=settings.operation_allow_self_approval,
         controls=operation_repository,
         global_kill_switch_default=settings.operation_global_kill_switch,
+        review_access=review_access if peer_reviews_enabled else None,
     )
     app.state.operation_workspace_retention_contacts = WorkspaceRetentionContacts(
         chats=chat_repository,
@@ -720,6 +741,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         account_refs={
             item.key: sandbox_account_ref(item.key) for item in contact_catalog.recipients
         },
+        peer_reviews_enabled=peer_reviews_enabled,
+    )
+    app.state.operation_workspace_contact_reviews = WorkspaceContactReviews(
+        access=review_access,
+        contacts=contacts,
+        workspace=app.state.operation_workspace_retention_contacts,
+        clock=clock,
+        ids=ids,
     )
     session_context = OperationSessionContext(
         chat_repository,
@@ -748,6 +777,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             model_selection_enabled=settings.operation_model_selection_enabled,
             action_reviews_enabled=actions_enabled,
             retention_contact_reviews_enabled=contact_reviews_enabled,
+            retention_peer_reviews_enabled=peer_reviews_enabled,
             transcript_pagination_enabled=(
                 settings.operation_agent_workspace_enabled
                 and settings.operation_workspace_transcript_enabled

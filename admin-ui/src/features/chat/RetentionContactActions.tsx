@@ -8,6 +8,7 @@ import { hasRole, useSession } from "@/auth/SessionContext";
 import { ConfirmAction } from "@/components/ConfirmAction";
 import { QueryState } from "@/components/QueryState";
 import { useI18n } from "@/i18n/LanguageProvider";
+import { ContactReviewAssignment } from "./ContactReviewAssignment";
 
 type Page = components["schemas"]["WorkspaceContactPage"];
 type Contact = components["schemas"]["WorkspaceContactView"];
@@ -129,11 +130,12 @@ export function RetentionContactActions({
             </>
           )}
           {data.items.map((item) => (
-            <ContactCard
+            <RetentionContactCard
               key={item.action_id}
               action={item}
               url={url}
               refresh={() => mutate()}
+              peerReviewsEnabled={data.peer_reviews_enabled}
             />
           ))}
           {data.more_omitted && (
@@ -148,14 +150,16 @@ export function RetentionContactActions({
   );
 }
 
-function ContactCard({
+export function RetentionContactCard({
   action,
   url,
   refresh,
+  peerReviewsEnabled = false,
 }: {
   action: Contact;
   url: string;
   refresh: () => Promise<unknown>;
+  peerReviewsEnabled?: boolean;
 }): React.JSX.Element {
   const { t } = useI18n();
   const { session } = useSession();
@@ -241,6 +245,9 @@ function ContactCard({
         <>
           {action.self_approval_forbidden && (
             <p>{t("Решение должен принять другой сотрудник.")}</p>
+          )}
+          {peerReviewsEnabled && (
+            <ContactReviewAssignment action={action} url={url} />
           )}
           <label>
             {t("Причина решения")}

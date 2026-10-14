@@ -28,6 +28,15 @@
   replay/restart and actual closed `2ea7b9a` compatibility checks are not candidate-
   image, production, real-contact or broad model-quality acceptance. Do not use
   `38cdac4` as a v15 rollback reader or downgrade populated contact tables.
+- The subsequent default-disabled `OPERATION_WORKSPACE_RETENTION_PEER_REVIEWS_ENABLED`
+  shares one exact fictional MANA intent with one active registered reviewer through
+  personal cookie sessions and CSRF, never technical keys/development actor headers.
+  Private grant/audit migration `c58fb7da240e` is local and undeployed. Keep action-
+  before-grant lock order, current identity/expiry/revocation checks and default
+  author self-approval denial. No topic/Goal/source access or future write authority
+  is shared, and Goal v15 history never inherits grants. Local two-login fake/SQL
+  checks are not real contact, candidate-image rollback or production acceptance.
+  See `docs/operation-retention-peer-review-checkpoint.md` before extending it.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 

@@ -12,6 +12,9 @@ Language-specific actual checks and rollback are in
 The subsequent [Retention contact review](operation-retention-contact-chat-checkpoint.md)
 is local and default disabled; neither its contact migration nor its chat lane is
 deployed. It does not enable real parent contact or close the action acceptance gaps.
+The following [single-action peer-review checkpoint](operation-retention-peer-review-checkpoint.md)
+adds a local personal-session-only reviewer lane without sharing private topics/Goals;
+it also remains disabled and undeployed, with real-contact/release acceptance open.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

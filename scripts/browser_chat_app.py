@@ -431,8 +431,11 @@ def create_app() -> FastAPI:
                 bridge._contacts._clock = clock
                 bridge._contacts._executor = FakeRetentionContactCatalog(clock)
                 # Only this fictional lane; global Growth self-approval remains disabled.
-                bridge._allow_self_approval = True
-                bridge._contacts._allow_self_approval = True
+                if settings.operation_workspace_retention_peer_reviews_enabled:
+                    application.state.operation_workspace_contact_reviews._clock = clock
+                else:
+                    bridge._allow_self_approval = True
+                    bridge._contacts._allow_self_approval = True
             application.state.operation_chat_service._model = BrowserConversationFake()
             if settings.operation_workspace_chat_streaming_enabled:
                 application.state.operation_chat_service._streaming_model = (

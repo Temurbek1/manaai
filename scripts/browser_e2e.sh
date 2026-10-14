@@ -81,6 +81,7 @@ OPERATION_GOALS_EXTENSION_BUDGET_MICROUSD=500000 \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED="${AUDIT_RETENTION_CONTACTS:-false}" \
+OPERATION_WORKSPACE_RETENTION_PEER_REVIEWS_ENABLED="${AUDIT_RETENTION_PEER_REVIEWS:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
 OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
 OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED="${AUDIT_SNAPSHOT_REPLACEMENT:-false}" \
@@ -210,6 +211,24 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
   browser wait --fn 'document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' >/dev/null
   assert_browser '!document.body.innerText.includes("Принято тестовым получателем")' 'preparation sent without approval'
   browser find label "Причина решения" fill 'Reviewed exact fictional Uzbek template' >/dev/null
+  if [[ "${AUDIT_RETENTION_PEER_REVIEWS:-false}" == "true" ]]; then
+    assert_browser 'Array.from(document.querySelectorAll("button")).find(b => b.textContent.trim() === "Отправить в sandbox")?.disabled' 'author can approve their own contact'
+    contact_peer_user_id=$(browser eval 'document.querySelector(".chat-proposal-card section select")?.options[1]?.value' | tr -d '"')
+    browser select '.chat-proposal-card section select' "$contact_peer_user_id" >/dev/null
+    browser find role button click --name "Передать на согласование" >/dev/null
+    browser find role button click --name "Подтвердить передачу" >/dev/null
+    browser wait --fn 'Boolean(document.querySelector(".chat-proposal-card a[href^=\"/reviews?review=\"]"))' >/dev/null
+    contact_review_path=$(browser eval 'document.querySelector(".chat-proposal-card a[href^=\"/reviews?review=\"]").getAttribute("href")' | tr -d '"')
+    contact_owner_url=$(browser get url)
+    assert_browser '!document.body.innerText.includes("Принято тестовым получателем")' 'sharing dispatched without a peer decision'
+    browser find role button click --name "Выйти" >/dev/null
+    browser open "http://127.0.0.1:${AUDIT_UI_PORT}${contact_review_path}" >/dev/null
+    browser wait --fn 'Boolean(document.querySelector("input"))' >/dev/null
+    login_browser 51456737
+    browser wait --fn 'document.body.innerText.includes("Согласования Retention") && document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' >/dev/null
+    assert_browser '!document.body.innerText.includes("Проверь вымышленный контактный sandbox")' 'peer received the private originating transcript'
+    browser find label "Причина решения" fill 'Reviewed exact fictional Uzbek template as a different employee' >/dev/null
+  fi
   browser find role button click --name "Отправить в sandbox" >/dev/null
   browser find role button click --name "Подтвердить тестовую отправку" >/dev/null
   browser wait --fn 'document.body.innerText.includes("Принято тестовым получателем")' >/dev/null
@@ -228,6 +247,13 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
   fi
   browser set viewport 1440 1000 >/dev/null
   browser select '.language-select' ru >/dev/null
+  if [[ "${AUDIT_RETENTION_PEER_REVIEWS:-false}" == "true" ]]; then
+    browser find role button click --name "Выйти" >/dev/null
+    browser open "$contact_owner_url" >/dev/null
+    browser wait --fn 'Boolean(document.querySelector("input"))' >/dev/null
+    login_browser 976835256
+    browser wait --fn 'document.body.innerText.includes("Принято тестовым получателем")' >/dev/null
+  fi
 fi
 }
 audit_contact_lane

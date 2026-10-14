@@ -126,6 +126,7 @@ class ChatAvailability(ChatModel):
     agent_workspace_enabled: bool = False
     action_reviews_enabled: bool = False
     retention_contact_reviews_enabled: bool = False
+    retention_peer_reviews_enabled: bool = False
     transcript_pagination_enabled: bool = False
     chat_streaming_enabled: bool = False
     response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")

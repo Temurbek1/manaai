@@ -897,6 +897,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/retention-contact-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page */
+        get: operations["page_api_v1_admin_operation_workspace_retention_contact_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/retention-contact-reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Item */
+        get: operations["item_api_v1_admin_operation_workspace_retention_contact_reviews__review_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/retention-contact-reviews/{review_id}/{action_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide */
+        post: operations["decide_api_v1_admin_operation_workspace_retention_contact_reviews__review_id___action_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/retention-contact-reviews/{review_id}/{action_id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconcile */
+        post: operations["reconcile_api_v1_admin_operation_workspace_retention_contact_reviews__review_id___action_id__reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/events": {
         parameters: {
             query?: never;
@@ -1028,6 +1096,41 @@ export interface paths {
         put?: never;
         /** Reconcile */
         post: operations["reconcile_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/{action_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Options */
+        get: operations["options_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__review_get"];
+        put?: never;
+        /** Share */
+        post: operations["share_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/{action_id}/review/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke */
+        post: operations["revoke_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__review_revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3368,6 +3471,11 @@ export interface components {
              */
             retention_contact_reviews_enabled: boolean;
             /**
+             * Retention Peer Reviews Enabled
+             * @default false
+             */
+            retention_peer_reviews_enabled: boolean;
+            /**
              * Transcript Pagination Enabled
              * @default false
              */
@@ -3746,6 +3854,73 @@ export interface components {
             kind: "contact_parent";
             /** Reason */
             reason: string;
+        };
+        /** ContactReviewCreate */
+        ContactReviewCreate: {
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Reviewer Id
+             * Format: uuid
+             */
+            reviewer_id: string;
+        };
+        /** ContactReviewItem */
+        ContactReviewItem: {
+            action: components["schemas"]["WorkspaceContactView"];
+            /** Review Id */
+            review_id: string;
+        };
+        /** ContactReviewOptions */
+        ContactReviewOptions: {
+            /**
+             * More Omitted
+             * @default false
+             */
+            more_omitted: boolean;
+            review?: components["schemas"]["ContactReviewReceipt"] | null;
+            /** Reviewers */
+            reviewers: components["schemas"]["ContactReviewer"][];
+        };
+        /** ContactReviewPage */
+        ContactReviewPage: {
+            /** Items */
+            items: components["schemas"]["ContactReviewItem"][];
+            /**
+             * More Omitted
+             * @default false
+             */
+            more_omitted: boolean;
+        };
+        /** ContactReviewReceipt */
+        ContactReviewReceipt: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Review Id */
+            review_id: string;
+            reviewer: components["schemas"]["ContactReviewer"];
+            /** Revoked */
+            revoked: boolean;
+        };
+        /** ContactReviewer */
+        ContactReviewer: {
+            /** Label */
+            label: string;
+            /** User Id */
+            user_id: string;
         };
         /** CreateAdminUserRequest */
         CreateAdminUserRequest: {
@@ -7917,6 +8092,11 @@ export interface components {
              * @default false
              */
             more_omitted: boolean;
+            /**
+             * Peer Reviews Enabled
+             * @default false
+             */
+            peer_reviews_enabled: boolean;
             /** Recipients */
             recipients: [
                 components["schemas"]["WorkspaceContactRecipient"],
@@ -10011,6 +10191,146 @@ export interface operations {
             };
         };
     };
+    page_api_v1_admin_operation_workspace_retention_contact_reviews_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactReviewPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    item_api_v1_admin_operation_workspace_retention_contact_reviews__review_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactReviewItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_api_v1_admin_operation_workspace_retention_contact_reviews__review_id___action_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                review_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionContactDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceContactView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_api_v1_admin_operation_workspace_retention_contact_reviews__review_id___action_id__reconcile_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                review_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceContactReconcile"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceContactView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     events_api_v1_admin_operation_workspace_topics__topic_id__events_get: {
         parameters: {
             query?: {
@@ -10356,6 +10676,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceContactView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    options_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactReviewOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactReviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactReviewReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__review_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceContactReconcile"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactReviewReceipt"];
                 };
             };
             /** @description Validation Error */

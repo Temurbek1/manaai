@@ -120,6 +120,10 @@ or restore an old database over new work.
 
 Still required before any release or broader readiness claim:
 
+The subsequent [single-action peer review](operation-retention-peer-review-checkpoint.md)
+adds a local default-disabled, personal-session-only two-account lane and separate audit
+migration. It is not deployed and does not supersede this checkpoint's historical test counts.
+
 - Candidate-image and scoped release/rollback acceptance for the complete contact
   increment. The actual closed old-image check above is local synthetic evidence,
   not a production migration/deployment grant or a live receiver test.
@@ -128,10 +132,10 @@ Still required before any release or broader readiness claim:
 - Owning-agent capability registry/admin kill-control integration and bounded
   proposal admission. This workspace review lane is not a loaded full operational
   contact capability or a model-selected mutation tool.
-- A separately designed reviewer-access lane: private owner isolation plus
-  default self-approval denial does not yet provide a usable two-person review.
-  Only isolated fake tests explicitly allow self-approval; production settings
-  have not been relaxed.
+- Broader reviewer/access and production acceptance for the subsequent local lane.
+  This original checkpoint alone lacked two-person review and used isolated fake
+  self-approval; the later peer test preserves default author denial. Neither
+  changes production settings or enables real sends.
 - Real per-recipient billing/activity/consent authority, approved live channel
   executor, real outcome measurements and separate human release authorization.
   Parent aggregates, tariffs and notification OS permission cannot substitute.

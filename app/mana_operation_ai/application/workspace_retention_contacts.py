@@ -35,12 +35,14 @@ class WorkspaceRetentionContacts:
         allow_self_approval: bool,
         recipients: tuple[WorkspaceContactRecipient, WorkspaceContactRecipient],
         account_refs: dict[SandboxRecipient, str],
+        peer_reviews_enabled: bool = False,
     ) -> None:
         if set(account_refs) != {item.key for item in recipients}:
             raise ValueError("Every fictional recipient requires an explicit server-owned binding")
         self._chats, self._contacts, self._store = chats, contacts, store
         self._enabled, self._allow_self_approval = enabled, allow_self_approval
         self._recipients, self._account_refs = recipients, dict(account_refs)
+        self._peer_reviews_enabled = peer_reviews_enabled
 
     async def _access(self, owner: str, topic_id: str, turn_id: str) -> None:
         if not self._enabled:
@@ -59,7 +61,9 @@ class WorkspaceRetentionContacts:
         ):
             raise ChatError("Это сообщение не запрашивало контактный sandbox.", 403)
 
-    def _view(self, action: RetentionContactAction) -> WorkspaceContactView:
+    def view(
+        self, action: RetentionContactAction, *, actor_id: str | None = None
+    ) -> WorkspaceContactView:
         if action.turn_id is None:
             raise ChatError("Историческое действие не связано с этим сообщением.", 403)
         keys = [
@@ -81,7 +85,8 @@ class WorkspaceRetentionContacts:
             revision=action.revision,
             result_code=action.result_code,
             policy_reasons=action.policy.reasons,
-            self_approval_forbidden=not self._allow_self_approval,
+            self_approval_forbidden=(actor_id is None or actor_id == action.owner)
+            and not self._allow_self_approval,
             decision_recorded=action.decision is not None,
         )
 
@@ -89,9 +94,10 @@ class WorkspaceRetentionContacts:
         await self._access(owner, topic_id, turn_id)
         actions = await self._store.list_for_turn(owner, topic_id, turn_id)
         return WorkspaceContactPage(
-            items=[self._view(item) for item in actions[:3]],
+            items=[self.view(item) for item in actions[:3]],
             recipients=self._recipients,
             more_omitted=len(actions) > 3,
+            peer_reviews_enabled=self._peer_reviews_enabled,
         )
 
     async def history(
@@ -124,7 +130,7 @@ class WorkspaceRetentionContacts:
             ),
             turn_id=turn_id,
         )
-        return self._view(action)
+        return self.view(action)
 
     async def _bound(
         self, actor: ActorContext, topic_id: str, turn_id: str, action_id: str
@@ -144,7 +150,7 @@ class WorkspaceRetentionContacts:
         request: RetentionContactDecision,
     ) -> WorkspaceContactView:
         await self._bound(actor, topic_id, turn_id, action_id)
-        return self._view(await self._contacts.decide(actor, action_id, request))
+        return self.view(await self._contacts.decide(actor, action_id, request))
 
     async def reconcile(
         self,
@@ -157,4 +163,4 @@ class WorkspaceRetentionContacts:
         action = await self._bound(actor, topic_id, turn_id, action_id)
         if action.fingerprint != request.fingerprint:
             raise ChatError("Условия сохранённого действия изменились.")
-        return self._view(await self._contacts.reconcile(actor, action_id))
+        return self.view(await self._contacts.reconcile(actor, action_id))

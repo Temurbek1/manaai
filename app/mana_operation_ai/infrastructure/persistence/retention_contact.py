@@ -12,34 +12,23 @@ from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactEvent,
 )
 from app.mana_operation_ai.domain.workspace_retention_contacts import WorkspaceContactHistory
+from app.mana_operation_ai.infrastructure.persistence.contact_reviews import (
+    review_grant,
+    reviewer_is_active,
+)
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import (
+    AdminUserRow,
     ChatTopicRow,
     ChatTurnRow,
+    ContactReviewGrantRow,
     RetentionContactEventRow,
     RetentionContactGuardRow,
     RetentionContactRow,
 )
-
-
-def _action(row: RetentionContactRow) -> RetentionContactAction:
-    try:
-        value = RetentionContactAction.model_validate(row.payload)
-        if (value.action_id, value.owner, value.topic_id, value.status, value.revision) != (
-            row.action_id,
-            row.owner,
-            row.topic_id,
-            row.status,
-            row.revision,
-        ):
-            raise ValueError("Private row binding changed")
-        if row.request_id != str(value.request.request_id) or row.decision_id != (
-            str(value.decision.request_id) if value.decision else None
-        ):
-            raise ValueError("Private request binding changed")
-        return value
-    except (ValidationError, ValueError):
-        raise ChatError("Сохранённое контактное действие требует проверки.", 503) from None
+from app.mana_operation_ai.infrastructure.persistence.retention_contact_state import (
+    contact_action as _action,
+)
 
 
 class SqlAlchemyRetentionContacts:
@@ -258,6 +247,33 @@ class SqlAlchemyRetentionContacts:
                 )
                 if row is None or _action(row) != previous:
                     return False
+                if previous.status == "proposed" and updated.decided_by not in {
+                    None,
+                    previous.owner,
+                }:
+                    grant_row = await session.scalar(
+                        select(ContactReviewGrantRow)
+                        .where(ContactReviewGrantRow.action_id == previous.action_id)
+                        .with_for_update()
+                    )
+                    reviewer = await session.get(
+                        AdminUserRow, updated.decided_by, with_for_update=True
+                    )
+                    owner = await session.get(AdminUserRow, previous.owner, with_for_update=True)
+                    if grant_row is None:
+                        raise ChatError("Для этого сотрудника нет согласования.", 403)
+                    grant = review_grant(grant_row)
+                    if (
+                        not grant.matches(previous)
+                        or str(grant.request.reviewer_id) != updated.decided_by
+                        or grant.revoked_at is not None
+                        or event.at >= grant.expires_at
+                        or not reviewer_is_active(reviewer)
+                        or owner is None
+                        or owner.status != "active"
+                        or owner.role not in {"operator", "approver", "admin"}
+                    ):
+                        raise ChatError("Доступ к согласованию отозван или истёк.", 403)
                 account = previous.request.parameters.account_ref
                 guard = await session.scalar(
                     select(RetentionContactGuardRow)
