@@ -778,6 +778,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             action_reviews_enabled=actions_enabled,
             retention_contact_reviews_enabled=contact_reviews_enabled,
             retention_peer_reviews_enabled=peer_reviews_enabled,
+            contact_tool_proposals_enabled=(
+                contact_reviews_enabled
+                and settings.operation_workspace_contact_tool_proposals_enabled
+            ),
             transcript_pagination_enabled=(
                 settings.operation_agent_workspace_enabled
                 and settings.operation_workspace_transcript_enabled

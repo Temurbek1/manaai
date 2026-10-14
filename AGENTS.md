@@ -18,7 +18,8 @@
   contact v2 binds the originating turn; legacy chat projections omit its action.
   Goals remain read-only. It is not deployed, a real send, a loaded full capability
   or receipt-memory/rollback acceptance. Keep default self-approval denial; private
-  ownership does not yet implement two-person review. See
+  ownership alone does not implement two-person review; the optional local peer lane
+  below is separate and undeployed. See
   `docs/operation-retention-contact-chat-checkpoint.md` before extending or releasing it.
 - New local contact-bearing Goals use private v15 with an explicit underlying
   v1–v14 profile. Freeze minimized SQL event checkpoints before capture, bind them
@@ -37,6 +38,18 @@
   is shared, and Goal v15 history never inherits grants. Local two-login fake/SQL
   checks are not real contact, candidate-image rollback or production acceptance.
   See `docs/operation-retention-peer-review-checkpoint.md` before extending it.
+- The local default-disabled `OPERATION_WORKSPACE_CONTACT_TOOL_PROPOSALS_ENABLED`
+  exposes one strict native `request_retention_contact_preparation` function only in
+  new eligible MANA Retention/Orchestrator chat turns. Account raw terminal usage
+  before arguments; process the native call before accompanying text. Persist its
+  owner/topic/turn-bound choice outside legacy JSON, never provider execution receipts,
+  reasoning or raw invalid prose. Confirmation must match the frozen choice before
+  any target read. Goals remain read-only; there is no automatic preparation/share/
+  approval/send or full post-execution function-output continuation. Eligible turns
+  use one nonstreamed model call; no fallback/retry or historical-task upgrade.
+  Only closed `2ea7b9a` is the local verified compatibility target; earlier native
+  readers do not understand the new chat metadata. See
+  `docs/operation-native-contact-proposal-checkpoint.md` for acceptance limits.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 

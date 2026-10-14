@@ -15,6 +15,9 @@ deployed. It does not enable real parent contact or close the action acceptance 
 The following [single-action peer-review checkpoint](operation-retention-peer-review-checkpoint.md)
 adds a local personal-session-only reviewer lane without sharing private topics/Goals;
 it also remains disabled and undeployed, with real-contact/release acceptance open.
+The later [native contact request checkpoint](operation-native-contact-proposal-checkpoint.md)
+adds a default-disabled real function-call shape for frozen fictional preparation choices,
+not Goal writes, automatic preparation or a full post-execution model continuation loop.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

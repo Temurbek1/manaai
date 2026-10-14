@@ -41,8 +41,14 @@ export function RetentionContactActions({
       await apiPost<Contact>(`${url}/prepare`, {
         request_id: crypto.randomUUID(),
         confirmed: true,
-        recipient,
-        template,
+        recipient: data.preparation_request?.recipient ?? recipient,
+        template: data.preparation_request?.template ?? template,
+        ...(data.preparation_request
+          ? {
+              selection_fingerprint:
+                data.preparation_request.selection_fingerprint,
+            }
+          : {}),
       });
     } catch {
       setNotice("Ответ не подтверждён. Повтор не отправлен. Обновите статус.");
@@ -75,48 +81,67 @@ export function RetentionContactActions({
         <>
           {data.items.length === 0 && (
             <>
-              <label>
-                {t("Вымышленный получатель")}
-                <select
-                  aria-label={t("Вымышленный получатель")}
-                  value={recipient}
-                  disabled={attempted || !hasRole(session, "operator")}
-                  onChange={(event) =>
-                    setRecipient(
-                      event.target.value === "sample_uz"
-                        ? "sample_uz"
-                        : "sample_ru",
-                    )
-                  }
-                >
-                  {data.recipients.map((item) => (
-                    <option key={item.key} value={item.key}>
-                      {t("Взрослый · {0}", { 0: item.language.toUpperCase() })}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t("Шаблон сообщения")}
-                <select
-                  value={template}
-                  disabled={attempted || !hasRole(session, "operator")}
-                  onChange={(event) =>
-                    setTemplate(
-                      event.target.value === "renewal_reminder"
-                        ? "renewal_reminder"
-                        : "onboarding_help",
-                    )
-                  }
-                >
-                  <option value="onboarding_help">
-                    {t("Помощь с настройкой")}
-                  </option>
-                  <option value="renewal_reminder">
-                    {t("Напоминание о сроке доступа")}
-                  </option>
-                </select>
-              </label>
+              {data.preparation_request ? (
+                <p>
+                  {t("Агент выбрал тестовое действие")} ·{" "}
+                  {data.preparation_request.recipient === "sample_uz"
+                    ? "UZ"
+                    : "RU"}{" "}
+                  ·{" "}
+                  {t(
+                    data.preparation_request.template === "renewal_reminder"
+                      ? "Напоминание о сроке доступа"
+                      : "Помощь с настройкой",
+                  )}
+                </p>
+              ) : (
+                <>
+                  <label>
+                    {t("Вымышленный получатель")}
+                    <select
+                      aria-label={t("Вымышленный получатель")}
+                      value={recipient}
+                      disabled={attempted || !hasRole(session, "operator")}
+                      onChange={(event) =>
+                        setRecipient(
+                          event.target.value === "sample_uz"
+                            ? "sample_uz"
+                            : "sample_ru",
+                        )
+                      }
+                    >
+                      {data.recipients.map((item) => (
+                        <option key={item.key} value={item.key}>
+                          {t("Взрослый · {0}", {
+                            0: item.language.toUpperCase(),
+                          })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("Шаблон сообщения")}
+                    <select
+                      value={template}
+                      disabled={attempted || !hasRole(session, "operator")}
+                      onChange={(event) =>
+                        setTemplate(
+                          event.target.value === "renewal_reminder"
+                            ? "renewal_reminder"
+                            : "onboarding_help",
+                        )
+                      }
+                    >
+                      <option value="onboarding_help">
+                        {t("Помощь с настройкой")}
+                      </option>
+                      <option value="renewal_reminder">
+                        {t("Напоминание о сроке доступа")}
+                      </option>
+                    </select>
+                  </label>
+                </>
+              )}
               <ConfirmAction
                 className="button secondary compact"
                 label={t("Подготовить тестовое сообщение")}

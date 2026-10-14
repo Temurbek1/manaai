@@ -11,6 +11,9 @@ from pydantic import AwareDatetime, Field, field_validator, model_validator
 from app.mana_operation_ai.domain.models import DomainModel
 from app.mana_operation_ai.domain.retention_risk import CustomerRetentionFacts, RetentionRiskZone
 
+SandboxRecipient = Literal["sample_ru", "sample_uz"]
+ContactTemplate = Literal["onboarding_help", "renewal_reminder"]
+
 
 class RetentionContactActionType(StrEnum):
     SEND_MESSAGE = "send_retention_message"

@@ -23,6 +23,10 @@ from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABI
 from app.mana_operation_ai.application.runtime import SystemClock
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn
+from app.mana_operation_ai.domain.contact_preparation import (
+    CONTACT_TOOL_CONTRACT,
+    ContactToolSelection,
+)
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
 from app.mana_operation_ai.domain.goal_review import GoalReviewCheck, GoalReviewVerdictBody
 from app.mana_operation_ai.domain.goals import GoalCreate, GoalDecision, GoalTask, OperationGoal
@@ -83,6 +87,14 @@ class BrowserConversationFake:
                 10,
                 10,
                 next_action="retention_contacts",
+                contact_selection=(
+                    ContactToolSelection(recipient="sample_uz", template="onboarding_help")
+                    if payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+                    else None
+                ),
+                contact_call_sha256="b" * 64
+                if payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+                else None,
             )
         if message == "Продолжи анализ с условиями из первой архивной задачи":
             memory = payload.get("session_memory")

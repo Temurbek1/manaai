@@ -47,6 +47,9 @@ fi
 if [[ "${WORKSPACE_RETENTION_CONTACT_MEMORY_AUDIT:-false}" == true ]]; then
   catalog_args+=(--contacts)
 fi
+if [[ "${WORKSPACE_NATIVE_CONTACT_TOOL_AUDIT:-false}" == true ]]; then
+  catalog_args+=(--contacts --native-contact)
+fi
 
 .venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {

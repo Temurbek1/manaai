@@ -7,7 +7,7 @@ from typing import Literal, Protocol, cast
 
 import httpx
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI
-from openai.types.responses import ParsedResponse
+from openai.types.responses import FunctionToolParam, ParsedResponse
 from pydantic import ValidationError
 from pydantic_core import from_json
 
@@ -16,12 +16,18 @@ from app.mana_operation_ai.application.chat_ports import ChatTurnOutput
 from app.mana_operation_ai.application.cost_control import CostLedger
 from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.chat import ChatReply
+from app.mana_operation_ai.domain.contact_preparation import CONTACT_TOOL_CONTRACT
 from app.mana_operation_ai.domain.cost_control import (
     CostAttribution,
     CostReservation,
     LlmRateCard,
     ProductScope,
     ResourceUsage,
+)
+from app.mana_operation_ai.infrastructure.contact_tool_schema import (
+    ContactToolOptions,
+    contact_function_tools,
+    parse_contact_function,
 )
 from app.mana_operation_ai.infrastructure.inference import (
     inference_rate_cards,
@@ -77,6 +83,14 @@ class OpenAIConversationModel:
 
     async def _reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput:
         model_name, effort, rates, output_limit = self._selection(context)
+        native_contact = self._native_contact_mode(context)
+        if native_contact and self._ledger is None:
+            raise RuntimeError("Native contact selection requires the shared inference ledger")
+        tool_options: ContactToolOptions = (
+            {"tools": contact_function_tools(), "parallel_tool_calls": False}
+            if native_contact
+            else {}
+        )
         reservation = await self._admit(
             instructions=instructions,
             context=context,
@@ -102,6 +116,7 @@ class OpenAIConversationModel:
             service_tier="default",
             safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
             text_format=ChatReply,
+            **tool_options,
         )
         if reservation is not None:
             receipt = cast(_RawChatResponse, raw)
@@ -119,6 +134,25 @@ class OpenAIConversationModel:
             await self._settle(envelope, reservation, rates, len(receipt.http_response.content))
             if payload.get("status") != "completed":
                 raise InferenceProviderError("invalid_response")
+            if native_contact:
+                selected = parse_contact_function(payload)
+                if selected is not None:
+                    selection, call_sha256 = selected
+                    return ChatTurnOutput(
+                        answer=(
+                            "Tanlangan test xabarini tayyorlashni tasdiqlang. "
+                            "Haqiqiy xabar yuborilmaydi."
+                            if json.loads(context).get("response_language") == "uz"
+                            else "Подтвердите подготовку выбранного тестового сообщения. "
+                            "Реальной отправки не будет."
+                        ),
+                        model=envelope.model,
+                        input_tokens=envelope.usage.input_tokens if envelope.usage else None,
+                        output_tokens=envelope.usage.output_tokens if envelope.usage else None,
+                        next_action="retention_contacts",
+                        contact_selection=selection,
+                        contact_call_sha256=call_sha256,
+                    )
             try:
                 response = receipt.parse()
             except (ValueError, TypeError, KeyError, AttributeError):
@@ -135,6 +169,18 @@ class OpenAIConversationModel:
             output_tokens=response.usage.output_tokens if response.usage else None,
             plan=response.output_parsed.plan,
             next_action=response.output_parsed.next_action,
+        )
+
+    def _native_contact_mode(self, context: str) -> bool:
+        if not self._settings.operation_workspace_contact_tool_proposals_enabled:
+            return False
+        payload = json.loads(context)
+        topic = payload.get("topic", {})
+        return (
+            payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+            and topic.get("product") == "mana"
+            and topic.get("agent_id") in {"retention-agent", "operations-orchestrator"}
+            and "retention_contacts" in payload.get("allowed_next_actions", [])
         )
 
     def _selection(
@@ -164,7 +210,11 @@ class OpenAIConversationModel:
             # Text-only byte bound includes instructions and the structured-output
             # schema. It deliberately over-reserves instead of guessing a tokenizer
             # for a different model or adding an external token-counting request.
-            input_bound = conversation_input_bound(instructions=instructions, context=context)
+            input_bound = conversation_input_bound(
+                instructions=instructions,
+                context=context,
+                tools=contact_function_tools() if self._native_contact_mode(context) else None,
+            )
             if input_bound > self._settings.operation_chat_max_input_tokens:
                 raise RuntimeError("Operational conversation context exceeds its token bound")
             return await self._ledger.reserve(
@@ -359,7 +409,9 @@ class OpenAIConversationModel:
         await self._client.close()
 
 
-def conversation_input_bound(*, instructions: str, context: str) -> int:
+def conversation_input_bound(
+    *, instructions: str, context: str, tools: list[FunctionToolParam] | None = None
+) -> int:
     """Shared conservative text/schema/protocol bound for admission and dry-run QA."""
     return (
         len(
@@ -368,6 +420,7 @@ def conversation_input_bound(*, instructions: str, context: str) -> int:
                     "instructions": instructions,
                     "input": context,
                     "schema": ChatReply.model_json_schema(),
+                    **({"tools": tools, "parallel_tool_calls": False} if tools else {}),
                 },
                 ensure_ascii=False,
             ).encode()

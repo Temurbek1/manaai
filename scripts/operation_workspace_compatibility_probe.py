@@ -42,7 +42,10 @@ async def probe(
     pages: bool = False,
     verdicts: bool = False,
     contacts: bool = False,
+    native_contact: bool = False,
 ) -> None:
+    if native_contact and not contacts:
+        raise ValueError("Native contact compatibility requires the contact fixture profile")
     if snapshots and not catalog:
         raise ValueError("Snapshot compatibility auditing requires the captured catalog contract")
     if pages and not snapshots:
@@ -174,6 +177,28 @@ async def probe(
                     assert await chats.preview(
                         OWNER, topic.topic_id, turn.turn_id, "Synthetic draft 🧒"
                     )
+                    native_fields = {}
+                    if native_contact:
+                        from app.mana_operation_ai.domain.contact_preparation import (
+                            CONTACT_TOOL_CONTRACT,
+                            ContactToolRequest,
+                            ContactToolSelection,
+                            contact_selection_fingerprint,
+                        )
+
+                        selection = ContactToolSelection(
+                            recipient="sample_uz", template="onboarding_help"
+                        )
+                        native_fields = {
+                            "contact_tool_contract": CONTACT_TOOL_CONTRACT,
+                            "contact_preparation": ContactToolRequest(
+                                **selection.model_dump(),
+                                provider_call_sha256="a" * 64,
+                                selection_fingerprint=contact_selection_fingerprint(
+                                    OWNER, topic.topic_id, turn.turn_id, selection, "a" * 64
+                                ),
+                            ),
+                        }
                     assert await chats.update(
                         turn.model_copy(
                             update={
@@ -181,6 +206,7 @@ async def probe(
                                 "next_action": "retention_contacts" if contacts else "start_goal",
                                 "answer": "Synthetic task started.",
                                 "session_memory": memory,
+                                **native_fields,
                             }
                         ),
                     )
@@ -509,6 +535,10 @@ async def probe(
                 )
                 assert turns[0].session_memory is None
                 original = await chats.turn(OWNER, topic.topic_id, turns[0].turn_id)
+                assert (original.contact_preparation is not None) is native_contact
+                if native_contact:
+                    assert original.contact_preparation is not None
+                    assert original.contact_preparation.recipient == "sample_uz"
                 assert original.preview == "Synthetic draft 🧒" and original.preview_revision == 2
                 assert original.session_memory is not None and goal.session_memory is not None
                 assert bool(goal.session_memory.actions) is (topic.title == "Native queued")
@@ -587,6 +617,7 @@ def main() -> None:
     parser.add_argument("--pages", action="store_true")
     parser.add_argument("--verdicts", action="store_true")
     parser.add_argument("--contacts", action="store_true")
+    parser.add_argument("--native-contact", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -598,6 +629,7 @@ def main() -> None:
             pages=args.pages,
             verdicts=args.verdicts,
             contacts=args.contacts,
+            native_contact=args.native_contact,
         )
     )
 

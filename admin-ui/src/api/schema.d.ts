@@ -3438,6 +3438,11 @@ export interface components {
              * @default false
              */
             chat_streaming_enabled: boolean;
+            /**
+             * Contact Tool Proposals Enabled
+             * @default false
+             */
+            contact_tool_proposals_enabled: boolean;
             /** Daily Limit */
             daily_limit: number;
             /** Enabled */
@@ -3651,6 +3656,9 @@ export interface components {
              * @default
              */
             answer: string;
+            contact_preparation?: components["schemas"]["ContactToolRequest"] | null;
+            /** Contact Tool Contract */
+            contact_tool_contract?: "native_contact_preparation_v1" | null;
             /**
              * Created At
              * Format: date-time
@@ -3921,6 +3929,47 @@ export interface components {
             label: string;
             /** User Id */
             user_id: string;
+        };
+        /** ContactToolRequest */
+        ContactToolRequest: {
+            /**
+             * Confirmation Required
+             * @default true
+             * @constant
+             */
+            confirmation_required: true;
+            /**
+             * Contract
+             * @default native_contact_preparation_v1
+             * @constant
+             */
+            contract: "native_contact_preparation_v1";
+            /** Provider Call Sha256 */
+            provider_call_sha256: string;
+            /**
+             * Recipient
+             * @enum {string}
+             */
+            recipient: "sample_ru" | "sample_uz";
+            /** Selection Fingerprint */
+            selection_fingerprint: string;
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+            /**
+             * Template
+             * @enum {string}
+             */
+            template: "onboarding_help" | "renewal_reminder";
+            /**
+             * Tool Name
+             * @default request_retention_contact_preparation
+             * @constant
+             */
+            tool_name: "request_retention_contact_preparation";
         };
         /** CreateAdminUserRequest */
         CreateAdminUserRequest: {
@@ -8097,6 +8146,7 @@ export interface components {
              * @default false
              */
             peer_reviews_enabled: boolean;
+            preparation_request?: components["schemas"]["ContactToolRequest"] | null;
             /** Recipients */
             recipients: [
                 components["schemas"]["WorkspaceContactRecipient"],
@@ -8131,6 +8181,8 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+            /** Selection Fingerprint */
+            selection_fingerprint?: string | null;
             /**
              * Template
              * @enum {string}

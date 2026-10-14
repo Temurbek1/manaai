@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ from app.mana_operation_ai.domain.chat import (
     TopicCreate,
     TranscriptPage,
 )
+from app.mana_operation_ai.domain.contact_preparation import contact_selection_fingerprint
 from app.mana_operation_ai.domain.session import SessionUserContext
 from app.mana_operation_ai.domain.workspace_events import ChatTextEvent
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
@@ -30,9 +32,20 @@ ACTIVE = ("reading", "thinking")
 
 
 def _turn(row: ChatTurnRow) -> ChatTurn:
-    return ChatTurn.model_validate(
-        {**row.payload, **(row.context_metadata or {}), **(row.workspace_metadata or {})}
-    )
+    try:
+        turn = ChatTurn.model_validate(
+            {**row.payload, **(row.context_metadata or {}), **(row.workspace_metadata or {})}
+        )
+    except ValidationError:
+        raise ChatError(
+            "Сохранённое сообщение требует совместимой версии рабочей среды.", 503
+        ) from None
+    preparation = turn.contact_preparation
+    if preparation and preparation.selection_fingerprint != contact_selection_fingerprint(
+        row.owner, turn.topic_id, turn.turn_id, preparation, preparation.provider_call_sha256
+    ):
+        raise ChatError("Сохранённый запрос подготовки требует проверки привязки.", 503)
+    return turn
 
 
 def _storage(turn: ChatTurn) -> dict[str, object]:
@@ -54,6 +67,8 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
             "session_memory",
             "preview",
             "preview_revision",
+            "contact_tool_contract",
+            "contact_preparation",
         },
     )
     metadata = {
@@ -87,6 +102,16 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         or turn.response_language is not None
     ):
         workspace = {
+            **(
+                {"contact_tool_contract": turn.contact_tool_contract}
+                if turn.contact_tool_contract
+                else {}
+            ),
+            **(
+                {"contact_preparation": turn.contact_preparation.model_dump(mode="json")}
+                if turn.contact_preparation
+                else {}
+            ),
             **({"response_language": turn.response_language} if turn.response_language else {}),
             "execution_mode": turn.execution_mode,
             "next_action": turn.next_action,

@@ -82,6 +82,7 @@ OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED="${AUDIT_RETENTION_CONTACTS:-false}" \
 OPERATION_WORKSPACE_RETENTION_PEER_REVIEWS_ENABLED="${AUDIT_RETENTION_PEER_REVIEWS:-false}" \
+OPERATION_WORKSPACE_CONTACT_TOOL_PROPOSALS_ENABLED="${AUDIT_CONTACT_TOOL_PROPOSALS:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
 OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
 OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED="${AUDIT_SNAPSHOT_REPLACEMENT:-false}" \
@@ -205,7 +206,12 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
   browser find label "Сообщение агенту" fill 'Проверь вымышленный контактный sandbox' >/dev/null
   browser find role button click --name "Отправить сообщение" >/dev/null
   browser wait --fn 'document.body.innerText.includes("Контактный sandbox Retention")' >/dev/null
-  browser select 'select[aria-label="Вымышленный получатель"]' sample_uz >/dev/null
+  if [[ "${AUDIT_CONTACT_TOOL_PROPOSALS:-false}" == "true" ]]; then
+    browser wait --fn 'document.body.innerText.includes("Агент выбрал тестовое действие")' >/dev/null
+    assert_browser '!document.querySelector("select[aria-label=\"Вымышленный получатель\"]")' 'native action was replaced by a manual selector'
+  else
+    browser select 'select[aria-label="Вымышленный получатель"]' sample_uz >/dev/null
+  fi
   browser find role button click --name "Подготовить тестовое сообщение" >/dev/null
   browser find role button click --name "Подтвердить подготовку" >/dev/null
   browser wait --fn 'document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' >/dev/null

@@ -44,6 +44,40 @@ function response(body: unknown): Promise<Response> {
 }
 
 describe("Retention contact chat lane", () => {
+  it("confirms the frozen native selection without replacing it with manual fields", async () => {
+    const posts: Array<Record<string, unknown>> = [];
+    const preparation = {
+      recipient: "sample_uz",
+      template: "renewal_reminder",
+      selection_fingerprint: "c".repeat(64),
+    };
+    jest.spyOn(globalThis, "fetch").mockImplementation((_, init) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return response(contact);
+      }
+      return response({
+        items: [],
+        recipients,
+        more_omitted: false,
+        preparation_request: preparation,
+      });
+    });
+    renderWithSession(
+      <RetentionContactActions topicId="topic-1" turnId="turn-1" />,
+    );
+    await screen.findByText(/Агент выбрал тестовое действие/);
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подготовить тестовое сообщение" }),
+    );
+    expect(posts).toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить подготовку" }),
+    );
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({ ...preparation, confirmed: true });
+  });
   it("prepares an explicit fictional recipient without dispatching its decision", async () => {
     const posts: Array<{ url: string; body: Record<string, unknown> }> = [];
     let saved = false;

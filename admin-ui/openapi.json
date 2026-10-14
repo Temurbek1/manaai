@@ -3829,6 +3829,11 @@
             "title": "Chat Streaming Enabled",
             "type": "boolean"
           },
+          "contact_tool_proposals_enabled": {
+            "default": false,
+            "title": "Contact Tool Proposals Enabled",
+            "type": "boolean"
+          },
           "daily_limit": {
             "title": "Daily Limit",
             "type": "integer"
@@ -4267,6 +4272,28 @@
             "default": "",
             "title": "Answer",
             "type": "string"
+          },
+          "contact_preparation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContactToolRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contact_tool_contract": {
+            "anyOf": [
+              {
+                "const": "native_contact_preparation_v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Tool Contract"
           },
           "created_at": {
             "format": "date-time",
@@ -4962,6 +4989,69 @@
           "label"
         ],
         "title": "ContactReviewer",
+        "type": "object"
+      },
+      "ContactToolRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_required": {
+            "const": true,
+            "default": true,
+            "title": "Confirmation Required",
+            "type": "boolean"
+          },
+          "contract": {
+            "const": "native_contact_preparation_v1",
+            "default": "native_contact_preparation_v1",
+            "title": "Contract",
+            "type": "string"
+          },
+          "provider_call_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Provider Call Sha256",
+            "type": "string"
+          },
+          "recipient": {
+            "enum": [
+              "sample_ru",
+              "sample_uz"
+            ],
+            "title": "Recipient",
+            "type": "string"
+          },
+          "selection_fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Selection Fingerprint",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": true,
+            "default": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "template": {
+            "enum": [
+              "onboarding_help",
+              "renewal_reminder"
+            ],
+            "title": "Template",
+            "type": "string"
+          },
+          "tool_name": {
+            "const": "request_retention_contact_preparation",
+            "default": "request_retention_contact_preparation",
+            "title": "Tool Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient",
+          "template",
+          "provider_call_sha256",
+          "selection_fingerprint"
+        ],
+        "title": "ContactToolRequest",
         "type": "object"
       },
       "CreateAdminUserRequest": {
@@ -16234,6 +16324,16 @@
             "title": "Peer Reviews Enabled",
             "type": "boolean"
           },
+          "preparation_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContactToolRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recipients": {
             "maxItems": 2,
             "minItems": 2,
@@ -16296,6 +16396,18 @@
             "format": "uuid",
             "title": "Request Id",
             "type": "string"
+          },
+          "selection_fingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Fingerprint"
           },
           "template": {
             "enum": [

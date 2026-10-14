@@ -13,6 +13,7 @@ from app.mana_operation_ai.domain.chat import (
     TopicCreate,
     TranscriptPage,
 )
+from app.mana_operation_ai.domain.contact_preparation import ContactToolSelection
 from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
 
 
@@ -90,6 +91,8 @@ class ChatTurnOutput:
         output_tokens: int | None,
         plan: list[str] | None = None,
         next_action: ChatNextAction = "none",
+        contact_selection: ContactToolSelection | None = None,
+        contact_call_sha256: str | None = None,
     ) -> None:
         self.answer = answer
         self.model = model
@@ -97,3 +100,5 @@ class ChatTurnOutput:
         self.output_tokens = output_tokens
         self.plan = plan or []
         self.next_action = next_action
+        self.contact_selection = contact_selection
+        self.contact_call_sha256 = contact_call_sha256

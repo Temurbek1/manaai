@@ -6,14 +6,18 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, field_validator
 
+from app.mana_operation_ai.domain.contact_preparation import ContactToolRequest
 from app.mana_operation_ai.domain.models import DomainModel
 from app.mana_operation_ai.domain.retention_contact import (
     ContactStatus,
     RetentionContactMessage,
 )
-
-SandboxRecipient = Literal["sample_ru", "sample_uz"]
-ContactTemplate = Literal["onboarding_help", "renewal_reminder"]
+from app.mana_operation_ai.domain.retention_contact import (
+    ContactTemplate as ContactTemplate,
+)
+from app.mana_operation_ai.domain.retention_contact import (
+    SandboxRecipient as SandboxRecipient,
+)
 
 
 class WorkspaceContactPrepare(DomainModel):
@@ -21,6 +25,7 @@ class WorkspaceContactPrepare(DomainModel):
     confirmed: Literal[True]
     recipient: SandboxRecipient
     template: ContactTemplate
+    selection_fingerprint: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
     @field_validator("confirmed", mode="before")
     @classmethod
@@ -77,6 +82,7 @@ class WorkspaceContactPage(DomainModel):
     )
     more_omitted: bool = False
     peer_reviews_enabled: bool = False
+    preparation_request: ContactToolRequest | None = None
 
 
 class WorkspaceContactHistory(DomainModel):

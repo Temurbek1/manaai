@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.mana_operation_ai.domain.contact_preparation import ContactToolRequest
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 from app.mana_operation_ai.domain.session import SessionMemory
 
@@ -92,6 +93,27 @@ class ChatTurn(ChatModel):
     session_memory: SessionMemory | None = None
     preview: str = Field(default="", max_length=16000)
     preview_revision: int = Field(default=0, ge=0, le=130)
+    contact_tool_contract: Literal["native_contact_preparation_v1"] | None = None
+    contact_preparation: ContactToolRequest | None = None
+
+    @model_validator(mode="after")
+    def contact_contract(self) -> "ChatTurn":
+        if self.contact_tool_contract is not None and self.execution_mode != "agent":
+            raise ValueError("Native contact selection belongs only to an admitted agent turn")
+        if (
+            self.contact_tool_contract is not None
+            and self.status == "completed"
+            and self.next_action == "retention_contacts"
+            and self.contact_preparation is None
+        ):
+            raise ValueError("A completed native contact request cannot fall back to a manual card")
+        if self.contact_preparation is not None and (
+            self.contact_tool_contract != self.contact_preparation.contract
+            or self.status != "completed"
+            or self.next_action != "retention_contacts"
+        ):
+            raise ValueError("Contact selection requires its original completed native tool turn")
+        return self
 
 
 class TopicDetail(ChatModel):
@@ -127,6 +149,7 @@ class ChatAvailability(ChatModel):
     action_reviews_enabled: bool = False
     retention_contact_reviews_enabled: bool = False
     retention_peer_reviews_enabled: bool = False
+    contact_tool_proposals_enabled: bool = False
     transcript_pagination_enabled: bool = False
     chat_streaming_enabled: bool = False
     response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")

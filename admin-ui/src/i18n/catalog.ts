@@ -3,6 +3,7 @@ export type TranslationValues = Readonly<Record<string, string | number>>;
 
 // Source-language keys keep existing Russian text and historical artifacts unchanged.
 export const UZ: Readonly<Record<string, string>> = {
+  "Агент выбрал тестовое действие": "Agent sinov amalini tanladi",
   "Передать на согласование": "Tasdiqlashga yuborish",
   согласование: "tasdiqlash",
   "Согласующий сотрудник": "Tasdiqlovchi xodim",

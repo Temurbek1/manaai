@@ -93,11 +93,13 @@ class WorkspaceRetentionContacts:
     async def page(self, owner: str, topic_id: str, turn_id: str) -> WorkspaceContactPage:
         await self._access(owner, topic_id, turn_id)
         actions = await self._store.list_for_turn(owner, topic_id, turn_id)
+        turn = await self._chats.turn(owner, topic_id, turn_id)
         return WorkspaceContactPage(
             items=[self.view(item) for item in actions[:3]],
             recipients=self._recipients,
             more_omitted=len(actions) > 3,
             peer_reviews_enabled=self._peer_reviews_enabled,
+            preparation_request=turn.contact_preparation,
         )
 
     async def history(
@@ -114,6 +116,17 @@ class WorkspaceRetentionContacts:
         self, actor: ActorContext, topic_id: str, turn_id: str, request: WorkspaceContactPrepare
     ) -> WorkspaceContactView:
         await self._access(actor.actor_id, topic_id, turn_id)
+        turn = await self._chats.turn(actor.actor_id, topic_id, turn_id)
+        selection = turn.contact_preparation
+        if selection is not None:
+            if (request.recipient, request.template, request.selection_fingerprint) != (
+                selection.recipient,
+                selection.template,
+                selection.selection_fingerprint,
+            ):
+                raise ChatError("Подтверждение не соответствует выбранному агентом действию.", 409)
+        elif request.selection_fingerprint is not None:
+            raise ChatError("Это сообщение не содержит нативного выбора.", 409)
         recipient = next(item for item in self._recipients if item.key == request.recipient)
         action = await self._contacts.prepare(
             actor,
