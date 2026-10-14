@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { renderWithSession } from "@/test/render";
 import { requestUrl } from "@/test/http";
+import { formatDate } from "@/ui/format";
 import {
   GoalWorkspace,
   type Goal,
@@ -84,9 +85,119 @@ const limited: Goal = {
   waiting_reason: "Лимит шагов исчерпан.",
 };
 
+const savedEvidence: NonNullable<Goal["evidence"]>[number] = {
+  report_id: "saved-evidence-1",
+  capability_key: "retention.engagement.analyze",
+  product: "mana",
+  summary: "Saved synthetic aggregate; no observed event dates.",
+  collected_at: "2026-10-08T00:00:00Z",
+  fresh_until: "2026-10-08T06:00:00Z",
+  refresh_status: "cached",
+  shortened: false,
+};
+
 describe("GoalWorkspace", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it("labels source collection separately from Goal creation without granting reads", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-08T03:00:00Z"));
+    const fetchMock = jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+      response([
+        {
+          ...fixture,
+          status: "completed",
+          created_at: "2026-10-08T01:00:00Z",
+          evidence: [savedEvidence],
+        },
+      ]),
+    );
+    renderWithSession(<GoalWorkspace topicId="topic-1" />);
+    const item = await screen.findByText(/saved-evidence-1/);
+    expect(item).toHaveTextContent(
+      `Сбор данных: ${formatDate(savedEvidence.collected_at)}`,
+    );
+    expect(item).toHaveTextContent("Срок кэша не истёк");
+    expect(item).not.toHaveTextContent("Подтверждён");
+    expect(item).not.toHaveTextContent(formatDate("2026-10-08T01:00:00Z"));
+    expect(item.closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText(/Есть устаревшие данные/)).toBeNull();
+    expect(
+      fetchMock.mock.calls.every(
+        ([, init]) => !init?.method || init.method === "GET",
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.every(([input]) =>
+        requestUrl(input).includes("/goals/topics/topic-1"),
+      ),
+    ).toBe(true);
+  });
+
+  it.each([null, "", "invalid-date"])(
+    "does not replace missing/malformed collection date %j with Goal dates",
+    async (collected_at) => {
+      jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+        response([
+          {
+            ...fixture,
+            status: "completed",
+            evidence: [{ ...savedEvidence, collected_at }],
+          },
+        ]),
+      );
+      renderWithSession(<GoalWorkspace topicId="topic-1" />);
+      const item = await screen.findByText(/saved-evidence-1/);
+      expect(item).toHaveTextContent("Дата сбора неизвестна");
+      expect(item).not.toHaveTextContent("Invalid Date");
+      expect(item).not.toHaveTextContent(formatDate(fixture.created_at));
+      expect(item).toHaveTextContent("Свежесть не подтверждена");
+      expect(screen.getByText(/Есть устаревшие данные/)).toBeVisible();
+    },
+  );
+
+  it.each([
+    { collected_at: "2026-10-08T04:00:00Z" },
+    { fresh_until: "invalid-date" },
+    { fresh_until: "2026-10-08T00:00:00Z" },
+    { refresh_status: "unknown" },
+  ])("warns outside details about unverified timing %j", async (fields) => {
+    jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-08T03:00:00Z"));
+    jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+      response([
+        {
+          ...fixture,
+          status: "completed",
+          evidence: [{ ...savedEvidence, ...fields }],
+        },
+      ]),
+    );
+    renderWithSession(<GoalWorkspace topicId="topic-1" />);
+    const warning = await screen.findByText(/Есть устаревшие данные/);
+    expect(warning).toBeVisible();
+    expect(warning.closest("details")).toBeNull();
+    expect(screen.getByText(/saved-evidence-1/)).toHaveTextContent(
+      "Свежесть не подтверждена",
+    );
+  });
+
+  it("does not leave expired cached evidence labelled as verified", async () => {
+    jest
+      .spyOn(Date, "now")
+      .mockReturnValue(Date.parse(savedEvidence.fresh_until!));
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() =>
+        response([
+          { ...fixture, status: "completed", evidence: [savedEvidence] },
+        ]),
+      );
+    renderWithSession(<GoalWorkspace topicId="topic-1" />);
+    const item = await screen.findByText(/saved-evidence-1/);
+    expect(item).toHaveTextContent("Устаревшие");
+    expect(item).not.toHaveTextContent("Подтверждён");
+    expect(screen.getByText(/Есть устаревшие данные/)).toBeVisible();
   });
 
   it("labels a completed historical slice separately from current measurements", async () => {

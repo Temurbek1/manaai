@@ -59,7 +59,12 @@ Several citations conflate collection with observation. The final draft and revi
 call 01:13:22 a save time, but the source metadata is collection 01:13:22 / report
 creation 01:23:22. Actual SQL-save time and observation periods are not supplied.
 The arithmetic and missing-coverage stop remain correct, but this is a real citation
-defect, not evidence that all checks passed. It needs a fresh post-change quality check.
+defect, not evidence that all checks passed. This original party cannot establish
+post-change quality.
+
+That subsequent [two-case evidence-date checkpoint](operation-evidence-date-checkpoint.md)
+now records a new isolated real-model diagnostic and shared UI guards. Its correct
+date roles/missing-data stop do not overwrite or relabel this original pre-fix party.
 
 Shared `EVIDENCE_DATE_INSTRUCTIONS` now distinguishes collection, report/object
 creation, cache expiry, actual user events/observation windows and SQL storage.

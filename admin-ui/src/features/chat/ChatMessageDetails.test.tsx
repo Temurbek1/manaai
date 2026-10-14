@@ -34,7 +34,7 @@ describe("ChatMessageDetails evidence dates", () => {
       };
       render(<ChatMessageDetails turn={turn} />);
       const link = screen.getByRole("link", { hidden: true });
-      expect(link).toHaveTextContent("Данные:");
+      expect(link).toHaveTextContent("Сбор данных:");
       expect(link).toHaveTextContent(formatDate("2026-10-08T00:00:00Z"));
       expect(link).not.toHaveTextContent(formatDate("2026-10-08T07:00:00Z"));
       expect(link).toHaveTextContent("Устаревшие");
@@ -114,6 +114,12 @@ describe("ChatMessageDetails evidence dates", () => {
       expect(
         screen.getByText("Детали ответа · 1 ист.").closest("details"),
       ).not.toHaveAttribute("open");
+      expect(screen.getByRole("link", { hidden: true })).toHaveTextContent(
+        "Срок кэша не истёк",
+      );
+      expect(screen.getByRole("link", { hidden: true })).not.toHaveTextContent(
+        "Подтверждён",
+      );
     },
   );
 
@@ -169,6 +175,21 @@ describe("ChatMessageDetails evidence dates", () => {
       "Свежесть части данных не подтверждена",
     );
   });
+
+  it.each([null, "", "invalid-date"])(
+    "labels an unusable collection date %j without substituting report creation",
+    (collected_at) => {
+      render(
+        <ChatMessageDetails
+          turn={{ ...turn, sources: [{ ...source, collected_at }] }}
+        />,
+      );
+      const link = screen.getByRole("link", { hidden: true });
+      expect(link).toHaveTextContent("Дата сбора неизвестна");
+      expect(link).not.toHaveTextContent("Invalid Date");
+      expect(link).not.toHaveTextContent(formatDate(source.created_at));
+    },
+  );
 
   it("keeps failed-turn evidence and unknown product scope visible without calling providers", () => {
     jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-08T03:00:00Z"));

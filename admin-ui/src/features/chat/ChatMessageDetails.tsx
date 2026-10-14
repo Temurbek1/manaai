@@ -3,26 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ChatViewTurn } from "./contracts";
-import { formatDate } from "@/ui/format";
-
-function evidenceState(
-  source: NonNullable<ChatViewTurn["sources"]>[number],
-  now: number,
-): "stale" | "unknown" | "recent" {
-  if (source.refresh_status === "stale") return "stale";
-  const collected = Date.parse(source.collected_at ?? "");
-  const expires = Date.parse(source.fresh_until ?? "");
-  if (
-    !["live", "cached"].includes(source.refresh_status ?? "") ||
-    !Number.isFinite(collected) ||
-    !Number.isFinite(expires) ||
-    collected > now ||
-    expires <= collected
-  )
-    return "unknown";
-  // Display only: the server independently validates freshness before actions.
-  return expires <= now ? "stale" : "recent";
-}
+import {
+  evidenceCollectionLabel,
+  evidenceState,
+  evidenceStateLabel,
+} from "./evidenceDisplay";
 
 export function ChatMessageDetails({
   turn,
@@ -102,11 +87,8 @@ export function ChatMessageDetails({
                 key={source.report_id}
                 href={`/runs?run=${encodeURIComponent(source.run_id)}`}
               >
-                {source.title} ·{" "}
-                {source.collected_at
-                  ? `Данные: ${formatDate(source.collected_at)}`
-                  : "Дата сбора неизвестна"}{" "}
-                · {source.refresh_status === "stale" ? "Устаревшие · " : ""}
+                {source.title} · {evidenceCollectionLabel(source.collected_at)}{" "}
+                · {evidenceStateLabel(evidenceState(source, now))} ·{" "}
                 {source.scope_verified && source.product
                   ? `Только ${source.product === "mana" ? "MANA" : "360REC"}`
                   : "Приложение не подтверждено"}{" "}

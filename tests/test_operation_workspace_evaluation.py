@@ -94,9 +94,45 @@ def test_candidate_profile_is_offline_explicit_and_not_an_automatic_upgrade(
     assert result["max_calls"] == 16 and result["cap_microusd"] == 490000
 
 
+def test_new_date_suite_is_offline_preserves_the_old_cases_and_full_scope(
+    monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def forbidden() -> None:
+        raise AssertionError("New date-suite plan cannot load settings or execute a source")
+
+    monkeypatch.setattr(benchmark, "get_settings", forbidden)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "operation_workspace_evaluate.py",
+            "--tracked-limits",
+            "--candidate-native",
+            "--case-suite",
+            "evidence_dates",
+        ],
+    )
+    benchmark.main()
+    result = json.loads(capsys.readouterr().out)
+    assert len(result["cases"]) == 2 and len(benchmark.cases()) == 8
+    assert result["case_suite"] == "evidence_dates" and result["max_calls"] == 10
+    assert result["cap_microusd"] == 490000 and result["sources"] == 0
+    assert result["cases"][1]["full_goal"]
+    assert "последние 7 дней" in result["cases"][1]["message"]
+    assert "Не подменяй полный анализ" in result["cases"][1]["message"]
+    assert "No observation start/end dates" in result["cases"][1]["report_text"]
+    assert not set(case.case_id for case in benchmark.date_cases()) & {
+        case.case_id for case in benchmark.cases()
+    }
+
+
+@pytest.mark.parametrize("case_suite", ["administration", "evidence_dates"])
 @pytest.mark.parametrize("failure", [None, "invalid", "incomplete", "pending", "timeout", "quota"])
 async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fences(
-    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+    failure: str | None,
+    case_suite: benchmark.CaseSuite,
 ) -> None:
     settings = Settings(
         _env_file=None,
@@ -107,7 +143,7 @@ async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fence
     monkeypatch.setattr(benchmark, "get_settings", lambda: settings)
     requests: list[dict[str, Any]] = []
     transport_errors: list[Exception] = []
-    fixed = benchmark.cases()
+    fixed = benchmark.selected_cases(case_suite)
 
     def transport(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
@@ -176,7 +212,12 @@ async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fence
                     plan=[
                         GoalTask(title="Verified payments and complete funnel", status="blocked")
                     ],
-                    draft="D1=60%; D7=28%; previous D7=40%; -12pp/-30%. No payment/funnel proof.",
+                    draft=(
+                        "D1=60%; D7=30%; previous D7=40%; -10pp/-25%. "
+                        "No observation-window/payment/funnel proof."
+                        if case_suite == "evidence_dates"
+                        else "D1=60%; D7=28%; previous D7=40%; -12pp/-30%. No payment/funnel proof."
+                    ),
                     evidence_ids=[goal.evidence[0].report_id],
                     disposition="waiting",
                     missing_information="Missing verified payments and ordered funnel.",
@@ -251,7 +292,9 @@ async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fence
     monkeypatch.setattr(benchmark, "OpenAIConversationModel", ChatSDK)
     monkeypatch.setattr(benchmark, "OpenAIGoalModel", GoalSDK)
     directory = tmp_path / "new-matrix"
-    await benchmark.evaluate(directory, tracked_limits=True, candidate_native=True)
+    await benchmark.evaluate(
+        directory, tracked_limits=True, candidate_native=True, case_suite=case_suite
+    )
     if transport_errors and failure not in {"timeout"}:
         raise transport_errors[0]
     result = json.loads((directory / "results.json").read_text())
@@ -269,6 +312,7 @@ async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fence
     }
     assert result["source_attempts"] == result["production_changes"] == 0
     assert result["candidate_native"] and result["tracked_limits"]
+    assert result["case_suite"] == case_suite
     assert result["manual_review_required"] is True
     assert "PRIVATE" not in (directory / "results.json").read_text()
     assert result["accounting"]["calls"] == len(requests)
@@ -278,10 +322,13 @@ async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fence
             failure in {"pending", "timeout", "quota"}
         )
     else:
-        assert len(result["results"]) == 8 and len(requests) == 11
+        assert len(result["results"]) == len(fixed) and len(requests) == len(fixed) + 3
         assert result["accounting"]["unknown_hold_microusd"] == 0
         assert all(case["routing_matches"] for case in result["results"])
-        assert result["results"][0]["route_goal_created_then_cancelled"]
+        if case_suite == "administration":
+            assert result["results"][0]["route_goal_created_then_cancelled"]
+        else:
+            assert all("route_goal_created_then_cancelled" not in row for row in result["results"])
         final = result["results"][-1]["goal"]
         assert final["status"] == "waiting" and final["request"]["objective"] == fixed[-1].message
         assert final["review_verdict_enabled"] and not final["read_attempted"]
@@ -289,6 +336,6 @@ async def test_candidate_matrix_real_sdk_sql_sources_isolation_and_receipt_fence
             "inspect_sources",
             "read_saved_report",
         ]
-        assert len(list(directory.glob("*.db"))) == 9
+        assert len(list(directory.glob("*.db"))) == len(fixed) + 1
     assert settings.operation_workspace_report_discovery_enabled is False
     assert settings.operation_workspace_compact_threshold == 8000

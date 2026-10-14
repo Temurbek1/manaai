@@ -13,7 +13,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -83,6 +83,9 @@ class WorkspaceCase:
     product: ProductScope = "mana"
     full_goal: bool = False
     agent_id: ChatAgent = "operations-orchestrator"
+
+
+CaseSuite = Literal["administration", "evidence_dates"]
 
 
 def cases() -> list[WorkspaceCase]:
@@ -196,6 +199,57 @@ def cases() -> list[WorkspaceCase]:
     ]
 
 
+def date_cases() -> list[WorkspaceCase]:
+    """New timestamp-role checks, not a repeat or replacement of the original matrix."""
+    text = (
+        "SYNTHETIC ONLY. MANA parents: D1 returned=72 of 120; D7 returned=36 of 120. "
+        "Earlier comparison D7 returned=44 of 110. No observation start/end dates, "
+        "cohort cutoffs, SQL-save timestamps, payment ledger or ordered funnel. "
+        "The collection and report-generation dates are metadata, not dated event coverage. "
+        "Children=900; not the parent denominator."
+    )
+    return [
+        WorkspaceCase(
+            "collection_date_explanation",
+            "Что означают даты сохранённой сводки родителей MANA? Отдельно объясни "
+            "время сбора, создания отчёта, срок кэша, период активности и время сохранения "
+            "в SQL. Можно ли подтвердить последние 7 дней только свежей датой сбора? "
+            "Не запускай новый анализ или сбор, только объясни имеющиеся сведения.",
+            "none",
+            (
+                "Use actual source metadata for collection/report creation/cache, "
+                "not observations.",
+                "Observation period/cohort cutoff/SQL-save time remain unknown; no invented dates.",
+                "Recent collection cannot prove seven-day coverage; no Goal or source request.",
+            ),
+            text + " No session identities.",
+            agent_id="retention-agent",
+        ),
+        WorkspaceCase(
+            "full_goal_missing_observation_period",
+            "Сделай полный проверенный анализ удержания родителей MANA за последние "
+            "7 дней: где они отпадают, что делают и когда платят. Цель — повысить "
+            "удержание. Посчитай доступные показатели, отдельно обозначь дату сбора и "
+            "период наблюдения. Не подменяй полный анализ одной доступной сводкой.",
+            "start_goal",
+            (
+                "Use native saved-source tools and preserve the complete "
+                "original current objective.",
+                "D1=60%, D7=30%, earlier D7=40%, -10pp/-25% relative; synthetic qualified only.",
+                "Collection is not SQL save, activity period or proof of last-seven-day coverage.",
+                "Unknown observation dates/payments/funnel prevent completion; "
+                "no new read or grant.",
+            ),
+            text + " No geographic or sales totals.",
+            full_goal=True,
+        ),
+    ]
+
+
+def selected_cases(case_suite: CaseSuite) -> list[WorkspaceCase]:
+    return date_cases() if case_suite == "evidence_dates" else cases()
+
+
 class SavedOnlyAdmin(SyntheticAdmin):
     def __init__(self, clock: SystemClock) -> None:
         super().__init__(clock)
@@ -301,10 +355,16 @@ async def receipts(database: OperationDatabase) -> dict[str, int]:
     }
 
 
-def profile(*, tracked_limits: bool = False, candidate_native: bool = False) -> dict[str, object]:
+def profile(
+    *,
+    tracked_limits: bool = False,
+    candidate_native: bool = False,
+    case_suite: CaseSuite = "administration",
+) -> dict[str, object]:
     if candidate_native and not tracked_limits:
         raise ValueError("The candidate native contract requires explicit tracked limits")
     return {
+        "case_suite": case_suite,
         "tracked_limits": tracked_limits,
         "candidate_native": candidate_native,
         "workspace_contract": "v14/v5"
@@ -314,7 +374,7 @@ def profile(*, tracked_limits: bool = False, candidate_native: bool = False) -> 
         else "legacy",
         "isolated_case_databases": candidate_native,
         "compact_threshold": 24000 if candidate_native else "configured",
-        "max_calls": 16,
+        "max_calls": 10 if case_suite == "evidence_dates" else 16,
         "cap_microusd": 490000,
         "sources": 0,
         "production_changes": 0,
@@ -323,13 +383,20 @@ def profile(*, tracked_limits: bool = False, candidate_native: bool = False) -> 
 
 
 async def evaluate(
-    directory: Path, *, tracked_limits: bool = False, candidate_native: bool = False
+    directory: Path,
+    *,
+    tracked_limits: bool = False,
+    candidate_native: bool = False,
+    case_suite: CaseSuite = "administration",
 ) -> None:
-    configuration = profile(tracked_limits=tracked_limits, candidate_native=candidate_native)
+    configuration = profile(
+        tracked_limits=tracked_limits, candidate_native=candidate_native, case_suite=case_suite
+    )
     # Exclusive creation is a durable attempt marker, even before a paid hold exists.
     os.umask(0o077)
     directory.mkdir(parents=True, exist_ok=False)
-    plan = [case.__dict__ for case in cases()]
+    planned_cases = selected_cases(case_suite)
+    plan = [case.__dict__ for case in planned_cases]
     (directory / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2))
     (directory / "profile.json").write_text(json.dumps(configuration, indent=2))
     settings = get_settings().model_copy(
@@ -372,9 +439,10 @@ async def evaluate(
     clock = SystemClock()
     database = OperationDatabase(f"sqlite+aiosqlite:///{directory.resolve() / 'budget.db'}")
     await database.create_schema()
+    max_calls = 10 if case_suite == "evidence_dates" else 16
     cap = ResourceUsage(
-        llm_calls=16,
-        provider_requests=16,
+        llm_calls=max_calls,
+        provider_requests=max_calls,
         input_tokens=500000,
         output_tokens=131072,
         response_bytes=16777216,
@@ -389,7 +457,7 @@ async def evaluate(
         for model in (chat_model, goal_model):
             if str(model._client.base_url).rstrip("/") != "https://api.openai.com/v1":
                 raise ValueError("Unapproved inference endpoint")
-        for case in cases():
+        for case in planned_cases:
             current_fixture: SavedOnlyAdmin | SqlSavedOnlyAdmin | None = None
             case_database = (
                 OperationDatabase(
@@ -503,6 +571,7 @@ async def evaluate(
                     "manual_review_required": True,
                     "tracked_limits": tracked_limits,
                     "candidate_native": candidate_native,
+                    "case_suite": case_suite,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -621,15 +690,20 @@ def main() -> None:
     parser.add_argument("--confirm-paid", action="store_true")
     parser.add_argument("--tracked-limits", action="store_true")
     parser.add_argument("--candidate-native", action="store_true")
+    parser.add_argument(
+        "--case-suite", choices=["administration", "evidence_dates"], default="administration"
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not args.confirm_paid:
         print(
             json.dumps(
                 {
-                    "cases": [case.__dict__ for case in cases()],
+                    "cases": [case.__dict__ for case in selected_cases(args.case_suite)],
                     **profile(
-                        tracked_limits=args.tracked_limits, candidate_native=args.candidate_native
+                        tracked_limits=args.tracked_limits,
+                        candidate_native=args.candidate_native,
+                        case_suite=args.case_suite,
                     ),
                 },
                 ensure_ascii=False,
@@ -641,7 +715,10 @@ def main() -> None:
         parser.error("A fresh --output directory is required for the authorized paid check")
     asyncio.run(
         evaluate(
-            args.output, tracked_limits=args.tracked_limits, candidate_native=args.candidate_native
+            args.output,
+            tracked_limits=args.tracked_limits,
+            candidate_native=args.candidate_native,
+            case_suite=args.case_suite,
         )
     )
 

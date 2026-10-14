@@ -7,6 +7,11 @@ import type { components } from "@/api/schema";
 import { hasRole, useSession } from "@/auth/SessionContext";
 import { GoalReport } from "./GoalReport";
 import type { WorkspaceStreamState } from "./useWorkspaceStream";
+import {
+  evidenceCollectionLabel,
+  evidenceState,
+  evidenceStateLabel,
+} from "./evidenceDisplay";
 
 export const GOALS_BASE = "/api/v1/admin/operation/goals";
 type StoredGoal = components["schemas"]["OperationGoal"];
@@ -303,12 +308,7 @@ export function GoalWorkspace({
             ))}
           </div>
         )}
-      {evidence.some(
-        (item) =>
-          !item.fresh_until ||
-          Date.parse(item.fresh_until) <= now ||
-          !["live", "cached"].includes(item.refresh_status),
-      ) && (
+      {evidence.some((item) => evidenceState(item, now) !== "recent") && (
         <p className="goal-update">
           Есть устаревшие данные или источники с неподтверждённой свежестью.
         </p>
@@ -513,16 +513,8 @@ export function GoalWorkspace({
         <ul>
           {evidence.map((item) => (
             <li key={item.report_id}>
-              {item.report_id} ·{" "}
-              {item.refresh_status === "stale"
-                ? "Устарел"
-                : item.refresh_status === "unknown"
-                  ? "Свежесть неизвестна"
-                  : "Подтверждён"}{" "}
-              ·{" "}
-              {item.collected_at
-                ? new Date(item.collected_at).toLocaleString("ru-RU")
-                : "Дата сбора неизвестна"}
+              {item.report_id} · {evidenceStateLabel(evidenceState(item, now))}{" "}
+              · {evidenceCollectionLabel(item.collected_at)}
             </li>
           ))}
         </ul>

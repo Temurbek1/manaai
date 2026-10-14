@@ -131,8 +131,12 @@ quality, fresh MANA coverage, production readiness or closure of this objective.
 The [eight-case matrix checkpoint](operation-workspace-matrix-checkpoint.md) adds
 neutral-label, isolated-SQL evidence for routing, numerical/permission/product
 boundaries and preserving a missing-data full objective. It found a timestamp-role
-citation defect; the subsequent shared clarification is locally tested, not yet
-live-retested. Eight routing matches do not establish full workspace readiness.
+citation defect. The subsequent [evidence-date checkpoint](operation-evidence-date-checkpoint.md)
+adds shared source-display guards and a new two-case real-model check: date roles
+are correct, and independent review retains the full missing-data Goal as waiting
+($0.114375 estimated, nine settled calls, no unknown hold or source read). These
+qualified cases do not retroactively fix the original matrix or establish full
+workspace readiness.
 
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model

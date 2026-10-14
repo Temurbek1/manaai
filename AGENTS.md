@@ -187,7 +187,11 @@
   different. Recent `collected_at` never proves current coverage or a storage date.
   Shared chat/Goal guidance clarifies these roles without changing grants/freshness.
   The eight-case matrix's timestamp defect remains a qualified pre-fix result;
-  do not call the clarification live-verified. See `docs/operation-workspace-matrix-checkpoint.md`.
+  the subsequent two-case real-model check is qualified synthetic evidence, not
+  overall readiness or a rewrite of that party. Chat/Goal source labels identify
+  collection and cache timing, never confirmed observation coverage; malformed or
+  future dates fail closed for display without provider calls or permission changes.
+  See `docs/operation-evidence-date-checkpoint.md` and the original matrix report.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias
