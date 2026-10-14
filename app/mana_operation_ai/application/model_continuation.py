@@ -8,6 +8,8 @@ from app.mana_operation_ai.domain.model_continuation import ContinuationProtocol
 
 
 def continuation_protocol(goal: OperationGoal) -> ContinuationProtocol:
+    if goal.review_verdict_enabled:
+        return "goal-model-continuation-v5"
     if goal.page_projection_enabled:
         return "goal-model-continuation-v4"
     if goal.snapshot_replacement_enabled:
@@ -36,6 +38,8 @@ def continuation_scope_digest(owner: str, goal: OperationGoal) -> str:
         payload["snapshot_replacement_enabled"] = True
     if goal.page_projection_enabled:
         payload["page_projection_enabled"] = True
+    if goal.review_verdict_enabled:
+        payload["review_verdict_enabled"] = True
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     ).hexdigest()
@@ -45,6 +49,7 @@ def public_goal(goal: OperationGoal) -> OperationGoal:
     return goal.model_copy(
         update={
             "model_continuation": None,
+            "review_receipt": None,
             "evidence": [
                 item.model_copy(update={"report_read_progress": None}) for item in goal.evidence
             ],

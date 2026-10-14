@@ -132,7 +132,9 @@ def oracle() -> dict[str, object]:
     }
 
 
-def plan(*, project_pages: bool = False) -> dict[str, object]:
+def plan(*, project_pages: bool = False, review_verdicts: bool = False) -> dict[str, object]:
+    if review_verdicts and not project_pages:
+        raise ValueError("Verdict diagnostics require the captured paged-catalog contract")
     return {
         "max_calls": MAX_STEPS,
         "budget_microusd": BUDGET,
@@ -140,7 +142,11 @@ def plan(*, project_pages: bool = False) -> dict[str, object]:
         "reasoning": "medium",
         "max_output_tokens": OUTPUT_TOKENS,
         "analysis_scope": "saved_snapshot",
-        "workspace_contract": "v13/v4" if project_pages else "v11/v2",
+        "workspace_contract": "v14/v5"
+        if review_verdicts
+        else "v13/v4"
+        if project_pages
+        else "v11/v2",
         "source_attempts": 0,
         "production_changes": 0,
         "replay": False,
@@ -210,18 +216,20 @@ async def seed(repository: SqlAlchemyOperationRepository, clock: SystemClock) ->
         )
 
 
-async def evaluate(directory: Path, *, project_pages: bool = False) -> dict[str, object]:
+async def evaluate(
+    directory: Path, *, project_pages: bool = False, review_verdicts: bool = False
+) -> dict[str, object]:
+    diagnostic_plan = plan(project_pages=project_pages, review_verdicts=review_verdicts)
     os.umask(0o077)
     directory.mkdir(parents=True, exist_ok=False)
-    (directory / "plan.json").write_text(
-        json.dumps(plan(project_pages=project_pages), ensure_ascii=False, indent=2)
-    )
+    (directory / "plan.json").write_text(json.dumps(diagnostic_plan, ensure_ascii=False, indent=2))
     settings = get_settings().model_copy(
         update={
             "operation_agent_workspace_enabled": True,
             "operation_workspace_report_discovery_enabled": True,
             "operation_workspace_snapshot_replacement_enabled": project_pages,
             "operation_workspace_page_projection_enabled": project_pages,
+            "operation_workspace_review_verdicts_enabled": review_verdicts,
             "operation_workspace_model_continuation_enabled": True,
             "operation_model_selection_enabled": True,
             "operation_goal_limit_extensions_enabled": True,
@@ -264,6 +272,7 @@ async def evaluate(directory: Path, *, project_pages: bool = False) -> dict[str,
         report_discovery_enabled=True,
         snapshot_replacement_enabled=project_pages,
         page_projection_enabled=project_pages,
+        review_verdict_enabled=review_verdicts,
     )
     reports = SqlAlchemyOperationRepository(database)
     await seed(reports, clock)
@@ -280,6 +289,7 @@ async def evaluate(directory: Path, *, project_pages: bool = False) -> dict[str,
         report_discovery_enabled=True,
         snapshot_replacement_enabled=project_pages,
         page_projection_enabled=project_pages,
+        review_verdict_enabled=review_verdicts,
         session_context=OperationSessionContext(chats, goals),
         availability=GoalAvailability(
             enabled=True,
@@ -378,15 +388,26 @@ def main() -> None:
     parser.add_argument("--confirm-paid", action="store_true")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--project-saved-pages", action="store_true")
+    parser.add_argument("--review-verdicts", action="store_true")
     args = parser.parse_args()
     if not args.confirm_paid:
         print(
-            json.dumps(plan(project_pages=args.project_saved_pages), ensure_ascii=False, indent=2)
+            json.dumps(
+                plan(project_pages=args.project_saved_pages, review_verdicts=args.review_verdicts),
+                ensure_ascii=False,
+                indent=2,
+            )
         )
         return
     if args.output is None:
         parser.error("A fresh directory is required; no existing/lost attempt can be resumed")
-    asyncio.run(evaluate(args.output, project_pages=args.project_saved_pages))
+    asyncio.run(
+        evaluate(
+            args.output,
+            project_pages=args.project_saved_pages,
+            review_verdicts=args.review_verdicts,
+        )
+    )
 
 
 if __name__ == "__main__":

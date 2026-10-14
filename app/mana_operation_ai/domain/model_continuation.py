@@ -15,6 +15,7 @@ ContinuationProtocol = Literal[
     "goal-model-continuation-v2",
     "goal-model-continuation-v3",
     "goal-model-continuation-v4",
+    "goal-model-continuation-v5",
 ]
 
 
@@ -40,11 +41,19 @@ class ModelContinuation(DomainModel):
     @model_validator(mode="after")
     def validate_integrity(self) -> "ModelContinuation":
         if (
-            self.protocol not in ("goal-model-continuation-v3", "goal-model-continuation-v4")
+            self.protocol
+            not in (
+                "goal-model-continuation-v3",
+                "goal-model-continuation-v4",
+                "goal-model-continuation-v5",
+            )
             and self.runtime_snapshots
         ):
             raise ValueError("Runtime snapshot provenance requires continuation v3")
-        if self.page_outputs and self.protocol != "goal-model-continuation-v4":
+        if self.page_outputs and self.protocol not in (
+            "goal-model-continuation-v4",
+            "goal-model-continuation-v5",
+        ):
             raise ValueError("Page-output provenance requires continuation v4")
         output_positions = [item.position for item in self.page_outputs]
         if output_positions != sorted(set(output_positions)):

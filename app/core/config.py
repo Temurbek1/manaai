@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     operation_workspace_report_discovery_enabled: bool = False
     operation_workspace_snapshot_replacement_enabled: bool = False
     operation_workspace_page_projection_enabled: bool = False
+    operation_workspace_review_verdicts_enabled: bool = False
     operation_workspace_topic_message_limit: int = Field(default=1000, ge=100, le=10000)
     operation_workspace_model_continuation_enabled: bool = False
     operation_workspace_compact_threshold: int = Field(default=8000, ge=1024, le=24000)

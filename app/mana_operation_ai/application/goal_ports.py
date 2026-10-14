@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Literal, Protocol, get_args
 
 from app.mana_operation_ai.domain.chat import ChatTopic, ProductScope
+from app.mana_operation_ai.domain.goal_review import GoalReviewVerdictBody
 from app.mana_operation_ai.domain.goals import (
     GoalCommand,
     GoalCreate,
@@ -27,11 +28,13 @@ class GoalModelOutput:
         model: str,
         actual_microusd: int,
         continuation: ModelContinuation | None = None,
+        review: GoalReviewVerdictBody | None = None,
     ) -> None:
         self.decision = decision
         self.model = model
         self.actual_microusd = actual_microusd
         self.continuation = continuation
+        self.review = review
 
 
 DecisionField = Literal[

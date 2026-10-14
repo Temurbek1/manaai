@@ -41,6 +41,9 @@ fi
 if [[ "${WORKSPACE_PAGE_PROJECTION_AUDIT:-false}" == true ]]; then
   catalog_args=(--catalog --snapshots --pages)
 fi
+if [[ "${WORKSPACE_REVIEW_VERDICTS_AUDIT:-false}" == true ]]; then
+  catalog_args=(--catalog --snapshots --pages --verdicts)
+fi
 
 .venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {

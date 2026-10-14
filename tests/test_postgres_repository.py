@@ -1376,3 +1376,116 @@ async def test_postgres_action_intent_fences_independent_connections(
     finally:
         await second.dispose()
         get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("complete", [False, True])
+async def test_postgres_v14_review_receipt_preserves_full_draft_and_holds(complete: bool) -> None:
+    from app.mana_operation_ai.application.goal_review import review_decision, review_input
+    from app.mana_operation_ai.infrastructure.goal_continuation import (
+        finish_continuation,
+        prepare_continuation,
+    )
+    from tests.legacy_goal_contract import LegacyGoal
+    from tests.test_goal_continuation import context
+    from tests.test_goal_review_verdict import reviewing, verdict
+
+    assert POSTGRES_URL is not None
+    database = OperationDatabase(POSTGRES_URL)
+    clock = Clock()
+    owner = f"review-owner-{uuid4()}"
+    repository = SqlAlchemyGoalRepository(
+        database,
+        clock,
+        limit_extensions_enabled=True,
+        report_discovery_enabled=True,
+        snapshot_replacement_enabled=True,
+        page_projection_enabled=True,
+        review_verdict_enabled=True,
+    )
+    chats = SqlAlchemyChatRepository(database, hourly_limit=20, daily_limit=200)
+    try:
+        await chats.initialize()
+        topic = await chats.create(
+            owner,
+            TopicCreate(
+                agent_id="operations-orchestrator", product="mana", title="Exact review audit"
+            ),
+        )
+        original = await repository.create(
+            owner,
+            topic,
+            GoalCreate(
+                request_id=uuid4(),
+                objective="Retain the full original parent analysis and every condition.",
+                execution_mode="agent",
+                analysis_scope="saved_snapshot",
+            ),
+        )
+        fixture = reviewing()
+        goal = original.model_copy(
+            update={
+                "phase": "review",
+                "result": fixture.result,
+                "plan": fixture.plan,
+                "evidence": fixture.evidence,
+                "accounted_microusd": 50000,
+                "unsettled_microusd": 0 if complete else 50000,
+            }
+        )
+        text = context(goal)
+        receipt = verdict(text, disposition="accepted" if complete else "waiting")
+        prepared = prepare_continuation(
+            context=review_input(text),
+            owner=owner,
+            state=None,
+            model="fake-pg-review",
+            maximum_bytes=192000,
+        )
+        goal.model_continuation = finish_continuation(
+            prepared,
+            [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "id": "pg-review-message",
+                    "status": "completed",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": receipt.model_dump_json(),
+                            "annotations": [],
+                        }
+                    ],
+                }
+            ],
+            model="fake-pg-review",
+            call=None,
+            maximum_bytes=192000,
+        )
+        goal.review_receipt = receipt
+        goal.status = "completed" if complete else "waiting"
+        goal.plan = review_decision(receipt, text).plan
+        assert await repository.save(owner, original, goal)
+        restored = await SqlAlchemyGoalRepository(database, clock).get(owner, original.goal_id)
+        assert restored.review_receipt == receipt and restored.result == fixture.result
+        assert restored.request == original.request and restored.unsettled_microusd == (
+            0 if complete else 50000
+        )
+        assert (
+            restored.model_continuation is not None
+            and restored.model_continuation.protocol == "goal-model-continuation-v5"
+        )
+        storage = repository._storage(restored)
+        assert (
+            storage["workspace_payload"] is not None
+            and storage["workspace_payload"]["version"] == 14
+        )
+        assert (
+            "review_receipt" not in storage["payload"]
+            and "review_verdict_enabled" not in storage["payload"]
+        )
+        assert LegacyGoal.model_validate(storage["payload"]).status == (
+            "completed" if complete else "cancelled"
+        )
+    finally:
+        await database.dispose()

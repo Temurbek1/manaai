@@ -641,6 +641,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     page_projection_enabled = (
         snapshot_replacement_enabled and settings.operation_workspace_page_projection_enabled
     )
+    review_verdict_enabled = (
+        page_projection_enabled and settings.operation_workspace_review_verdicts_enabled
+    )
     goal_repository = SqlAlchemyGoalRepository(
         operation_database,
         clock,
@@ -656,6 +659,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ),
         snapshot_replacement_enabled=snapshot_replacement_enabled,
         page_projection_enabled=page_projection_enabled,
+        review_verdict_enabled=review_verdict_enabled,
     )
     app.state.operation_workspace_events = WorkspaceEventService(
         SqlAlchemyWorkspaceEvents(operation_database),
@@ -733,6 +737,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ),
         snapshot_replacement_enabled=snapshot_replacement_enabled,
         page_projection_enabled=page_projection_enabled,
+        review_verdict_enabled=review_verdict_enabled,
         session_context=session_context,
         availability=GoalAvailability(
             enabled=settings.operation_goals_enabled and settings.is_openai_configured,

@@ -16,6 +16,7 @@ from app.mana_operation_ai.application.goal_ports import (
     GoalModelResponseError,
     GoalProviderStatus,
 )
+from app.mana_operation_ai.application.goal_review import review_decision, review_input, review_mode
 from app.mana_operation_ai.application.goal_service import GOAL_INSTRUCTIONS
 from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.cost_control import (
@@ -24,6 +25,7 @@ from app.mana_operation_ai.domain.cost_control import (
     ProductScope,
     ResourceUsage,
 )
+from app.mana_operation_ai.domain.goal_review import GoalReviewVerdictBody
 from app.mana_operation_ai.domain.goals import GoalDecision, GoalDecisionBody
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.infrastructure.agent_tool_schema import (
@@ -96,7 +98,7 @@ class OpenAIGoalModel:
                     {
                         "instructions": GOAL_INSTRUCTIONS,
                         "input": items if items is not None else context,
-                        "schema": GoalDecisionBody.model_json_schema(),
+                        "schema": self._response_schema(context).model_json_schema(),
                         "tools": self._function_tools(context) if self._agent_mode(context) else [],
                     },
                     ensure_ascii=False,
@@ -104,6 +106,10 @@ class OpenAIGoalModel:
             )
             + 1024
         )
+
+    @staticmethod
+    def _response_schema(context: str) -> type[BaseModel]:
+        return GoalReviewVerdictBody if review_mode(context) else GoalDecisionBody
 
     def _agent_mode(self, context: str) -> bool:
         return (
@@ -156,11 +162,18 @@ class OpenAIGoalModel:
             and not self._settings.operation_workspace_page_projection_enabled
         ):
             raise ValueError("Saved-page projection is disabled")
+        if json.loads(context).get("goal", {}).get("review_verdict_enabled") is True and not (
+            self._settings.operation_workspace_review_verdicts_enabled
+        ):
+            raise ValueError("Independent review verdicts are disabled")
         # Preserve the same current-snapshot bound before handling a separate private window.
         self.reservation(context)
+        model_context = review_input(context) if review_mode(context) else context
+        if len(model_context.encode()) > self._settings.operation_goals_max_context_bytes:
+            raise ValueError("Review context exceeds its unchanged bound")
         plan = selected_inference(context, goal=True) if self._catalog else None
         return prepare_continuation(
-            context=context,
+            context=model_context,
             owner=owner,
             state=state,
             model=plan.model if plan else self._settings.operation_goals_model,
@@ -190,6 +203,8 @@ class OpenAIGoalModel:
     async def _decide(
         self, *, context: str, owner: str, prepared: PreparedContinuation | None = None
     ) -> GoalModelOutput:
+        if review_mode(context) and prepared is None:
+            raise ValueError("Review verdicts require the native continuation contract")
         plan = selected_inference(context, goal=True) if self._catalog else None
         model_name = plan.model if plan else self._settings.operation_goals_model
         effort = plan.effort if plan else self._settings.operation_goals_reasoning_effort
@@ -250,7 +265,7 @@ class OpenAIGoalModel:
             max_output_tokens=output_bound,
             reasoning={"effort": effort},
             text={"verbosity": "medium"},
-            text_format=GoalDecisionBody,
+            text_format=self._response_schema(context),
             store=False,
             service_tier="default",
             safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
@@ -318,6 +333,7 @@ class OpenAIGoalModel:
         # A native call may accompany ordinary public commentary. Do not parse that
         # commentary as a structured final decision before handling the function call.
         calls = [item for item in content.output if item.get("type") == "function_call"]
+        review: GoalReviewVerdictBody | None = None
         if calls:
             if not self._agent_mode(context) or goal.get("phase") == "review" or len(calls) != 1:
                 raise GoalModelResponseError(
@@ -354,7 +370,13 @@ class OpenAIGoalModel:
                 response = raw.parse()
                 if response.output_parsed is None:
                     raise ValueError("Missing structured decision")
-                decision = GoalDecision.model_validate(response.output_parsed.model_dump())
+                if review_mode(context):
+                    review = GoalReviewVerdictBody.model_validate(
+                        response.output_parsed.model_dump()
+                    )
+                    decision = review_decision(review, context)
+                else:
+                    decision = GoalDecision.model_validate(response.output_parsed.model_dump())
             except ValidationError as exc:
                 raise GoalModelResponseError(
                     "Формат ответа AI не прошёл проверку. Расходы учтены; повтор не запущен.",
@@ -383,7 +405,7 @@ class OpenAIGoalModel:
                     "Контекст продолжения не прошёл проверку. Расходы учтены; повтор не запущен.",
                     actual.llm_microusd,
                 ) from None
-        return GoalModelOutput(decision, envelope.model, actual.llm_microusd, continuation)
+        return GoalModelOutput(decision, envelope.model, actual.llm_microusd, continuation, review)
 
     async def close(self) -> None:
         await self._client.close()

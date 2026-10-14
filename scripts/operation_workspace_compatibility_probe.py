@@ -40,11 +40,14 @@ async def probe(
     catalog: bool = False,
     snapshots: bool = False,
     pages: bool = False,
+    verdicts: bool = False,
 ) -> None:
     if snapshots and not catalog:
         raise ValueError("Snapshot compatibility auditing requires the captured catalog contract")
     if pages and not snapshots:
         raise ValueError("Page compatibility auditing requires captured snapshot replacement")
+    if verdicts and not pages:
+        raise ValueError("Review compatibility auditing requires the paged-catalog contract")
     if stage == "setup" and path.exists():
         raise RuntimeError("Synthetic compatibility setup requires a nonexistent database file")
     database = OperationDatabase(f"sqlite+aiosqlite:///{path}")
@@ -61,6 +64,7 @@ async def probe(
             **({"report_discovery_enabled": True} if catalog else {}),
             **({"snapshot_replacement_enabled": True} if snapshots else {}),
             **({"page_projection_enabled": True} if pages else {}),
+            **({"review_verdict_enabled": True} if verdicts else {}),
         )
     )
     try:
@@ -237,6 +241,39 @@ async def probe(
                             ],
                         }
                     )
+                    if verdicts:
+                        from app.mana_operation_ai.domain.goal_review import (
+                            GoalReviewCheck,
+                            GoalReviewVerdictBody,
+                        )
+                        from app.mana_operation_ai.domain.goals import GoalTask
+
+                        updated.plan = [
+                            GoalTask(title="Complete independent full review", status="active")
+                        ]
+                        updated.result = (
+                            "Synthetic complete draft, never current business evidence."
+                        )
+                        updated.review_receipt = GoalReviewVerdictBody(
+                            input_sha256="a" * 64,
+                            draft_sha256=hashlib.sha256(updated.result.encode()).hexdigest(),
+                            checks=[
+                                GoalReviewCheck(
+                                    target=target,
+                                    quote=getattr(updated.request, target),
+                                    status="not_checked",
+                                    finding="Historical synthetic review only.",
+                                )
+                                for target in ("objective", "success_criteria")
+                                if getattr(updated.request, target)
+                            ],
+                            checked_plan_positions=[0],
+                            conditions_checked=False,
+                            evidence_checked=False,
+                            evidence_ids=[],
+                            disposition="waiting",
+                            feedback="Synthetic scope preserved; no new authority.",
+                        )
                     if not lost:
                         text = "Synthetic complete report: " + "x" * 5200 + " EXACT FOOTER \t\n"
                         digest = hashlib.sha256(text.encode()).hexdigest()
@@ -423,6 +460,14 @@ async def probe(
                 assert getattr(goal, "report_discovery_enabled", False) == catalog
                 assert getattr(goal, "snapshot_replacement_enabled", False) == snapshots
                 assert getattr(goal, "page_projection_enabled", False) == pages
+                assert getattr(goal, "review_verdict_enabled", False) == verdicts
+                if verdicts:
+                    assert goal.review_receipt is not None
+                    assert (
+                        goal.review_receipt.draft_sha256
+                        == hashlib.sha256(goal.result.encode()).hexdigest()
+                    )
+                    assert "no new authority" in goal.review_receipt.feedback
                 if catalog:
                     assert goal.tools[1].call.name == "find_saved_reports"
                     assert (
@@ -462,7 +507,11 @@ async def probe(
                 assert goal.model_continuation.compactions == (0 if snapshots else 1)
                 if snapshots:
                     assert goal.model_continuation.protocol == (
-                        "goal-model-continuation-v4" if pages else "goal-model-continuation-v3"
+                        "goal-model-continuation-v5"
+                        if verdicts
+                        else "goal-model-continuation-v4"
+                        if pages
+                        else "goal-model-continuation-v3"
                     )
                     assert len(goal.model_continuation.runtime_snapshots) == 1
                     assert goal.model_continuation.runtime_snapshots[0].position == (
@@ -510,6 +559,7 @@ def main() -> None:
     parser.add_argument("--catalog", action="store_true")
     parser.add_argument("--snapshots", action="store_true")
     parser.add_argument("--pages", action="store_true")
+    parser.add_argument("--verdicts", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -519,6 +569,7 @@ def main() -> None:
             catalog=args.catalog,
             snapshots=args.snapshots,
             pages=args.pages,
+            verdicts=args.verdicts,
         )
     )
 

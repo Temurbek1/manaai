@@ -1,6 +1,7 @@
 """Local browser audit factory. Never contacts a model provider."""
 
 import asyncio
+import hashlib
 import json
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
@@ -16,12 +17,14 @@ from app.main import create_app as create_real_app
 from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import ChatTurnOutput
 from app.mana_operation_ai.application.goal_ports import GoalModelOutput
+from app.mana_operation_ai.application.goal_review import review_decision, review_input, review_mode
 from app.mana_operation_ai.application.goal_service import GoalWorker
 from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABILITY_KEY
 from app.mana_operation_ai.application.runtime import SystemClock
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
+from app.mana_operation_ai.domain.goal_review import GoalReviewCheck, GoalReviewVerdictBody
 from app.mana_operation_ai.domain.goals import GoalCreate, GoalDecision, GoalTask, OperationGoal
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
@@ -167,7 +170,7 @@ class BrowserGoalFake:
         self, *, context: str, owner: str, state: ModelContinuation | None
     ) -> GoalModelOutput:
         prepared = prepare_continuation(
-            context=context,
+            context=review_input(context) if review_mode(context) else context,
             owner=owner,
             state=state,
             model="browser-goal-fake",
@@ -176,6 +179,30 @@ class BrowserGoalFake:
         if prepared.goal.phase == "review":
             assert len(prepared.items) == 1
         output = await self.decide(context=context, owner=owner)
+        if review_mode(context):
+            goal = prepared.goal
+            reviewed = GoalReviewVerdictBody(
+                input_sha256=hashlib.sha256(context.encode()).hexdigest(),
+                draft_sha256=hashlib.sha256(goal.result.encode()).hexdigest(),
+                checks=[
+                    GoalReviewCheck(
+                        target=target,
+                        quote=getattr(goal.request, target),
+                        status="passed",
+                        finding="Synthetic full-condition review, no measured outcome.",
+                    )
+                    for target in ("objective", "success_criteria")
+                    if getattr(goal.request, target)
+                ],
+                checked_plan_positions=list(range(len(goal.plan))),
+                conditions_checked=True,
+                evidence_checked=True,
+                evidence_ids=[item.report_id for item in goal.evidence],
+                disposition="accepted",
+                feedback="Полный исходный отчёт и все критерии проверены.",
+            )
+            output.review = reviewed
+            output.decision = review_decision(reviewed, context)
         items: list[dict[str, JsonValue]] = []
         if prepared.goal.snapshot_replacement_enabled:
             # Exercise actual runtime replacement; do not hide it behind a forced compaction.
@@ -221,7 +248,9 @@ class BrowserGoalFake:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": output.decision.model_dump_json(exclude={"tool_call"}),
+                            "text": output.review.model_dump_json()
+                            if output.review is not None
+                            else output.decision.model_dump_json(exclude={"tool_call"}),
                             "annotations": [],
                         }
                     ],

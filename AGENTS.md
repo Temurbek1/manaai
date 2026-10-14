@@ -170,6 +170,15 @@
   review; its old zero-usage record lacks terminal metadata and is not proof of
   zero billing or permission to repeat it. See
   `docs/operation-completion-receipt-checkpoint.md`; production remains untouched.
+- The default-disabled native review verdict is captured only on new tracked
+  paged-catalog Goals, private v14/v5. Review receives every original input word,
+  full evidence/qualifications and the stored draft, but returns bound quoted checks,
+  plan positions and a verdict, never a rewritten artifact or permission. Literal
+  coverage/hash checks are not semantic quality. Preserve the exact draft and private
+  receipt; public HTTP projections omit it while SQL completion requires it. Revision
+  feedback is historical model opinion, not evidence/grants. Old tasks never upgrade;
+  only the closed `2ea7b9a` fallback is verified with execution disabled. See
+  `docs/operation-review-verdicts.md`; production is unchanged.
 - Clearly distinguish current implementation from target architecture: `growth-agent` is loaded
   with `growth.advertising` and `growth.funnel.analyze`; `retention-agent` is loaded with the
   read-only `retention.engagement.analyze`. `marketing-agent` is a temporary compatibility alias

@@ -15,6 +15,7 @@ from app.mana_operation_ai.application.goal_service import OperationGoalService
 from app.mana_operation_ai.domain.goals import GoalDecisionBody, GoalTask, OperationGoal
 from app.mana_operation_ai.infrastructure.goal_model import OpenAIGoalModel
 from scripts import operation_catalog_goal_evaluate as exercise
+from tests.test_goal_review_verdict import verdict
 from tests.test_inference_failures import wire
 
 
@@ -58,11 +59,13 @@ async def test_exclusive_attempt_marker_prevents_settings_or_model_recreation(
         await exercise.evaluate(tmp_path)
 
 
-@pytest.mark.parametrize("project_pages", [False, True])
+@pytest.mark.parametrize("contract", ["legacy", "pages", "verdicts"])
 @pytest.mark.parametrize("failure", [None, "quota", "incomplete", "timeout"])
 async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences(
-    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None, project_pages: bool
+    monkeypatch: MonkeyPatch, tmp_path: Path, failure: str | None, contract: str
 ) -> None:
+    project_pages = contract != "legacy"
+    review_verdicts = contract == "verdicts"
     settings = Settings(
         _env_file=None,
         openai_api_key="fixture",
@@ -120,6 +123,11 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
                     "arguments": json.dumps(arguments),
                 }
             ]
+        elif goal.review_verdict_enabled and goal.phase == "review":
+            original = json.loads(current["content"])
+            original.pop("review_contract")
+            reviewed = verdict(json.dumps(original, ensure_ascii=False))
+            body["output"][0]["content"][0]["text"] = reviewed.model_dump_json()
         else:
             assert goal.evidence[0].summary == exercise.REPORT
             review = goal.phase == "review"
@@ -177,7 +185,9 @@ async def test_native_catalog_sdk_diagnostic_retains_full_scope_and_usage_fences
             super().__init__(**kwargs)
 
     monkeypatch.setattr(exercise, "OperationGoalService", CapturedService)
-    result = await exercise.evaluate(tmp_path / "independent", project_pages=project_pages)
+    result = await exercise.evaluate(
+        tmp_path / "independent", project_pages=project_pages, review_verdicts=review_verdicts
+    )
     configuration = json.loads((tmp_path / "independent/runtime-configuration.json").read_text())
     assert configuration == {
         "model_request_timeout_seconds": 210,

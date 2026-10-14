@@ -12,7 +12,7 @@ from app.mana_operation_ai.application.goal_ports import (
 
 
 def is_decision_validation(error: ValidationError) -> bool:
-    return error.title in {"GoalDecision", "GoalDecisionBody"}
+    return error.title in {"GoalDecision", "GoalDecisionBody", "GoalReviewVerdictBody"}
 
 
 def decision_issues(error: ValidationError) -> tuple[GoalDecisionIssue, ...]:

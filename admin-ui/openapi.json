@@ -6925,6 +6925,125 @@
         "title": "GoalModelFeedback",
         "type": "object"
       },
+      "GoalReviewCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "finding": {
+            "maxLength": 1000,
+            "title": "Finding",
+            "type": "string"
+          },
+          "quote": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Quote",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "objective",
+              "success_criteria"
+            ],
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "quote",
+          "status",
+          "finding"
+        ],
+        "title": "GoalReviewCheck",
+        "type": "object"
+      },
+      "GoalReviewVerdictBody": {
+        "additionalProperties": false,
+        "properties": {
+          "checked_plan_positions": {
+            "items": {
+              "maximum": 7.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 8,
+            "title": "Checked Plan Positions",
+            "type": "array"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/GoalReviewCheck"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Checks",
+            "type": "array"
+          },
+          "conditions_checked": {
+            "title": "Conditions Checked",
+            "type": "boolean"
+          },
+          "disposition": {
+            "enum": [
+              "accepted",
+              "revise",
+              "waiting"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "draft_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Draft Sha256",
+            "type": "string"
+          },
+          "evidence_checked": {
+            "title": "Evidence Checked",
+            "type": "boolean"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "feedback": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Feedback",
+            "type": "string"
+          },
+          "input_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Input Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_sha256",
+          "draft_sha256",
+          "checks",
+          "checked_plan_positions",
+          "conditions_checked",
+          "evidence_checked",
+          "evidence_ids",
+          "disposition",
+          "feedback"
+        ],
+        "title": "GoalReviewVerdictBody",
+        "type": "object"
+      },
       "GoalTask": {
         "additionalProperties": false,
         "properties": {
@@ -9902,7 +10021,8 @@
               "goal-model-continuation-v1",
               "goal-model-continuation-v2",
               "goal-model-continuation-v3",
-              "goal-model-continuation-v4"
+              "goal-model-continuation-v4",
+              "goal-model-continuation-v5"
             ],
             "title": "Protocol",
             "type": "string"
@@ -10300,6 +10420,21 @@
             "maxLength": 16000,
             "title": "Result",
             "type": "string"
+          },
+          "review_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalReviewVerdictBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_verdict_enabled": {
+            "default": false,
+            "title": "Review Verdict Enabled",
+            "type": "boolean"
           },
           "revision": {
             "default": 0,

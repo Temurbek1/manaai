@@ -13,6 +13,7 @@ from app.mana_operation_ai.domain.agent_tools import (
     SourceReadCapability,
 )
 from app.mana_operation_ai.domain.chat import ChatModel, ProductScope
+from app.mana_operation_ai.domain.goal_review import GoalReviewVerdictBody
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.session import SessionMemory
@@ -183,6 +184,9 @@ class OperationGoal(ChatModel):
     report_discovery_enabled: bool = Field(default=False, strict=True)
     snapshot_replacement_enabled: bool = Field(default=False, strict=True)
     page_projection_enabled: bool = Field(default=False, strict=True)
+    review_verdict_enabled: bool = Field(default=False, strict=True)
+    # Latest private review; historical on revision, never fresh evidence or authority.
+    review_receipt: GoalReviewVerdictBody | None = None
 
     @property
     def execution_limits(self) -> GoalExecutionLimits:
@@ -197,6 +201,26 @@ class OperationGoal(ChatModel):
 
     @model_validator(mode="after")
     def validate_limit_grants(self) -> "OperationGoal":
+        if self.review_verdict_enabled and not self.page_projection_enabled:
+            raise ValueError("Review verdicts require the tracked native paged-catalog contract")
+        if self.review_receipt is not None and not self.review_verdict_enabled:
+            raise ValueError("A review receipt requires the captured verdict contract")
+        if self.review_receipt is not None:
+            for target in ("objective", "success_criteria"):
+                quotes = "".join(
+                    check.quote for check in self.review_receipt.checks if check.target == target
+                )
+                if quotes != getattr(self.request, target):
+                    raise ValueError(
+                        "Saved review must retain every original objective/criterion word"
+                    )
+            if self.review_receipt.disposition == "accepted" and (
+                not self.review_receipt.conditions_checked
+                or not self.review_receipt.evidence_checked
+                or not self.review_receipt.evidence_ids
+                or any(check.status != "passed" for check in self.review_receipt.checks)
+            ):
+                raise ValueError("Saved acceptance requires complete conditions/evidence/checks")
         if self.page_projection_enabled and not self.snapshot_replacement_enabled:
             raise ValueError("Saved-page projection requires captured runtime snapshot replacement")
         if self.snapshot_replacement_enabled and (
@@ -238,6 +262,21 @@ class OperationGoal(ChatModel):
         if self.limit_stop == "steps" and self.steps_used < steps:
             raise ValueError("Step exhaustion must match the effective step limit")
         return self
+
+    def validate_private_review(self) -> None:
+        """Persistence requires the proof; authenticated HTTP projections omit it."""
+        if (
+            self.review_verdict_enabled
+            and self.status == "completed"
+            and (
+                self.review_receipt is None
+                or self.review_receipt.disposition != "accepted"
+                or self.review_receipt.checked_plan_positions != list(range(len(self.plan)))
+                or self.review_receipt.draft_sha256
+                != hashlib.sha256(self.result.encode()).hexdigest()
+            )
+        ):
+            raise ValueError("Completed verdict Goals require their exact accepted review receipt")
 
 
 class GoalDecisionBody(ChatModel):

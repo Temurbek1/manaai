@@ -19,6 +19,8 @@ export type Goal = Omit<
   | "report_discovery_enabled"
   | "snapshot_replacement_enabled"
   | "page_projection_enabled"
+  | "review_verdict_enabled"
+  | "review_receipt"
 > & {
   limit_tracking?: StoredGoal["limit_tracking"];
   unsettled_microusd?: StoredGoal["unsettled_microusd"];
@@ -26,6 +28,8 @@ export type Goal = Omit<
   report_discovery_enabled?: StoredGoal["report_discovery_enabled"];
   snapshot_replacement_enabled?: StoredGoal["snapshot_replacement_enabled"];
   page_projection_enabled?: StoredGoal["page_projection_enabled"];
+  review_verdict_enabled?: StoredGoal["review_verdict_enabled"];
+  review_receipt?: StoredGoal["review_receipt"];
   request: Omit<
     StoredGoal["request"],
     "execution_mode" | "analysis_scope" | "older_turns_omitted"

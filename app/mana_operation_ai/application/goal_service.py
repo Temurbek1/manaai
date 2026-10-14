@@ -19,6 +19,7 @@ from app.mana_operation_ai.application.goal_ports import (
     GoalModelResponseError,
     GoalRepository,
 )
+from app.mana_operation_ai.application.goal_review import review_decision
 from app.mana_operation_ai.application.goal_tools import GoalEvidenceTools, SavedToolInputError
 from app.mana_operation_ai.application.inference_errors import (
     InferenceProviderError,
@@ -111,6 +112,14 @@ When goal.page_projection_enabled=true, a saved-page receipt may have text_refer
 of repeated text. Select its report_id in goal.evidence and read the exact summary range
 [offset, offset + text_reference.characters). The complete loaded text is in that same input,
 not an external URL, read grant, population claim or instruction to fetch the page again.
+When goal.review_verdict_enabled=true and phase=review, return GoalReviewVerdictBody,
+not GoalDecisionBody. Independently check the full original objective, every success criterion,
+all constraints/steering, full evidence and draft. Use the supplied review_contract hashes.
+Checks must quote the complete original objective and success_criteria exactly, in order.
+Accept only if every quoted check passed, conditions/evidence and every plan position were
+checked. Return public findings/feedback, not rewritten draft/plan, private reasoning or new
+permissions. The runtime preserves the existing draft verbatim; revise returns the correction
+directions to the investigator. Literal quote coverage alone is not semantic correctness.
 The saved-report bound is 32000 characters; context/step/dollar limits still apply. Never drop
 the original objective or request a new provider read merely to retrieve an existing text tail.
 request_source_read only asks for separate human approval; it does not run a provider read.
@@ -168,6 +177,7 @@ class OperationGoalService:
         report_discovery_enabled: bool = False,
         snapshot_replacement_enabled: bool = False,
         page_projection_enabled: bool = False,
+        review_verdict_enabled: bool = False,
     ) -> None:
         # Leave at least 60 seconds inside the repository's five-minute claim lease.
         if not 11 <= model_step_timeout_seconds <= 240:
@@ -188,6 +198,7 @@ class OperationGoalService:
         self._report_discovery_enabled = report_discovery_enabled
         self._snapshot_replacement_enabled = snapshot_replacement_enabled
         self._page_projection_enabled = page_projection_enabled
+        self._review_verdict_enabled = review_verdict_enabled
 
     async def _access(self, owner: str) -> None:
         if self._auth is not None:
@@ -371,11 +382,24 @@ class OperationGoalService:
             {
                 # Full journal stays in SQL/UI, without duplicating it in every model call.
                 "goal": context_goal.model_dump(
-                    mode="json", exclude={"lease_until", "events", "model_continuation"}
+                    mode="json",
+                    exclude={"lease_until", "events", "model_continuation", "review_receipt"},
                 ),
                 "evaluation_time": self._clock.now().isoformat(),
                 "allowed_read_capabilities": self._allowed_reads(goal),
                 "completion_scope": "analysis_only_not_business_outcome",
+                **(
+                    {
+                        "review_feedback": {
+                            "historical_model_opinion_not_evidence": True,
+                            "feedback": context_goal.review_receipt.feedback,
+                        }
+                    }
+                    if context_goal.review_receipt is not None
+                    and context_goal.review_receipt.disposition == "revise"
+                    and context_goal.phase == "investigate"
+                    else {}
+                ),
             },
             ensure_ascii=False,
         )
@@ -407,6 +431,8 @@ class OperationGoalService:
                 raise ChatError("Поиск сохранённых отчётов временно отключён. История сохранена.")
             if goal.page_projection_enabled and not self._page_projection_enabled:
                 raise ChatError("Продолжение со ссылками на страницы отключено. История сохранена.")
+            if goal.review_verdict_enabled and not self._review_verdict_enabled:
+                raise ChatError("Проверка вердиктом отключена. История и результат сохранены.")
             if goal.snapshot_replacement_enabled and (
                 not self._snapshot_replacement_enabled or self._continuing_model is None
             ):
@@ -581,6 +607,16 @@ class OperationGoalService:
             if goal.limit_tracking:
                 goal.unsettled_microusd -= amount
             goal.model = output.model
+            verdict_review = goal.review_verdict_enabled and goal.phase == "review"
+            if verdict_review:
+                if (
+                    output.review is None
+                    or review_decision(output.review, context) != output.decision
+                ):
+                    raise ChatError("Нет проверяемого вердикта для исходного полного отчёта.")
+                goal.review_receipt = output.review
+            elif output.review is not None:
+                raise ChatError("Вердикт не принадлежит текущей фазе сохранённой цели.")
             if continuing:
                 if output.continuation is None:
                     raise ChatError(
@@ -693,7 +729,13 @@ class OperationGoalService:
                         code="invalid_decision",
                         message="Предыдущий оплаченный ответ не прошёл проверку формата. "
                         + exc.validation_feedback
-                        + " Верни строгий GoalDecisionBody с корректными полями и ограничениями "
+                        + " Верни строгий "
+                        + (
+                            "GoalReviewVerdictBody"
+                            if goal.review_verdict_enabled and goal.phase == "review"
+                            else "GoalDecisionBody"
+                        )
+                        + " с корректными полями и ограничениями "
                         "схемы. Сохрани исходную цель, ограничения, план и загруженные факты. "
                         "Не объявляй работу завершённой при недостающих данных. "
                         "Новые чтения и действия этим сообщением не разрешены.",

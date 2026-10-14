@@ -108,6 +108,13 @@ no invoice/finality or full-runtime pass is inferred. Locally, allowlisted failu
 facts now survive and explicit pending receipts retain holds across Goals, blocking
 chat and streaming. No prior attempt is replayed and production is unchanged.
 
+The subsequent local [independent review-verdict contract](operation-review-verdicts.md)
+keeps the full original objective/conditions/evidence/draft in independent review
+while returning a bound verdict and exact full-target checks instead of regenerating
+the report. New tracked paged-catalog Goals use opt-in v14/v5; old tasks remain
+unchanged. Private completion retains its receipt; HTTP omits it. This is not a
+smaller analysis, semantic-quality proof, token/dollar guarantee or production release.
+
 The local [complete cohort-quality checkpoint](operation-cohort-quality-checkpoint.md)
 completed one full original historical synthetic analysis with six verified model
 calls, independent review and manually checked weighted arithmetic ($0.137379;

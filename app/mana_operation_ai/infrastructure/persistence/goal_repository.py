@@ -44,7 +44,7 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] = 1
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -73,6 +73,10 @@ def _goal(row: GoalRow) -> OperationGoal:
     except ValidationError as exc:
         raise ChatError("Сохранённая цель требует совместимой версии рабочей среды.", 503) from exc
     goal = checkpoint.goal
+    try:
+        goal.validate_private_review()
+    except ValueError as exc:
+        raise ChatError("Сохранённый вердикт требует проверки исходного отчёта.", 503) from exc
     memory = goal.session_memory
     extended_context = _extended_context(goal)
     continuation = goal.model_continuation
@@ -85,16 +89,23 @@ def _goal(row: GoalRow) -> OperationGoal:
     discovery = goal.report_discovery_enabled
     replacement = goal.snapshot_replacement_enabled
     projection = goal.page_projection_enabled
+    verdict = goal.review_verdict_enabled
     raw_goal = (row.workspace_payload or {}).get("goal")
     version = (
-        _context_version(goal) if checkpoint.version in (10, 11, 12, 13) else checkpoint.version
+        _context_version(goal) if checkpoint.version in (10, 11, 12, 13, 14) else checkpoint.version
     )
     if (
-        (checkpoint.version in (11, 12, 13)) != discovery
-        or (checkpoint.version in (12, 13)) != replacement
-        or (checkpoint.version == 13) != projection
+        (checkpoint.version == 14) != verdict
         or (
-            checkpoint.version != 13
+            checkpoint.version != 14
+            and isinstance(raw_goal, dict)
+            and ("review_verdict_enabled" in raw_goal or "review_receipt" in raw_goal)
+        )
+        or (checkpoint.version in (11, 12, 13, 14)) != discovery
+        or (checkpoint.version in (12, 13, 14)) != replacement
+        or (checkpoint.version in (13, 14)) != projection
+        or (
+            checkpoint.version not in (13, 14)
             and isinstance(raw_goal, dict)
             and (
                 "page_projection_enabled" in raw_goal
@@ -105,7 +116,7 @@ def _goal(row: GoalRow) -> OperationGoal:
             )
         )
         or (
-            checkpoint.version not in (12, 13)
+            checkpoint.version not in (12, 13, 14)
             and isinstance(raw_goal, dict)
             and (
                 "snapshot_replacement_enabled" in raw_goal
@@ -121,7 +132,7 @@ def _goal(row: GoalRow) -> OperationGoal:
             and any(record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools)
         )
         or (
-            checkpoint.version not in (11, 12, 13)
+            checkpoint.version not in (11, 12, 13, 14)
             and isinstance(raw_goal, dict)
             and (
                 "report_discovery_enabled" in raw_goal
@@ -156,15 +167,15 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8, 9, 10, 11, 12, 13)
+            checkpoint.version in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
             and checkpoint.analysis_scope is not None
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13)
+            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
             and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (version == 1 and memory is not None)
@@ -267,6 +278,7 @@ class SqlAlchemyGoalRepository:
         report_discovery_enabled: bool = False,
         snapshot_replacement_enabled: bool = False,
         page_projection_enabled: bool = False,
+        review_verdict_enabled: bool = False,
     ) -> None:
         if not 1 <= context_goal_limit <= 10000:
             raise ValueError("Session Goal archive capacity must be between 1 and 10000")
@@ -284,6 +296,9 @@ class SqlAlchemyGoalRepository:
         if page_projection_enabled and not snapshot_replacement_enabled:
             raise ValueError("Saved-page projection requires captured snapshot replacement")
         self._page_projection_enabled = page_projection_enabled
+        if review_verdict_enabled and not page_projection_enabled:
+            raise ValueError("Review verdicts require the tracked paged-catalog contract")
+        self._review_verdict_enabled = review_verdict_enabled
         self._substring = func.instr if database.engine.dialect.name == "sqlite" else func.strpos
 
     async def _lock(self, session: AsyncSession) -> None:
@@ -324,6 +339,8 @@ class SqlAlchemyGoalRepository:
                 "report_discovery_enabled",
                 "snapshot_replacement_enabled",
                 "page_projection_enabled",
+                "review_verdict_enabled",
+                "review_receipt",
             },
         )
         payload["request"] = goal.request.model_dump(
@@ -372,6 +389,7 @@ class SqlAlchemyGoalRepository:
 
     @classmethod
     def _storage(cls, goal: OperationGoal) -> _GoalStorage:
+        goal.validate_private_review()
         native = cls._is_workspace(goal)
         extended_context = _extended_context(goal)
         continuation = goal.model_continuation is not None
@@ -381,6 +399,7 @@ class SqlAlchemyGoalRepository:
         discovery = goal.report_discovery_enabled
         replacement = goal.snapshot_replacement_enabled
         projection = goal.page_projection_enabled
+        verdict = goal.review_verdict_enabled
         if not discovery and any(
             record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools
         ):
@@ -394,7 +413,9 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=13
+                version=14
+                if verdict
+                else 13
                 if projection
                 else 12
                 if replacement
@@ -426,6 +447,11 @@ class SqlAlchemyGoalRepository:
                         else {}
                     ),
                     "goal": {
+                        **(
+                            {"review_verdict_enabled": True, "review_receipt": True}
+                            if not verdict
+                            else {}
+                        ),
                         **({"page_projection_enabled": True} if not projection else {}),
                         "model_continuation": {
                             **({"page_outputs": True} if not projection else {}),
@@ -538,6 +564,9 @@ class SqlAlchemyGoalRepository:
                 ),
                 page_projection_enabled=(
                     self._page_projection_enabled and request.execution_mode == "agent"
+                ),
+                review_verdict_enabled=(
+                    self._review_verdict_enabled and request.execution_mode == "agent"
                 ),
                 session_memory=session_memory,
                 created_at=now,
@@ -897,6 +926,8 @@ class SqlAlchemyGoalRepository:
             return queued_row.owner, goal
 
     async def save(self, owner: str, before: OperationGoal, after: OperationGoal) -> bool:
+        if before.review_verdict_enabled != after.review_verdict_enabled:
+            raise ChatError("Договор проверки сохранённой цели нельзя менять молча.", 409)
         if before.page_projection_enabled != after.page_projection_enabled:
             raise ChatError("Договор ссылок на страницы нельзя менять молча.", 409)
         if before.snapshot_replacement_enabled != after.snapshot_replacement_enabled:

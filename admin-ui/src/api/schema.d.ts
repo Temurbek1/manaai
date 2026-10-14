@@ -4479,6 +4479,47 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** GoalReviewCheck */
+        GoalReviewCheck: {
+            /** Finding */
+            finding: string;
+            /** Quote */
+            quote: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "passed" | "failed" | "not_checked";
+            /**
+             * Target
+             * @enum {string}
+             */
+            target: "objective" | "success_criteria";
+        };
+        /** GoalReviewVerdictBody */
+        GoalReviewVerdictBody: {
+            /** Checked Plan Positions */
+            checked_plan_positions: number[];
+            /** Checks */
+            checks: components["schemas"]["GoalReviewCheck"][];
+            /** Conditions Checked */
+            conditions_checked: boolean;
+            /**
+             * Disposition
+             * @enum {string}
+             */
+            disposition: "accepted" | "revise" | "waiting";
+            /** Draft Sha256 */
+            draft_sha256: string;
+            /** Evidence Checked */
+            evidence_checked: boolean;
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Feedback */
+            feedback: string;
+            /** Input Sha256 */
+            input_sha256: string;
+        };
         /** GoalTask */
         GoalTask: {
             /**
@@ -5478,7 +5519,7 @@ export interface components {
              * @default goal-model-continuation-v1
              * @enum {string}
              */
-            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2" | "goal-model-continuation-v3" | "goal-model-continuation-v4";
+            protocol: "goal-model-continuation-v1" | "goal-model-continuation-v2" | "goal-model-continuation-v3" | "goal-model-continuation-v4" | "goal-model-continuation-v5";
             /** Runtime Snapshots */
             runtime_snapshots?: components["schemas"]["RuntimeSnapshotRef"][];
             /** Scope Digest */
@@ -5623,6 +5664,12 @@ export interface components {
              * @default
              */
             result: string;
+            review_receipt?: components["schemas"]["GoalReviewVerdictBody"] | null;
+            /**
+             * Review Verdict Enabled
+             * @default false
+             */
+            review_verdict_enabled: boolean;
             /**
              * Revision
              * @default 0
