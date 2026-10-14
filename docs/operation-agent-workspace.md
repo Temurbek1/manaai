@@ -2,13 +2,17 @@
 
 ## Objective and evidence
 
-Latest status: the scoped native workspace release is deployed, with bounded production
-checks recorded in [the active release report](operation-goal-limit-release.md).
+Latest status: the scoped native workspace release is deployed as `6babf75`, with
+saved-report discovery, retained full context, bound independent review and compatible
+UI. Actual checks/limits/rollback are in
+[the active release report](operation-agent-workspace-profile-release.md).
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
-Its subsequent bounded decision-schema diagnostic is deployed as `a7752dc`, recorded in
+Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is
+retained in the new image, recorded in
 [the cohort-quality release checkpoint](operation-cohort-quality-checkpoint.md).
-Earlier checkpoints below are historical; they do not override that report or establish
+Earlier checkpoints below (including their local/not-deployed wording) are historical;
+they do not override the active profile release or establish
 complete Codex/Claude parity, current-source coverage or unbuilt business actions.
 
 Owner request, 2026-10-11: implement the observable working experience of Codex and
@@ -228,7 +232,10 @@ Status must be updated from actual tests/flows, not intent:
   A follow-up explanation does not start another Goal or source read. The next task inherits
   context, not prior evidence authority, costs or approvals. Additive chat metadata migration
   `d86a1b9f023c` keeps the supported old chat reader compatible as well as the Goal reader.
-- Full quality, source integration acceptance and production release: pending.
+- Scoped compatible production release: deployed as `6babf75`; one new historical
+  saved-MANA-report Goal completed independent review through the public proxy.
+  Full quality/current-source, authenticated-browser and owning-domain action
+  acceptance remain pending; this is not overall feature parity.
 
 ### Scoped human action review, 2026-10-12
 

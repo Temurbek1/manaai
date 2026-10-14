@@ -28,7 +28,7 @@
   automatically retry a lost source read. See `docs/operation-goals.md`.
 - The opt-in native agent workspace remains default disabled via
   `OPERATION_AGENT_WORKSPACE_ENABLED`; the scoped production deployment explicitly enables it.
-  See `docs/operation-goal-limit-release.md` for current versions and limits.
+  See `docs/operation-agent-workspace-profile-release.md` for current versions and limits.
   It adds conversational handoff, typed scoped evidence
   tools and in-flight steering, not unrestricted SQL/shell or full Orchestrator handlers.
   Read `docs/operation-agent-workspace.md` for the full acceptance scope and known release/rollback
@@ -40,17 +40,20 @@
   the pinned OpenAI 2.53.0 SDK SSE decoder's private `_iter_events` boundary to avoid token-type
   coercion. Reverify it on SDK upgrades; never add a second HTTP request or refund unknown
   usage. A successful new synthetic diagnostic does not resolve historical lost calls or prove
-  full model quality. The scoped production sidecar runs `a7752dc`, retaining the
-  `b81f458` receipt boundary; main/audio and UI remain unchanged. See
+  full model quality. The scoped production sidecar runs `6babf75`, retaining the
+  `b81f458` receipt boundary and `a7752dc` diagnostic. Its compatible UI was also
+  updated; main/audio remain unchanged. See the active profile release,
   `docs/operation-inference-receipts-checkpoint.md` and the cohort release checkpoint.
 - The deployed decision-schema diagnostic adds at most three allowlisted field/code
   facts to existing private recovery feedback after verified usage. Never persist raw
   validation input/context/messages or extra-key names, and do not treat unrelated SDK
   metadata validation as a decision correction. It changes neither the two-step cap nor
   checkpoint/approval/budget contracts. The complete synthetic cohort diagnostic is not
-  real source or broad model-quality acceptance. The compatible application-only rollback
-  is `b81f458`, preserving private v10 and all unknown holds; see
-  `docs/operation-cohort-quality-checkpoint.md` for the scoped release and remaining acceptance.
+  real source or broad model-quality acceptance. That historical v10-only increment
+  had a `b81f458` rollback; it cannot execute new v11–v14. Use the active profile
+  release's closed `2ea7b9a` fallback for current state, preserving all private history
+  and unknown holds. See `docs/operation-cohort-quality-checkpoint.md` for the earlier
+  scoped release and remaining acceptance.
 - Topic-owned session memory preserves user constraints and bounded completed/cancelled Goal
   result excerpts across chat/task continuation. It is private historical context, not fresh
   evidence or permission; never inherit previous source approvals or budgets. Freeze it before
@@ -119,8 +122,9 @@
   The supported `2ea7b9a` rollback sees a closed 5000-character evidence projection and retains
   full private state; the released `737b75d` native reader does not understand v8. Never choose
   that image as a v8 rollback target without a separately verified compatibility bridge.
-- The local default-disabled `OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED` captures
-  `find_saved_reports` only on new native Goals; it is not deployed. Private v11 binds
+- The default-disabled `OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED` captures
+  `find_saved_reports` only on new native Goals; scoped production `6babf75` explicitly
+  enables it. Private v11 binds
   that immutable bit/scope; continuation v2 supports at most 120 tool positions only
   under existing separately confirmed limits. Old v1 keeps twelve; never upgrade a
   historical tool set/digest or auto-renew limits. Cursor
@@ -136,16 +140,16 @@
   with a pass. Exact token preflight is not implemented. See
   `docs/operation-catalog-quality-checkpoint.md` for the measured trace
   and unchanged production boundary.
-- The local default-disabled `OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED`
+- The default-disabled `OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED`
   captures exact runtime-owned snapshot provenance only on new tracked native catalog
   Goals with continuation enabled. Private v12/v3 never upgrades old tasks. Replace
   only position/hash-proven runtime snapshots after exact user/evidence coverage;
   retain provider lookalikes, messages, opaque history and tool pairing. Changed tool
   projections or missing facts retain old snapshots; cost/context bounds still stop.
-  Byte reduction is not financial/model-quality acceptance. The current production
+  Byte reduction is not financial/model-quality acceptance. The previous production
   `a7752dc` cannot execute v12/v3; only the closed `2ea7b9a` fallback is verified with
   native execution disabled. See `docs/operation-runtime-snapshot-replacement.md`.
-- The local default-disabled `OPERATION_WORKSPACE_PAGE_PROJECTION_ENABLED` captures
+- The default-disabled `OPERATION_WORKSPACE_PAGE_PROJECTION_ENABLED` captures
   exact saved-page references only on new tracked snapshot Goals, private v13/v4.
   Preserve the original SQL receipt and full evidence; project only an exact typed,
   hash/range-proved duplicate present in that same input. Private output provenance
@@ -178,7 +182,8 @@
   receipt; public HTTP projections omit it while SQL completion requires it. Revision
   feedback is historical model opinion, not evidence/grants. Old tasks never upgrade;
   only the closed `2ea7b9a` fallback is verified with execution disabled. See
-  `docs/operation-review-verdicts.md`; production is unchanged.
+  `docs/operation-review-verdicts.md`; scoped `6babf75` explicitly enables the contract
+  on new eligible tasks without upgrading old ones.
 - A selected native tool must survive actual compaction as the same canonical
   pending invocation before dispatch. Provider outputs cannot supply runtime/SQL
   tool receipts. Lost/consumed/mismatched pairing stops with verified priced usage,
@@ -193,6 +198,17 @@
   deferred compaction trigger and unchanged hard caps. It is local, not a proven
   optimal default, causal root-cause finding, real MANA measure or broad readiness.
   See `docs/operation-compaction-quality-checkpoint.md`; do not replay old attempts.
+- The scoped `6babf75` operational API/Goals worker and compatible UI release enables
+  catalog discovery, exact snapshot/page projection, independent bound review and an
+  explicit 24000 trigger. The code fallback remains 8000, hard bounds/timeouts and
+  source settings/schedules unchanged. Two complete long-topic synthetic cases and
+  one historical saved-child-sample production Goal passed with settled usage; they
+  do not establish unlimited context, optimal cost, current parent analysis or full
+  parity. All seven old Goals/three unknown holds retain exact fingerprints. Use
+  only closed `2ea7b9a`/disabled native execution for the verified v14 fallback; never
+  restore an old database over new history. See the active profile release and
+  `docs/operation-long-session-deferred-checkpoint.md`; authenticated production-browser
+  and broader source/owning-domain-action acceptance remain open.
 - Evidence collection, report creation, observation periods and SQL-save times are
   different. Recent `collected_at` never proves current coverage or a storage date.
   Shared chat/Goal guidance clarifies these roles without changing grants/freshness.

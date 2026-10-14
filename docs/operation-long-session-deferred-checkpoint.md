@@ -1,9 +1,11 @@
 # Full long-topic analysis with an explicit deferred-compaction profile
 
-Status: local checkpoint, 2026-10-14. A scoped operational API/Goals worker and
-compatible UI release is owner-approved **after additional checks**, including
-backup and verified application rollback. This document does not itself prove a
-deployment. The full nine-item workspace objective remains open.
+Status: local quality checkpoint, 2026-10-14. The subsequent owner-approved
+operational API/Goals worker and compatible UI release is deployed as `6babf75`,
+with additional checks, backup and verified application fallback recorded in
+[the active release](operation-agent-workspace-profile-release.md). These local
+diagnostics are not themselves production proof. The full nine-item objective
+remains open.
 
 ## Complete original task, not a smaller substitute
 
@@ -94,8 +96,23 @@ The actual full report render has eight headings and two tables, retains its fin
 condition and fits a 320-pixel viewport. WCAG A/AA checks found zero violations on
 the loaded render (a preliminary blank-browser page was rejected and not counted).
 Separate production-image/rollback evidence must be recorded in the scoped release
-report before activation. A new independent 120/180-timeout diagnostic is pending,
-not a replay of any historical task.
+report before activation.
+
+The subsequent independent **120/180**-timeout party also completed the entire
+original task and independent review: Goal `b8b7c78d-db20-45c3-b2a8-d7f163202c65`,
+ten settled calls, **$0.213756** estimated, zero unknown hold/source attempts,
+one bounded known-format correction and zero compactions. All calculations and
+complete original conditions were separately reviewed again; the output has a
+minor Russian typo, not a missing metric or altered permission. The two new
+parties together estimated **$0.444136**. Neither is a retry of a historical call.
+Original result SHA-256:
+`1d839c8128448d397fec8acdb88f55beb462c95e20779092e58a05e872791663`;
+SQLite SHA-256:
+`03efee1e893822048652684f17ed96102dd5832cba8aaf9d73208adfc4b0c795`.
+Separate original receipts/manual review/SQL validation:
+`output/long-session-deferred-quality-20261014/production-timeouts-01/`.
+This closes the timeout-profile mismatch for this synthetic task, not all latency,
+model-quality/current-data acceptance or proof that no future request can time out.
 
 The owner-approved release may update only operational API/its Goals worker and
 compatible UI, with the explicitly selected 24000 trigger. Main API/audio, SSH,
