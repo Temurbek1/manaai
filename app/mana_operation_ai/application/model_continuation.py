@@ -7,6 +7,17 @@ from app.mana_operation_ai.domain.goals import OperationGoal
 from app.mana_operation_ai.domain.model_continuation import ContinuationProtocol
 
 
+def contact_context_binding(goal: OperationGoal) -> dict[str, object] | None:
+    if goal.session_memory and goal.session_memory.retention_contacts:
+        return {
+            "captured_at": goal.session_memory.captured_at.isoformat(),
+            "checkpoints": [
+                item.model_dump(mode="json") for item in goal.session_memory.retention_contacts
+            ],
+        }
+    return None
+
+
 def continuation_protocol(goal: OperationGoal) -> ContinuationProtocol:
     if goal.review_verdict_enabled:
         return "goal-model-continuation-v5"
@@ -40,6 +51,11 @@ def continuation_scope_digest(owner: str, goal: OperationGoal) -> str:
         payload["page_projection_enabled"] = True
     if goal.review_verdict_enabled:
         payload["review_verdict_enabled"] = True
+    contacts = contact_context_binding(goal)
+    if contacts is not None:
+        # New captures bind their historical checkpoint; empty old memories
+        # keep the exact established scope digest and never upgrade a protocol.
+        payload["retention_contact_context"] = contacts
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     ).hexdigest()

@@ -30,14 +30,16 @@ history, never deletes it. The migration has **not** been applied to production.
 Fake verification means `sandbox_accepted`, not delivery, opening, retention improvement
 or conversion. Every action retains business outcome `not_measured`.
 
-## Remaining work
+## Subsequent local checkpoint and remaining work
 
-There is no public route, enabled agent capability, chat/native action bridge, schedule,
-source adapter, customer-facing push/email/billing executor or budget authority for this
-family. The service is not instantiated by `app.main`. Models correctly continue to say
-Retention contact execution is unavailable. Before exposing it, integrate exact typed
-human review/receipt memory with a separately verified private checkpoint and rollback,
-API/UI authorization, owning-agent executor registry and end-to-end acceptance. Live
+At this foundation checkpoint there was no public route or chat/native bridge. The
+subsequent [local contact-review lane](operation-retention-contact-chat-checkpoint.md)
+instantiates the fake service behind a default-disabled flag and adds typed human
+API/UI review. Neither checkpoint is deployed. There is still no enabled owning-agent
+capability, schedule, live source adapter, customer-facing push/email/billing executor
+or budget authority. The later lane adds bounded frozen contact memory and a local
+closed-old-image check, not full release/rollback, reviewer-access or broader
+end-to-end acceptance. Live
 contact requires approved individual billing/consent sources and a separately authorized
 channel executor; current aggregate sources cannot stand in for them.
 

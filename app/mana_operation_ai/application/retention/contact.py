@@ -77,13 +77,19 @@ class RetentionContactService:
         actor: ActorContext,
         topic_id: str,
         request: RetentionContactPrepare,
+        *,
+        turn_id: str | None = None,
     ) -> RetentionContactAction:
         await self._access(actor, topic_id)
         if actor.role not in {UserRole.OPERATOR, UserRole.APPROVER, UserRole.ADMIN}:
             raise ChatError("Нужны права оператора.", 403)
         existing = await self._store.by_request(actor.actor_id, str(request.request_id))
         if existing is not None:
-            if existing.topic_id != topic_id or existing.request != request:
+            if (
+                existing.topic_id != topic_id
+                or existing.request != request
+                or existing.turn_id != turn_id
+            ):
                 raise ChatError("Этот запрос уже связан с другим предложением.")
             return existing
         target = await self._target(request.parameters.account_ref)
@@ -109,12 +115,15 @@ class RetentionContactService:
             policy=policy,
             prepared_at=now,
             expires_at=expires,
+            turn_id=turn_id,
         )
         return await self._store.create(
             RetentionContactAction(
+                version=2 if turn_id is not None else 1,
                 action_id=action_id,
                 owner=actor.actor_id,
                 topic_id=topic_id,
+                turn_id=turn_id,
                 request=request,
                 message=message,
                 fingerprint=fingerprint,

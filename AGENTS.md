@@ -12,6 +12,22 @@
   the `6babf75` profile and `a36d9f7b802c` schema. The private Retention contact foundation
   and migration are not deployed or exposed. Only closed `2ea7b9a`/disabled native execution
   is verified for reading language metadata. See `docs/operation-interface-language-release.md`.
+- The local default-disabled `OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED` lane
+  supports only two fictional adults, immutable RU/UZ templates and separate typed
+  human preparation/approval through the owning Retention fake lifecycle. Private
+  contact v2 binds the originating turn; legacy chat projections omit its action.
+  Goals remain read-only. It is not deployed, a real send, a loaded full capability
+  or receipt-memory/rollback acceptance. Keep default self-approval denial; private
+  ownership does not yet implement two-person review. See
+  `docs/operation-retention-contact-chat-checkpoint.md` before extending or releasing it.
+- New local contact-bearing Goals use private v15 with an explicit underlying
+  v1–v14 profile. Freeze minimized SQL event checkpoints before capture, bind them
+  in continuation digests and never upgrade or recapture old tasks. At most three
+  checkpoints survive; the explicit contact-event scan ceiling refuses overflow.
+  Empty contact fields preserve old storage/digests and typed schemas. Local fake
+  replay/restart and actual closed `2ea7b9a` compatibility checks are not candidate-
+  image, production, real-contact or broad model-quality acceptance. Do not use
+  `38cdac4` as a v15 rollback reader or downgrade populated contact tables.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 

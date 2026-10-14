@@ -43,9 +43,11 @@ export type ChatViewAvailability = Omit<
   | "transcript_pagination_enabled"
   | "chat_streaming_enabled"
   | "response_languages"
+  | "retention_contact_reviews_enabled"
 > & {
   chat_streaming_enabled?: boolean;
   transcript_pagination_enabled?: boolean;
   parent_summary_enabled?: boolean;
+  retention_contact_reviews_enabled?: boolean;
   response_languages?: components["schemas"]["ChatAvailability"]["response_languages"];
 };

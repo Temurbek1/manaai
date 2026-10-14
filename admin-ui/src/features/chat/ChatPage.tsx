@@ -18,6 +18,7 @@ import {
 import { AnalysisButton, AnalysisResult } from "./ChatAnalysis";
 import { ChatApprovals } from "./ChatApprovals";
 import { WorkspaceActions } from "./WorkspaceActions";
+import { RetentionContactActions } from "./RetentionContactActions";
 import { ChatMessageDetails } from "./ChatMessageDetails";
 import type { ChatViewAvailability as Availability } from "./contracts";
 import { CHAT_AGENTS, CHAT_BASE, type ChatAgentId } from "./agents";
@@ -124,6 +125,7 @@ export function ChatPage({
     isLoading,
     isValidating,
     refresh,
+    refreshTopic,
     hasMore,
     loadingOlder,
     loadOlder,
@@ -204,7 +206,9 @@ export function ChatPage({
       (turn) =>
         turn.execution_mode === "agent" &&
         turn.status === "completed" &&
-        turn.next_action === "approvals",
+        ["approvals", "retention_contacts"].includes(
+          turn.next_action ?? "none",
+        ),
     )
     .slice(-3);
   const progressStream = useWorkspaceStream(
@@ -370,7 +374,7 @@ export function ChatPage({
         controller.signal,
       );
       if (mode === "agent") await mutate(`${GOALS_BASE}/topics/${target}`);
-      await refresh();
+      await refreshTopic(target);
       updateDraft("");
       if (!topicId) router.push(`/chat/${agentId}/topic/${target}`);
     } catch (caught) {
@@ -663,6 +667,18 @@ export function ChatPage({
                         agent.id === "growth-agent" ? (
                         <ChatApprovals />
                       ) : null)}
+                    {turn.next_action === "retention_contacts" &&
+                      turn.status === "completed" &&
+                      turn.execution_mode === "agent" &&
+                      currentTopicId &&
+                      scope === "mana" &&
+                      availability?.retention_contact_reviews_enabled &&
+                      actionTurns.includes(turn) && (
+                        <RetentionContactActions
+                          topicId={currentTopicId}
+                          turnId={turn.turn_id}
+                        />
+                      )}
                     {(turn.status === "completed" ||
                       turn.status === "failed") && (
                       <ChatMessageDetails turn={turn} />

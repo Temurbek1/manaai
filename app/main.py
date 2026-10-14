@@ -53,6 +53,7 @@ from app.mana_operation_ai.application.read_budget import FirestoreReadLimits
 from app.mana_operation_ai.application.registry import AdsPlatformRegistry, AgentRegistry
 from app.mana_operation_ai.application.retention.agent import RetentionAgent
 from app.mana_operation_ai.application.retention.assessment_cache import RetentionAssessmentCache
+from app.mana_operation_ai.application.retention.contact import RetentionContactService
 from app.mana_operation_ai.application.retention.engagement import (
     RetentionEngagementCapabilityHandler,
 )
@@ -67,6 +68,9 @@ from app.mana_operation_ai.application.shared_sources import (
 )
 from app.mana_operation_ai.application.workspace_actions import WorkspaceActionService
 from app.mana_operation_ai.application.workspace_events import WorkspaceEventService
+from app.mana_operation_ai.application.workspace_retention_contacts import (
+    WorkspaceRetentionContacts,
+)
 from app.mana_operation_ai.application.workspace_service import OperationWorkspaceService
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
@@ -114,6 +118,9 @@ from app.mana_operation_ai.infrastructure.persistence.goal_repository import (
 from app.mana_operation_ai.infrastructure.persistence.repository import (
     SqlAlchemyOperationRepository,
 )
+from app.mana_operation_ai.infrastructure.persistence.retention_contact import (
+    SqlAlchemyRetentionContacts,
+)
 from app.mana_operation_ai.infrastructure.persistence.shared_data_store import (
     SqlAlchemySharedDataStore,
 )
@@ -125,6 +132,10 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import (
 )
 from app.mana_operation_ai.infrastructure.retention.analytics_runtime import (
     register_manual_analytics,
+)
+from app.mana_operation_ai.infrastructure.retention.contact_catalog import (
+    FakeRetentionContactCatalog,
+    sandbox_account_ref,
 )
 from app.mana_operation_ai.infrastructure.retention.fake import (
     FakeBackendActivityAdapter,
@@ -680,8 +691,41 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         enabled=actions_enabled,
         allow_self_approval=settings.operation_allow_self_approval,
     )
+    contact_reviews_enabled = (
+        actions_enabled and settings.operation_workspace_retention_contacts_enabled
+    )
+    contact_store = SqlAlchemyRetentionContacts(
+        operation_database,
+        history_event_limit=settings.operation_workspace_context_contact_event_limit,
+    )
+    contact_catalog = FakeRetentionContactCatalog(clock)
+    contacts = RetentionContactService(
+        store=contact_store,
+        executor=contact_catalog,
+        chats=chat_repository,
+        clock=clock,
+        ids=UuidGenerator(),
+        enabled=contact_reviews_enabled,
+        allow_self_approval=settings.operation_allow_self_approval,
+        controls=operation_repository,
+        global_kill_switch_default=settings.operation_global_kill_switch,
+    )
+    app.state.operation_workspace_retention_contacts = WorkspaceRetentionContacts(
+        chats=chat_repository,
+        contacts=contacts,
+        store=contact_store,
+        enabled=contact_reviews_enabled,
+        allow_self_approval=settings.operation_allow_self_approval,
+        recipients=contact_catalog.recipients,
+        account_refs={
+            item.key: sandbox_account_ref(item.key) for item in contact_catalog.recipients
+        },
+    )
     session_context = OperationSessionContext(
-        chat_repository, goal_repository, app.state.operation_workspace_actions
+        chat_repository,
+        goal_repository,
+        app.state.operation_workspace_actions,
+        app.state.operation_workspace_retention_contacts,
     )
     chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
     app.state.operation_cost_ledger = cost_ledger
@@ -703,6 +747,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             parent_summary_enabled=settings.manakids_parent_source_enabled,
             model_selection_enabled=settings.operation_model_selection_enabled,
             action_reviews_enabled=actions_enabled,
+            retention_contact_reviews_enabled=contact_reviews_enabled,
             transcript_pagination_enabled=(
                 settings.operation_agent_workspace_enabled
                 and settings.operation_workspace_transcript_enabled

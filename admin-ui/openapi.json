@@ -3871,6 +3871,11 @@
             "title": "Response Languages",
             "type": "array"
           },
+          "retention_contact_reviews_enabled": {
+            "default": false,
+            "title": "Retention Contact Reviews Enabled",
+            "type": "boolean"
+          },
           "transcript_pagination_enabled": {
             "default": false,
             "title": "Transcript Pagination Enabled",
@@ -4316,7 +4321,8 @@
               "analyze",
               "approvals",
               "mana_parents",
-              "start_goal"
+              "start_goal",
+              "retention_contacts"
             ],
             "title": "Next Action",
             "type": "string"
@@ -12984,6 +12990,94 @@
         "title": "ResourceSignal",
         "type": "object"
       },
+      "RetentionContactDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "confirmed",
+          "approve",
+          "reason",
+          "fingerprint"
+        ],
+        "title": "RetentionContactDecision",
+        "type": "object"
+      },
+      "RetentionContactMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "default": "ru",
+            "enum": [
+              "ru",
+              "uz"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "onboarding_help",
+              "renewal_reminder"
+            ],
+            "title": "Template",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 280,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "version": {
+            "default": "retention-contact-ru-v1",
+            "enum": [
+              "retention-contact-ru-v1",
+              "retention-contact-uz-v1"
+            ],
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template",
+          "text",
+          "sha256"
+        ],
+        "title": "RetentionContactMessage",
+        "type": "object"
+      },
       "RetentionEngagementSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -14358,6 +14452,14 @@
             ],
             "title": "Product",
             "type": "string"
+          },
+          "retention_contacts": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceContactHistory"
+            },
+            "maxItems": 3,
+            "title": "Retention Contacts",
+            "type": "array"
           },
           "topic_id": {
             "title": "Topic Id",
@@ -15855,6 +15957,364 @@
           "self_approval_forbidden"
         ],
         "title": "WorkspaceActionView",
+        "type": "object"
+      },
+      "WorkspaceContactHistory": {
+        "additionalProperties": false,
+        "description": "A frozen SQL event, not permission or proof of real delivery.",
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "business_outcome": {
+            "const": "not_measured",
+            "default": "not_measured",
+            "title": "Business Outcome",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "ru",
+              "uz"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "message_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Message Sha256",
+            "type": "string"
+          },
+          "mode": {
+            "const": "sandbox",
+            "default": "sandbox",
+            "title": "Mode",
+            "type": "string"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "provider": {
+            "const": "fake_retention_contact",
+            "default": "fake_retention_contact",
+            "title": "Provider",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "rejected",
+              "dispatching",
+              "verified",
+              "uncertain",
+              "refused"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "onboarding_help",
+              "renewal_reminder"
+            ],
+            "title": "Template",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "turn_id",
+          "at",
+          "revision",
+          "status",
+          "template",
+          "language",
+          "message_sha256"
+        ],
+        "title": "WorkspaceContactHistory",
+        "type": "object"
+      },
+      "WorkspaceContactPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceContactView"
+            },
+            "maxItems": 3,
+            "title": "Items",
+            "type": "array"
+          },
+          "more_omitted": {
+            "default": false,
+            "title": "More Omitted",
+            "type": "boolean"
+          },
+          "recipients": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/WorkspaceContactRecipient"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceContactRecipient"
+              }
+            ],
+            "title": "Recipients",
+            "type": "array"
+          },
+          "templates": {
+            "default": [
+              "onboarding_help",
+              "renewal_reminder"
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "const": "onboarding_help",
+                "type": "string"
+              },
+              {
+                "const": "renewal_reminder",
+                "type": "string"
+              }
+            ],
+            "title": "Templates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "recipients"
+        ],
+        "title": "WorkspaceContactPage",
+        "type": "object"
+      },
+      "WorkspaceContactPrepare": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "recipient": {
+            "enum": [
+              "sample_ru",
+              "sample_uz"
+            ],
+            "title": "Recipient",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "onboarding_help",
+              "renewal_reminder"
+            ],
+            "title": "Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "confirmed",
+          "recipient",
+          "template"
+        ],
+        "title": "WorkspaceContactPrepare",
+        "type": "object"
+      },
+      "WorkspaceContactRecipient": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "enum": [
+              "sample_ru",
+              "sample_uz"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "ru",
+              "uz"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": true,
+            "default": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "language"
+        ],
+        "title": "WorkspaceContactRecipient",
+        "type": "object"
+      },
+      "WorkspaceContactReconcile": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed",
+          "fingerprint"
+        ],
+        "title": "WorkspaceContactReconcile",
+        "type": "object"
+      },
+      "WorkspaceContactView": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "business_outcome": {
+            "const": "not_measured",
+            "default": "not_measured",
+            "title": "Business Outcome",
+            "type": "string"
+          },
+          "decision_recorded": {
+            "title": "Decision Recorded",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "message": {
+            "$ref": "#/components/schemas/RetentionContactMessage"
+          },
+          "policy_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Policy Reasons",
+            "type": "array"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "provider": {
+            "const": "fake_retention_contact",
+            "default": "fake_retention_contact",
+            "title": "Provider",
+            "type": "string"
+          },
+          "recipient": {
+            "enum": [
+              "sample_ru",
+              "sample_uz"
+            ],
+            "title": "Recipient",
+            "type": "string"
+          },
+          "result_code": {
+            "title": "Result Code",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "self_approval_forbidden": {
+            "title": "Self Approval Forbidden",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "rejected",
+              "dispatching",
+              "verified",
+              "uncertain",
+              "refused"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "synthetic": {
+            "const": true,
+            "default": true,
+            "title": "Synthetic",
+            "type": "boolean"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "topic_id",
+          "turn_id",
+          "recipient",
+          "message",
+          "fingerprint",
+          "expires_at",
+          "status",
+          "revision",
+          "result_code",
+          "policy_reasons",
+          "self_approval_forbidden",
+          "decision_recorded"
+        ],
+        "title": "WorkspaceContactView",
         "type": "object"
       },
       "WorkspaceEvent": {
@@ -22590,6 +23050,514 @@
           }
         },
         "summary": "Decide Action",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts": {
+      "get": {
+        "operationId": "page_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceContactPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Page",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/prepare": {
+      "post": {
+        "operationId": "prepare_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceContactPrepare"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceContactView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/{action_id}/decision": {
+      "post": {
+        "operationId": "decide_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionContactDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceContactView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/{action_id}/reconcile": {
+      "post": {
+        "operationId": "reconcile_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "title": "Topic Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceContactReconcile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceContactView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile",
         "tags": [
           "operation-workspace"
         ]

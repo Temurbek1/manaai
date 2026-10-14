@@ -12,6 +12,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.mana_operation_ai.application.chat_ports import ChatError, SessionContextTooLarge
 from app.mana_operation_ai.application.goal_ports import SavedTaskPage
 from app.mana_operation_ai.application.model_continuation import (
+    contact_context_binding,
     continuation_protocol,
     continuation_scope_digest,
 )
@@ -44,7 +45,8 @@ from app.mana_operation_ai.infrastructure.persistence.workspace_events import ap
 class _WorkspaceCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] = 1
+    contact_profile_version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] | None = None
     analysis_scope: Literal["current", "saved_snapshot"] | None = None
     goal: OperationGoal
 
@@ -91,21 +93,34 @@ def _goal(row: GoalRow) -> OperationGoal:
     projection = goal.page_projection_enabled
     verdict = goal.review_verdict_enabled
     raw_goal = (row.workspace_payload or {}).get("goal")
-    version = (
-        _context_version(goal) if checkpoint.version in (10, 11, 12, 13, 14) else checkpoint.version
-    )
+    raw_memory = raw_goal.get("session_memory") if isinstance(raw_goal, dict) else None
+    contact_history = bool(memory and memory.retention_contacts)
     if (
-        (checkpoint.version == 14) != verdict
+        (checkpoint.version == 15) != contact_history
+        or (checkpoint.version == 15) != (checkpoint.contact_profile_version is not None)
         or (
-            checkpoint.version != 14
+            checkpoint.version != 15
+            and isinstance(raw_memory, dict)
+            and "retention_contacts" in raw_memory
+        )
+    ):
+        raise ChatError("Сохранённая цель требует проверки версии контактного контекста.", 503)
+    # Version 15 adds only historical contact context; all original tool/scope/
+    # review/continuation checks remain bound to the unchanged underlying profile.
+    profile_version = checkpoint.contact_profile_version or checkpoint.version
+    version = _context_version(goal) if profile_version in (10, 11, 12, 13, 14) else profile_version
+    if (
+        (profile_version == 14) != verdict
+        or (
+            profile_version != 14
             and isinstance(raw_goal, dict)
             and ("review_verdict_enabled" in raw_goal or "review_receipt" in raw_goal)
         )
-        or (checkpoint.version in (11, 12, 13, 14)) != discovery
-        or (checkpoint.version in (12, 13, 14)) != replacement
-        or (checkpoint.version in (13, 14)) != projection
+        or (profile_version in (11, 12, 13, 14)) != discovery
+        or (profile_version in (12, 13, 14)) != replacement
+        or (profile_version in (13, 14)) != projection
         or (
-            checkpoint.version not in (13, 14)
+            profile_version not in (13, 14)
             and isinstance(raw_goal, dict)
             and (
                 "page_projection_enabled" in raw_goal
@@ -116,7 +131,7 @@ def _goal(row: GoalRow) -> OperationGoal:
             )
         )
         or (
-            checkpoint.version not in (12, 13, 14)
+            profile_version not in (12, 13, 14)
             and isinstance(raw_goal, dict)
             and (
                 "snapshot_replacement_enabled" in raw_goal
@@ -126,13 +141,13 @@ def _goal(row: GoalRow) -> OperationGoal:
                 )
             )
         )
-        or (not discovery and (checkpoint.version == 10) != limit_state)
+        or (not discovery and (profile_version == 10) != limit_state)
         or (
             not discovery
             and any(record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools)
         )
         or (
-            checkpoint.version not in (11, 12, 13, 14)
+            profile_version not in (11, 12, 13, 14)
             and isinstance(raw_goal, dict)
             and (
                 "report_discovery_enabled" in raw_goal
@@ -167,16 +182,16 @@ def _goal(row: GoalRow) -> OperationGoal:
             continuation is None and (goal.model_feedback is not None or goal.model_recoveries != 0)
         )
         or (
-            checkpoint.version in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
+            profile_version in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
             and checkpoint.analysis_scope != goal.request.analysis_scope
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
+            profile_version not in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
             and checkpoint.analysis_scope is not None
         )
         or (
-            checkpoint.version not in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
-            and (checkpoint.version == 4) != (goal.request.analysis_scope == "saved_snapshot")
+            profile_version not in (5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
+            and (profile_version == 4) != (goal.request.analysis_scope == "saved_snapshot")
         )
         or (version == 1 and memory is not None)
         or (version == 2 and memory is None)
@@ -400,6 +415,20 @@ class SqlAlchemyGoalRepository:
         replacement = goal.snapshot_replacement_enabled
         projection = goal.page_projection_enabled
         verdict = goal.review_verdict_enabled
+        contact_history = bool(goal.session_memory and goal.session_memory.retention_contacts)
+        profile_version = (
+            14
+            if verdict
+            else 13
+            if projection
+            else 12
+            if replacement
+            else 11
+            if discovery
+            else 10
+            if limit_state
+            else _context_version(goal)
+        )
         if not discovery and any(
             record.call.name == REPORT_DISCOVERY_TOOL for record in goal.tools
         ):
@@ -413,17 +442,8 @@ class SqlAlchemyGoalRepository:
             "payload": cls._payload(goal),
             "workspace_status": goal.status if native else None,
             "workspace_payload": _WorkspaceCheckpoint(
-                version=14
-                if verdict
-                else 13
-                if projection
-                else 12
-                if replacement
-                else 11
-                if discovery
-                else 10
-                if limit_state
-                else _context_version(goal),
+                version=15 if contact_history else profile_version,
+                contact_profile_version=profile_version if contact_history else None,
                 analysis_scope=goal.request.analysis_scope
                 if extended_context
                 or continuation
@@ -436,6 +456,7 @@ class SqlAlchemyGoalRepository:
             ).model_dump(
                 mode="json",
                 exclude={
+                    **({"contact_profile_version": True} if not contact_history else {}),
                     **(
                         {"analysis_scope": True}
                         if not extended_context
@@ -926,6 +947,10 @@ class SqlAlchemyGoalRepository:
             return queued_row.owner, goal
 
     async def save(self, owner: str, before: OperationGoal, after: OperationGoal) -> bool:
+        if contact_context_binding(before) != contact_context_binding(after):
+            raise ChatError(
+                "Сохранённый контактный контекст нельзя менять или добавлять молча.", 409
+            )
         if before.review_verdict_enabled != after.review_verdict_enabled:
             raise ChatError("Договор проверки сохранённой цели нельзя менять молча.", 409)
         if before.page_projection_enabled != after.page_projection_enabled:

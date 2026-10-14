@@ -12,7 +12,9 @@ from app.mana_operation_ai.domain.session import SessionMemory
 ChatAgent = Literal["operations-orchestrator", "growth-agent", "retention-agent", "technical-agent"]
 ProductScope = Literal["mana", "360rec"]
 TurnStatus = Literal["reading", "thinking", "completed", "failed", "cancelled"]
-ChatNextAction = Literal["none", "analyze", "approvals", "mana_parents", "start_goal"]
+ChatNextAction = Literal[
+    "none", "analyze", "approvals", "mana_parents", "start_goal", "retention_contacts"
+]
 ResponseLanguage = Literal["ru", "uz"]
 
 
@@ -123,6 +125,7 @@ class ChatAvailability(ChatModel):
     model_selection_enabled: bool = False
     agent_workspace_enabled: bool = False
     action_reviews_enabled: bool = False
+    retention_contact_reviews_enabled: bool = False
     transcript_pagination_enabled: bool = False
     chat_streaming_enabled: bool = False
     response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")

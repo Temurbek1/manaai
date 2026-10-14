@@ -58,9 +58,10 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-async def test_postgres_retention_contact_cross_connection_intent_and_unknown_recipient_hold() -> (
-    None
-):
+@pytest.mark.parametrize("chat_bound", [False, True])
+async def test_postgres_retention_contact_cross_connection_intent_and_unknown_recipient_hold(
+    chat_bound: bool,
+) -> None:
     from app.mana_operation_ai.application.retention.contact import RetentionContactService
     from app.mana_operation_ai.application.runtime import UuidGenerator
     from app.mana_operation_ai.domain.retention_contact import RetentionContactTarget
@@ -82,6 +83,23 @@ async def test_postgres_retention_contact_cross_connection_intent_and_unknown_re
     topic = await chats.create(
         owner, TopicCreate(agent_id="retention-agent", product="mana", title="Synthetic contact")
     )
+    turn_id = None
+    if chat_bound:
+        await chats.initialize()
+        turn, created = await chats.reserve(
+            owner,
+            topic.topic_id,
+            MessageCreate(
+                request_id=uuid4(),
+                message="Explicit fictional contact test.",
+                execution_mode="agent",
+            ),
+        )
+        assert created
+        assert await chats.update(
+            turn.model_copy(update={"status": "completed", "next_action": "retention_contacts"})
+        )
+        turn_id = turn.turn_id
     data = target_payload()
     data["facts"]["account_ref"] = "acct_" + hashlib.sha256(owner.encode()).hexdigest()
     source = RetentionContactTarget.model_validate(data)
@@ -106,7 +124,9 @@ async def test_postgres_retention_contact_cross_connection_intent_and_unknown_re
     req = request()
     req.parameters.account_ref = source.facts.account_ref
     try:
-        action = await first.prepare(actor, topic.topic_id, req)
+        action = await first.prepare(actor, topic.topic_id, req, turn_id=turn_id)
+        cutoff = clock.now() + timedelta(microseconds=1)
+        clock.current += timedelta(seconds=1)
         command = decision(action.fingerprint)
         results = await asyncio.gather(
             first.decide(actor, action.action_id, command),
@@ -117,12 +137,24 @@ async def test_postgres_retention_contact_cross_connection_intent_and_unknown_re
         assert executor.dispatch_count == 1
         settled = await second.get(actor, action.action_id)
         assert settled.status == "verified"
+        if chat_bound:
+            assert turn_id is not None
+            store = SqlAlchemyRetentionContacts(second_db)
+            assert settled.version == 2 and settled.turn_id == turn_id
+            assert await store.list_for_turn(owner, topic.topic_id, turn_id) == [settled]
+            historical = await store.history(owner, topic.topic_id, before=cutoff)
+            assert historical[0].status == "proposed"
+            recent = await store.history(
+                owner, topic.topic_id, before=clock.now() + timedelta(seconds=1)
+            )
+            assert recent[0].status == "verified" and recent[0].business_outcome == "not_measured"
+            assert executor.dispatch_count == 1
         assert await second.decide(actor, action.action_id, command) == settled
         reset = FakeRetentionContactExecutor(clock=clock, target=source)
         newer = service(second_db, reset)
         another = request()
         another.parameters.account_ref = source.facts.account_ref
-        next_action = await newer.prepare(actor, topic.topic_id, another)
+        next_action = await newer.prepare(actor, topic.topic_id, another, turn_id=turn_id)
         with pytest.raises(ChatError, match="частоты"):
             await newer.decide(actor, next_action.action_id, decision(next_action.fingerprint))
         assert reset.dispatch_count == 0

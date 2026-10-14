@@ -1,19 +1,21 @@
 """Isolated typed SQL state: old action readers/workers never see this family."""
 
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 from pydantic import ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
-from app.mana_operation_ai.application.chat_ports import ChatError
+from app.mana_operation_ai.application.chat_ports import ChatError, SessionContextTooLarge
 from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactAction,
     RetentionContactEvent,
 )
+from app.mana_operation_ai.domain.workspace_retention_contacts import WorkspaceContactHistory
 from app.mana_operation_ai.infrastructure.persistence.database import OperationDatabase
 from app.mana_operation_ai.infrastructure.persistence.models import (
     ChatTopicRow,
+    ChatTurnRow,
     RetentionContactEventRow,
     RetentionContactGuardRow,
     RetentionContactRow,
@@ -41,8 +43,88 @@ def _action(row: RetentionContactRow) -> RetentionContactAction:
 
 
 class SqlAlchemyRetentionContacts:
-    def __init__(self, database: OperationDatabase) -> None:
+    def __init__(self, database: OperationDatabase, *, history_event_limit: int = 400) -> None:
+        if not 4 <= history_event_limit <= 10000:
+            raise ValueError("Contact history capture requires an explicit bounded SQL event limit")
         self._sessions = database.session_factory
+        self._history_event_limit = history_event_limit
+
+    async def history(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> list[WorkspaceContactHistory]:
+        if before.utcoffset() is None:
+            raise ValueError("Contact history requires an aware capture cutoff")
+        latest: dict[str, WorkspaceContactHistory] = {}
+        seen: dict[str, RetentionContactEvent] = {}
+        async with self._sessions() as session:
+            rows = (
+                await session.execute(
+                    select(RetentionContactRow, RetentionContactEventRow)
+                    .join(RetentionContactEventRow)
+                    .join(ChatTopicRow, ChatTopicRow.topic_id == RetentionContactRow.topic_id)
+                    .where(
+                        RetentionContactRow.owner == owner,
+                        RetentionContactRow.topic_id == topic_id,
+                        ChatTopicRow.owner == owner,
+                        ChatTopicRow.payload["product"].as_string() == "mana",
+                    )
+                    .order_by(RetentionContactRow.action_id, RetentionContactEventRow.revision)
+                    .limit(self._history_event_limit + 1)
+                )
+            ).all()
+            if len(rows) > self._history_event_limit:
+                raise SessionContextTooLarge()
+            for row, event_row in rows:
+                action = _action(row)
+                try:
+                    event = RetentionContactEvent.model_validate(event_row.payload)
+                    previous = seen.get(action.action_id)
+                    if (
+                        (event.action_id, event.revision)
+                        != (event_row.action_id, event_row.revision)
+                        or event.revision > action.revision
+                        or event.at < action.prepared_at
+                        or (previous is not None and event.at < previous.at)
+                        or (
+                            event.revision == action.revision
+                            and (event.status, event.code) != (action.status, action.result_code)
+                        )
+                    ):
+                        raise ValueError("Contact event binding changed")
+                except (ValidationError, ValueError):
+                    raise ChatError("История контактного действия требует проверки.", 503) from None
+                seen[action.action_id] = event
+                # Revision events provide the original state at the cutoff, even
+                # if this action's current row changed after generation started.
+                if action.turn_id is None or event.at >= before:
+                    continue
+                latest[action.action_id] = WorkspaceContactHistory(
+                    action_id=action.action_id,
+                    turn_id=action.turn_id,
+                    at=event.at,
+                    revision=event.revision,
+                    status=event.status,
+                    template=action.message.template,
+                    language=action.message.language,
+                    message_sha256=action.message.sha256,
+                )
+        return sorted(latest.values(), key=lambda item: (item.at, item.action_id), reverse=True)[:3]
+
+    async def list_for_turn(
+        self, owner: str, topic_id: str, turn_id: str
+    ) -> list[RetentionContactAction]:
+        async with self._sessions() as session:
+            rows = await session.scalars(
+                select(RetentionContactRow)
+                .where(
+                    RetentionContactRow.owner == owner,
+                    RetentionContactRow.topic_id == topic_id,
+                    RetentionContactRow.payload["turn_id"].as_string() == turn_id,
+                )
+                .order_by(RetentionContactRow.action_id)
+                .limit(4)
+            )
+            return [_action(row) for row in rows]
 
     async def by_request(self, owner: str, request_id: str) -> RetentionContactAction | None:
         async with self._sessions() as session:
@@ -77,6 +159,24 @@ class SqlAlchemyRetentionContacts:
                 )
                 if owned is None:
                     raise ChatError("Тема не найдена.", 404)
+                if action.turn_id is not None:
+                    turn = await session.scalar(
+                        select(ChatTurnRow).where(
+                            ChatTurnRow.turn_id == action.turn_id,
+                            ChatTurnRow.topic_id == action.topic_id,
+                            ChatTurnRow.owner == action.owner,
+                        )
+                    )
+                    if (
+                        turn is None
+                        or turn.status != "completed"
+                        or (turn.workspace_metadata or {}).get("execution_mode") != "agent"
+                        or (turn.workspace_metadata or {}).get("next_action")
+                        != "retention_contacts"
+                    ):
+                        raise ChatError(
+                            "Контактное действие не связано с запросившим сообщением.", 403
+                        )
                 if action.revision != 0 or action.status not in {"proposed", "refused"}:
                     raise ChatError("Недопустимое начальное состояние.")
                 session.add(
@@ -111,6 +211,7 @@ class SqlAlchemyRetentionContacts:
             if (
                 existing is not None
                 and existing.topic_id == action.topic_id
+                and existing.turn_id == action.turn_id
                 and existing.request == action.request
             ):
                 return existing

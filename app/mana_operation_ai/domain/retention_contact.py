@@ -81,6 +81,7 @@ def contact_proposal_fingerprint(
     policy: "RetentionContactPolicyResult",
     prepared_at: AwareDatetime,
     expires_at: AwareDatetime,
+    turn_id: str | None = None,
 ) -> str:
     value = {
         "version": 1,
@@ -94,6 +95,8 @@ def contact_proposal_fingerprint(
         "prepared_at": prepared_at.isoformat(),
         "expires_at": expires_at.isoformat(),
     }
+    if turn_id is not None:
+        value.update(version=2, turn_id=turn_id)
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -153,10 +156,11 @@ ContactStatus = Literal["proposed", "rejected", "dispatching", "verified", "unce
 
 
 class RetentionContactAction(DomainModel):
-    version: Literal[1] = 1
+    version: Literal[1, 2] = 1
     action_id: str
     owner: str
     topic_id: str
+    turn_id: str | None = None
     agent_id: Literal["retention-agent"] = "retention-agent"
     capability_key: Literal["retention.contact.sandbox"] = "retention.contact.sandbox"
     request: RetentionContactPrepare
@@ -176,6 +180,8 @@ class RetentionContactAction(DomainModel):
 
     @model_validator(mode="after")
     def validate_state(self) -> "RetentionContactAction":
+        if (self.version == 2) != (self.turn_id is not None):
+            raise ValueError("Only a version-two contact intent has a bound chat turn")
         if (self.message.template, self.message.language) != (
             self.request.parameters.template,
             self.request.parameters.language,
@@ -191,6 +197,7 @@ class RetentionContactAction(DomainModel):
             policy=self.policy,
             prepared_at=self.prepared_at,
             expires_at=self.expires_at,
+            turn_id=self.turn_id,
         ):
             raise ValueError("The exact proposal content must match its fingerprint")
         if self.expires_at <= self.prepared_at:

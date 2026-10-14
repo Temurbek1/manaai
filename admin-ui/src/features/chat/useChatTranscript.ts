@@ -1,7 +1,7 @@
 "use client";
 
-import useSWR from "swr";
-import useSWRInfinite from "swr/infinite";
+import useSWR, { useSWRConfig } from "swr";
+import useSWRInfinite, { unstable_serialize } from "swr/infinite";
 import { useRef } from "react";
 import { apiGet } from "@/api/client";
 import type { components } from "@/api/schema";
@@ -47,6 +47,22 @@ type Key = readonly [string, string];
 const active = (turn: ChatViewTurn): boolean =>
   ["reading", "thinking"].includes(turn.status);
 
+function validatePage(page: Page, topicId: string): Page {
+  if (
+    page?.topic?.topic_id !== topicId ||
+    !Array.isArray(page.turns) ||
+    page.turns.length > 20 ||
+    page.turns.some((turn) => turn.topic_id !== topicId) ||
+    typeof page.has_more !== "boolean" ||
+    (page.has_more
+      ? !page.next_cursor || page.next_cursor !== page.turns[0]?.turn_id
+      : page.next_cursor !== null) ||
+    new Set(page.turns.map((turn) => turn.turn_id)).size !== page.turns.length
+  )
+    throw new Error("Не удалось проверить страницу переписки.");
+  return page;
+}
+
 export function useChatTranscript(
   topicId: string | null | undefined,
   owner: string,
@@ -60,9 +76,11 @@ export function useChatTranscript(
   hasMore: boolean;
   loadingOlder: boolean;
   refresh: () => Promise<unknown>;
+  refreshTopic: (target: string) => Promise<unknown>;
   loadOlder: () => Promise<unknown>;
   applyText: (event: ChatTextEvent) => void;
 } {
+  const { mutate } = useSWRConfig();
   const repairing = useRef(false);
   const legacy = useSWR<ChatViewDetail, Error>(
     topicId && paged === false
@@ -86,20 +104,7 @@ export function useChatTranscript(
     },
     async ([url]: Key) => {
       const page = await apiGet<Page>(url);
-      if (
-        page?.topic?.topic_id !== topicId ||
-        !Array.isArray(page.turns) ||
-        page.turns.length > 20 ||
-        page.turns.some((turn) => turn.topic_id !== topicId) ||
-        typeof page.has_more !== "boolean" ||
-        (page.has_more
-          ? !page.next_cursor || page.next_cursor !== page.turns[0]?.turn_id
-          : page.next_cursor !== null) ||
-        new Set(page.turns.map((turn) => turn.turn_id)).size !==
-          page.turns.length
-      )
-        throw new Error("Не удалось проверить страницу переписки.");
-      return page;
+      return validatePage(page, topicId!);
     },
     {
       persistSize: false,
@@ -134,6 +139,28 @@ export function useChatTranscript(
     hasMore: Boolean(paged && received?.at(-1)?.has_more),
     loadingOlder,
     refresh: async () => (paged ? pages.mutate() : legacy.mutate()),
+    refreshTopic: async (target) => {
+      // A newly created topic may have an empty cached first page while this
+      // submission still holds the pre-creation hook closure. Refresh its exact
+      // owner-scoped SQL key, not that obsolete/null topic or model dispatch.
+      const key: Key = [
+        paged
+          ? `${WORKSPACE}/topics/${target}/messages?limit=20`
+          : `${CHAT_BASE}/topics/${target}`,
+        owner,
+      ];
+      if (target === topicId) return paged ? pages.mutate() : legacy.mutate();
+      if (!paged) return mutate(key);
+      // Global infinite-key revalidation retains a cached first page when
+      // revalidateFirstPage=false. A new topic has no older admitted pages:
+      // load and validate its exact first SQL page, without another generation.
+      const page = validatePage(await apiGet<Page>(key[0]), target);
+      return mutate(
+        unstable_serialize(() => key),
+        [page],
+        { revalidate: false },
+      );
+    },
     loadOlder: async () => {
       if (!paged || loadingOlder || !received?.at(-1)?.has_more) return;
       if (pages.error) return pages.mutate();

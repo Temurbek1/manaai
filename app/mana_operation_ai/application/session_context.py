@@ -8,6 +8,7 @@ from pydantic import JsonValue
 
 from app.mana_operation_ai.application.chat_ports import ChatRepository, SessionContextTooLarge
 from app.mana_operation_ai.application.goal_ports import GoalRepository
+from app.mana_operation_ai.application.retention.contact_ports import RetentionContactHistoryReader
 from app.mana_operation_ai.application.workspace_action_ports import WorkspaceActionHistoryReader
 from app.mana_operation_ai.domain.session import (
     SessionCheckpoint,
@@ -23,15 +24,20 @@ class OperationSessionContext:
         chats: ChatRepository,
         goals: GoalRepository,
         actions: WorkspaceActionHistoryReader | None = None,
+        contacts: RetentionContactHistoryReader | None = None,
     ) -> None:
         self._chats = chats
         self._goals = goals
         self._actions = actions
+        self._contacts = contacts
 
     async def read(self, owner: str, topic_id: str, *, before: datetime) -> SessionMemory | None:
         topic = await self._chats.topic(owner, topic_id)
         actions = (
             await self._actions.history(owner, topic_id, before=before) if self._actions else []
+        )
+        contacts = (
+            await self._contacts.history(owner, topic_id, before=before) if self._contacts else []
         )
         records: dict[str, SessionUserContext] = {}
         checkpoints: list[SessionCheckpoint] = []
@@ -98,7 +104,7 @@ class OperationSessionContext:
                         ],
                     )
                 )
-        if not records and not checkpoints and not actions:
+        if not records and not checkpoints and not actions and not contacts:
             return None
         return SessionMemory(
             topic_id=topic_id,
@@ -106,6 +112,7 @@ class OperationSessionContext:
             captured_at=before,
             user_context=list(records.values()),
             actions=actions,
+            retention_contacts=contacts,
             checkpoints=checkpoints,
             older_checkpoints_omitted=max(0, closed_count - len(checkpoints)),
         )

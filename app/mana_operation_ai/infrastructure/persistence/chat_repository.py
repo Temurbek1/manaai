@@ -61,7 +61,9 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         "model_choice": turn.model_choice,
         "reasoning": turn.reasoning,
         "sources": payload["sources"],
-        "next_action": "none" if turn.next_action == "start_goal" else turn.next_action,
+        "next_action": "none"
+        if turn.next_action in {"start_goal", "retention_contacts"}
+        else turn.next_action,
     }
     payload["sources"] = [
         {
@@ -73,12 +75,13 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         }
         for source in turn.sources
     ]
-    if turn.next_action in ("mana_parents", "start_goal"):
+    if turn.next_action in ("mana_parents", "start_goal", "retention_contacts"):
         payload["next_action"] = "none"
     workspace = None
     if (
         turn.execution_mode == "agent"
         or turn.next_action == "start_goal"
+        or turn.next_action == "retention_contacts"
         or turn.session_memory
         or turn.preview_revision
         or turn.response_language is not None

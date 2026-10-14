@@ -7,6 +7,7 @@ from pydantic import Field, model_validator
 
 from app.mana_operation_ai.domain.models import DomainModel
 from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionHistory
+from app.mana_operation_ai.domain.workspace_retention_contacts import WorkspaceContactHistory
 
 
 class SessionUserContext(DomainModel):
@@ -51,10 +52,18 @@ class SessionMemory(DomainModel):
     user_context: list[SessionUserContext] = Field(default_factory=list, max_length=400)
     checkpoints: list[SessionCheckpoint] = Field(default_factory=list, max_length=3)
     actions: list[WorkspaceActionHistory] = Field(default_factory=list, max_length=3)
+    # Keep empty old memories byte-equivalent without erasing the typed API schema.
+    retention_contacts: list[WorkspaceContactHistory] = Field(
+        default_factory=list, max_length=3, exclude_if=lambda value: not value
+    )
     older_checkpoints_omitted: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def validate_action_scope(self) -> "SessionMemory":
-        if self.actions and self.product != "mana":
+        if (self.actions or self.retention_contacts) and self.product != "mana":
             raise ValueError("Sandbox MANA action history cannot enter another product context")
+        if self.retention_contacts and self.captured_at.utcoffset() is None:
+            raise ValueError("Contact context requires an aware frozen capture cutoff")
+        if any(item.at >= self.captured_at for item in self.retention_contacts):
+            raise ValueError("Contact history must precede its frozen capture cutoff")
         return self

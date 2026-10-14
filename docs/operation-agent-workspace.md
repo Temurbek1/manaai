@@ -2,10 +2,16 @@
 
 ## Objective and evidence
 
-Latest status: the scoped native workspace release is deployed as `6babf75`, with
+Latest status: operational API/Goals worker and UI are deployed as `38cdac4`, adding
+Russian/Uzbek presentation while preserving the scoped `6babf75` profile, with
 saved-report discovery, retained full context, bound independent review and compatible
 UI. Actual checks/limits/rollback are in
 [the active release report](operation-agent-workspace-profile-release.md).
+Language-specific actual checks and rollback are in
+[the RU/UZ release report](operation-interface-language-release.md).
+The subsequent [Retention contact review](operation-retention-contact-chat-checkpoint.md)
+is local and default disabled; neither its contact migration nor its chat lane is
+deployed. It does not enable real parent contact or close the action acceptance gaps.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

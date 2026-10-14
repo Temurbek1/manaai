@@ -68,6 +68,82 @@ describe("ChatPage", () => {
     push.mockClear();
   });
 
+  it("refreshes a newly created topic after one fast native reply, not another generation", async () => {
+    let done = false;
+    let finish: (() => void) | undefined;
+    let pageReads = 0;
+    let generations = 0;
+    const posted: string[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posted.push(url);
+        if (url.endsWith("/chat/topics")) return response(topic);
+        if (url.endsWith("/messages")) {
+          generations += 1;
+          return new Promise<Response>((resolve) => {
+            finish = () => {
+              done = true;
+              resolve(
+                new Response(
+                  JSON.stringify({
+                    turn: { ...turn, answer: "Fast verified reply" },
+                    goal: null,
+                  }),
+                  { headers: { "Content-Type": "application/json" } },
+                ),
+              );
+            };
+          });
+        }
+      }
+      if (url.endsWith("/chat/availability"))
+        return response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          transcript_pagination_enabled: true,
+        });
+      if (url.endsWith("/goals/availability"))
+        return response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          max_steps: 6,
+          budget_microusd: 500000,
+        });
+      if (url.endsWith("/messages?limit=20")) {
+        pageReads += 1;
+        return response({
+          topic,
+          turns: done ? [{ ...turn, answer: "Fast verified reply" }] : [],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" />);
+    const input = await screen.findByRole("textbox", {
+      name: "Сообщение агенту",
+    });
+    await waitFor(() => expect(input).not.toBeDisabled());
+    fireEvent.change(input, { target: { value: "Hello native agent" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    );
+    await waitFor(() => {
+      expect(generations).toBe(1);
+      expect(pageReads).toBeGreaterThan(0);
+      expect(finish).toBeDefined();
+    });
+    await act(async () => {
+      finish!();
+    });
+    expect(await screen.findByText("Fast verified reply")).toBeVisible();
+    expect(generations).toBe(1);
+    expect(pageReads).toBeGreaterThan(1);
+    expect(posted.filter((url) => url.includes("/goals/"))).toEqual([]);
+  });
+
   it("never silently submits Russian when an older server cannot honor Uzbek", async () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, "uz");
     sessionStorage.setItem(

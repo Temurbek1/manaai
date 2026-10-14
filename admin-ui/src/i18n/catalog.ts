@@ -3,6 +3,30 @@ export type TranslationValues = Readonly<Record<string, string | number>>;
 
 // Source-language keys keep existing Russian text and historical artifacts unchanged.
 export const UZ: Readonly<Record<string, string>> = {
+  "Контактный sandbox Retention": "Retention aloqa sandbox’i",
+  "Только вымышленные взрослые. Реальные родители не получают сообщений.":
+    "Faqat xayoliy kattalar. Haqiqiy ota-onalarga xabar yuborilmaydi.",
+  "Вымышленный получатель": "Xayoliy oluvchi",
+  "Взрослый · {0}": "Katta · {0}",
+  "Шаблон сообщения": "Xabar shabloni",
+  "Помощь с настройкой": "Sozlashda yordam",
+  "Напоминание о сроке доступа": "Foydalanish muddati eslatmasi",
+  "Подготовить тестовое сообщение": "Test xabarini tayyorlash",
+  "Подтвердить подготовку": "Tayyorlashni tasdiqlash",
+  "Подготовка сохраняет проект сообщения. Отправка требует отдельного решения.":
+    "Tayyorlash xabar qoralamasini saqlaydi. Yuborish uchun alohida qaror kerak.",
+  "Принято тестовым получателем": "Test oluvchisi qabul qildi",
+  "Контакт запрещён проверками": "Tekshiruvlar aloqani taqiqladi",
+  "Реальная доставка и влияние на удержание не измерены.":
+    "Haqiqiy yetkazish va mijozlarni saqlashga ta’sir o‘lchanmagan.",
+  "Отправить в sandbox": "Sandbox’ga yuborish",
+  "Подтвердить тестовую отправку": "Test yuborishini tasdiqlash",
+  "Отправить показанный текст только вымышленному получателю. Реальных сообщений не будет.":
+    "Ko‘rsatilgan matnni faqat xayoliy oluvchiga yuborish. Haqiqiy xabarlar yuborilmaydi.",
+  "Проверить квитанцию": "Kvitansiyani tekshirish",
+  "Подтвердить проверку квитанции": "Kvitansiya tekshiruvini tasdiqlash",
+  "Проверка читает квитанцию. Повторной отправки не будет.":
+    "Tekshiruv kvitansiyani o‘qiydi. Qayta yuborish bo‘lmaydi.",
   "Выбранный язык ответов пока недоступен на сервере. Черновик сохранён.":
     "Tanlangan javob tili serverda hali mavjud emas. Qoralama saqlandi.",
   "Профессиональный обзор": "Professional umumiy ko‘rinish",

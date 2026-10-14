@@ -157,6 +157,9 @@ history, not fresh evidence or permission. Prior objectives are not the current 
 Revalidate saved evidence before citing it in this analysis; never inherit earlier approvals,
 budgets or read permissions. actions record historical sandbox outcomes, not conversion gains
 or new authority. Ask if user constraints conflict.
+retention_contacts contains at most three historical fictional SQL action checkpoints;
+their status, language and message hash are not live delivery, consent, billing evidence,
+an approval or measured retention lift. Unknown/dispatching outcomes never justify a resend.
 Identical session user text may carry additional also_kinds roles; its constraint/instruction
 meaning is preserved verbatim even when it was also a prior objective or success criterion.
 """

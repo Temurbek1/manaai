@@ -9,9 +9,18 @@ from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactParameters,
     RetentionContactTarget,
 )
+from app.mana_operation_ai.domain.workspace_retention_contacts import WorkspaceContactHistory
 
 
 class RetentionContactStore(Protocol):
+    async def history(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> list[WorkspaceContactHistory]: ...
+
+    async def list_for_turn(
+        self, owner: str, topic_id: str, turn_id: str
+    ) -> list[RetentionContactAction]: ...
+
     async def by_request(self, owner: str, request_id: str) -> RetentionContactAction | None: ...
 
     async def get(self, owner: str, action_id: str) -> RetentionContactAction: ...
@@ -28,6 +37,12 @@ class RetentionContactStore(Protocol):
 
 class RetentionContactControls(Protocol):
     async def get_control(self, key: str, *, default: bool = False) -> bool: ...
+
+
+class RetentionContactHistoryReader(Protocol):
+    async def history(
+        self, owner: str, topic_id: str, *, before: datetime
+    ) -> list[WorkspaceContactHistory]: ...
 
 
 class RetentionContactExecutor(Protocol):

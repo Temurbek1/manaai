@@ -80,6 +80,7 @@ OPERATION_GOALS_EXTENSION_MAX_STEPS=24 \
 OPERATION_GOALS_EXTENSION_BUDGET_MICROUSD=500000 \
 OPERATION_MODEL_SELECTION_ENABLED=true \
 OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
+OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED="${AUDIT_RETENTION_CONTACTS:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
 OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
 OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED="${AUDIT_SNAPSHOT_REPLACEMENT:-false}" \
@@ -196,6 +197,43 @@ browser select '.language-select' ru >/dev/null
 browser find role button click --name "Открыть меню" >/dev/null
 browser set viewport 1440 1000 >/dev/null
 browser find label "Сообщение агенту" fill '' >/dev/null
+audit_contact_lane() {
+if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/retention-agent" >/dev/null
+  browser wait --load networkidle >/dev/null
+  browser find label "Сообщение агенту" fill 'Проверь вымышленный контактный sandbox' >/dev/null
+  browser find role button click --name "Отправить сообщение" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Контактный sandbox Retention")' >/dev/null
+  browser select 'select[aria-label="Вымышленный получатель"]' sample_uz >/dev/null
+  browser find role button click --name "Подготовить тестовое сообщение" >/dev/null
+  browser find role button click --name "Подтвердить подготовку" >/dev/null
+  browser wait --fn 'document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' >/dev/null
+  assert_browser '!document.body.innerText.includes("Принято тестовым получателем")' 'preparation sent without approval'
+  browser find label "Причина решения" fill 'Reviewed exact fictional Uzbek template' >/dev/null
+  browser find role button click --name "Отправить в sandbox" >/dev/null
+  browser find role button click --name "Подтвердить тестовую отправку" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Принято тестовым получателем")' >/dev/null
+  assert_accessible
+  browser reload >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Принято тестовым получателем")' >/dev/null
+  assert_browser '!document.querySelector(".chat-proposal-card textarea") && document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' 'settled contact intent was lost or remains executable'
+  browser select '.language-select' uz >/dev/null
+  browser wait --fn 'document.documentElement.lang === "uz" && document.body.innerText.includes("Test oluvchisi qabul qildi")' >/dev/null
+  assert_browser 'document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' 'locale changed the exact contact message'
+  browser set viewport 320 812 >/dev/null
+  assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'contact sandbox overflows on mobile'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/retention-contact-mobile.png" --full >/dev/null
+  fi
+  browser set viewport 1440 1000 >/dev/null
+  browser select '.language-select' ru >/dev/null
+fi
+}
+audit_contact_lane
+browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/growth-agent" >/dev/null
+browser wait --load networkidle >/dev/null
+
 if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   assert_browser 'document.querySelector("select[aria-label=\"Режим работы\"]")?.value === "auto" && document.querySelectorAll(".chat-page button").length === 1' 'unified agent mode has extra controls or is not the default'
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
@@ -636,6 +674,7 @@ browser find role button click --name "Отменить цель" >/dev/null
 browser wait --fn 'document.querySelector(".goal-heading")?.textContent.includes("Отменена")' >/dev/null
 assert_browser '!document.querySelector(".goal-steer")' 'cancelled goal remained writable'
 browser set viewport 1440 1000 >/dev/null
+
 
 for route in agents users; do
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/${route}" >/dev/null

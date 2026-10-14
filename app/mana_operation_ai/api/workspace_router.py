@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 
 from app.mana_operation_ai.api.chat_router import ChatDep
 from app.mana_operation_ai.api.security import ActorDep, require_role
+from app.mana_operation_ai.api.workspace_retention_router import router as retention_contacts_router
 from app.mana_operation_ai.api.workspace_stream import workspace_stream_response
 from app.mana_operation_ai.application.chat_ports import ChatError
 from app.mana_operation_ai.application.model_continuation import public_goal
@@ -31,6 +32,7 @@ def get_workspace(request: Request) -> OperationWorkspaceService:
 
 WorkspaceDep = Annotated[OperationWorkspaceService, Depends(get_workspace)]
 router = APIRouter()
+router.include_router(retention_contacts_router)
 
 
 @router.get("/topics/{topic_id}/messages", response_model=TranscriptPage)

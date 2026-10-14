@@ -5,7 +5,7 @@ import hashlib
 import json
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -43,6 +43,9 @@ from app.mana_operation_ai.infrastructure.persistence.models import (
     ChatTurnRow,
     GoalRow,
 )
+from app.mana_operation_ai.infrastructure.retention.contact_catalog import (
+    FakeRetentionContactCatalog,
+)
 from app.mana_operation_ai.infrastructure.retention.parents import FakeParentSummaryAdapter
 
 LONG_TOPIC = "00000000-0000-4000-8000-000000000110"
@@ -72,6 +75,15 @@ class BrowserConversationFake:
         payload = json.loads(context)
         message = str(payload.get("message", ""))
         agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
+        if message == "Проверь вымышленный контактный sandbox":
+            assert "retention_contacts" in payload["allowed_next_actions"]
+            return ChatTurnOutput(
+                "Только вымышленный получатель; реальных сообщений не будет.",
+                "browser-fake",
+                10,
+                10,
+                next_action="retention_contacts",
+            )
         if message == "Продолжи анализ с условиями из первой архивной задачи":
             memory = payload.get("session_memory")
             assert memory and any(
@@ -403,6 +415,24 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def fake_lifespan(application: FastAPI) -> AsyncIterator[None]:
         async with original_lifespan(application):
+            if settings.operation_workspace_retention_contacts_enabled:
+
+                class ContactClock:
+                    def __init__(self) -> None:
+                        self.at = datetime.now(UTC).replace(
+                            hour=12, minute=0, second=0, microsecond=0
+                        )
+
+                    def now(self) -> datetime:
+                        return self.at
+
+                clock = ContactClock()
+                bridge = application.state.operation_workspace_retention_contacts
+                bridge._contacts._clock = clock
+                bridge._contacts._executor = FakeRetentionContactCatalog(clock)
+                # Only this fictional lane; global Growth self-approval remains disabled.
+                bridge._allow_self_approval = True
+                bridge._contacts._allow_self_approval = True
             application.state.operation_chat_service._model = BrowserConversationFake()
             if settings.operation_workspace_chat_streaming_enabled:
                 application.state.operation_chat_service._streaming_model = (

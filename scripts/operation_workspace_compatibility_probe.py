@@ -41,6 +41,7 @@ async def probe(
     snapshots: bool = False,
     pages: bool = False,
     verdicts: bool = False,
+    contacts: bool = False,
 ) -> None:
     if snapshots and not catalog:
         raise ValueError("Snapshot compatibility auditing requires the captured catalog contract")
@@ -85,6 +86,9 @@ async def probe(
             )
             from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
             from app.mana_operation_ai.domain.workspace_actions import WorkspaceActionHistory
+            from app.mana_operation_ai.domain.workspace_retention_contacts import (
+                WorkspaceContactHistory,
+            )
 
             await database.create_schema()
             await chats.initialize()
@@ -115,6 +119,20 @@ async def probe(
                         topic_id=topic.topic_id,
                         product="mana",
                         captured_at=clock.now(),
+                        retention_contacts=[
+                            WorkspaceContactHistory(
+                                action_id="synthetic-private-contact",
+                                turn_id="synthetic-originating-turn",
+                                at=clock.now() - timedelta(minutes=1),
+                                revision=2,
+                                status="verified",
+                                template="onboarding_help",
+                                language="uz",
+                                message_sha256="a" * 64,
+                            )
+                        ]
+                        if contacts
+                        else [],
                         actions=[
                             WorkspaceActionHistory(
                                 proposal_id="synthetic-private-proposal",
@@ -160,7 +178,7 @@ async def probe(
                         turn.model_copy(
                             update={
                                 "status": "completed",
-                                "next_action": "start_goal",
+                                "next_action": "retention_contacts" if contacts else "start_goal",
                                 "answer": "Synthetic task started.",
                                 "session_memory": memory,
                             }
@@ -485,13 +503,21 @@ async def probe(
                 )
                 turns = await chats.turns(OWNER, topic.topic_id)
                 assert len(turns) == 1
-                assert turns[0].next_action == "start_goal" and turns[0].execution_mode == "agent"
+                assert (
+                    turns[0].next_action == ("retention_contacts" if contacts else "start_goal")
+                    and turns[0].execution_mode == "agent"
+                )
                 assert turns[0].session_memory is None
                 original = await chats.turn(OWNER, topic.topic_id, turns[0].turn_id)
                 assert original.preview == "Synthetic draft 🧒" and original.preview_revision == 2
                 assert original.session_memory is not None and goal.session_memory is not None
                 assert bool(goal.session_memory.actions) is (topic.title == "Native queued")
                 assert original.session_memory.actions == goal.session_memory.actions
+                assert bool(goal.session_memory.retention_contacts) is contacts
+                assert (
+                    original.session_memory.retention_contacts
+                    == goal.session_memory.retention_contacts
+                )
                 assert original.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.session_memory.user_context[0].text == "Do not contact clients."
                 assert goal.status == ("paused" if paused else "running" if lost else "queued")
@@ -560,6 +586,7 @@ def main() -> None:
     parser.add_argument("--snapshots", action="store_true")
     parser.add_argument("--pages", action="store_true")
     parser.add_argument("--verdicts", action="store_true")
+    parser.add_argument("--contacts", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -570,6 +597,7 @@ def main() -> None:
             snapshots=args.snapshots,
             pages=args.pages,
             verdicts=args.verdicts,
+            contacts=args.contacts,
         )
     )
 

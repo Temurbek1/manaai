@@ -44,6 +44,9 @@ fi
 if [[ "${WORKSPACE_REVIEW_VERDICTS_AUDIT:-false}" == true ]]; then
   catalog_args=(--catalog --snapshots --pages --verdicts)
 fi
+if [[ "${WORKSPACE_RETENTION_CONTACT_MEMORY_AUDIT:-false}" == true ]]; then
+  catalog_args+=(--contacts)
+fi
 
 .venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {

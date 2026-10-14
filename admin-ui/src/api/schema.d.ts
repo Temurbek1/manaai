@@ -966,6 +966,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page */
+        get: operations["page_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare */
+        post: operations["prepare_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/{action_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide */
+        post: operations["decide_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/{action_id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconcile */
+        post: operations["reconcile_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/notifications": {
         parameters: {
             query?: never;
@@ -3295,6 +3363,11 @@ export interface components {
                 "uz"
             ];
             /**
+             * Retention Contact Reviews Enabled
+             * @default false
+             */
+            retention_contact_reviews_enabled: boolean;
+            /**
              * Transcript Pagination Enabled
              * @default false
              */
@@ -3498,7 +3571,7 @@ export interface components {
              * @default none
              * @enum {string}
              */
-            next_action: "none" | "analyze" | "approvals" | "mana_parents" | "start_goal";
+            next_action: "none" | "analyze" | "approvals" | "mana_parents" | "start_goal" | "retention_contacts";
             /** Output Tokens */
             output_tokens?: number | null;
             /** Plan */
@@ -6599,6 +6672,49 @@ export interface components {
             /** Source Application */
             source_application?: string | null;
         };
+        /** RetentionContactDecision */
+        RetentionContactDecision: {
+            /** Approve */
+            approve: boolean;
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** RetentionContactMessage */
+        RetentionContactMessage: {
+            /**
+             * Language
+             * @default ru
+             * @enum {string}
+             */
+            language: "ru" | "uz";
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Template
+             * @enum {string}
+             */
+            template: "onboarding_help" | "renewal_reminder";
+            /** Text */
+            text: string;
+            /**
+             * Version
+             * @default retention-contact-ru-v1
+             * @enum {string}
+             */
+            version: "retention-contact-ru-v1" | "retention-contact-uz-v1";
+        };
         /** RetentionEngagementSnapshot */
         RetentionEngagementSnapshot: {
             /** Backend Active Children */
@@ -7132,6 +7248,8 @@ export interface components {
              * @enum {string}
              */
             product: "mana" | "360rec";
+            /** Retention Contacts */
+            retention_contacts?: components["schemas"]["WorkspaceContactHistory"][];
             /** Topic Id */
             topic_id: string;
             /** User Context */
@@ -7731,6 +7849,203 @@ export interface components {
              */
             synthetic: true;
             verification_status?: components["schemas"]["VerificationStatus"] | null;
+        };
+        /**
+         * WorkspaceContactHistory
+         * @description A frozen SQL event, not permission or proof of real delivery.
+         */
+        WorkspaceContactHistory: {
+            /** Action Id */
+            action_id: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Business Outcome
+             * @default not_measured
+             * @constant
+             */
+            business_outcome: "not_measured";
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ru" | "uz";
+            /** Message Sha256 */
+            message_sha256: string;
+            /**
+             * Mode
+             * @default sandbox
+             * @constant
+             */
+            mode: "sandbox";
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /**
+             * Provider
+             * @default fake_retention_contact
+             * @constant
+             */
+            provider: "fake_retention_contact";
+            /** Revision */
+            revision: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "rejected" | "dispatching" | "verified" | "uncertain" | "refused";
+            /**
+             * Template
+             * @enum {string}
+             */
+            template: "onboarding_help" | "renewal_reminder";
+            /** Turn Id */
+            turn_id: string;
+        };
+        /** WorkspaceContactPage */
+        WorkspaceContactPage: {
+            /** Items */
+            items: components["schemas"]["WorkspaceContactView"][];
+            /**
+             * More Omitted
+             * @default false
+             */
+            more_omitted: boolean;
+            /** Recipients */
+            recipients: [
+                components["schemas"]["WorkspaceContactRecipient"],
+                components["schemas"]["WorkspaceContactRecipient"]
+            ];
+            /**
+             * Templates
+             * @default [
+             *       "onboarding_help",
+             *       "renewal_reminder"
+             *     ]
+             */
+            templates: [
+                "onboarding_help",
+                "renewal_reminder"
+            ];
+        };
+        /** WorkspaceContactPrepare */
+        WorkspaceContactPrepare: {
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /**
+             * Recipient
+             * @enum {string}
+             */
+            recipient: "sample_ru" | "sample_uz";
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Template
+             * @enum {string}
+             */
+            template: "onboarding_help" | "renewal_reminder";
+        };
+        /** WorkspaceContactRecipient */
+        WorkspaceContactRecipient: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "sample_ru" | "sample_uz";
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ru" | "uz";
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+        };
+        /** WorkspaceContactReconcile */
+        WorkspaceContactReconcile: {
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /** Fingerprint */
+            fingerprint: string;
+        };
+        /** WorkspaceContactView */
+        WorkspaceContactView: {
+            /** Action Id */
+            action_id: string;
+            /**
+             * Business Outcome
+             * @default not_measured
+             * @constant
+             */
+            business_outcome: "not_measured";
+            /** Decision Recorded */
+            decision_recorded: boolean;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fingerprint */
+            fingerprint: string;
+            message: components["schemas"]["RetentionContactMessage"];
+            /** Policy Reasons */
+            policy_reasons: string[];
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /**
+             * Provider
+             * @default fake_retention_contact
+             * @constant
+             */
+            provider: "fake_retention_contact";
+            /**
+             * Recipient
+             * @enum {string}
+             */
+            recipient: "sample_ru" | "sample_uz";
+            /** Result Code */
+            result_code: string;
+            /** Revision */
+            revision: number;
+            /** Self Approval Forbidden */
+            self_approval_forbidden: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "rejected" | "dispatching" | "verified" | "uncertain" | "refused";
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+            /** Topic Id */
+            topic_id: string;
+            /** Turn Id */
+            turn_id: string;
         };
         /** WorkspaceEvent */
         WorkspaceEvent: {
@@ -9879,6 +10194,168 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceActionView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    page_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceContactPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceContactPrepare"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceContactView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionContactDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceContactView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts__action_id__reconcile_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceContactReconcile"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceContactView"];
                 };
             };
             /** @description Validation Error */
