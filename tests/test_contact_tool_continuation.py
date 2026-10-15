@@ -15,11 +15,34 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.main import create_app
 from app.mana_operation_ai.domain.chat import MessageCreate, TopicCreate
+from app.mana_operation_ai.domain.contact_continuation import contact_result_meaning
+from app.mana_operation_ai.domain.retention_contact import ContactStatus
 from app.mana_operation_ai.infrastructure.persistence.models import ChatTurnRow, CostReservationRow
 from tests.test_inference_failures import wire
 from tests.test_native_contact_tool import tool
 from tests.test_operation_api import headers
 from tests.test_workspace_retention_contacts import setup
+
+
+@pytest.mark.parametrize(
+    "status,step",
+    [
+        ("proposed", "separate_human_approval"),
+        ("dispatching", "observe_without_redispatch"),
+        ("uncertain", "observe_without_redispatch"),
+        ("refused", "none"),
+        ("rejected", "none"),
+        ("verified", "none"),
+    ],
+)
+def test_preparation_result_is_not_a_pending_preparation_request(
+    status: ContactStatus, step: str
+) -> None:
+    meaning = contact_result_meaning(status)
+    assert meaning.preparation_recorded is True and meaning.preparation_is_approval is False
+    assert meaning.next_human_step == step
+    if status == "proposed":
+        assert "Do not ask for preparation again" in meaning.status_explanation
 
 
 def configure(monkeypatch: MonkeyPatch, path: Path) -> FastAPI:
@@ -147,6 +170,14 @@ async def test_exact_native_result_loop_and_unknown_no_replay(
             )
             assert result["delivered"] is False and result["business_outcome"] == "not_measured"
             assert result["message"]["language"] == "uz" and result["status"] == state
+            assert result["lifecycle"]["preparation_recorded"] is True
+            assert result["lifecycle"]["next_human_step"] == (
+                "separate_human_approval"
+                if state == "proposed"
+                else "observe_without_redispatch"
+                if state == "uncertain"
+                else "none"
+            )
             assert "account_ref" not in outputs[0]["output"] and "PRIVATE" not in json.dumps(items)
             if failure == "missing_usage":
                 payload.pop("usage")

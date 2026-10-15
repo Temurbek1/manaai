@@ -63,6 +63,13 @@
   and source grants/budgets are not inherited. See
   `docs/operation-contact-tool-continuation-checkpoint.md`; local compatibility is
   only closed `2ea7b9a`, not a candidate-image/production release or full parity.
+- Contact result explanations must distinguish an already prepared SQL action from
+  the earlier native preparation request. Host-owned lifecycle labels are observation,
+  not approval, reviewer access or renewed eligibility; unknown outcomes permit no
+  redispatch. The first paid local diagnostic failed this distinction; preserve that
+  receipt and its negative review. The following single synthetic real-model pass
+  does not establish broader quality, real contacts or release acceptance. See
+  `docs/operation-contact-loop-quality-checkpoint.md`.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 

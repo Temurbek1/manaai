@@ -22,6 +22,9 @@ The next [human-deferred contact result checkpoint](operation-contact-tool-conti
 adds a local, default-disabled v2 call/output/final-response path with one SQL consumer
 and frozen updated conditions. It does not upgrade v1, activate real contacts, change
 Goal permissions or establish full model-quality/release acceptance.
+The [real-model contact-loop diagnostic](operation-contact-loop-quality-checkpoint.md)
+found and corrected a preparation/approval explanation error. Its new single-case
+manual pass is not broad quality or release acceptance; production is unchanged.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

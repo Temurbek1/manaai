@@ -10,6 +10,7 @@ from pydantic import TypeAdapter
 from app.mana_operation_ai.domain.contact_continuation import (
     ContactModelWindow,
     ContactPreparationResult,
+    contact_result_meaning,
     window_digest,
 )
 from app.mana_operation_ai.domain.contact_preparation import CONTACT_TOOL
@@ -97,6 +98,12 @@ def contact_result_input(
         {
             "type": "function_call_output",
             "call_id": call_id,
-            "output": result.model_dump_json(),
+            "output": json.dumps(
+                {
+                    **result.model_dump(mode="json"),
+                    "lifecycle": contact_result_meaning(result.status).model_dump(mode="json"),
+                },
+                ensure_ascii=False,
+            ),
         },
     ]

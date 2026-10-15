@@ -93,6 +93,50 @@ class ContactPreparationResult(DomainModel):
     business_outcome: Literal["not_measured"] = "not_measured"
 
 
+class ContactResultMeaning(DomainModel):
+    """Host-owned lifecycle vocabulary, not additional execution authority."""
+
+    preparation_recorded: Literal[True] = True
+    preparation_is_approval: Literal[False] = False
+    next_human_step: Literal["separate_human_approval", "observe_without_redispatch", "none"]
+    status_explanation: str = Field(min_length=1, max_length=500)
+
+
+def contact_result_meaning(status: ContactStatus) -> ContactResultMeaning:
+    if status == "proposed":
+        return ContactResultMeaning(
+            next_human_step="separate_human_approval",
+            status_explanation=(
+                "The human-confirmed preparation already created a saved action and exact "
+                "message. Do not ask for preparation again. A different authorized human "
+                "must separately review/approve this prepared action before any fake send; "
+                "this observation grants no approval or current eligibility."
+            ),
+        )
+    if status in {"dispatching", "uncertain"}:
+        return ContactResultMeaning(
+            next_human_step="observe_without_redispatch",
+            status_explanation=(
+                "A prepared intent exists but its outcome is not confirmed. Only observe "
+                "or reconcile the existing action; do not prepare or dispatch another one."
+            ),
+        )
+    return ContactResultMeaning(
+        next_human_step="none",
+        status_explanation={
+            "rejected": "The human rejected the prepared action. No send or repeat is authorized.",
+            "refused": (
+                "Preparation produced a policy-refused audit record, not an eligible action. "
+                "Neither approval nor another preparation is authorized by this result."
+            ),
+            "verified": (
+                "The fake receiver accepted the prepared action. This is not real delivery "
+                "or measured retention improvement. No repeat is authorized."
+            ),
+        }[status],
+    )
+
+
 class ContactContinueRequest(DomainModel):
     request_id: UUID
     confirmed: Literal[True]
