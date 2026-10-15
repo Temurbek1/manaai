@@ -196,6 +196,60 @@ browser select '.language-select' ru >/dev/null
 browser find role button click --name "Открыть меню" >/dev/null
 browser set viewport 1440 1000 >/dev/null
 browser find label "Сообщение агенту" fill '' >/dev/null
+if [[ "${AUDIT_PROFESSIONAL_UI:-false}" == true ]]; then
+  # UI fixtures only: no GA4/Firestore transport, source activation or database seed.
+  analytics_fixture="$PROJECT_ROOT/admin-ui/src/test/fixtures/analytics-reports.json"
+  for analytics_source in ga4 firestore parents; do
+    analytics_capability=$(node -p 'const d=require(process.argv[1]); d[process.argv[2]].items[0].capability_key' "$analytics_fixture" "$analytics_source")
+    analytics_body=$(node -p 'JSON.stringify(require(process.argv[1])[process.argv[2]])' "$analytics_fixture" "$analytics_source")
+    browser network route "**/api/v1/admin/operation/reports?*${analytics_capability}*" --body "$analytics_body" >/dev/null
+  done
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/analytics" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Активные профили GA4") && document.body.innerText.includes("2 140")' >/dev/null
+  assert_browser 'Boolean(document.querySelector(".professional-shell")) && !document.querySelector(".chat-page")' 'professional analytics did not render separately from chat'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/analytics-ga4-desktop.png" --full >/dev/null
+  fi
+  browser find role button click --name '7 дней' --exact >/dev/null
+  browser wait --fn 'document.querySelector(".metric-grid")?.innerText.includes("860")' >/dev/null
+  browser find role button click --name 'Firebase' >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Две ограниченные выборки")' >/dev/null
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/analytics-firebase-desktop.png" --full >/dev/null
+  fi
+  browser find role button click --name 'Parent API' >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Не подтверждает оплату")' >/dev/null
+  browser select '.language-select' uz >/dev/null
+  browser wait --fn 'document.documentElement.lang === "uz" && document.body.innerText.includes("To‘lovni tasdiqlamaydi")' >/dev/null
+  browser set viewport 320 812 >/dev/null
+  assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'professional analytics overflows on mobile'
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/analytics-parents-uz-mobile.png" --full >/dev/null
+  fi
+  browser find role button click --name 'Menyuni ochish' >/dev/null
+  browser select '.language-select' ru >/dev/null
+  browser find role button click --name 'Открыть меню' >/dev/null
+  browser set viewport 1440 1000 >/dev/null
+  for analytics_source in ga4 firestore parents; do
+    analytics_capability=$(node -p 'const d=require(process.argv[1]); d[process.argv[2]].items[0].capability_key' "$analytics_fixture" "$analytics_source")
+    browser network unroute "**/api/v1/admin/operation/reports?*${analytics_capability}*" >/dev/null
+  done
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/overview" >/dev/null
+  browser wait --fn 'document.body.innerText.includes("Обзор работы")' >/dev/null
+  assert_accessible
+  if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+    browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/professional-overview.png" --full >/dev/null
+  fi
+  if [[ "${AUDIT_PROFESSIONAL_UI_ONLY:-false}" == true ]]; then
+    echo "Professional UI browser passed: GA4 windows, Firebase samples, Parent API, RU/UZ, desktop/mobile and accessibility; synthetic reports only."
+    exit 0
+  fi
+  browser open "http://127.0.0.1:${AUDIT_UI_PORT}/" >/dev/null
+  browser wait --fn 'Boolean(document.querySelector(".chat-page"))' >/dev/null
+fi
 if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   assert_browser 'document.querySelector("select[aria-label=\"Режим работы\"]")?.value === "auto" && document.querySelectorAll(".chat-page button").length === 1' 'unified agent mode has extra controls or is not the default'
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null

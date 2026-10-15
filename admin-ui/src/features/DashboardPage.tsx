@@ -217,13 +217,15 @@ export function DashboardPage(): React.JSX.Element {
             {t("Проверяйте основания до одобрения.")}{" "}
           </span>
         </Link>
-        <Link className="task-card" href="/retention">
+        <Link className="task-card" href="/analytics">
           <span className="eyebrow">{t("Данные")}</span>
           <strong>
-            {t("Проверить активность")} <span aria-hidden="true">→</span>
+            {t("Аналитика и данные")} <span aria-hidden="true">→</span>
           </strong>
           <span>
-            {t("Сохранённый отчёт, дата сбора и ограничения источников.")}
+            {t(
+              "GA4, Firebase и Parent API. Сохранённые показатели и ограничения.",
+            )}
           </span>
         </Link>
         <Link className="task-card" href="/runs">

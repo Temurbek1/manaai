@@ -19,18 +19,24 @@ interface AuthenticatedShellProps {
 const NAVIGATION = [
   { href: "/overview", label: "Обзор", icon: "⌂", adminOnly: false },
   {
+    href: "/analytics",
+    label: "Аналитика и данные",
+    icon: "▥",
+    adminOnly: false,
+  },
+  {
     href: "/growth",
     label: "Рост и конверсия",
     icon: "↗",
     adminOnly: false,
   },
-  { href: "/approvals", label: "Согласования", icon: "✓", adminOnly: false },
   {
     href: "/retention",
     label: "Удержание и лояльность",
     icon: "♡",
     adminOnly: false,
   },
+  { href: "/approvals", label: "Согласования", icon: "✓", adminOnly: false },
   { href: "/runs", label: "Запуски и журнал", icon: "≋", adminOnly: false },
   { href: "/agents", label: "Агенты и настройки", icon: "◇", adminOnly: false },
   { href: "/users", label: "Сотрудники и доступ", icon: "◎", adminOnly: true },
@@ -76,7 +82,11 @@ export function AuthenticatedShell({
   }, [menuOpen]);
 
   return (
-    <div className={chatMode ? "app-shell chat-shell" : "app-shell"}>
+    <div
+      className={
+        chatMode ? "app-shell chat-shell" : "app-shell professional-shell"
+      }
+    >
       <a className="skip-link" href="#main-content">
         {t("Перейти к содержимому")}{" "}
       </a>
@@ -131,19 +141,28 @@ export function AuthenticatedShell({
                 pathname === item.href ||
                 (item.href === "/growth" && pathname === "/marketing");
               return (
-                <Link
-                  aria-current={active ? "page" : undefined}
-                  className={active ? "nav-item active" : "nav-item"}
-                  href={item.href}
-                  key={item.href}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    main.current?.focus();
-                  }}
-                >
-                  <span aria-hidden="true">{item.icon}</span>
-                  {t(item.label)}
-                </Link>
+                <div key={item.href}>
+                  {item.href === "/analytics" && (
+                    <p className="nav-section-label">
+                      {t("Данные и аналитика")}
+                    </p>
+                  )}
+                  {item.href === "/approvals" && (
+                    <p className="nav-section-label">{t("Управление")}</p>
+                  )}
+                  <Link
+                    aria-current={active ? "page" : undefined}
+                    className={active ? "nav-item active" : "nav-item"}
+                    href={item.href}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      main.current?.focus();
+                    }}
+                  >
+                    <span aria-hidden="true">{item.icon}</span>
+                    {t(item.label)}
+                  </Link>
+                </div>
               );
             })}
         </nav>
@@ -189,6 +208,22 @@ export function AuthenticatedShell({
         <LanguageSelect />
       </aside>
       <div className="workspace">
+        {!chatMode && (
+          <div className="professional-toolbar">
+            <span>
+              {t("Администрация")} <span aria-hidden="true">/</span>{" "}
+              <strong>
+                {t(
+                  NAVIGATION.find((item) => item.href === pathname)?.label ??
+                    "Профессиональный режим",
+                )}
+              </strong>
+            </span>
+            <Link href="/">
+              {t("Чаты с агентами")} <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
+        )}
         {!chatMode && session.live_meta_read_only ? (
           <div className="live-readonly-banner" role="status">
             <strong>{t("META — ТОЛЬКО ЧТЕНИЕ")}</strong>
