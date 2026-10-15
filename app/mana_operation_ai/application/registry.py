@@ -1,4 +1,5 @@
 from app.mana_operation_ai.application.ports import AdsPlatform, OperationalAgent
+from app.mana_operation_ai.domain.manual_action_controls import ManualActionControlDefinition
 from app.mana_operation_ai.domain.models import AgentDefinition
 
 
@@ -14,6 +15,7 @@ class AgentRegistry:
     def __init__(self) -> None:
         self._agents: dict[str, OperationalAgent] = {}
         self._aliases: dict[str, str] = {}
+        self._manual_controls: dict[tuple[str, str], ManualActionControlDefinition] = {}
 
     def register(self, agent: OperationalAgent) -> None:
         agent_id = agent.definition.agent_id
@@ -42,6 +44,35 @@ class AgentRegistry:
 
     def default_capability_key(self, agent_id: str) -> str:
         return self.get(agent_id).definition.default_capability_key
+
+    def register_manual_action_control(self, definition: ManualActionControlDefinition) -> None:
+        """Register a loaded owning service without inventing a runner/scheduler handler."""
+        agent = self.get(definition.agent_id)
+        key = (definition.agent_id, definition.capability_key)
+        if key in self._manual_controls or any(
+            item.key == definition.capability_key for item in agent.capability_definitions()
+        ):
+            raise ValueError("Manual action control collides with a loaded capability")
+        self._manual_controls[key] = definition.model_copy(deep=True)
+
+    def manual_action_controls(
+        self, agent_id: str | None = None
+    ) -> list[ManualActionControlDefinition]:
+        canonical = self.get(agent_id).definition.agent_id if agent_id is not None else None
+        return [
+            self._manual_controls[key]
+            for key in sorted(self._manual_controls)
+            if canonical is None or key[0] == canonical
+        ]
+
+    def manual_action_control(
+        self, agent_id: str, capability_key: str
+    ) -> ManualActionControlDefinition:
+        canonical = self.get(agent_id).definition.agent_id
+        try:
+            return self._manual_controls[(canonical, capability_key)]
+        except KeyError as exc:
+            raise LookupError("Manual action control is not loaded") from exc
 
     def definitions(self) -> list[AgentDefinition]:
         return [self._agents[key].definition for key in sorted(self._agents)]

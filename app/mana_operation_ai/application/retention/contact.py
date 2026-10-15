@@ -20,6 +20,10 @@ from app.mana_operation_ai.application.retention.contact_templates import (
     contact_message,
 )
 from app.mana_operation_ai.domain.enums import UserRole
+from app.mana_operation_ai.domain.manual_action_controls import (
+    RETENTION_CONTACT_CONTROL_KEY,
+    ManualActionControlDefinition,
+)
 from app.mana_operation_ai.domain.retention_contact import (
     ContactStatus,
     RetentionContactAction,
@@ -55,11 +59,14 @@ class RetentionContactService:
         self._controls, self._global_kill_default = controls, global_kill_switch_default
         self._review_access = review_access
 
+    def control_definition(self) -> ManualActionControlDefinition | None:
+        return ManualActionControlDefinition() if self._enabled else None
+
     async def _execution_allowed(self) -> bool:
         for key, default in [
             ("global_kill_switch", self._global_kill_default),
             ("agent_kill_switch:retention-agent", False),
-            ("capability_kill_switch:retention-agent:retention.contact.sandbox", False),
+            (f"capability_kill_switch:retention-agent:{RETENTION_CONTACT_CONTROL_KEY}", False),
         ]:
             if await self._controls.get_control(key, default=default):
                 return False
@@ -98,6 +105,8 @@ class RetentionContactService:
             ):
                 raise ChatError("Этот запрос уже связан с другим предложением.")
             return existing
+        if not await self._execution_allowed():
+            raise ChatError("Контактные действия Retention остановлены.", 423)
         target = await self._target(request.parameters.account_ref)
         policy = evaluate_contact(request.parameters, target, now=self._clock.now())
         if not await self._execution_allowed():
@@ -197,6 +206,8 @@ class RetentionContactService:
             return await self._store.get(action.owner, action_id)
         if not decision.approve:
             return updated
+        if not await self._execution_allowed():
+            return await self._finish(updated, "refused", "fresh_state_denied")
         # Durable recipient reservation and the exact human intent already exist.
         try:
             current = await self._target(action.request.parameters.account_ref)

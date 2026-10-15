@@ -411,8 +411,10 @@ async def test_each_scoped_kill_switch_is_rechecked_after_human_review(system, k
     )
     result = await service.decide(ADMIN, action.action_id, decision(action.fingerprint))
     assert result.status == "refused" and executor.dispatch_count == 0
-    blocked = await service.prepare(ADMIN, topic.topic_id, request())
-    assert blocked.status == "refused" and "kill_switch_active" in blocked.policy.reasons
+    reads = executor.target_reads
+    with pytest.raises(ChatError) as exc:
+        await service.prepare(ADMIN, topic.topic_id, request())
+    assert exc.value.status == 423 and executor.target_reads == reads
 
 
 async def test_exact_message_body_is_bound_to_human_fingerprint_and_delivery(system):  # type: ignore[no-untyped-def]

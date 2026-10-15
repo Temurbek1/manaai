@@ -33,6 +33,10 @@ from app.mana_operation_ai.domain.enums import (
     TriggerType,
     UserRole,
 )
+from app.mana_operation_ai.domain.manual_action_controls import (
+    ManualActionControlPage,
+    ManualActionControlView,
+)
 from app.mana_operation_ai.domain.marketing import (
     AdsSnapshot,
     Breakdown,
@@ -80,6 +84,7 @@ class OperationAdminService:
         ids: IdGenerator,
         default_ads_provider: str,
         health_stale_seconds: int = 21_600,
+        global_kill_switch_default: bool = False,
     ) -> None:
         self.repository = repository
         self._agents = agents
@@ -90,6 +95,7 @@ class OperationAdminService:
         self._ids = ids
         self._default_ads_provider = default_ads_provider
         self._health_stale_seconds = health_stale_seconds
+        self._global_kill_switch_default = global_kill_switch_default
 
     async def register_loaded_agent(
         self,
@@ -501,6 +507,10 @@ class OperationAdminService:
             capability_keys = {
                 item.key for item in self._agents.get(canonical_agent_id).capability_definitions()
             }
+            capability_keys.update(
+                item.capability_key
+                for item in self._agents.manual_action_controls(canonical_agent_id)
+            )
             if capability_key not in capability_keys:
                 raise LookupError(f"Capability {capability_key!r} was not found")
             control_keys = [
@@ -538,6 +548,39 @@ class OperationAdminService:
             },
         )
         return scope
+
+    async def manual_action_controls(self, agent_id: str | None) -> ManualActionControlPage:
+        definitions = self._agents.manual_action_controls(agent_id)
+        items: list[ManualActionControlView] = []
+        for definition in definitions:
+            items.append(
+                ManualActionControlView(
+                    definition=definition,
+                    capability_kill_switch=await self.repository.get_control(
+                        f"capability_kill_switch:{definition.agent_id}:{definition.capability_key}"
+                    ),
+                    agent_kill_switch=await self.repository.get_control(
+                        f"agent_kill_switch:{definition.agent_id}"
+                    ),
+                    global_kill_switch=await self.repository.get_control(
+                        "global_kill_switch", default=self._global_kill_switch_default
+                    ),
+                )
+            )
+        return ManualActionControlPage(items=items)
+
+    async def set_manual_action_control(
+        self, *, agent_id: str, capability_key: str, enabled: bool, actor: ActorContext
+    ) -> ManualActionControlView:
+        definition = self._agents.manual_action_control(agent_id, capability_key)
+        await self.set_kill_switch(
+            agent_id=definition.agent_id,
+            capability_key=definition.capability_key,
+            enabled=enabled,
+            actor=actor,
+        )
+        page = await self.manual_action_controls(definition.agent_id)
+        return next(item for item in page.items if item.definition == definition)
 
     async def integration_health(self, provider: str) -> IntegrationHealth:
         self._platforms.get(provider)

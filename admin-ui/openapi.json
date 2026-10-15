@@ -8510,6 +8510,106 @@
         "title": "ManaAIFinding",
         "type": "object"
       },
+      "ManualActionControlChange": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirmed",
+          "enabled"
+        ],
+        "title": "ManualActionControlChange",
+        "type": "object"
+      },
+      "ManualActionControlDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "const": "retention-agent",
+            "default": "retention-agent",
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "capability_key": {
+            "const": "retention.contact.sandbox",
+            "default": "retention.contact.sandbox",
+            "title": "Capability Key",
+            "type": "string"
+          },
+          "execution_mode": {
+            "const": "human_review_sandbox",
+            "default": "human_review_sandbox",
+            "title": "Execution Mode",
+            "type": "string"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "provider": {
+            "const": "fake_retention_contact",
+            "default": "fake_retention_contact",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "title": "ManualActionControlDefinition",
+        "type": "object"
+      },
+      "ManualActionControlPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManualActionControlView"
+            },
+            "maxItems": 10,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "ManualActionControlPage",
+        "type": "object"
+      },
+      "ManualActionControlView": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_kill_switch": {
+            "title": "Agent Kill Switch",
+            "type": "boolean"
+          },
+          "capability_kill_switch": {
+            "title": "Capability Kill Switch",
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ManualActionControlDefinition"
+          },
+          "global_kill_switch": {
+            "title": "Global Kill Switch",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "definition",
+          "capability_kill_switch",
+          "agent_kill_switch",
+          "global_kill_switch"
+        ],
+        "title": "ManualActionControlView",
+        "type": "object"
+      },
       "ManualRunAccepted": {
         "additionalProperties": false,
         "properties": {
@@ -22996,6 +23096,244 @@
         "summary": "Resolve the authenticated operation actor",
         "tags": [
           "operation-admin"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/manual-action-controls": {
+      "get": {
+        "operationId": "controls_api_v1_admin_operation_workspace_manual_action_controls_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualActionControlPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Controls",
+        "tags": [
+          "operation-workspace"
+        ]
+      }
+    },
+    "/api/v1/admin/operation/workspace/manual-action-controls/{agent_id}/{capability_key}": {
+      "put": {
+        "operationId": "change_control_api_v1_admin_operation_workspace_manual_action_controls__agent_id___capability_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "capability_key",
+            "required": true,
+            "schema": {
+              "title": "Capability Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Actor-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Actor-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-MANA-Role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mana-Role"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualActionControlChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualActionControlView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Control",
+        "tags": [
+          "operation-workspace"
         ]
       }
     },

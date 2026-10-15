@@ -897,6 +897,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/manual-action-controls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Controls */
+        get: operations["controls_api_v1_admin_operation_workspace_manual_action_controls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/operation/workspace/manual-action-controls/{agent_id}/{capability_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Control */
+        put: operations["change_control_api_v1_admin_operation_workspace_manual_action_controls__agent_id___capability_key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/retention-contact-reviews": {
         parameters: {
             query?: never;
@@ -5319,6 +5353,64 @@ export interface components {
             summary: string;
             /** Title */
             title: string;
+        };
+        /** ManualActionControlChange */
+        ManualActionControlChange: {
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** ManualActionControlDefinition */
+        ManualActionControlDefinition: {
+            /**
+             * Agent Id
+             * @default retention-agent
+             * @constant
+             */
+            agent_id: "retention-agent";
+            /**
+             * Capability Key
+             * @default retention.contact.sandbox
+             * @constant
+             */
+            capability_key: "retention.contact.sandbox";
+            /**
+             * Execution Mode
+             * @default human_review_sandbox
+             * @constant
+             */
+            execution_mode: "human_review_sandbox";
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /**
+             * Provider
+             * @default fake_retention_contact
+             * @constant
+             */
+            provider: "fake_retention_contact";
+        };
+        /** ManualActionControlPage */
+        ManualActionControlPage: {
+            /** Items */
+            items?: components["schemas"]["ManualActionControlView"][];
+        };
+        /** ManualActionControlView */
+        ManualActionControlView: {
+            /** Agent Kill Switch */
+            agent_kill_switch: boolean;
+            /** Capability Kill Switch */
+            capability_kill_switch: boolean;
+            definition: components["schemas"]["ManualActionControlDefinition"];
+            /** Global Kill Switch */
+            global_kill_switch: boolean;
         };
         /** ManualRunAccepted */
         ManualRunAccepted: {
@@ -10377,6 +10469,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    controls_api_v1_admin_operation_workspace_manual_action_controls_get: {
+        parameters: {
+            query?: {
+                agent_id?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualActionControlPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_control_api_v1_admin_operation_workspace_manual_action_controls__agent_id___capability_key__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                agent_id: string;
+                capability_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualActionControlChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualActionControlView"];
                 };
             };
             /** @description Validation Error */

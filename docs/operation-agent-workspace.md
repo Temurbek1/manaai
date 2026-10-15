@@ -25,6 +25,10 @@ Goal permissions or establish full model-quality/release acceptance.
 The [real-model contact-loop diagnostic](operation-contact-loop-quality-checkpoint.md)
 found and corrected a preparation/approval explanation error. Its new single-case
 manual pass is not broad quality or release acceptance; production is unchanged.
+The following [manual action controls](operation-manual-action-controls.md) add local
+owning stop-control registration outside analysis/scheduler catalogs, pre-target
+stop checks and a separate professional control surface. This is not full action
+capability activation, bounded proposal admission, real contact or release acceptance.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

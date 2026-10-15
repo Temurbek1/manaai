@@ -266,6 +266,36 @@ if [[ "${AUDIT_PROFESSIONAL_UI:-false}" == true ]]; then
 fi
 audit_contact_lane() {
 if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
+  if [[ "${AUDIT_MANUAL_ACTION_CONTROLS:-false}" == "true" ]]; then
+    browser open "http://127.0.0.1:${AUDIT_UI_PORT}/agents" >/dev/null
+    browser wait --fn 'Array.from(document.querySelectorAll(".agent-list button")).some(item => item.textContent.includes("Удержание и лояльность"))' >/dev/null
+    browser eval 'Array.from(document.querySelectorAll(".agent-list button")).find(item => item.textContent.includes("Удержание и лояльность")).click(); "selected"' >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Ручные действия Retention") && Array.from(document.querySelectorAll("button")).some(item => item.textContent.trim() === "Остановить sandbox" && !item.disabled)' >/dev/null
+    assert_browser '!document.querySelector(".capability-list")?.textContent.includes("retention.contact.sandbox")' 'manual contact control became a scheduled analysis capability'
+    assert_accessible
+    browser find role button click --name 'Остановить sandbox' --exact >/dev/null
+    browser click 'dialog[open] .dialog-actions button:last-child' >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Остановка включена") && Array.from(document.querySelectorAll("button")).some(item => item.textContent.trim() === "Снять остановку sandbox" && !item.disabled)' >/dev/null
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/manual-contact-control-stopped.png" --full >/dev/null
+    fi
+    browser select '.language-select' uz >/dev/null
+    browser wait --fn 'document.body.innerText.includes("To‘xtatish yoqilgan")' >/dev/null
+    browser set viewport 320 812 >/dev/null
+    assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'manual control overflows on mobile'
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/manual-contact-control-uz-mobile.png" --full >/dev/null
+    fi
+    browser find role button click --name 'Menyuni ochish' >/dev/null
+    browser select '.language-select' ru >/dev/null
+    browser find role button click --name 'Открыть меню' >/dev/null
+    browser set viewport 1440 1000 >/dev/null
+    browser find role button click --name 'Снять остановку sandbox' --exact >/dev/null
+    browser click 'dialog[open] .dialog-actions button:last-child' >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Остановка снята") && Array.from(document.querySelectorAll("button")).some(item => item.textContent.trim() === "Остановить sandbox" && !item.disabled)' >/dev/null
+  fi
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/retention-agent" >/dev/null
   browser wait --load networkidle >/dev/null
   browser find label "Сообщение агенту" fill 'Проверь вымышленный контактный sandbox' >/dev/null

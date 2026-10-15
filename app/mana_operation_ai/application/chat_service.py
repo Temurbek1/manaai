@@ -59,6 +59,7 @@ from app.mana_operation_ai.domain.contact_preparation import (
     contact_selection_fingerprint,
 )
 from app.mana_operation_ai.domain.first_party_analytics import FIRST_PARTY_CAPABILITIES
+from app.mana_operation_ai.domain.manual_action_controls import RETENTION_CONTACT_CONTROL_KEY
 from app.mana_operation_ai.domain.models import AgentReport
 
 INSTRUCTIONS = (
@@ -178,6 +179,9 @@ fresh consent/payment checks and a fake receiver are the only supported contact 
 It cannot contact real parents, construct a live audience from aggregates, grant discounts,
 modify subscriptions or measure retention improvement. Explain this distinction before offering
 the card. Real contact requests remain unsupported; do not redirect them into an unrelated read.
+manual_contact_control_at_admission is a dated host observation, not an execution grant.
+When registration is absent or a kill switch is active, contact preparation is unavailable;
+explain the stop without proposing the tool. Historical observations never renew permission.
 When either native_contact_preparation_v1 or native_contact_preparation_v2 is present,
 use the native
 request_retention_contact_preparation function for an explicit fictional-contact test.
@@ -551,6 +555,7 @@ class OperationChatService:
                     product=topic.product,
                     parent_summary_enabled=self.availability.parent_summary_enabled,
                 )
+                contact_control_context: dict[str, JsonValue] | None = None
                 if workspace:
                     allowed_actions = ["none"]
                     if topic.agent_id != "technical-agent" and len(payload.message) >= 10:
@@ -567,6 +572,32 @@ class OperationChatService:
                         and topic.agent_id in ("retention-agent", "operations-orchestrator")
                     ):
                         allowed_actions.append("retention_contacts")
+                if "retention_contacts" in allowed_actions:
+                    controls = await self._admin.manual_action_controls("retention-agent")
+                    contact_control = next(
+                        (
+                            item
+                            for item in controls.items
+                            if item.definition.capability_key == RETENTION_CONTACT_CONTROL_KEY
+                        ),
+                        None,
+                    )
+                    contact_control_context = {
+                        "observed_at": self._clock.now().isoformat(),
+                        "registered": contact_control is not None,
+                    }
+                    if contact_control is not None:
+                        contact_control_context.update(
+                            capability_kill_switch=contact_control.capability_kill_switch,
+                            agent_kill_switch=contact_control.agent_kill_switch,
+                            global_kill_switch=contact_control.global_kill_switch,
+                        )
+                    if contact_control is None or (
+                        contact_control.capability_kill_switch
+                        or contact_control.agent_kill_switch
+                        or contact_control.global_kill_switch
+                    ):
+                        allowed_actions.remove("retention_contacts")
                 native_contact = (
                     workspace
                     and payload.execution_mode == "agent"
@@ -599,6 +630,11 @@ class OperationChatService:
                             and topic.agent_id != "technical-agent",
                             "parent_summary_enabled": "mana_parents" in allowed_actions,
                             "allowed_next_actions": allowed_actions,
+                            **(
+                                {"manual_contact_control_at_admission": contact_control_context}
+                                if contact_control_context is not None
+                                else {}
+                            ),
                             "card_purposes": chat_card_purposes(
                                 allowed_actions, default_capability_key=default_capability_key
                             ),

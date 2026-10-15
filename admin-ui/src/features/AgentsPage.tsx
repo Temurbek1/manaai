@@ -26,6 +26,7 @@ import {
 import { StatusBadge } from "../components/StatusBadge";
 import { formatDate, isRecord } from "../ui/format";
 import { descriptionFor, labelFor } from "../ui/labels";
+import { ManualActionControls } from "./ManualActionControls";
 
 export function AgentsPage(): React.JSX.Element {
   const { t, locale } = useI18n();
@@ -347,6 +348,9 @@ export function AgentsPage(): React.JSX.Element {
                   />
                 </div>
               ) : null}
+              {detail.agent.agent_id === "retention-agent" && (
+                <ManualActionControls />
+              )}
               <div className="section-heading">
                 <h3>{t("Настройки агента")}</h3>
                 <span>

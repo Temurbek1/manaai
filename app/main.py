@@ -569,6 +569,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ids=ids,
         default_ads_provider=settings.operation_ads_provider,
         health_stale_seconds=settings.operation_health_stale_seconds,
+        global_kill_switch_default=settings.operation_global_kill_switch,
     )
     maintenance_service = OperationMaintenanceService(
         repository=operation_repository,
@@ -734,6 +735,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         global_kill_switch_default=settings.operation_global_kill_switch,
         review_access=review_access if peer_reviews_enabled else None,
     )
+    contact_control = contacts.control_definition()
+    if contact_control is not None:
+        agent_registry.register_manual_action_control(contact_control)
     chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
     contact_continuations_enabled = (
         contact_reviews_enabled

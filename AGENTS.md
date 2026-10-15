@@ -71,6 +71,11 @@
   does not establish broader quality, real contacts or release acceptance. See
   `docs/operation-contact-loop-quality-checkpoint.md`.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
+- The local manual contact control registry is separate from persisted agent definitions
+  and analysis handlers. Never turn it into a scheduled capability or a Goal write tool.
+  New turns observe stop scopes, while old turns retain their original snapshots/replay;
+  re-arming grants no approval/send/source authority. Proposal admission limits and full
+  owning-domain activation remain open. See `docs/operation-manual-action-controls.md`.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 
 ## Architecture rules

@@ -3,6 +3,22 @@ export type TranslationValues = Readonly<Record<string, string | number>>;
 
 // Source-language keys keep existing Russian text and historical artifacts unchanged.
 export const UZ: Readonly<Record<string, string>> = {
+  "Ручные действия Retention": "Retention qo‘lda boshqariladigan amallari",
+  "Контактный sandbox MANA: только вымышленные взрослые и fake-получатель. Без расписания.":
+    "MANA aloqa sinov muhiti: faqat xayoliy kattalar va soxta qabul qiluvchi. Jadvalsiz.",
+  "Состояние остановки требует проверки. Повторное изменение заблокировано.":
+    "To‘xtatish holatini tekshirish kerak. Takroriy o‘zgartirish bloklangan.",
+  "Остановка включена": "To‘xtatish yoqilgan",
+  "Остановка снята": "To‘xtatish o‘chirilgan",
+  "Дополнительно действует остановка агента или всей платформы.":
+    "Bundan tashqari agent yoki butun platforma to‘xtatilgan.",
+  "Снять остановку sandbox": "Sinov muhiti to‘xtatilishini bekor qilish",
+  "Остановить sandbox": "Sinov muhitini to‘xtatish",
+  "Меняется только остановка этой возможности. Это не согласование и не отправка сообщения; остальные проверки остаются обязательными.":
+    "Faqat shu imkoniyatning to‘xtatilishi o‘zgaradi. Bu tasdiqlash ham, xabar yuborish ham emas; qolgan tekshiruvlar majburiy.",
+  "Проверить состояние": "Holatni tekshirish",
+  "Управление ручным действием недоступно.":
+    "Qo‘lda bajariladigan amalni boshqarish mavjud emas.",
   "Аналитика и данные": "Tahlil va ma’lumotlar",
   "Данные и аналитика": "Ma’lumotlar va tahlil",
   Управление: "Boshqaruv",
