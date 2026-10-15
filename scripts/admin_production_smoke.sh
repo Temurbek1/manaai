@@ -35,6 +35,8 @@ done
 curl --fail --silent "http://127.0.0.1:${ADMIN_PORT}/healthz" | rg --fixed-strings '"status":"ok"' >/dev/null
 curl --fail --silent "http://127.0.0.1:${ADMIN_PORT}/" | rg --fixed-strings "Проверяем защищённую сессию" >/dev/null
 curl --fail --silent "http://127.0.0.1:${ADMIN_PORT}/runs" | rg --fixed-strings "Проверяем защищённую сессию" >/dev/null
+curl --fail --silent "http://127.0.0.1:${ADMIN_PORT}/analytics" | rg --fixed-strings "Проверяем защищённую сессию" >/dev/null
 curl --fail --silent --head "http://127.0.0.1:${ADMIN_PORT}/runs" | rg --ignore-case '^content-security-policy:' >/dev/null
+curl --fail --silent --head "http://127.0.0.1:${ADMIN_PORT}/analytics" | rg --ignore-case '^content-security-policy:' >/dev/null
 
-echo "Next.js standalone smoke passed for health, root, and direct nested route"
+echo "Next.js standalone smoke passed for health, root, runs and analytics routes"

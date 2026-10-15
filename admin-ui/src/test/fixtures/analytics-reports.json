@@ -1,0 +1,213 @@
+{
+  "ga4": {
+    "total": 1,
+    "limit": 5,
+    "offset": 0,
+    "items": [
+      {
+        "report_id": "synthetic-ga4",
+        "run_id": "synthetic-run-ga4",
+        "agent_id": "retention-agent",
+        "capability_key": "retention.parent_activity.analyze",
+        "report_type": "mana_first_party_analytics",
+        "period_start": "2026-08-31T00:00:00Z",
+        "period_end": "2026-09-29T23:59:59Z",
+        "created_at": "2026-09-30T06:00:00Z",
+        "human_readable": "Synthetic GA4 browser fixture, not production analytics.",
+        "data_quality_notes": [
+          "Synthetic fixture. Cohort coverage is incomplete."
+        ],
+        "structured": {
+          "product": "mana",
+          "scope_verified": true,
+          "product_scope": "mana",
+          "source": "mana_ga4_parent_analytics",
+          "scope_basis": "approved_source_binding",
+          "population": "parent_app_analytics_identities",
+          "mode": "demo",
+          "collected_at": "2026-09-30T05:50:00Z",
+          "fresh_until": "2026-09-30T11:50:00Z",
+          "refresh_status": "cached",
+          "period_start": "2026-08-31",
+          "period_end": "2026-09-29",
+          "windows": [
+            {
+              "days": 1,
+              "start_date": "2026-09-29",
+              "end_date": "2026-09-29",
+              "active_users": 240,
+              "sessions": 380,
+              "engaged_sessions": 290,
+              "engagement_seconds": "18420"
+            },
+            {
+              "days": 7,
+              "start_date": "2026-09-23",
+              "end_date": "2026-09-29",
+              "active_users": 860,
+              "sessions": 2410,
+              "engaged_sessions": 1800,
+              "engagement_seconds": "142200"
+            },
+            {
+              "days": 30,
+              "start_date": "2026-08-31",
+              "end_date": "2026-09-29",
+              "active_users": 2140,
+              "sessions": 8640,
+              "engaged_sessions": 6210,
+              "engagement_seconds": "524400"
+            }
+          ],
+          "event_counts": {
+            "screen_view": 18420,
+            "button_click": 7320,
+            "session_start": 8640,
+            "notification_open": 540,
+            "sign_up": 210
+          },
+          "event_inventory_complete": false,
+          "event_quality": "partial",
+          "cohorts": [
+            {
+              "first_session_date": "2026-08-29",
+              "quality": "incomplete",
+              "days": [{ "day": 0, "active_users": 100, "total_users": 100 }]
+            }
+          ],
+          "breakdowns": [
+            {
+              "kind": "screens",
+              "total_groups": 24,
+              "quality": "partial",
+              "rows": [
+                {
+                  "labels": {
+                    "screen_name": "Home",
+                    "screen_class": "HomeActivity"
+                  },
+                  "measures": { "views": "8450", "engagement_seconds": "32100" }
+                },
+                {
+                  "labels": {
+                    "screen_name": "Child profile",
+                    "screen_class": "ChildActivity"
+                  },
+                  "measures": { "views": "5240", "engagement_seconds": "22400" }
+                }
+              ]
+            },
+            {
+              "kind": "devices",
+              "total_groups": 18,
+              "quality": "partial",
+              "rows": [
+                {
+                  "labels": {
+                    "model": "Pixel 8",
+                    "manufacturer": "Google",
+                    "os": "Android",
+                    "os_version": "14",
+                    "app_version": "1.2.3",
+                    "language": "uz",
+                    "device_type": "mobile"
+                  },
+                  "measures": { "active_users": "120", "event_count": "2400" }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "firestore": {
+    "total": 1,
+    "limit": 5,
+    "offset": 0,
+    "items": [
+      {
+        "report_id": "synthetic-firestore",
+        "run_id": "synthetic-run-firestore",
+        "agent_id": "retention-agent",
+        "capability_key": "retention.child_telemetry.analyze",
+        "report_type": "mana_first_party_analytics",
+        "period_start": "2026-09-29T05:50:00Z",
+        "period_end": "2026-09-30T05:50:00Z",
+        "created_at": "2026-09-30T06:00:00Z",
+        "human_readable": "Synthetic telemetry fixture, not production data.",
+        "data_quality_notes": [
+          "Two document-ID prefix samples, not population statistics."
+        ],
+        "structured": {
+          "product": "mana",
+          "scope_verified": true,
+          "product_scope": "mana",
+          "source": "mana_firestore_child_telemetry",
+          "scope_basis": "approved_source_binding",
+          "population": "child_device_prefix_sample",
+          "mode": "demo",
+          "collected_at": "2026-09-30T05:50:00Z",
+          "fresh_until": "2026-09-30T11:50:00Z",
+          "refresh_status": "cached",
+          "samples": [
+            {
+              "collection": "battery",
+              "sampled_documents": 100,
+              "more_documents": true,
+              "valid_observations": 94,
+              "invalid_observations": 6,
+              "recent_server_updates": 73,
+              "low_battery_observations": 12
+            },
+            {
+              "collection": "children_location",
+              "sampled_documents": 100,
+              "more_documents": true,
+              "valid_observations": 88,
+              "invalid_observations": 12,
+              "recent_server_updates": 64,
+              "precise_location_observations": 72
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "parents": {
+    "total": 1,
+    "limit": 5,
+    "offset": 0,
+    "items": [
+      {
+        "report_id": "synthetic-parents",
+        "run_id": "synthetic-run-parents",
+        "agent_id": "retention-agent",
+        "capability_key": "retention.parents.analyze",
+        "report_type": "mana_parent_summary",
+        "period_start": "2026-09-30T05:50:00Z",
+        "period_end": "2026-09-30T05:50:00Z",
+        "created_at": "2026-09-30T06:00:00Z",
+        "human_readable": "Synthetic parent summary, not payment data.",
+        "data_quality_notes": [
+          "Tariffs are not payment receipts. Prefix sample only."
+        ],
+        "structured": {
+          "product": "mana",
+          "scope_verified": true,
+          "mode": "demo",
+          "scope_basis": "owner_confirmed_parent_api",
+          "collected_at": "2026-09-30T05:50:00Z",
+          "total_parents": 4500,
+          "sampled_parents": 10,
+          "parents_with_children": 8,
+          "parents_with_current_tariff": 6,
+          "parents_with_connected_children": 7,
+          "parents_without_current_tariff": 4,
+          "tariffs_expiring_within_7_days": 1,
+          "tariffs_expiring_within_30_days": 3
+        }
+      }
+    ]
+  }
+}
