@@ -47,7 +47,12 @@ from app.mana_operation_ai.domain.chat import (
     TopicDetail,
     TranscriptPage,
 )
+from app.mana_operation_ai.domain.contact_continuation import (
+    BoundContactWindow,
+    verify_window_request,
+)
 from app.mana_operation_ai.domain.contact_preparation import (
+    CONTACT_TOOL_CONTINUATION_CONTRACT,
     CONTACT_TOOL_CONTRACT,
     ContactToolRequest,
     ContactToolSelection,
@@ -173,7 +178,8 @@ fresh consent/payment checks and a fake receiver are the only supported contact 
 It cannot contact real parents, construct a live audience from aggregates, grant discounts,
 modify subscriptions or measure retention improvement. Explain this distinction before offering
 the card. Real contact requests remain unsupported; do not redirect them into an unrelated read.
-When contact_tool_contract=native_contact_preparation_v1 is present, use the native
+When either native_contact_preparation_v1 or native_contact_preparation_v2 is present,
+use the native
 request_retention_contact_preparation function for an explicit fictional-contact test.
 Choose only the two supported aliases/templates. Do not simulate the call in prose or
 use next_action=retention_contacts without that function. It saves a preparation request
@@ -568,7 +574,13 @@ class OperationChatService:
                     and "retention_contacts" in allowed_actions
                 )
                 if native_contact:
-                    turn = turn.model_copy(update={"contact_tool_contract": CONTACT_TOOL_CONTRACT})
+                    turn = turn.model_copy(
+                        update={
+                            "contact_tool_contract": CONTACT_TOOL_CONTINUATION_CONTRACT
+                            if self.availability.contact_tool_continuations_enabled
+                            else CONTACT_TOOL_CONTRACT
+                        }
+                    )
                     if not await self.repository.update(turn):
                         return await self._read_turn(owner, topic_id, turn.turn_id)
                 default_capability_key = (
@@ -686,13 +698,36 @@ class OperationChatService:
                     )
                     preparation = ContactToolRequest(
                         **selection.model_dump(),
+                        contract=turn.contact_tool_contract or CONTACT_TOOL_CONTRACT,
                         provider_call_sha256=output.contact_call_sha256,
                         selection_fingerprint=contact_selection_fingerprint(
-                            owner, topic_id, turn.turn_id, selection, output.contact_call_sha256
+                            owner,
+                            topic_id,
+                            turn.turn_id,
+                            selection,
+                            output.contact_call_sha256,
+                            contract=turn.contact_tool_contract or CONTACT_TOOL_CONTRACT,
                         ),
                     )
                 elif native_contact and next_action == "retention_contacts":
                     raise ChatError("Модель не вернула нативный запрос подготовки.", 502)
+                bound_window = None
+                if preparation and preparation.contract == CONTACT_TOOL_CONTINUATION_CONTRACT:
+                    if output.contact_model_window is None:
+                        raise ChatError("Нативный запрос не сохранил окно продолжения.", 502)
+                    verify_window_request(
+                        output.contact_model_window,
+                        preparation,
+                        topic_id=topic_id,
+                        message=turn.message,
+                        response_language=turn.response_language,
+                    )
+                    bound_window = BoundContactWindow(
+                        selection_fingerprint=preparation.selection_fingerprint,
+                        window=output.contact_model_window,
+                    )
+                elif output.contact_model_window is not None:
+                    raise ChatError("Это сообщение не захватило протокол продолжения.", 502)
                 turn = turn.model_copy(
                     update={
                         "status": "completed",
@@ -703,6 +738,7 @@ class OperationChatService:
                         "plan": [step[:300] for step in output.plan[:3]],
                         "next_action": next_action,
                         "contact_preparation": preparation,
+                        "contact_model_window": bound_window,
                     }
                 )
                 await self.repository.update(turn)
@@ -765,9 +801,9 @@ class OperationChatService:
     async def _reply(
         self, *, instructions: str, context: str, owner: str, topic_id: str, turn_id: str
     ) -> ChatTurnOutput | None:
-        if (
-            self._streaming_model is None
-            or json.loads(context).get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+        if self._streaming_model is None or json.loads(context).get("contact_tool_contract") in (
+            CONTACT_TOOL_CONTRACT,
+            CONTACT_TOOL_CONTINUATION_CONTRACT,
         ):
             return await self._model.reply(instructions=instructions, context=context, owner=owner)
         output = None

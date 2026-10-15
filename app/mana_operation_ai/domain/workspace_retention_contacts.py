@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, field_validator
 
+from app.mana_operation_ai.domain.contact_continuation import ContactContinuationView
 from app.mana_operation_ai.domain.contact_preparation import ContactToolRequest
 from app.mana_operation_ai.domain.models import DomainModel
 from app.mana_operation_ai.domain.retention_contact import (
@@ -83,6 +84,8 @@ class WorkspaceContactPage(DomainModel):
     more_omitted: bool = False
     peer_reviews_enabled: bool = False
     preparation_request: ContactToolRequest | None = None
+    continuation_available: bool = False
+    continuation: ContactContinuationView | None = None
 
 
 class WorkspaceContactHistory(DomainModel):

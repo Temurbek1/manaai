@@ -50,6 +50,19 @@
   Only closed `2ea7b9a` is the local verified compatibility target; earlier native
   readers do not understand the new chat metadata. See
   `docs/operation-native-contact-proposal-checkpoint.md` for acceptance limits.
+- The separate local default-disabled `OPERATION_WORKSPACE_CONTACT_TOOL_CONTINUATIONS_ENABLED`
+  captures only new `native_contact_preparation_v2` turns. V1 requests never upgrade.
+  Retain exact private input/call pairing and only encrypted opaque continuation,
+  never raw/summary reasoning or provider execution receipts. One human-confirmed
+  preparation belongs to one invocation; SQL claims one result-continuation turn
+  before inference. Replays/new nonces only observe it, including failed/unknown
+  calls. Freeze updated session conditions, preserve original model/language and
+  account verified usage before final parsing; stop fences discard late decisions,
+  not their verified costs. The final response cannot create another action/tool.
+  Goals stay read-only, fake acceptance is not delivery or business improvement,
+  and source grants/budgets are not inherited. See
+  `docs/operation-contact-tool-continuation-checkpoint.md`; local compatibility is
+  only closed `2ea7b9a`, not a candidate-image/production release or full parity.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - Do not hardcode secrets. Use environment variables and keep `.env` files out of Git.
 

@@ -11,6 +11,8 @@ from app.mana_operation_ai.domain.retention_contact import ContactTemplate, Sand
 
 CONTACT_TOOL: Final = "request_retention_contact_preparation"
 CONTACT_TOOL_CONTRACT: Final = "native_contact_preparation_v1"
+CONTACT_TOOL_CONTINUATION_CONTRACT: Final = "native_contact_preparation_v2"
+ContactToolContract = Literal["native_contact_preparation_v1", "native_contact_preparation_v2"]
 
 
 class ContactToolSelection(DomainModel):
@@ -19,7 +21,7 @@ class ContactToolSelection(DomainModel):
 
 
 class ContactToolRequest(ContactToolSelection):
-    contract: Literal["native_contact_preparation_v1"] = CONTACT_TOOL_CONTRACT
+    contract: ContactToolContract = CONTACT_TOOL_CONTRACT
     tool_name: Literal["request_retention_contact_preparation"] = CONTACT_TOOL
     provider_call_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     selection_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -28,12 +30,18 @@ class ContactToolRequest(ContactToolSelection):
 
 
 def contact_selection_fingerprint(
-    owner: str, topic_id: str, turn_id: str, selection: ContactToolSelection, call_sha256: str
+    owner: str,
+    topic_id: str,
+    turn_id: str,
+    selection: ContactToolSelection,
+    call_sha256: str,
+    *,
+    contract: ContactToolContract = CONTACT_TOOL_CONTRACT,
 ) -> str:
     return hashlib.sha256(
         json.dumps(
             {
-                "contract": CONTACT_TOOL_CONTRACT,
+                "contract": contract,
                 "owner": owner,
                 "topic_id": topic_id,
                 "turn_id": turn_id,

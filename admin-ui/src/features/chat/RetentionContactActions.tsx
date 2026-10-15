@@ -17,9 +17,11 @@ type Prepare = components["schemas"]["WorkspaceContactPrepare"];
 export function RetentionContactActions({
   topicId,
   turnId,
+  onContinued,
 }: {
   topicId: string;
   turnId: string;
+  onContinued?: () => Promise<unknown>;
 }): React.JSX.Element {
   const { t } = useI18n();
   const { session } = useSession();
@@ -33,6 +35,38 @@ export function RetentionContactActions({
   const [attempted, setAttempted] = useState(false);
   const guard = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const continueGuard = useRef(false);
+  const [continueAttempted, setContinueAttempted] = useState(false);
+  async function continueWithAgent(): Promise<void> {
+    const action = data?.items[0];
+    if (
+      !action ||
+      !data?.continuation_available ||
+      continueGuard.current ||
+      !hasRole(session, "operator")
+    )
+      return;
+    continueGuard.current = true;
+    setContinueAttempted(true);
+    try {
+      await apiPost<components["schemas"]["ChatTurn"]>(`${url}/continue`, {
+        request_id: crypto.randomUUID(),
+        confirmed: true,
+        action_id: action.action_id,
+        action_fingerprint: action.fingerprint,
+        revision: action.revision,
+      });
+    } catch {
+      setNotice("Ответ не подтверждён. Повтор не отправлен. Обновите статус.");
+    } finally {
+      await mutate().catch(() =>
+        setNotice("Статус недоступен. Повтор не отправлен."),
+      );
+      await onContinued?.().catch(() =>
+        setNotice("Статус недоступен. Повтор не отправлен."),
+      );
+    }
+  }
   async function prepare(): Promise<void> {
     if (guard.current || !hasRole(session, "operator") || !data) return;
     guard.current = true;
@@ -166,6 +200,23 @@ export function RetentionContactActions({
           {data.more_omitted && (
             <p>
               {t("Показаны только три предложения из ограниченной выборки.")}
+            </p>
+          )}
+          {data.continuation_available && (
+            <button
+              type="button"
+              className="button secondary compact"
+              disabled={continueAttempted || !hasRole(session, "operator")}
+              onClick={() => void continueWithAgent()}
+            >
+              {t("Продолжить с агентом")}
+            </button>
+          )}
+          {data.continuation && (
+            <p role="status">
+              <a href={`#turn-${data.continuation.turn_id}`}>
+                {t("Продолжение в чате")}
+              </a>
             </p>
           )}
         </>

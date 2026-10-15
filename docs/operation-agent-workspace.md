@@ -18,6 +18,10 @@ it also remains disabled and undeployed, with real-contact/release acceptance op
 The later [native contact request checkpoint](operation-native-contact-proposal-checkpoint.md)
 adds a default-disabled real function-call shape for frozen fictional preparation choices,
 not Goal writes, automatic preparation or a full post-execution model continuation loop.
+The next [human-deferred contact result checkpoint](operation-contact-tool-continuation-checkpoint.md)
+adds a local, default-disabled v2 call/output/final-response path with one SQL consumer
+and frozen updated conditions. It does not upgrade v1, activate real contacts, change
+Goal permissions or establish full model-quality/release acceptance.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

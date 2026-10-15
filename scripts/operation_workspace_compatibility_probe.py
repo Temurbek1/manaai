@@ -43,7 +43,10 @@ async def probe(
     verdicts: bool = False,
     contacts: bool = False,
     native_contact: bool = False,
+    contact_continuation: bool = False,
 ) -> None:
+    if contact_continuation and not native_contact:
+        raise ValueError("Contact continuation requires the native contact fixture")
     if native_contact and not contacts:
         raise ValueError("Native contact compatibility requires the contact fixture profile")
     if snapshots and not catalog:
@@ -199,6 +202,65 @@ async def probe(
                                 ),
                             ),
                         }
+                        if contact_continuation:
+                            from app.mana_operation_ai.domain.contact_continuation import (
+                                BoundContactWindow,
+                            )
+                            from app.mana_operation_ai.infrastructure import (
+                                contact_model_continuation,
+                            )
+
+                            call_id = "call_compat_contact"
+                            call_sha = hashlib.sha256(call_id.encode()).hexdigest()
+                            contact_request = ContactToolRequest(
+                                **selection.model_dump(),
+                                contract="native_contact_preparation_v2",
+                                provider_call_sha256=call_sha,
+                                selection_fingerprint=contact_selection_fingerprint(
+                                    OWNER,
+                                    topic.topic_id,
+                                    turn.turn_id,
+                                    selection,
+                                    call_sha,
+                                    contract="native_contact_preparation_v2",
+                                ),
+                            )
+                            window = contact_model_continuation.capture_contact_window(
+                                model="compatibility-fake",
+                                effort="medium",
+                                instructions="Synthetic contact continuation",
+                                context=json.dumps(
+                                    {
+                                        "topic": topic.model_dump(mode="json"),
+                                        "message": turn.message,
+                                        "response_language": None,
+                                        "contact_tool_contract": contact_request.contract,
+                                    }
+                                ),
+                                output=[
+                                    {
+                                        "type": "reasoning",
+                                        "id": "rs_contact",
+                                        "summary": [],
+                                        "encrypted_content": "test-compat-contact-opaque",
+                                    },
+                                    {
+                                        "type": "function_call",
+                                        "call_id": call_id,
+                                        "name": contact_request.tool_name,
+                                        "arguments": selection.model_dump_json(),
+                                        "status": "completed",
+                                    },
+                                ],
+                            )
+                            native_fields = {
+                                "contact_tool_contract": contact_request.contract,
+                                "contact_preparation": contact_request,
+                                "contact_model_window": BoundContactWindow(
+                                    selection_fingerprint=contact_request.selection_fingerprint,
+                                    window=window,
+                                ),
+                            }
                     assert await chats.update(
                         turn.model_copy(
                             update={
@@ -210,6 +272,56 @@ async def probe(
                             }
                         ),
                     )
+                    if contact_continuation:
+                        from app.mana_operation_ai.application.retention.contact_templates import (
+                            contact_message,
+                        )
+                        from app.mana_operation_ai.domain.contact_continuation import (
+                            ContactPreparationResult,
+                        )
+                        from app.mana_operation_ai.domain.retention_contact import (
+                            RetentionContactParameters,
+                        )
+
+                        result = ContactPreparationResult(
+                            origin_turn_id=turn.turn_id,
+                            selection_fingerprint=contact_request.selection_fingerprint,
+                            action_id="synthetic-compat-contact-result",
+                            action_fingerprint="a" * 64,
+                            revision=0,
+                            observed_at=clock.now(),
+                            template="onboarding_help",
+                            message=contact_message(
+                                RetentionContactParameters(
+                                    account_ref="acct_" + "c" * 64,
+                                    template="onboarding_help",
+                                    language="uz",
+                                )
+                            ),
+                            status="uncertain",
+                            result_code="sandbox_acceptance_unknown",
+                        )
+                        child, admitted = await chats.reserve(
+                            OWNER,
+                            topic.topic_id,
+                            MessageCreate(
+                                request_id=uuid4(),
+                                message="Observe the exact SQL result.",
+                                execution_mode="agent",
+                            ),
+                            contact_result=result,
+                        )
+                        assert admitted
+                        assert await chats.update(
+                            child.model_copy(
+                                update={
+                                    "status": "failed",
+                                    "answer": (
+                                        "Synthetic failed continuation; never repeat automatically."
+                                    ),
+                                }
+                            )
+                        )
                     lost = title == "Native lost"
                     from app.mana_operation_ai.infrastructure.goal_continuation import (
                         finish_continuation,
@@ -448,7 +560,7 @@ async def probe(
                 if topic.title == "Legacy":
                     continue
                 turns = await chats.turns(OWNER, topic.topic_id)
-                assert len(turns) == 1
+                assert len(turns) == (2 if contact_continuation else 1)
                 assert turns[0].status == "completed" and turns[0].next_action == "none"
                 assert goal.status == "cancelled" and goal.lease_until is None
                 assert goal.accounted_microusd == 90_000
@@ -528,7 +640,7 @@ async def probe(
                     "started" if lost else "awaiting_approval"
                 )
                 turns = await chats.turns(OWNER, topic.topic_id)
-                assert len(turns) == 1
+                assert len(turns) == (2 if contact_continuation else 1)
                 assert (
                     turns[0].next_action == ("retention_contacts" if contacts else "start_goal")
                     and turns[0].execution_mode == "agent"
@@ -539,6 +651,20 @@ async def probe(
                 if native_contact:
                     assert original.contact_preparation is not None
                     assert original.contact_preparation.recipient == "sample_uz"
+                if contact_continuation:
+                    assert original.contact_reply_turn_id is not None
+                    assert original.contact_preparation is not None
+                    assert original.contact_model_window is not None
+                    assert (
+                        "test-compat-contact-opaque" in original.contact_model_window.window.items
+                    )
+                    child = await chats.turn(OWNER, topic.topic_id, original.contact_reply_turn_id)
+                    assert child.contact_result is not None and child.status == "failed"
+                    assert child.contact_result.origin_turn_id == original.turn_id
+                    assert (
+                        child.contact_result.selection_fingerprint
+                        == original.contact_preparation.selection_fingerprint
+                    )
                 assert original.preview == "Synthetic draft 🧒" and original.preview_revision == 2
                 assert original.session_memory is not None and goal.session_memory is not None
                 assert bool(goal.session_memory.actions) is (topic.title == "Native queued")
@@ -618,6 +744,7 @@ def main() -> None:
     parser.add_argument("--verdicts", action="store_true")
     parser.add_argument("--contacts", action="store_true")
     parser.add_argument("--native-contact", action="store_true")
+    parser.add_argument("--contact-continuation", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -630,6 +757,7 @@ def main() -> None:
             verdicts=args.verdicts,
             contacts=args.contacts,
             native_contact=args.native_contact,
+            contact_continuation=args.contact_continuation,
         )
     )
 

@@ -1051,6 +1051,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Continue Contact */
+        post: operations["continue_contact_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_continue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/prepare": {
         parameters: {
             query?: never;
@@ -3347,6 +3364,18 @@ export interface components {
             summary: string;
             verdict: components["schemas"]["AnalysisVerdict"];
         };
+        /** BoundContactWindow */
+        BoundContactWindow: {
+            /**
+             * Protocol
+             * @default contact-model-continuation-v1
+             * @constant
+             */
+            protocol: "contact-model-continuation-v1";
+            /** Selection Fingerprint */
+            selection_fingerprint: string;
+            window: components["schemas"]["ContactModelWindow"];
+        };
         /**
          * Breakdown
          * @enum {string}
@@ -3438,6 +3467,11 @@ export interface components {
              * @default false
              */
             chat_streaming_enabled: boolean;
+            /**
+             * Contact Tool Continuations Enabled
+             * @default false
+             */
+            contact_tool_continuations_enabled: boolean;
             /**
              * Contact Tool Proposals Enabled
              * @default false
@@ -3658,7 +3692,7 @@ export interface components {
             answer: string;
             contact_preparation?: components["schemas"]["ContactToolRequest"] | null;
             /** Contact Tool Contract */
-            contact_tool_contract?: "native_contact_preparation_v1" | null;
+            contact_tool_contract?: ("native_contact_preparation_v1" | "native_contact_preparation_v2") | null;
             /**
              * Created At
              * Format: date-time
@@ -3853,6 +3887,55 @@ export interface components {
                 [key: string]: components["schemas"]["JsonValue"];
             };
         };
+        /** ContactContinuationView */
+        ContactContinuationView: {
+            /** Answer */
+            answer: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "reading" | "thinking" | "completed" | "failed" | "cancelled";
+            /** Turn Id */
+            turn_id: string;
+        };
+        /** ContactContinueRequest */
+        ContactContinueRequest: {
+            /** Action Fingerprint */
+            action_fingerprint: string;
+            /** Action Id */
+            action_id: string;
+            /**
+             * Confirmed
+             * @constant
+             */
+            confirmed: true;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Revision */
+            revision: number;
+        };
+        /** ContactModelWindow */
+        ContactModelWindow: {
+            /** Context */
+            context: string;
+            /** Digest */
+            digest: string;
+            /**
+             * Effort
+             * @enum {string}
+             */
+            effort: "none" | "low" | "medium" | "high" | "xhigh";
+            /** Instructions */
+            instructions: string;
+            /** Items */
+            items: string;
+            /** Model */
+            model: string;
+        };
         /** ContactParentAction */
         ContactParentAction: {
             /**
@@ -3862,6 +3945,64 @@ export interface components {
             kind: "contact_parent";
             /** Reason */
             reason: string;
+        };
+        /**
+         * ContactPreparationResult
+         * @description A dated SQL observation, never a real delivery or a grant for another action.
+         */
+        ContactPreparationResult: {
+            /** Action Fingerprint */
+            action_fingerprint: string;
+            /** Action Id */
+            action_id: string;
+            /**
+             * Approval Is Separate
+             * @default true
+             * @constant
+             */
+            approval_is_separate: true;
+            /**
+             * Business Outcome
+             * @default not_measured
+             * @constant
+             */
+            business_outcome: "not_measured";
+            /**
+             * Delivered
+             * @default false
+             * @constant
+             */
+            delivered: false;
+            message: components["schemas"]["RetentionContactMessage"];
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Origin Turn Id */
+            origin_turn_id: string;
+            /** Result Code */
+            result_code: string;
+            /** Revision */
+            revision: number;
+            /** Selection Fingerprint */
+            selection_fingerprint: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "rejected" | "dispatching" | "verified" | "uncertain" | "refused";
+            /**
+             * Synthetic
+             * @default true
+             * @constant
+             */
+            synthetic: true;
+            /**
+             * Template
+             * @enum {string}
+             */
+            template: "onboarding_help" | "renewal_reminder";
         };
         /** ContactReviewCreate */
         ContactReviewCreate: {
@@ -3941,9 +4082,9 @@ export interface components {
             /**
              * Contract
              * @default native_contact_preparation_v1
-             * @constant
+             * @enum {string}
              */
-            contract: "native_contact_preparation_v1";
+            contract: "native_contact_preparation_v1" | "native_contact_preparation_v2";
             /** Provider Call Sha256 */
             provider_call_sha256: string;
             /**
@@ -8134,6 +8275,12 @@ export interface components {
         };
         /** WorkspaceContactPage */
         WorkspaceContactPage: {
+            continuation?: components["schemas"]["ContactContinuationView"] | null;
+            /**
+             * Continuation Available
+             * @default false
+             */
+            continuation_available: boolean;
             /** Items */
             items: components["schemas"]["WorkspaceContactView"][];
             /**
@@ -10603,6 +10750,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceContactPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    continue_contact_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_continue_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactContinueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTurn"];
                 };
             };
             /** @description Validation Error */

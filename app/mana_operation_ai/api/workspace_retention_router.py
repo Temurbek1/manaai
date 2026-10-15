@@ -6,9 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.mana_operation_ai.api.security import ActorDep, require_role
 from app.mana_operation_ai.application.chat_ports import ChatError
+from app.mana_operation_ai.application.contact_result_continuation import (
+    ContactResultContinuationService,
+)
 from app.mana_operation_ai.application.workspace_retention_contacts import (
     WorkspaceRetentionContacts,
 )
+from app.mana_operation_ai.domain.chat import ChatTurn
+from app.mana_operation_ai.domain.contact_continuation import ContactContinueRequest
 from app.mana_operation_ai.domain.enums import UserRole
 from app.mana_operation_ai.domain.retention_contact import RetentionContactDecision
 from app.mana_operation_ai.domain.workspace_retention_contacts import (
@@ -26,6 +31,15 @@ def get_contacts(request: Request) -> WorkspaceRetentionContacts:
 
 
 ContactsDep = Annotated[WorkspaceRetentionContacts, Depends(get_contacts)]
+
+
+def get_continuation(request: Request) -> ContactResultContinuationService:
+    return cast(
+        ContactResultContinuationService, request.app.state.operation_contact_result_continuation
+    )
+
+
+ContinuationDep = Annotated[ContactResultContinuationService, Depends(get_continuation)]
 router = APIRouter(prefix="/topics/{topic_id}/messages/{turn_id}/retention-contacts")
 
 
@@ -67,6 +81,21 @@ async def decide(
     require_role(actor, UserRole.APPROVER)
     try:
         return await service.decide(actor, topic_id, turn_id, action_id, payload)
+    except ChatError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
+@router.post("/continue", response_model=ChatTurn)
+async def continue_contact(
+    topic_id: str,
+    turn_id: str,
+    payload: ContactContinueRequest,
+    service: ContinuationDep,
+    actor: ActorDep,
+) -> ChatTurn:
+    require_role(actor, UserRole.OPERATOR)
+    try:
+        return await service.continue_with_result(actor, topic_id, turn_id, payload)
     except ChatError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
 

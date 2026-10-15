@@ -83,6 +83,7 @@ OPERATION_AGENT_WORKSPACE_ENABLED="${AUDIT_AGENT_WORKSPACE:-false}" \
 OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED="${AUDIT_RETENTION_CONTACTS:-false}" \
 OPERATION_WORKSPACE_RETENTION_PEER_REVIEWS_ENABLED="${AUDIT_RETENTION_PEER_REVIEWS:-false}" \
 OPERATION_WORKSPACE_CONTACT_TOOL_PROPOSALS_ENABLED="${AUDIT_CONTACT_TOOL_PROPOSALS:-false}" \
+OPERATION_WORKSPACE_CONTACT_TOOL_CONTINUATIONS_ENABLED="${AUDIT_CONTACT_TOOL_CONTINUATIONS:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
 OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
 OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED="${AUDIT_SNAPSHOT_REPLACEMENT:-false}" \
@@ -115,6 +116,11 @@ curl --fail --silent "http://127.0.0.1:${AUDIT_API_PORT}/api/v1/health/live" >/d
 curl --fail --silent "http://127.0.0.1:${AUDIT_UI_PORT}/" >/dev/null
 
 browser() {
+  # Client availability resolves after page navigation; network-idle alone does
+  # not prove that the agent-mode composer has replaced its loading placeholder.
+  if [[ "${1:-}" == find && "${2:-}" == label && "${3:-}" == "Сообщение агенту" ]]; then
+    browser wait --fn 'document.querySelector("label[for=\"chat-message\"]")?.textContent === "Сообщение агенту" && !document.getElementById("chat-message")?.disabled && !document.querySelector(".chat-page")?.textContent.includes("Проверяем доступность AI…")' >/dev/null
+  fi
   "$BROWSER_BIN" --session "$AUDIT_BROWSER_SESSION" --auto-connect false \
     --restore-save never "$@"
 }
@@ -133,12 +139,16 @@ assert_accessible() {
 login_browser() {
   local telegram_id=$1
   local otp_code=""
+  local otp_sink_rows=0
+  if [[ -f "$AUDIT_TMP_DIR/otp-sink.jsonl" ]]; then
+    otp_sink_rows=$(wc -l < "$AUDIT_TMP_DIR/otp-sink.jsonl")
+  fi
   browser find label "Telegram ID" fill "$telegram_id" >/dev/null
   browser find role button click --name "Получить код" >/dev/null
   for _ in $(seq 1 40); do
     if otp_code=$("$PROJECT_ROOT/.venv/bin/python" -c \
-      'import json, pathlib, sys; p=pathlib.Path(sys.argv[1]); target=int(sys.argv[2]); rows=[json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []; matches=[row for row in rows if row.get("telegram_id") == target]; print(matches[-1]["code"] if matches else ""); raise SystemExit(0 if matches else 1)' \
-      "$AUDIT_TMP_DIR/otp-sink.jsonl" "$telegram_id" 2>/dev/null); then
+      'import json, pathlib, sys; p=pathlib.Path(sys.argv[1]); target=int(sys.argv[2]); rows=[json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []; matches=[row for row in rows[int(sys.argv[3]):] if row.get("telegram_id") == target]; print(matches[-1]["code"] if matches else ""); raise SystemExit(0 if matches else 1)' \
+      "$AUDIT_TMP_DIR/otp-sink.jsonl" "$telegram_id" "$otp_sink_rows" 2>/dev/null); then
       break
     fi
     sleep 0.1
@@ -147,6 +157,7 @@ login_browser() {
     echo "Fake Telegram harness did not capture a six-digit OTP" >&2
     return 1
   fi
+  browser wait --fn 'Boolean(document.querySelector("input[autocomplete=\"one-time-code\"]"))' >/dev/null
   browser find label "Код из Telegram" fill "$otp_code" >/dev/null
   unset otp_code
   browser find role button click --name "Войти" >/dev/null
@@ -259,6 +270,25 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
     browser wait --fn 'Boolean(document.querySelector("input"))' >/dev/null
     login_browser 976835256
     browser wait --fn 'document.body.innerText.includes("Принято тестовым получателем")' >/dev/null
+  fi
+  if [[ "${AUDIT_CONTACT_TOOL_CONTINUATIONS:-false}" == "true" ]]; then
+    browser select '.language-select' uz >/dev/null
+    browser wait --fn 'document.documentElement.lang === "uz" && Array.from(document.querySelectorAll("button")).some(b => b.textContent.trim() === "Agent bilan davom etish")' >/dev/null
+    browser find role button click --name "Agent bilan davom etish" >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Агент продолжил по SQL-результату")' >/dev/null
+    assert_browser '!Array.from(document.querySelectorAll("button")).some(b => b.textContent.trim() === "Agent bilan davom etish")' 'consumed invocation remains executable'
+    browser reload >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Агент продолжил по SQL-результату")' >/dev/null
+    assert_browser 'document.querySelectorAll(".chat-turn").length === 2' 'continuation lost its originating chat or was duplicated'
+    browser set viewport 320 812 >/dev/null
+    browser eval 'Array.from(document.querySelectorAll(".chat-turn")).at(-1).scrollIntoView({block:"center", behavior:"instant"}); "show continued result"' >/dev/null
+    assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'tool continuation overflows on mobile'
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/contact-tool-continuation-mobile.png" --full >/dev/null
+    fi
+    browser set viewport 1440 1000 >/dev/null
+    browser select '.language-select' ru >/dev/null
   fi
 fi
 }
@@ -398,6 +428,10 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   assert_browser 'document.querySelectorAll(".chat-turn").length === 20' 'reload lost the newest result or eagerly loaded the full transcript'
   assert_accessible
   if [[ "${AUDIT_CHAT_STREAMING:-false}" == "true" ]]; then
+    # Native contact selection is deliberately nonstreamed; test the independent
+    # ordinary-answer stream in a room where that tool cannot be admitted.
+    browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/growth-agent" >/dev/null
+    browser wait --load networkidle >/dev/null
     browser eval '(() => { window.__chatPosts=0; window.__chatFrames=[]; const original=window.fetch.bind(window); window.fetch=async (...args)=>{ if(args[1]?.method==="POST"&&String(args[0]).includes("/messages")) window.__chatPosts++; const response=await original(...args); if(String(args[0]).includes("/stream?")) { const clone=response.clone(); (async()=>{const reader=clone.body.getReader();const decoder=new TextDecoder();while(true){const part=await reader.read();if(part.done)break;window.__chatFrames.push(decoder.decode(part.value,{stream:true}));}})(); } return response; }; return "observe chat only"; })()' >/dev/null
     browser find label "Сообщение агенту" fill 'Проверь поток ответа без новой цели' >/dev/null
     browser find role button click --name "Отправить сообщение" >/dev/null

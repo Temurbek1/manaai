@@ -58,6 +58,142 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+async def test_postgres_native_contact_result_has_one_cross_connection_consumer() -> None:
+    import json
+
+    from app.mana_operation_ai.application.retention.contact_templates import contact_message
+    from app.mana_operation_ai.domain.contact_continuation import (
+        BoundContactWindow,
+        ContactPreparationResult,
+    )
+    from app.mana_operation_ai.domain.contact_preparation import (
+        ContactToolRequest,
+        ContactToolSelection,
+        contact_selection_fingerprint,
+    )
+    from app.mana_operation_ai.domain.retention_contact import RetentionContactParameters
+    from app.mana_operation_ai.infrastructure.contact_model_continuation import (
+        capture_contact_window,
+    )
+    from tests.test_native_contact_tool import tool
+
+    assert POSTGRES_URL is not None
+    first_db, second_db = OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)
+    first = SqlAlchemyChatRepository(first_db, hourly_limit=1000, daily_limit=1000)
+    second = SqlAlchemyChatRepository(second_db, hourly_limit=1000, daily_limit=1000)
+    owner = f"native-contact-{uuid4()}"
+    try:
+        await first.initialize()
+        topic = await first.create(
+            owner,
+            TopicCreate(agent_id="retention-agent", product="mana", title="One result consumer"),
+        )
+        original, _ = await first.reserve(
+            owner,
+            topic.topic_id,
+            MessageCreate(
+                request_id=uuid4(),
+                message="Test fictional contact",
+                execution_mode="agent",
+                response_language="ru",
+            ),
+        )
+        call = tool()
+        call_hash = hashlib.sha256(str(call["call_id"]).encode()).hexdigest()
+        selection = ContactToolSelection(recipient="sample_uz", template="onboarding_help")
+        request = ContactToolRequest(
+            **selection.model_dump(),
+            contract="native_contact_preparation_v2",
+            provider_call_sha256=call_hash,
+            selection_fingerprint=contact_selection_fingerprint(
+                owner,
+                topic.topic_id,
+                original.turn_id,
+                selection,
+                call_hash,
+                contract="native_contact_preparation_v2",
+            ),
+        )
+        window = capture_contact_window(
+            model="fake-pg",
+            effort="medium",
+            instructions="Synthetic pairing only",
+            context=json.dumps(
+                {
+                    "topic": topic.model_dump(mode="json"),
+                    "message": original.message,
+                    "response_language": "ru",
+                    "contact_tool_contract": request.contract,
+                }
+            ),
+            output=[call],
+        )
+        assert await first.update(
+            original.model_copy(
+                update={
+                    "status": "completed",
+                    "next_action": "retention_contacts",
+                    "contact_tool_contract": request.contract,
+                    "contact_preparation": request,
+                    "contact_model_window": BoundContactWindow(
+                        selection_fingerprint=request.selection_fingerprint, window=window
+                    ),
+                }
+            )
+        )
+        result = ContactPreparationResult(
+            origin_turn_id=original.turn_id,
+            selection_fingerprint=request.selection_fingerprint,
+            action_id="synthetic-pg-action",
+            action_fingerprint="a" * 64,
+            revision=0,
+            observed_at=datetime.now(UTC),
+            template="onboarding_help",
+            message=contact_message(
+                RetentionContactParameters(
+                    account_ref="acct_" + "c" * 64, template="onboarding_help", language="uz"
+                )
+            ),
+            status="proposed",
+            result_code="awaiting_human_decision",
+        )
+
+        async def claim(repository: SqlAlchemyChatRepository):  # type: ignore[no-untyped-def]
+            return await repository.reserve(
+                owner,
+                topic.topic_id,
+                MessageCreate(
+                    request_id=uuid4(),
+                    message="Continue exact result",
+                    execution_mode="agent",
+                    response_language="ru",
+                ),
+                contact_result=result,
+            )
+
+        attempts = await asyncio.gather(claim(first), claim(second))
+        assert sum(admitted for _, admitted in attempts) == 1
+        child = attempts[0][0]
+        assert child.turn_id == attempts[1][0].turn_id
+        restored = await second.turn(owner, topic.topic_id, original.turn_id)
+        assert restored.contact_model_window is not None
+        assert (
+            restored.contact_reply_turn_id == child.turn_id
+            and restored.contact_model_window.window == window
+        )
+        assert await first.update(
+            child.model_copy(
+                update={"status": "failed", "answer": "Lost model acknowledgement; no retry."}
+            )
+        )
+        replay, admitted = await claim(second)
+        assert not admitted and replay.turn_id == child.turn_id and replay.status == "failed"
+        assert replay.contact_result == result
+    finally:
+        await first_db.dispose()
+        await second_db.dispose()
+
+
 @pytest.mark.parametrize("chat_bound", [False, True])
 async def test_postgres_retention_contact_cross_connection_intent_and_unknown_recipient_hold(
     chat_bound: bool,

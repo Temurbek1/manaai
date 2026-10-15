@@ -4,9 +4,15 @@ from datetime import datetime
 from uuid import NAMESPACE_URL, uuid5
 
 from app.mana_operation_ai.application.admin_service import ActorContext
-from app.mana_operation_ai.application.chat_ports import ChatError, ChatRepository
+from app.mana_operation_ai.application.chat_ports import (
+    ChatError,
+    ChatRepository,
+)
 from app.mana_operation_ai.application.retention.contact import RetentionContactService
 from app.mana_operation_ai.application.retention.contact_ports import RetentionContactStore
+from app.mana_operation_ai.domain.contact_continuation import (
+    ContactContinuationView,
+)
 from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactAction,
     RetentionContactDecision,
@@ -36,6 +42,7 @@ class WorkspaceRetentionContacts:
         recipients: tuple[WorkspaceContactRecipient, WorkspaceContactRecipient],
         account_refs: dict[SandboxRecipient, str],
         peer_reviews_enabled: bool = False,
+        continuations_enabled: bool = False,
     ) -> None:
         if set(account_refs) != {item.key for item in recipients}:
             raise ValueError("Every fictional recipient requires an explicit server-owned binding")
@@ -43,6 +50,7 @@ class WorkspaceRetentionContacts:
         self._enabled, self._allow_self_approval = enabled, allow_self_approval
         self._recipients, self._account_refs = recipients, dict(account_refs)
         self._peer_reviews_enabled = peer_reviews_enabled
+        self._continuations_enabled = continuations_enabled
 
     async def _access(self, owner: str, topic_id: str, turn_id: str) -> None:
         if not self._enabled:
@@ -94,12 +102,30 @@ class WorkspaceRetentionContacts:
         await self._access(owner, topic_id, turn_id)
         actions = await self._store.list_for_turn(owner, topic_id, turn_id)
         turn = await self._chats.turn(owner, topic_id, turn_id)
+        child = (
+            await self._chats.turn(owner, topic_id, turn.contact_reply_turn_id)
+            if turn.contact_reply_turn_id
+            else None
+        )
         return WorkspaceContactPage(
             items=[self.view(item) for item in actions[:3]],
             recipients=self._recipients,
             more_omitted=len(actions) > 3,
             peer_reviews_enabled=self._peer_reviews_enabled,
             preparation_request=turn.contact_preparation,
+            continuation_available=(
+                self._continuations_enabled
+                and turn.contact_model_window is not None
+                and turn.contact_reply_turn_id is None
+                and bool(actions)
+            ),
+            continuation=ContactContinuationView(
+                turn_id=child.turn_id,
+                status=child.status,
+                answer=child.answer,
+            )
+            if child
+            else None,
         )
 
     async def history(
@@ -133,7 +159,10 @@ class WorkspaceRetentionContacts:
             topic_id,
             RetentionContactPrepare(
                 request_id=uuid5(
-                    NAMESPACE_URL, f"retention-chat:{topic_id}:{turn_id}:{request.request_id}"
+                    NAMESPACE_URL,
+                    f"retention-native:{topic_id}:{turn_id}:{selection.selection_fingerprint}"
+                    if selection and selection.contract == "native_contact_preparation_v2"
+                    else f"retention-chat:{topic_id}:{turn_id}:{request.request_id}",
                 ),
                 parameters=RetentionContactParameters(
                     account_ref=self._account_refs[recipient.key],

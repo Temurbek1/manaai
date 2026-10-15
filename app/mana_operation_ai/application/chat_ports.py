@@ -13,6 +13,10 @@ from app.mana_operation_ai.domain.chat import (
     TopicCreate,
     TranscriptPage,
 )
+from app.mana_operation_ai.domain.contact_continuation import (
+    ContactModelWindow,
+    ContactPreparationResult,
+)
 from app.mana_operation_ai.domain.contact_preparation import ContactToolSelection
 from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
 
@@ -62,7 +66,12 @@ class ChatRepository(Protocol):
     ) -> AsyncGenerator[SessionUserContext, None]: ...
 
     async def reserve(
-        self, owner: str, topic_id: str, payload: MessageCreate
+        self,
+        owner: str,
+        topic_id: str,
+        payload: MessageCreate,
+        *,
+        contact_result: ContactPreparationResult | None = None,
     ) -> tuple[ChatTurn, bool]: ...
 
     async def update(self, turn: ChatTurn) -> bool: ...
@@ -74,6 +83,18 @@ class ChatRepository(Protocol):
 
 class ConversationModel(Protocol):
     async def reply(self, *, instructions: str, context: str, owner: str) -> ChatTurnOutput: ...
+
+
+class ContactContinuationModel(Protocol):
+    async def continue_contact(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None = None,
+    ) -> ChatTurnOutput: ...
 
 
 class StreamingConversationModel(Protocol):
@@ -93,6 +114,7 @@ class ChatTurnOutput:
         next_action: ChatNextAction = "none",
         contact_selection: ContactToolSelection | None = None,
         contact_call_sha256: str | None = None,
+        contact_model_window: ContactModelWindow | None = None,
     ) -> None:
         self.answer = answer
         self.model = model
@@ -102,3 +124,4 @@ class ChatTurnOutput:
         self.next_action = next_action
         self.contact_selection = contact_selection
         self.contact_call_sha256 = contact_call_sha256
+        self.contact_model_window = contact_model_window

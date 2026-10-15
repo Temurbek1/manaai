@@ -23,7 +23,12 @@ from app.mana_operation_ai.application.retention.constants import PARENTS_CAPABI
 from app.mana_operation_ai.application.runtime import SystemClock
 from app.mana_operation_ai.domain.agent_tools import AgentToolCall
 from app.mana_operation_ai.domain.chat import ChatTopic, ChatTurn
+from app.mana_operation_ai.domain.contact_continuation import (
+    ContactModelWindow,
+    ContactPreparationResult,
+)
 from app.mana_operation_ai.domain.contact_preparation import (
+    CONTACT_TOOL_CONTINUATION_CONTRACT,
     CONTACT_TOOL_CONTRACT,
     ContactToolSelection,
 )
@@ -32,7 +37,9 @@ from app.mana_operation_ai.domain.goal_review import GoalReviewCheck, GoalReview
 from app.mana_operation_ai.domain.goals import GoalCreate, GoalDecision, GoalTask, OperationGoal
 from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
+from app.mana_operation_ai.domain.session import SessionMemory
 from app.mana_operation_ai.infrastructure.agent_tool_schema import agent_function_tools
+from app.mana_operation_ai.infrastructure.contact_model_continuation import capture_contact_window
 from app.mana_operation_ai.infrastructure.goal_continuation import (
     finish_continuation,
     prepare_continuation,
@@ -59,6 +66,27 @@ ARCHIVE_CONSTRAINT = "Не контактируй с родителями; бю�
 
 
 class BrowserConversationFake:
+    async def continue_contact(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None = None,
+    ) -> ChatTurnOutput:
+        assert result.status == "verified" and result.message.language == "uz"
+        assert result.delivered is False and result.business_outcome == "not_measured"
+        assert memory is not None and memory.retention_contacts[-1].status == "verified"
+        assert json.loads(window.context)["response_language"] == "ru"
+        return ChatTurnOutput(
+            "Агент продолжил по SQL-результату: тестовый приём подтверждён. "
+            "Реальной доставки и измеренного удержания нет.",
+            "browser-fake",
+            10,
+            20,
+        )
+
     async def stream_reply(
         self, *, instructions: str, context: str, owner: str
     ) -> AsyncGenerator[str | ChatTurnOutput, None]:
@@ -81,6 +109,33 @@ class BrowserConversationFake:
         agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
         if message == "Проверь вымышленный контактный sandbox":
             assert "retention_contacts" in payload["allowed_next_actions"]
+            native = payload.get("contact_tool_contract") in (
+                CONTACT_TOOL_CONTRACT,
+                CONTACT_TOOL_CONTINUATION_CONTRACT,
+            )
+            window = None
+            call_id = "call_browser_synthetic_contact"
+            if payload.get("contact_tool_contract") == CONTACT_TOOL_CONTINUATION_CONTRACT:
+                window = capture_contact_window(
+                    output=[
+                        {
+                            "type": "function_call",
+                            "name": "request_retention_contact_preparation",
+                            "call_id": call_id,
+                            "arguments": json.dumps(
+                                {
+                                    "recipient": "sample_uz",
+                                    "template": "onboarding_help",
+                                }
+                            ),
+                            "status": "completed",
+                        }
+                    ],
+                    model="browser-fake",
+                    effort="medium",
+                    instructions=instructions,
+                    context=context,
+                )
             return ChatTurnOutput(
                 "Только вымышленный получатель; реальных сообщений не будет.",
                 "browser-fake",
@@ -89,12 +144,15 @@ class BrowserConversationFake:
                 next_action="retention_contacts",
                 contact_selection=(
                     ContactToolSelection(recipient="sample_uz", template="onboarding_help")
-                    if payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+                    if native
                     else None
                 ),
-                contact_call_sha256="b" * 64
-                if payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+                contact_call_sha256=hashlib.sha256(call_id.encode()).hexdigest()
+                if window
+                else "b" * 64
+                if native
                 else None,
+                contact_model_window=window,
             )
         if message == "Продолжи анализ с условиями из первой архивной задачи":
             memory = payload.get("session_memory")
@@ -434,6 +492,8 @@ def create_app() -> FastAPI:
                         self.at = datetime.now(UTC).replace(
                             hour=12, minute=0, second=0, microsecond=0
                         )
+                        if self.at > datetime.now(UTC):
+                            self.at -= timedelta(days=1)
 
                     def now(self) -> datetime:
                         return self.at
@@ -449,6 +509,9 @@ def create_app() -> FastAPI:
                     bridge._allow_self_approval = True
                     bridge._contacts._allow_self_approval = True
             application.state.operation_chat_service._model = BrowserConversationFake()
+            application.state.operation_contact_result_continuation._model = (
+                BrowserConversationFake()
+            )
             if settings.operation_workspace_chat_streaming_enabled:
                 application.state.operation_chat_service._streaming_model = (
                     BrowserConversationFake()

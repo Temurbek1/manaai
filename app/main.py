@@ -36,6 +36,9 @@ from app.mana_operation_ai.application.auth_ports import TelegramOtpSender
 from app.mana_operation_ai.application.auth_service import AdminAuthService
 from app.mana_operation_ai.application.capabilities import CapabilityRegistry
 from app.mana_operation_ai.application.chat_service import OperationChatService
+from app.mana_operation_ai.application.contact_result_continuation import (
+    ContactResultContinuationService,
+)
 from app.mana_operation_ai.application.contact_reviews import (
     ContactReviewAccess,
     WorkspaceContactReviews,
@@ -731,6 +734,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         global_kill_switch_default=settings.operation_global_kill_switch,
         review_access=review_access if peer_reviews_enabled else None,
     )
+    chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
+    contact_continuations_enabled = (
+        contact_reviews_enabled
+        and settings.operation_workspace_contact_tool_proposals_enabled
+        and settings.operation_workspace_contact_tool_continuations_enabled
+    )
     app.state.operation_workspace_retention_contacts = WorkspaceRetentionContacts(
         chats=chat_repository,
         contacts=contacts,
@@ -742,6 +751,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             item.key: sandbox_account_ref(item.key) for item in contact_catalog.recipients
         },
         peer_reviews_enabled=peer_reviews_enabled,
+        continuations_enabled=contact_continuations_enabled,
     )
     app.state.operation_workspace_contact_reviews = WorkspaceContactReviews(
         access=review_access,
@@ -756,7 +766,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.operation_workspace_actions,
         app.state.operation_workspace_retention_contacts,
     )
-    chat_model = OpenAIConversationModel(settings, ledger=cost_ledger)
+    app.state.operation_contact_result_continuation = ContactResultContinuationService(
+        chats=chat_repository,
+        contacts=app.state.operation_workspace_retention_contacts,
+        model=chat_model,
+        context=session_context,
+        enabled=contact_continuations_enabled,
+    )
     app.state.operation_cost_ledger = cost_ledger
     app.state.operation_shared_data_reader = shared_data_reader
     app.state.operation_chat_service = OperationChatService(
@@ -782,6 +798,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 contact_reviews_enabled
                 and settings.operation_workspace_contact_tool_proposals_enabled
             ),
+            contact_tool_continuations_enabled=contact_continuations_enabled,
             transcript_pagination_enabled=(
                 settings.operation_agent_workspace_enabled
                 and settings.operation_workspace_transcript_enabled

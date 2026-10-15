@@ -44,6 +44,65 @@ function response(body: unknown): Promise<Response> {
 }
 
 describe("Retention contact chat lane", () => {
+  it.each([false, true])(
+    "continues one frozen SQL result and only observes a lost answer (%s)",
+    async (lost) => {
+      const posts: Array<Record<string, unknown>> = [];
+      const onContinued = jest
+        .fn<() => Promise<void>>()
+        .mockResolvedValue(undefined);
+      let claimed = false;
+      jest.spyOn(globalThis, "fetch").mockImplementation((_, init) => {
+        if (init?.method === "POST") {
+          posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+          claimed = true;
+          return lost
+            ? Promise.reject(new Error("Lost response"))
+            : response({ turn_id: "child-1", status: "completed" });
+        }
+        return response({
+          items: [contact],
+          recipients,
+          more_omitted: false,
+          continuation_available: !claimed,
+          continuation: claimed
+            ? {
+                turn_id: "child-1",
+                status: lost ? "failed" : "completed",
+                answer: "Saved result",
+              }
+            : null,
+        });
+      });
+      renderWithSession(
+        <RetentionContactActions
+          topicId="topic-1"
+          turnId="turn-1"
+          onContinued={onContinued}
+        />,
+      );
+      const button = await screen.findByRole("button", {
+        name: "Продолжить с агентом",
+      });
+      expect(posts).toHaveLength(0);
+      fireEvent.click(button);
+      expect(
+        await screen.findByRole("link", { name: "Продолжение в чате" }),
+      ).toHaveAttribute("href", "#turn-child-1");
+      expect(posts).toHaveLength(1);
+      expect(posts[0]).toMatchObject({
+        confirmed: true,
+        action_id: contact.action_id,
+        action_fingerprint: contact.fingerprint,
+        revision: contact.revision,
+      });
+      expect(posts[0]).not.toHaveProperty("output");
+      expect(
+        screen.queryByRole("button", { name: "Продолжить с агентом" }),
+      ).not.toBeInTheDocument();
+      await waitFor(() => expect(onContinued).toHaveBeenCalledTimes(1));
+    },
+  );
   it("confirms the frozen native selection without replacing it with manual fields", async () => {
     const posts: Array<Record<string, unknown>> = [];
     const preparation = {

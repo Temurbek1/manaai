@@ -5,8 +5,13 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
-from app.mana_operation_ai.domain.contact_preparation import ContactToolRequest
+from app.mana_operation_ai.domain.contact_continuation import (
+    BoundContactWindow,
+    ContactPreparationResult,
+)
+from app.mana_operation_ai.domain.contact_preparation import ContactToolContract, ContactToolRequest
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 from app.mana_operation_ai.domain.session import SessionMemory
 
@@ -93,8 +98,15 @@ class ChatTurn(ChatModel):
     session_memory: SessionMemory | None = None
     preview: str = Field(default="", max_length=16000)
     preview_revision: int = Field(default=0, ge=0, le=130)
-    contact_tool_contract: Literal["native_contact_preparation_v1"] | None = None
+    contact_tool_contract: ContactToolContract | None = None
     contact_preparation: ContactToolRequest | None = None
+    contact_model_window: SkipJsonSchema[BoundContactWindow | None] = Field(
+        default=None, exclude=True, repr=False
+    )
+    contact_result: SkipJsonSchema[ContactPreparationResult | None] = Field(
+        default=None, exclude=True
+    )
+    contact_reply_turn_id: SkipJsonSchema[str | None] = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
     def contact_contract(self) -> "ChatTurn":
@@ -113,6 +125,19 @@ class ChatTurn(ChatModel):
             or self.next_action != "retention_contacts"
         ):
             raise ValueError("Contact selection requires its original completed native tool turn")
+        if self.contact_model_window is not None and (
+            self.contact_preparation is None
+            or self.contact_preparation.contract != "native_contact_preparation_v2"
+            or self.contact_model_window.selection_fingerprint
+            != self.contact_preparation.selection_fingerprint
+        ):
+            raise ValueError("A private continuation requires its original v2 preparation request")
+        if self.contact_reply_turn_id is not None and self.contact_model_window is None:
+            raise ValueError("A consumed contact call requires its retained original model window")
+        if self.contact_result is not None and (
+            self.execution_mode != "agent" or self.contact_preparation is not None
+        ):
+            raise ValueError("A contact result belongs to a separate agent continuation turn")
         return self
 
 
@@ -150,6 +175,7 @@ class ChatAvailability(ChatModel):
     retention_contact_reviews_enabled: bool = False
     retention_peer_reviews_enabled: bool = False
     contact_tool_proposals_enabled: bool = False
+    contact_tool_continuations_enabled: bool = False
     transcript_pagination_enabled: bool = False
     chat_streaming_enabled: bool = False
     response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")

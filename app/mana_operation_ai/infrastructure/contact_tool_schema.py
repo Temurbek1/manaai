@@ -5,7 +5,7 @@ import json
 import re
 from typing import TypedDict
 
-from openai.types.responses import FunctionToolParam
+from openai.types.responses import FunctionToolParam, ResponseIncludable
 from pydantic import ValidationError
 
 from app.mana_operation_ai.application.inference_errors import InferenceProviderError
@@ -15,6 +15,7 @@ from app.mana_operation_ai.domain.contact_preparation import CONTACT_TOOL, Conta
 class ContactToolOptions(TypedDict, total=False):
     tools: list[FunctionToolParam]
     parallel_tool_calls: bool
+    include: list[ResponseIncludable]
 
 
 def contact_function_tools() -> list[FunctionToolParam]:

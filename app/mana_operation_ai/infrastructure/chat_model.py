@@ -7,7 +7,7 @@ from typing import Literal, Protocol, cast
 
 import httpx
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI
-from openai.types.responses import FunctionToolParam, ParsedResponse
+from openai.types.responses import FunctionToolParam, ParsedResponse, ResponseInputItemParam
 from pydantic import ValidationError
 from pydantic_core import from_json
 
@@ -16,13 +16,25 @@ from app.mana_operation_ai.application.chat_ports import ChatTurnOutput
 from app.mana_operation_ai.application.cost_control import CostLedger
 from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.chat import ChatReply
-from app.mana_operation_ai.domain.contact_preparation import CONTACT_TOOL_CONTRACT
+from app.mana_operation_ai.domain.contact_continuation import (
+    ContactModelWindow,
+    ContactPreparationResult,
+)
+from app.mana_operation_ai.domain.contact_preparation import (
+    CONTACT_TOOL_CONTINUATION_CONTRACT,
+    CONTACT_TOOL_CONTRACT,
+)
 from app.mana_operation_ai.domain.cost_control import (
     CostAttribution,
     CostReservation,
     LlmRateCard,
     ProductScope,
     ResourceUsage,
+)
+from app.mana_operation_ai.domain.session import SessionMemory
+from app.mana_operation_ai.infrastructure.contact_model_continuation import (
+    capture_contact_window,
+    contact_result_input,
 )
 from app.mana_operation_ai.infrastructure.contact_tool_schema import (
     ContactToolOptions,
@@ -91,6 +103,13 @@ class OpenAIConversationModel:
             if native_contact
             else {}
         )
+        capture_window = (
+            native_contact
+            and json.loads(context).get("contact_tool_contract")
+            == CONTACT_TOOL_CONTINUATION_CONTRACT
+        )
+        if capture_window:
+            tool_options["include"] = ["reasoning.encrypted_content"]
         reservation = await self._admit(
             instructions=instructions,
             context=context,
@@ -120,24 +139,23 @@ class OpenAIConversationModel:
         )
         if reservation is not None:
             receipt = cast(_RawChatResponse, raw)
-            try:
-                payload = receipt.http_response.json()
-                envelope = InferenceUsageEnvelope.model_validate(payload)
-            except ValueError:
-                raise InferenceProviderError("unknown_usage") from None
-            pending = pending_usage_status(payload)
-            if pending is not None:
-                raise InferenceProviderError("unknown_usage", pending_status=pending)
-            if payload.get("status") == "failed" and envelope.usage is None:
-                error = payload.get("error")
-                raise response_failure(error.get("code") if isinstance(error, dict) else None)
-            await self._settle(envelope, reservation, rates, len(receipt.http_response.content))
-            if payload.get("status") != "completed":
-                raise InferenceProviderError("invalid_response")
+            payload, envelope = await self._verified_receipt(receipt, reservation, rates)
             if native_contact:
                 selected = parse_contact_function(payload)
                 if selected is not None:
                     selection, call_sha256 = selected
+                    window = None
+                    if capture_window:
+                        try:
+                            window = capture_contact_window(
+                                output=payload.get("output"),
+                                model=model_name,
+                                effort=effort,
+                                instructions=instructions,
+                                context=context,
+                            )
+                        except (ValueError, TypeError):
+                            raise InferenceProviderError("invalid_response") from None
                     return ChatTurnOutput(
                         answer=(
                             "Tanlangan test xabarini tayyorlashni tasdiqlang. "
@@ -152,6 +170,7 @@ class OpenAIConversationModel:
                         next_action="retention_contacts",
                         contact_selection=selection,
                         contact_call_sha256=call_sha256,
+                        contact_model_window=window,
                     )
             try:
                 response = receipt.parse()
@@ -177,11 +196,131 @@ class OpenAIConversationModel:
         payload = json.loads(context)
         topic = payload.get("topic", {})
         return (
-            payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+            (
+                payload.get("contact_tool_contract") == CONTACT_TOOL_CONTRACT
+                or (
+                    payload.get("contact_tool_contract") == CONTACT_TOOL_CONTINUATION_CONTRACT
+                    and self._settings.operation_workspace_contact_tool_continuations_enabled
+                )
+            )
             and topic.get("product") == "mana"
             and topic.get("agent_id") in {"retention-agent", "operations-orchestrator"}
             and "retention_contacts" in payload.get("allowed_next_actions", [])
         )
+
+    async def _verified_receipt(
+        self, receipt: _RawChatResponse, reservation: CostReservation, rates: LlmRateCard
+    ) -> tuple[dict[str, object], InferenceUsageEnvelope]:
+        try:
+            payload = receipt.http_response.json()
+            envelope = InferenceUsageEnvelope.model_validate(payload)
+        except ValueError:
+            raise InferenceProviderError("unknown_usage") from None
+        pending = pending_usage_status(payload)
+        if pending is not None:
+            raise InferenceProviderError("unknown_usage", pending_status=pending)
+        if payload.get("status") == "failed" and envelope.usage is None:
+            error = payload.get("error")
+            raise response_failure(error.get("code") if isinstance(error, dict) else None)
+        await self._settle(envelope, reservation, rates, len(receipt.http_response.content))
+        if payload.get("status") != "completed":
+            raise InferenceProviderError("invalid_response")
+        return payload, envelope
+
+    async def continue_contact(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None = None,
+    ) -> ChatTurnOutput:
+        if not (
+            self._ledger is not None
+            and self._settings.operation_workspace_contact_tool_proposals_enabled
+            and self._settings.operation_workspace_contact_tool_continuations_enabled
+        ):
+            raise RuntimeError("Native contact continuation is disabled")
+        model, effort, rates, output_limit = self._selection(window.context)
+        if (model, effort) != (window.model, window.effort):
+            raise RuntimeError("Original model/reasoning configuration changed")
+        try:
+            items = contact_result_input(window, result, call_sha256=call_sha256)
+            if memory is not None:
+                topic = json.loads(window.context)["topic"]
+                if (memory.topic_id, memory.product) != (
+                    topic["topic_id"],
+                    topic["product"],
+                ):
+                    raise ValueError("Frozen session context does not match the originating room")
+                items.append(
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": (
+                            "Frozen same-owner/topic session conditions and historical context, "
+                            "not fresh evidence or permissions:\n" + memory.model_dump_json()
+                        ),
+                    }
+                )
+        except (ValueError, TypeError):
+            raise InferenceProviderError("invalid_response") from None
+        instructions = window.instructions + (
+            f"\nContinuation SQL observation time: {result.observed_at.isoformat()}. "
+            "The original evaluation_time and saved reports belong to the original turn, "
+            "not this continuation; do not assume their freshness persists. "
+            "\nThe native function output is a frozen SQL observation of the exact fictional "
+            "preparation/action, not live delivery, current customer eligibility or permission. "
+            "Keep every original condition. Explain the observed status and next human step; "
+            "uncertain/dispatching means no retry. No further tools or action cards are available "
+            "in this response: next_action must be none. Never claim measured retention or "
+            "real delivery. Use the original response_language, not the recipient language."
+        )
+        reservation = await self._admit(
+            instructions=instructions,
+            context=window.context,
+            input_items=items,
+            model=model,
+            rates=rates,
+            output_limit=output_limit,
+            response_bytes=262144,
+        )
+        assert reservation is not None
+        try:
+            raw = await self._client.responses.with_raw_response.parse(
+                model=model,
+                instructions=instructions,
+                input=items,
+                tools=contact_function_tools(),
+                tool_choice="none",
+                parallel_tool_calls=False,
+                max_output_tokens=output_limit,
+                reasoning={"effort": effort},
+                text={"verbosity": "medium" if self._catalog else self._settings.openai_verbosity},
+                store=False,
+                service_tier="default",
+                safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
+                text_format=ChatReply,
+            )
+            receipt = cast(_RawChatResponse, raw)
+            payload, envelope = await self._verified_receipt(receipt, reservation, rates)
+            if parse_contact_function(payload) is not None:
+                raise InferenceProviderError("invalid_response")
+            response = receipt.parse()
+            if response.output_parsed is None or response.output_parsed.next_action != "none":
+                raise InferenceProviderError("invalid_response")
+            return ChatTurnOutput(
+                answer=response.output_parsed.answer,
+                model=envelope.model,
+                input_tokens=envelope.usage.input_tokens if envelope.usage else None,
+                output_tokens=envelope.usage.output_tokens if envelope.usage else None,
+                plan=response.output_parsed.plan,
+            )
+        except (APIConnectionError, APIStatusError) as exc:
+            raise sdk_failure(exc) from None
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise InferenceProviderError("invalid_response") from None
 
     def _selection(
         self, context: str
@@ -203,6 +342,7 @@ class OpenAIConversationModel:
         rates: LlmRateCard,
         output_limit: int,
         response_bytes: int,
+        input_items: list[ResponseInputItemParam] | None = None,
     ) -> CostReservation | None:
         if self._ledger is not None:
             if model != rates.model:
@@ -212,7 +352,7 @@ class OpenAIConversationModel:
             # for a different model or adding an external token-counting request.
             input_bound = conversation_input_bound(
                 instructions=instructions,
-                context=context,
+                context=input_items if input_items is not None else context,
                 tools=contact_function_tools() if self._native_contact_mode(context) else None,
             )
             if input_bound > self._settings.operation_chat_max_input_tokens:
@@ -410,7 +550,10 @@ class OpenAIConversationModel:
 
 
 def conversation_input_bound(
-    *, instructions: str, context: str, tools: list[FunctionToolParam] | None = None
+    *,
+    instructions: str,
+    context: str | list[ResponseInputItemParam],
+    tools: list[FunctionToolParam] | None = None,
 ) -> int:
     """Shared conservative text/schema/protocol bound for admission and dry-run QA."""
     return (

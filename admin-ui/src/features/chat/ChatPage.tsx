@@ -566,7 +566,11 @@ export function ChatPage({
                 </p>
               )}
             {turns.map((turn) => (
-              <div className="chat-turn" key={turn.turn_id}>
+              <div
+                className="chat-turn"
+                key={turn.turn_id}
+                id={`turn-${turn.turn_id}`}
+              >
                 <article
                   className="chat-message user-message"
                   aria-label={t("Ваше сообщение")}
@@ -677,6 +681,7 @@ export function ChatPage({
                         <RetentionContactActions
                           topicId={currentTopicId}
                           turnId={turn.turn_id}
+                          onContinued={() => refreshTopic(currentTopicId)}
                         />
                       )}
                     {(turn.status === "completed" ||

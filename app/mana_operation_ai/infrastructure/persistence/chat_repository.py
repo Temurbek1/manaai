@@ -17,6 +17,7 @@ from app.mana_operation_ai.domain.chat import (
     TopicCreate,
     TranscriptPage,
 )
+from app.mana_operation_ai.domain.contact_continuation import ContactPreparationResult
 from app.mana_operation_ai.domain.contact_preparation import contact_selection_fingerprint
 from app.mana_operation_ai.domain.session import SessionUserContext
 from app.mana_operation_ai.domain.workspace_events import ChatTextEvent
@@ -42,7 +43,12 @@ def _turn(row: ChatTurnRow) -> ChatTurn:
         ) from None
     preparation = turn.contact_preparation
     if preparation and preparation.selection_fingerprint != contact_selection_fingerprint(
-        row.owner, turn.topic_id, turn.turn_id, preparation, preparation.provider_call_sha256
+        row.owner,
+        turn.topic_id,
+        turn.turn_id,
+        preparation,
+        preparation.provider_call_sha256,
+        contract=preparation.contract,
     ):
         raise ChatError("Сохранённый запрос подготовки требует проверки привязки.", 503)
     return turn
@@ -69,6 +75,9 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
             "preview_revision",
             "contact_tool_contract",
             "contact_preparation",
+            "contact_model_window",
+            "contact_result",
+            "contact_reply_turn_id",
         },
     )
     metadata = {
@@ -102,6 +111,21 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         or turn.response_language is not None
     ):
         workspace = {
+            **(
+                {"contact_model_window": turn.contact_model_window.model_dump(mode="json")}
+                if turn.contact_model_window
+                else {}
+            ),
+            **(
+                {"contact_result": turn.contact_result.model_dump(mode="json")}
+                if turn.contact_result
+                else {}
+            ),
+            **(
+                {"contact_reply_turn_id": turn.contact_reply_turn_id}
+                if turn.contact_reply_turn_id
+                else {}
+            ),
             **(
                 {"contact_tool_contract": turn.contact_tool_contract}
                 if turn.contact_tool_contract
@@ -313,7 +337,11 @@ class SqlAlchemyChatRepository:
             ]
             rows = (
                 await session.execute(
-                    select(*self._public_columns())
+                    select(
+                        *self._public_columns(),
+                        ChatTurnRow.workspace_metadata["contact_tool_contract"],
+                        ChatTurnRow.workspace_metadata["contact_preparation"],
+                    )
                     .where(*conditions)
                     .order_by(ChatTurnRow.created_at.desc(), ChatTurnRow.turn_id.desc())
                     .limit(6)
@@ -323,7 +351,20 @@ class SqlAlchemyChatRepository:
                 select(func.count()).select_from(ChatTurnRow).where(*conditions)
             )
             return RecentConversation(
-                turns=list(reversed([self._public_turn(row) for row in rows])),
+                turns=list(
+                    reversed(
+                        [
+                            ChatTurn.model_validate(
+                                {
+                                    **self._public_turn(row[:6]).model_dump(),
+                                    "contact_tool_contract": row[6],
+                                    "contact_preparation": row[7],
+                                }
+                            )
+                            for row in rows
+                        ]
+                    )
+                ),
                 older_turns_omitted=max(0, (count or 0) - 6),
             )
 
@@ -373,12 +414,48 @@ class SqlAlchemyChatRepository:
             await self._update(session, row, turn)
 
     async def reserve(
-        self, owner: str, topic_id: str, payload: MessageCreate
+        self,
+        owner: str,
+        topic_id: str,
+        payload: MessageCreate,
+        *,
+        contact_result: ContactPreparationResult | None = None,
     ) -> tuple[ChatTurn, bool]:
         async with self._sessions() as session, session.begin():
             await self._lock_budget(session)
             topic_row = await self._owned(session, owner, topic_id)
             await self._expire(session)
+            origin_row = None
+            if contact_result is not None:
+                origin_row = await session.scalar(
+                    select(ChatTurnRow)
+                    .where(
+                        ChatTurnRow.owner == owner,
+                        ChatTurnRow.topic_id == topic_id,
+                        ChatTurnRow.turn_id == contact_result.origin_turn_id,
+                    )
+                    .with_for_update()
+                )
+                if origin_row is None:
+                    raise ChatError("Исходный вызов инструмента недоступен.", 404)
+                origin = _turn(origin_row)
+                if (
+                    origin.contact_model_window is None
+                    or origin.contact_model_window.selection_fingerprint
+                    != contact_result.selection_fingerprint
+                ):
+                    raise ChatError("Результат не связан с исходным вызовом инструмента.")
+                if origin.contact_reply_turn_id:
+                    previous = await session.get(ChatTurnRow, origin.contact_reply_turn_id)
+                    if previous is None or previous.owner != owner or previous.topic_id != topic_id:
+                        raise ChatError("Продолжение требует проверки сохранённой привязки.", 503)
+                    child = _turn(previous)
+                    if child.contact_result is None or (
+                        child.contact_result.model_dump(exclude={"observed_at"})
+                        != contact_result.model_dump(exclude={"observed_at"})
+                    ):
+                        raise ChatError("Этот вызов уже продолжен с другим SQL-снимком.")
+                    return child, False
             existing = await session.scalar(
                 select(ChatTurnRow).where(
                     ChatTurnRow.topic_id == topic_id,
@@ -393,6 +470,7 @@ class SqlAlchemyChatRepository:
                     or turn.reasoning != payload.reasoning
                     or turn.execution_mode != payload.execution_mode
                     or turn.response_language != payload.response_language
+                    or turn.contact_result != contact_result
                 ):
                     raise ChatError("Идентификатор запроса уже использован для другого сообщения.")
                 return turn, False
@@ -437,6 +515,7 @@ class SqlAlchemyChatRepository:
                 reasoning=payload.reasoning,
                 execution_mode=payload.execution_mode,
                 response_language=payload.response_language,
+                contact_result=contact_result,
                 status="reading",
                 created_at=now,
             )
@@ -456,6 +535,13 @@ class SqlAlchemyChatRepository:
                     **_storage(turn),
                 )
             )
+            if origin_row is not None:
+                # The existing cross-process chat fence serializes one consumer per call.
+                # This claim commits with the new turn before any inference I/O.
+                origin_row.workspace_metadata = {
+                    **(origin_row.workspace_metadata or {}),
+                    "contact_reply_turn_id": turn.turn_id,
+                }
             return turn, True
 
     async def update(self, turn: ChatTurn) -> bool:
