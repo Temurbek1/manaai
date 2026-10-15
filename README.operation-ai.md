@@ -51,10 +51,12 @@ lane remains sandbox-only, not live writes or a full Orchestrator implementation
 
 The default administrator UI is a private conversation workspace: exactly four agent rooms,
 with separate server-persisted topics and an explicit MANA/360REC conversation context.
-Operational screens are available through **Professional mode** (`/overview`). Its local
+Operational screens are available through **Professional mode** (`/overview`). Its
 compact admin layout adds **Analytics and data** (`/analytics`): separate saved GA4 parent
 activity, Firebase child-device samples and Parent API summaries, without new provider reads.
 See [professional analytics](docs/operation-professional-analytics.md) for boundaries and checks.
+The isolated UI-only production release is recorded in
+[professional UI release](docs/operation-professional-ui-release.md).
 See [admin-ux-ui.md](docs/admin-ux-ui.md) for behavior, safety limits and release verification.
 
 MANA-only Parent API integration: [mana-parent-api.md](docs/mana-parent-api.md).

@@ -1,6 +1,8 @@
 # Professional analytics workspace
 
 Local UI increment, 15 October 2026. This is not a production deployment record.
+The later isolated UI-only deployment is recorded in
+[the professional UI release](operation-professional-ui-release.md).
 
 ## Navigation and presentation
 
@@ -79,7 +81,8 @@ bundle scan (28 text assets), secret/quality scans, no-Vite check, unchanged Ope
 comparison and Compose validation passed. See `output/professional-ui-final-build.log`,
 `output/professional-ui-final-smoke.log` and `output/professional-ui-schema.log`.
 
-Production remains unchanged. No backend contracts, private contact feature flags,
+At this local checkpoint production remained unchanged. No backend contracts, private contact feature flags,
 migrations, existing Goal history, source settings, schedules, main/audio API, SSH
-or keys are changed by this UI increment. Release it separately after the normal
-verification and deployment review; do not deploy local contact work with it.
+or keys are changed by this UI increment. The subsequent separately approved clean-baseline
+UI release passed verification and deployment checks without local contact work; see the
+release record above. This historical local test record is not a broader source/model acceptance.

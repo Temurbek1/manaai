@@ -8,10 +8,13 @@
   never a source/action grant. Freeze it on chat admission and preserve exact Goal objectives,
   evidence/history and idempotent replay. Recipient language/consent remain independently
   verified. See `docs/operation-interface-languages.md`.
-- The scoped RU/UZ production increment runs `38cdac4` API/Goals worker and UI, preserving
+- The scoped RU/UZ production increment runs `38cdac4` API/Goals worker; the subsequent
+  UI-only professional release runs clean-baseline `faf0a78`, preserving
   the `6babf75` profile and `a36d9f7b802c` schema. The private Retention contact foundation
   and migration are not deployed or exposed. Only closed `2ea7b9a`/disabled native execution
-  is verified for reading language metadata. See `docs/operation-interface-language-release.md`.
+  is verified for reading language metadata. See `docs/operation-interface-language-release.md`
+  and `docs/operation-professional-ui-release.md`. The analytics screen reads existing saved
+  SQL reports only; no source auto-refresh, provider activation or contact code ships with it.
 - The local default-disabled `OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED` lane
   supports only two fictional adults, immutable RU/UZ templates and separate typed
   human preparation/approval through the owning Retention fake lifecycle. Private
