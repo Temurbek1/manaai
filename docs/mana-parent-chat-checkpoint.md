@@ -1,4 +1,7 @@
-# Parent chat — local implementation checkpoint, 2026-10-16
+# Parent chat — historical local implementation checkpoint, 2026-10-16
+
+This records the pre-release implementation phase. The later authorized production
+deployment is documented in [mana-parent-chat-release.md](mana-parent-chat-release.md).
 
 This is a new, independent application API task. The broad operational workspace
 goal remains paused; its preparation-admission WIP has not been resumed or shipped.

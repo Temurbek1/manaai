@@ -45,13 +45,16 @@ def build_schema() -> dict[str, Any]:
     return schema
 
 
-def build_html() -> bytes:
+def build_html(asset_revision: str | None = None) -> bytes:
+    if asset_revision is not None and not re.fullmatch(r"[a-f0-9]{12}", asset_revision):
+        raise ValueError("Asset revision must be a twelve-character image digest")
+    asset_version = SWAGGER_UI_VERSION + (f"-{asset_revision}" if asset_revision else "")
     html = bytes(
         get_swagger_ui_html(
             openapi_url="/openapi.json",
             title="MANA AI — Swagger",
-            swagger_js_url=f"/docs-assets/swagger-ui-bundle.js?v={SWAGGER_UI_VERSION}-utf8",
-            swagger_css_url=f"/docs-assets/swagger-ui.css?v={SWAGGER_UI_VERSION}-utf8",
+            swagger_js_url=f"/docs-assets/swagger-ui-bundle.js?v={asset_version}-utf8",
+            swagger_css_url=f"/docs-assets/swagger-ui.css?v={asset_version}-utf8",
             swagger_favicon_url="data:,",
             swagger_ui_parameters={
                 **SWAGGER_UI_PARAMETERS,
@@ -78,7 +81,7 @@ def main() -> None:
         json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    (args.output_dir / "index.html").write_bytes(build_html())
+    (args.output_dir / "index.html").write_bytes(build_html(args.runtime_image[7:19]))
     (args.output_dir / "manifest.json").write_text(
         json.dumps(
             {

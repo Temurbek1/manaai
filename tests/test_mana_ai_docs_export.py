@@ -54,6 +54,7 @@ def test_export_is_exclusive_and_records_runtime(monkeypatch: MonkeyPatch, tmp_p
         sys, "argv", ["export", "--output-dir", str(output), "--runtime-image", image]
     )
     export_mana_ai_docs.main()
+    assert "5.33.2-aaaaaaaaaaaa-utf8" in (output / "index.html").read_text()
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest == {
         "runtime_image": image,
@@ -64,6 +65,11 @@ def test_export_is_exclusive_and_records_runtime(monkeypatch: MonkeyPatch, tmp_p
     }
     with pytest.raises(FileExistsError):
         export_mana_ai_docs.main()
+
+
+def test_asset_revision_cannot_inject_html() -> None:
+    with pytest.raises(ValueError):
+        export_mana_ai_docs.build_html('" onclick="unsafe')
 
 
 def test_invalid_image_ref_is_refused(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:

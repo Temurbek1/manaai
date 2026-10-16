@@ -35,7 +35,8 @@ curl 'http://127.0.0.1:8000/api/v1/mana-ai/chat' \
   -d '{"parent_id":"123","request_id":"8270fbd2-1579-4c44-955c-6703ac27098f","message":"Как помочь ребёнку со сном?"}'
 ```
 
-Примеры локальные; этот документ не утверждает, что endpoint уже выпущен в production.
+Примеры выше локальные. Endpoint выпущен отдельно; фактические проверки и границы
+зафиксированы в [mana-parent-chat-release.md](mana-parent-chat-release.md).
 Для изолированного production-развёртывания используйте тот же путь на
 `https://ai.360rec.uz` с **отдельным ключом MANA чата**. В Swagger он называется
 `ParentChatBackendToken`; старый `BearerToken` остальных inference endpoints

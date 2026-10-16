@@ -3,6 +3,10 @@
 ## Repository expectations
 
 - The parent application chat is separate from the operational-agent workspace.
+  The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on
+  `ai.360rec.uz`, with exact chat ingress and a separately issued backend token.
+  See `docs/mana-parent-chat-release.md` for actual checks/rollback; main/audio,
+  operations, UI and scheduler containers are unchanged by that release.
   Keep one private durable history and daily input+output allowance per canonical
   MANA profile parent ID. Backend-only credentials must not be shared with mobile,
   360REC or general inference clients. The production chat can run as an isolated
