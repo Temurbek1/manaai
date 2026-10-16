@@ -56,5 +56,17 @@ capacity and broad model quality are not established by functional smoke tests.
 
 ## Execution evidence
 
-Release is prepared locally. Fill this section only after the actual deployment,
-health, shared-key rejection, history durability and invariants are observed.
+The first `e2c71a7` candidate passed clean `make verify` (342 backend, 26 UI tests),
+networkless image startup, private-volume/auth checks and one live negative Parent
+API lookup. It was started only on loopback; public ingress was not changed.
+
+The first two-call real-model diagnostic retained verified usage: RU 373 input/40
+output; UZ 383 input/79 output. Both used the expected language and replayed without
+new calls, but the RU answer incorrectly discussed phone calls instead of screen
+time. This is **negative semantic evidence**, not a passing quality acceptance.
+Its protected SQL/results remain in the first release kit. The prompt was then
+given the missing parental-control/device-usage context before a new candidate.
+Never rewrite or replay the first diagnostic as a pass.
+
+Public deployment, final candidate and subsequent checks are recorded below only
+after they are actually observed.
