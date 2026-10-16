@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- The parent application chat is separate from the operational-agent workspace.
+  Keep one private durable history and daily input+output allowance per canonical
+  MANA profile parent ID. Backend-only credentials must not be shared with mobile,
+  360REC or general inference clients. The production chat can run as an isolated
+  sidecar: exact `/api/v1/mana-ai/chat` ingress only, its own key/volume, no scheduler,
+  operational database, Firebase/GA4 refresh or audio worker. Unknown submitted
+  model usage remains held; never retry, refund or erase it automatically. See
+  `docs/mana-parent-chat.md`. This release does not resume the owner's paused broad
+  operational workspace goal or ship its preparation-admission work.
+
 - Work in English for code, comments, commit messages, and identifiers.
 - User-facing documentation may be Russian when the product audience is Russian.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.

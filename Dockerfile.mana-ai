@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app
+RUN install -d -o app -g app -m 0700 /app/data
 
 COPY requirements.mana-ai.lock ./
 RUN pip install --requirement requirements.mana-ai.lock

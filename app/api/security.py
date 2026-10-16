@@ -13,6 +13,14 @@ bearer_scheme = HTTPBearer(
     description="Send APP_API_KEY as `Authorization: Bearer <token>`.",
     auto_error=False,
 )
+parent_chat_bearer_scheme = HTTPBearer(
+    scheme_name="ParentChatBackendToken",
+    description=(
+        "Backend-only parent chat token. Production uses a separately issued MANA "
+        "credential, not the shared inference or mobile token."
+    ),
+    auto_error=False,
+)
 
 
 async def require_bearer_token(
@@ -23,6 +31,27 @@ async def require_bearer_token(
     if not settings.is_api_auth_required:
         return
 
+    await _validate_backend_token(request, credentials, settings)
+
+
+async def require_backend_bearer_token(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Security(parent_chat_bearer_scheme)
+    ],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> None:
+    """Personal child/history data never permits the local anonymous API mode."""
+    if settings.app_api_key is None or len(settings.app_api_key.get_secret_value()) < 32:
+        raise HTTPException(status_code=503, detail="Backend authentication is unavailable")
+    await _validate_backend_token(request, credentials, settings)
+
+
+async def _validate_backend_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+    settings: Settings,
+) -> None:
     if not settings.is_app_api_key_configured or settings.app_api_key is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -36,7 +65,9 @@ async def require_bearer_token(
         raise HTTPException(status_code=500, detail="Authentication limiter is unavailable")
 
     supplied_token = credentials.credentials if credentials is not None else None
-    if supplied_token is None or not secrets.compare_digest(supplied_token, expected_token):
+    if supplied_token is None or not secrets.compare_digest(
+        supplied_token.encode("utf-8"), expected_token.encode("utf-8")
+    ):
         retry_after = await limiter.record_failure(client_key)
         if retry_after is not None:
             raise HTTPException(

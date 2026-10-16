@@ -3546,6 +3546,74 @@
         "title": "CapabilityRisk",
         "type": "string"
       },
+      "ChatAppUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "app_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "App Name",
+            "type": "string"
+          },
+          "minutes": {
+            "maximum": 44640.0,
+            "minimum": 0.0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "app_name",
+          "minutes"
+        ],
+        "title": "ChatAppUsage",
+        "type": "object"
+      },
+      "ChatQuota": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked_by_unresolved_request": {
+            "default": false,
+            "title": "Blocked By Unresolved Request",
+            "type": "boolean"
+          },
+          "daily_limit": {
+            "title": "Daily Limit",
+            "type": "integer"
+          },
+          "remaining_tokens": {
+            "title": "Remaining Tokens",
+            "type": "integer"
+          },
+          "reserved_tokens": {
+            "title": "Reserved Tokens",
+            "type": "integer"
+          },
+          "resets_at": {
+            "format": "date-time",
+            "title": "Resets At",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "used_tokens": {
+            "title": "Used Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "daily_limit",
+          "used_tokens",
+          "reserved_tokens",
+          "remaining_tokens",
+          "resets_at",
+          "timezone"
+        ],
+        "title": "ChatQuota",
+        "type": "object"
+      },
       "ChatRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3595,6 +3663,27 @@
         "title": "ChatResponse",
         "type": "object"
       },
+      "ChatTokens": {
+        "additionalProperties": false,
+        "properties": {
+          "input_tokens": {
+            "minimum": 0.0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "ChatTokens",
+        "type": "object"
+      },
       "CheckResult": {
         "additionalProperties": false,
         "properties": {
@@ -3628,6 +3717,99 @@
         ],
         "title": "CheckStatus",
         "type": "string"
+      },
+      "ChildChatObservation": {
+        "additionalProperties": false,
+        "description": "Minimized facts supplied by the authenticated application backend.",
+        "properties": {
+          "activity_period_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Period End"
+          },
+          "activity_period_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Period Start"
+          },
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/ChatAppUsage"
+            },
+            "maxItems": 5,
+            "title": "Apps",
+            "type": "array"
+          },
+          "battery_percent": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battery Percent"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "location_label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Label"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "screen_time_minutes": {
+            "anyOf": [
+              {
+                "maximum": 44640.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Screen Time Minutes"
+          }
+        },
+        "required": [
+          "child_id",
+          "observed_at"
+        ],
+        "title": "ChildChatObservation",
+        "type": "object"
       },
       "ChildSafetyAssistantActionProposal": {
         "additionalProperties": false,
@@ -9183,6 +9365,225 @@
         "title": "Page[Recommendation]",
         "type": "object"
       },
+      "ParentChatHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "latest_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Error Code"
+          },
+          "latest_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Request Id"
+          },
+          "latest_request_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "preparing",
+                  "submitted",
+                  "completed",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Request Status"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ParentChatMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "next_before_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Before Turn Id"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/ChatQuota"
+          }
+        },
+        "required": [
+          "parent_id",
+          "messages",
+          "next_before_turn_id",
+          "quota"
+        ],
+        "title": "ParentChatHistory",
+        "type": "object"
+      },
+      "ParentChatMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "preparing",
+              "submitted",
+              "completed",
+              "failed",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "turn_id",
+          "request_id",
+          "role",
+          "content",
+          "created_at",
+          "status"
+        ],
+        "title": "ParentChatMessage",
+        "type": "object"
+      },
+      "ParentChatRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "child_observations": {
+            "items": {
+              "$ref": "#/components/schemas/ChildChatObservation"
+            },
+            "maxItems": 20,
+            "title": "Child Observations",
+            "type": "array"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Message",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id",
+          "message"
+        ],
+        "title": "ParentChatRequest",
+        "type": "object"
+      },
+      "ParentChatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "child_context_collected_at": {
+            "format": "date-time",
+            "title": "Child Context Collected At",
+            "type": "string"
+          },
+          "history_turns_included": {
+            "title": "History Turns Included",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/ChatQuota"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/ChatTokens"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id",
+          "answer",
+          "model",
+          "usage",
+          "quota",
+          "history_turns_included",
+          "child_context_collected_at"
+        ],
+        "title": "ParentChatResponse",
+        "type": "object"
+      },
       "ParentCopilotActionProposal": {
         "additionalProperties": false,
         "properties": {
@@ -13001,6 +13402,11 @@
       },
       "BearerToken": {
         "description": "Send APP_API_KEY as `Authorization: Bearer <token>`.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "ParentChatBackendToken": {
+        "description": "Backend-only parent chat token. Production uses a separately issued MANA credential, not the shared inference or mobile token.",
         "scheme": "bearer",
         "type": "http"
       }
@@ -18273,6 +18679,159 @@
           }
         ],
         "summary": "List implemented MANA AI endpoints",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/chat": {
+      "get": {
+        "description": "Backend-to-backend only. Derive parent_id from the authenticated app session; never accept another parent's ID from the mobile client. No source or model calls. Messages are chronological within the latest page. Page backwards with next_before_turn_id; limit counts turns, not messages.",
+        "operationId": "read_parent_chat_api_v1_mana_ai_chat_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_turn_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Turn Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentChatHistory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Read the parent's single chat and current daily allowance",
+        "tags": [
+          "mana-ai"
+        ]
+      },
+      "post": {
+        "description": "Backend-to-backend only, using the profile/Firebase parent ID (not Firebase Auth UID). The backend authenticates the parent and derives this ID from its session. Replies use the latest message's language. request_id is mandatory: reuse it with the identical body after transport loss; never generate a new ID to retry inference. Daily quota counts all input and output tokens, including bounded history/context. Unknown dispatched costs remain reserved, even across daily rollover. Fresh MANA child profile context is ownership-filtered, with no collection scans. Optional minimized child_observations come only from the authenticated backend; every child must still be connected to this parent in the fresh profile read. Observations must include their actual time/usage period, not collection time.",
+        "operationId": "send_parent_chat_api_v1_mana_ai_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "value": {
+                    "message": "Как помочь ребёнку со сном?",
+                    "parent_id": "123",
+                    "request_id": "8270fbd2-1579-4c44-955c-6703ac27098f"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ParentChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentChatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Backend authentication failed"
+          },
+          "403": {
+            "description": "An observation references a child not connected to this parent"
+          },
+          "404": {
+            "description": "Parent profile not found"
+          },
+          "409": {
+            "description": "Conflicting request or an earlier request is unresolved"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Daily token/request limit reached"
+          },
+          "502": {
+            "description": "Model rejected the request or returned no usable answer"
+          },
+          "503": {
+            "description": "Disabled, source/storage failure or unknown model receipt"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Send a message in the parent's single persistent chat",
         "tags": [
           "mana-ai"
         ]

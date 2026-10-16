@@ -1,0 +1,61 @@
+# Isolated MANA backend-to-backend chat. Never reuse the shared inference key.
+# Supply a root-only --env-file; the existing production stack is not restarted.
+services:
+  parent-chat:
+    image: ${PARENT_CHAT_IMAGE:?Set an immutable released chat image}
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_API_KEY: ${MANA_PARENT_CHAT_BACKEND_TOKEN:?Set a dedicated MANA backend token}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set the existing provider credential}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-nano}
+      OPENAI_REASONING_EFFORT: ${OPENAI_REASONING_EFFORT:-none}
+      OPENAI_TIMEOUT_SECONDS: "120"
+      MANA_PARENT_CHAT_ENABLED: "true"
+      MANA_PARENT_CHAT_DATABASE_PATH: /app/data/mana-parent-chat.sqlite3
+      MANA_PARENT_CHAT_DAILY_TOKENS: "2000"
+      MANA_PARENT_CHAT_TIMEZONE: Asia/Tashkent
+      MANA_PARENT_CHAT_MAX_OUTPUT_TOKENS: "512"
+      MANA_PARENT_CHAT_HISTORY_TURNS: "2"
+      MANA_PARENT_CHAT_MAX_ATTEMPTS_PER_DAY: "20"
+      MANA_PARENT_CHAT_SOURCE_TIMEOUT_SECONDS: "30"
+      MANAKIDS_API_BASE_URL: https://api.manakids.uz
+      MANAKIDS_API_USERNAME: ${MANAKIDS_API_USERNAME:?Set the read-only MANA account}
+      MANAKIDS_API_PASSWORD: ${MANAKIDS_API_PASSWORD:?Set the read-only MANA password}
+      MANA_TELEGRAM_AUTH_ENABLED: "false"
+      AUDIO_MODERATION_ENABLED: "false"
+      OPERATION_SCHEDULER_ENABLED: "false"
+      OPERATION_PRODUCT_ACTIVITY_PROVIDER: fake
+      FIREBASE_OPERATIONAL_TELEMETRY_ENABLED: "false"
+    ports:
+      - "127.0.0.1:18082:8000"
+    volumes:
+      - parent-chat-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    stop_grace_period: 150s
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  parent-chat-data:

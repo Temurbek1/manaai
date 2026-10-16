@@ -16,6 +16,7 @@ MANA_AI_FORBIDDEN_PREFIXES = (
     "openai",
     "redis",
     "sqlalchemy",
+    "sqlite3",
 )
 PRODUCT_AI_RUNTIME_FORBIDDEN_PREFIXES = (
     "app.mana_operation_ai",

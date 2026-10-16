@@ -1056,6 +1056,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the parent's single chat and current daily allowance
+         * @description Backend-to-backend only. Derive parent_id from the authenticated app session; never accept another parent's ID from the mobile client. No source or model calls. Messages are chronological within the latest page. Page backwards with next_before_turn_id; limit counts turns, not messages.
+         */
+        get: operations["read_parent_chat_api_v1_mana_ai_chat_get"];
+        put?: never;
+        /**
+         * Send a message in the parent's single persistent chat
+         * @description Backend-to-backend only, using the profile/Firebase parent ID (not Firebase Auth UID). The backend authenticates the parent and derives this ID from its session. Replies use the latest message's language. request_id is mandatory: reuse it with the identical body after transport loss; never generate a new ID to retry inference. Daily quota counts all input and output tokens, including bounded history/context. Unknown dispatched costs remain reserved, even across daily rollover. Fresh MANA child profile context is ownership-filtered, with no collection scans. Optional minimized child_observations come only from the authenticated backend; every child must still be connected to this parent in the fresh profile read. Observations must include their actual time/usage period, not collection time.
+         */
+        post: operations["send_parent_chat_api_v1_mana_ai_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/child-safety-assistant": {
         parameters: {
             query?: never;
@@ -2876,6 +2900,36 @@ export interface components {
          * @enum {string}
          */
         CapabilityRisk: "read" | "propose" | "write" | "financial";
+        /** ChatAppUsage */
+        ChatAppUsage: {
+            /** App Name */
+            app_name: string;
+            /** Minutes */
+            minutes: number;
+        };
+        /** ChatQuota */
+        ChatQuota: {
+            /**
+             * Blocked By Unresolved Request
+             * @default false
+             */
+            blocked_by_unresolved_request: boolean;
+            /** Daily Limit */
+            daily_limit: number;
+            /** Remaining Tokens */
+            remaining_tokens: number;
+            /** Reserved Tokens */
+            reserved_tokens: number;
+            /**
+             * Resets At
+             * Format: date-time
+             */
+            resets_at: string;
+            /** Timezone */
+            timezone: string;
+            /** Used Tokens */
+            used_tokens: number;
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
@@ -2893,6 +2947,13 @@ export interface components {
             /** Model */
             model: string;
         };
+        /** ChatTokens */
+        ChatTokens: {
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+        };
         /** CheckResult */
         CheckResult: {
             category: components["schemas"]["FindingCategory"];
@@ -2905,6 +2966,31 @@ export interface components {
          * @enum {string}
          */
         CheckStatus: "risk_detected" | "no_risk_detected" | "insufficient_data" | "not_applicable";
+        /**
+         * ChildChatObservation
+         * @description Minimized facts supplied by the authenticated application backend.
+         */
+        ChildChatObservation: {
+            /** Activity Period End */
+            activity_period_end?: string | null;
+            /** Activity Period Start */
+            activity_period_start?: string | null;
+            /** Apps */
+            apps?: components["schemas"]["ChatAppUsage"][];
+            /** Battery Percent */
+            battery_percent?: number | null;
+            /** Child Id */
+            child_id: number;
+            /** Location Label */
+            location_label?: string | null;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Screen Time Minutes */
+            screen_time_minutes?: number | null;
+        };
         /** ChildSafetyAssistantActionProposal */
         ChildSafetyAssistantActionProposal: {
             /** Action */
@@ -4814,6 +4900,86 @@ export interface components {
             offset: number;
             /** Total */
             total: number;
+        };
+        /** ParentChatHistory */
+        ParentChatHistory: {
+            /** Latest Error Code */
+            latest_error_code?: string | null;
+            /** Latest Request Id */
+            latest_request_id?: string | null;
+            /** Latest Request Status */
+            latest_request_status?: ("preparing" | "submitted" | "completed" | "failed" | "unknown") | null;
+            /** Messages */
+            messages: components["schemas"]["ParentChatMessage"][];
+            /** Next Before Turn Id */
+            next_before_turn_id: number | null;
+            /** Parent Id */
+            parent_id: string;
+            quota: components["schemas"]["ChatQuota"];
+        };
+        /** ParentChatMessage */
+        ParentChatMessage: {
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "submitted" | "completed" | "failed" | "unknown";
+            /** Turn Id */
+            turn_id: number;
+        };
+        /** ParentChatRequest */
+        ParentChatRequest: {
+            /** Child Observations */
+            child_observations?: components["schemas"]["ChildChatObservation"][];
+            /** Message */
+            message: string;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ParentChatResponse */
+        ParentChatResponse: {
+            /** Answer */
+            answer: string;
+            /**
+             * Child Context Collected At
+             * Format: date-time
+             */
+            child_context_collected_at: string;
+            /** History Turns Included */
+            history_turns_included: number;
+            /** Model */
+            model: string;
+            /** Parent Id */
+            parent_id: string;
+            quota: components["schemas"]["ChatQuota"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            usage: components["schemas"]["ChatTokens"];
         };
         /** ParentCopilotActionProposal */
         ParentCopilotActionProposal: {
@@ -8220,6 +8386,121 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ManaAICapabilitiesResponse"];
                 };
+            };
+        };
+    };
+    read_parent_chat_api_v1_mana_ai_chat_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+                before_turn_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentChatHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_parent_chat_api_v1_mana_ai_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentChatResponse"];
+                };
+            };
+            /** @description Backend authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An observation references a child not connected to this parent */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Parent profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflicting request or an earlier request is unresolved */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Daily token/request limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Model rejected the request or returned no usable answer */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Disabled, source/storage failure or unknown model receipt */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

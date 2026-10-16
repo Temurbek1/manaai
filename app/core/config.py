@@ -3,6 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        hide_input_in_errors=True,
     )
 
     app_env: Literal["local", "development", "staging", "production"] = "local"
@@ -31,6 +33,14 @@ class Settings(BaseSettings):
         ge=16_384,
         le=16_777_216,
     )
+    mana_parent_chat_enabled: bool = False
+    mana_parent_chat_database_path: Path = Path("data/mana-parent-chat.sqlite3")
+    mana_parent_chat_daily_tokens: int = Field(default=2000, ge=256, le=100_000)
+    mana_parent_chat_timezone: str = "Asia/Tashkent"
+    mana_parent_chat_max_output_tokens: int = Field(default=512, ge=32, le=4096)
+    mana_parent_chat_history_turns: int = Field(default=2, ge=0, le=10)
+    mana_parent_chat_max_attempts_per_day: int = Field(default=20, ge=1, le=100)
+    mana_parent_chat_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -359,6 +369,32 @@ class Settings(BaseSettings):
     meta_action_attribution_windows: list[str] = Field(
         default_factory=lambda: ["1d_click", "7d_click"],
     )
+
+    @model_validator(mode="after")
+    def validate_parent_chat_configuration(self) -> "Settings":
+        try:
+            ZoneInfo(self.mana_parent_chat_timezone)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError("MANA_PARENT_CHAT_TIMEZONE must be an IANA timezone") from exc
+        if self.mana_parent_chat_enabled:
+            if (
+                not self.is_app_api_key_configured
+                or self.app_api_key is None
+                or len(self.app_api_key.get_secret_value()) < 32
+            ):
+                raise ValueError("Parent chat requires a strong backend-only APP_API_KEY")
+            if not self.is_openai_configured:
+                raise ValueError("Parent chat requires OPENAI_API_KEY")
+            if not self.manakids_api_username or not self.manakids_api_password:
+                raise ValueError("Parent chat requires Manakids read-only service credentials")
+            if self.mana_parent_chat_database_path == Path(":memory:"):
+                raise ValueError("Parent chat requires durable storage")
+            if (
+                self.mana_parent_chat_database_path.resolve()
+                == self.marketing_database_path.resolve()
+            ):
+                raise ValueError("Parent chat requires a dedicated database")
+        return self
 
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
