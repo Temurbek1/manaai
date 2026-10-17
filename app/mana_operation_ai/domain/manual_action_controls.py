@@ -4,6 +4,7 @@ from typing import Final, Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
+from app.mana_operation_ai.domain.enums import AgentStatus
 from app.mana_operation_ai.domain.models import DomainModel
 
 RETENTION_CONTACT_CONTROL_KEY: Final[Literal["retention.contact.sandbox"]] = (
@@ -26,6 +27,7 @@ class ManualActionControlView(DomainModel):
     capability_kill_switch: bool
     agent_kill_switch: bool
     global_kill_switch: bool
+    agent_status: AgentStatus | None = None
 
 
 class ManualActionControlPage(DomainModel):

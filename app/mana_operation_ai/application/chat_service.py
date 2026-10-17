@@ -58,6 +58,7 @@ from app.mana_operation_ai.domain.contact_preparation import (
     ContactToolSelection,
     contact_selection_fingerprint,
 )
+from app.mana_operation_ai.domain.enums import AgentStatus
 from app.mana_operation_ai.domain.first_party_analytics import FIRST_PARTY_CAPABILITIES
 from app.mana_operation_ai.domain.manual_action_controls import RETENTION_CONTACT_CONTROL_KEY
 from app.mana_operation_ai.domain.models import AgentReport
@@ -591,11 +592,15 @@ class OperationChatService:
                             capability_kill_switch=contact_control.capability_kill_switch,
                             agent_kill_switch=contact_control.agent_kill_switch,
                             global_kill_switch=contact_control.global_kill_switch,
+                            agent_status=contact_control.agent_status.value
+                            if contact_control.agent_status is not None
+                            else None,
                         )
                     if contact_control is None or (
                         contact_control.capability_kill_switch
                         or contact_control.agent_kill_switch
                         or contact_control.global_kill_switch
+                        or contact_control.agent_status is not AgentStatus.ENABLED
                     ):
                         allowed_actions.remove("retention_contacts")
                 native_contact = (

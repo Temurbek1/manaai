@@ -307,9 +307,37 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
   else
     browser select 'select[aria-label="Вымышленный получатель"]' sample_uz >/dev/null
   fi
+  if [[ "${AUDIT_CONTACT_ADMISSION:-false}" == "true" ]]; then
+    # The stale card was admitted before this explicit fake-admin stop. The real
+    # backend must refuse its next preparation before reading the fictional target.
+    browser eval '(async () => { const csrf=document.cookie.split("; ").find(x=>x.startsWith("mana_csrf="))?.slice(10); const r=await fetch("/api/v1/admin/operation/workspace/manual-action-controls/retention-agent/retention.contact.sandbox",{method:"PUT",headers:{"Content-Type":"application/json","X-CSRF-Token":decodeURIComponent(csrf || "")},body:JSON.stringify({confirmed:true,enabled:true})}); if(!r.ok) throw Error("Fake stop failed"); return r.status; })()' >/dev/null
+    browser find role button click --name "Подготовить тестовое сообщение" >/dev/null
+    browser find role button click --name "Подтвердить подготовку" >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Подготовка контактных действий Retention остановлена.")' >/dev/null
+    assert_browser 'Array.from(document.querySelectorAll("button")).find(b=>b.textContent.trim()==="Подготовить тестовое сообщение")?.disabled' 'known refusal became immediate permission to redispatch'
+    browser eval 'window.auditPreparationRequest=JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(k=>k.startsWith("mana:contact-preparation:v1:")))).request; true' >/dev/null
+    browser eval '(async () => { const csrf=document.cookie.split("; ").find(x=>x.startsWith("mana_csrf="))?.slice(10); const r=await fetch("/api/v1/admin/operation/workspace/manual-action-controls/retention-agent/retention.contact.sandbox",{method:"PUT",headers:{"Content-Type":"application/json","X-CSRF-Token":decodeURIComponent(csrf || "")},body:JSON.stringify({confirmed:true,enabled:false})}); if(!r.ok) throw Error("Fake rearm failed"); return r.status; })()' >/dev/null
+    browser find role button click --name "Проверить подготовку" >/dev/null
+    browser wait --fn 'Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Подготовить тестовое сообщение" && !b.disabled)' >/dev/null
+    # Lose only the successful UI acknowledgement, after the real local fake
+    # backend has recorded it. This never contacts a production host/provider.
+    browser eval 'window.auditFetch=window.fetch.bind(window); window.fetch=async (...args)=>{ const response=await window.auditFetch(...args); if(String(args[0]).endsWith("/retention-contacts/prepare") && args[1]?.method==="POST" && response.ok){ if(JSON.stringify(JSON.parse(args[1].body))!==JSON.stringify(window.auditPreparationRequest)) throw Error("Preparation request changed"); throw Error("Synthetic lost preparation acknowledgement"); } return response; }; true' >/dev/null
+  fi
   browser find role button click --name "Подготовить тестовое сообщение" >/dev/null
   browser find role button click --name "Подтвердить подготовку" >/dev/null
   browser wait --fn 'document.querySelector("blockquote[lang=uz]")?.textContent.includes("MANA: sozlashda")' >/dev/null
+  if [[ "${AUDIT_CONTACT_ADMISSION:-false}" == "true" ]]; then
+    browser wait --fn 'document.body.innerText.includes("Результат подготовки неизвестен. Новый запрос не отправляется.")' >/dev/null
+    browser reload >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Результат подготовки неизвестен. Новый запрос не отправляется.") && Boolean(document.querySelector("blockquote[lang=uz]"))' >/dev/null
+    assert_accessible
+    browser find role button click --name "Проверить подготовку" >/dev/null
+    browser wait --fn '!document.body.innerText.includes("Результат подготовки неизвестен. Новый запрос не отправляется.") && Boolean(document.querySelector("blockquote[lang=uz]"))' >/dev/null
+    "$PROJECT_ROOT/.venv/bin/python" -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); assert c.execute("SELECT count(*) FROM operation_contact_preparations").fetchone()[0]==1; assert c.execute("SELECT count(*) FROM operation_contact_preparations WHERE status=?",("recorded",)).fetchone()[0]==1; print("Contact admission browser: one SQL preparation after known refusal/reconfirmation, lost acknowledgement and reload/status observation")' "$AUDIT_TMP_DIR/operation.db"
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/contact-preparation-recovered.png" --full >/dev/null
+    fi
+  fi
   assert_browser '!document.body.innerText.includes("Принято тестовым получателем")' 'preparation sent without approval'
   browser find label "Причина решения" fill 'Reviewed exact fictional Uzbek template' >/dev/null
   if [[ "${AUDIT_RETENTION_PEER_REVIEWS:-false}" == "true" ]]; then

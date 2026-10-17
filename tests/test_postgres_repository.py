@@ -58,6 +58,97 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+async def test_postgres_preparation_ceiling_serializes_independent_connections() -> None:
+    from typing import Any
+
+    from sqlalchemy import event, text
+    from sqlalchemy.engine import make_url
+
+    from app.mana_operation_ai.application.retention.preparation_errors import (
+        ContactPreparationError,
+    )
+    from app.mana_operation_ai.domain.contact_admission import (
+        ContactPreparationBinding,
+        ContactPreparationLimits,
+    )
+    from app.mana_operation_ai.infrastructure.persistence.contact_admission import (
+        SqlAlchemyContactPreparations,
+    )
+
+    assert POSTGRES_URL is not None
+    url = make_url(POSTGRES_URL)
+    assert url.host in {"127.0.0.1", "localhost"} and url.database == "manaai_audit"
+    schema = f"synthetic_admission_{uuid4().hex}"
+    control = OperationDatabase(POSTGRES_URL)
+    first, second = OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)
+
+    def private_schema(connection: Any, record: Any) -> None:
+        del record
+        cursor = connection.cursor()
+        cursor.execute(f'SET search_path TO "{schema}"')
+        cursor.close()
+
+    for database in (first, second):
+        event.listen(database.engine.sync_engine, "connect", private_schema)
+    try:
+        async with control.engine.begin() as connection:
+            await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        await first.create_schema()
+        chats = SqlAlchemyChatRepository(first, hourly_limit=100, daily_limit=100)
+        bindings = []
+        for owner, token in [("fictional-one", "a"), ("fictional-two", "b")]:
+            topic = await chats.create(
+                owner,
+                TopicCreate(
+                    agent_id="retention-agent", product="mana", title="Isolated admission race"
+                ),
+            )
+            bindings.append(
+                ContactPreparationBinding(
+                    owner=owner,
+                    topic_id=topic.topic_id,
+                    request_id=uuid4(),
+                    request_sha256=token * 64,
+                    target_sha256=token * 64,
+                )
+            )
+        stores = [SqlAlchemyContactPreparations(first), SqlAlchemyContactPreparations(second)]
+        now = datetime.now(UTC)
+        limits = ContactPreparationLimits(per_day=1)
+        results = await asyncio.gather(
+            *(
+                store.admit(binding, limits=limits, now=now)
+                for store, binding in zip(stores, bindings, strict=True)
+            ),
+            return_exceptions=True,
+        )
+        failures = [result for result in results if isinstance(result, ContactPreparationError)]
+        assert len(failures) == 1 and failures[0].code == "contact_preparation_limit"
+        assert (
+            sum(not isinstance(result, BaseException) and result is not None for result in results)
+            == 1
+        )
+        index = next(i for i, result in enumerate(results) if not isinstance(result, BaseException))
+        # The other process's larger configured ceiling cannot loosen SQL policy.
+        assert (
+            await stores[1 - index].admit(
+                bindings[index], limits=ContactPreparationLimits(), now=now
+            )
+            is None
+        )
+        with pytest.raises(ContactPreparationError) as denied:
+            await stores[index].admit(
+                bindings[1 - index], limits=ContactPreparationLimits(), now=now
+            )
+        assert denied.value.code == "contact_preparation_limit"
+    finally:
+        await first.dispose()
+        await second.dispose()
+        async with control.engine.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        await control.dispose()
+
+
 async def test_postgres_native_contact_result_has_one_cross_connection_consumer() -> None:
     import json
 
@@ -208,11 +299,17 @@ async def test_postgres_retention_contact_cross_connection_intent_and_unknown_re
         FakeRetentionContactExecutor,
     )
     from tests.test_retention_contact import Clock as ContactClock
-    from tests.test_retention_contact import decision, request, target_payload
+    from tests.test_retention_contact import (
+        decision,
+        register_contact_owner,
+        request,
+        target_payload,
+    )
 
     assert POSTGRES_URL is not None
     first_db, second_db = OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)
     clock = ContactClock()
+    await register_contact_owner(first_db, clock)
     owner = f"contact-{uuid4()}"
     actor = ActorContext(actor_id=owner, role=UserRole.ADMIN)
     chats = SqlAlchemyChatRepository(first_db, hourly_limit=100, daily_limit=100)
@@ -326,11 +423,17 @@ async def test_postgres_peer_review_serializes_approval_against_approval_or_revo
         FakeRetentionContactExecutor,
     )
     from tests.test_retention_contact import Clock as ContactClock
-    from tests.test_retention_contact import decision, request, target_payload
+    from tests.test_retention_contact import (
+        decision,
+        register_contact_owner,
+        request,
+        target_payload,
+    )
 
     assert POSTGRES_URL is not None
     databases = [OperationDatabase(POSTGRES_URL), OperationDatabase(POSTGRES_URL)]
     clock = ContactClock()
+    await register_contact_owner(databases[0], clock)
     users = [str(uuid4()), str(uuid4())]
     auth = SqlAlchemyAdminAuthRepository(databases[0])
     for uid in users:

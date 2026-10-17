@@ -4,6 +4,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -161,6 +162,41 @@ class RetentionContactGuardRow(Base):
     action_id: Mapped[str] = mapped_column(ForeignKey("operation_retention_contacts.action_id"))
     # Unknown outcomes have no expiry and never reopen through a timer.
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ContactPreparationGateRow(Base):
+    __tablename__ = "operation_contact_preparation_gate"
+    gate_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    limits: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class ContactPreparationRow(Base):
+    __tablename__ = "operation_contact_preparations"
+    __table_args__ = (
+        UniqueConstraint("owner", "request_id", name="uq_contact_preparation_request"),
+        CheckConstraint(
+            "(status = 'pending' AND action_id IS NULL) OR "
+            "(status = 'recorded' AND action_id IS NOT NULL)",
+            name="ck_contact_preparation_state",
+        ),
+        Index("idx_contact_preparation_owner_time", "owner", "admitted_at"),
+        Index("idx_contact_preparation_turn", "owner", "topic_id", "turn_id", "status"),
+        Index("idx_contact_preparation_target", "target_sha256", "status"),
+    )
+    claim_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(128))
+    topic_id: Mapped[str] = mapped_column(ForeignKey("operation_chat_topics.topic_id"))
+    turn_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    request_sha256: Mapped[str] = mapped_column(String(64))
+    target_sha256: Mapped[str] = mapped_column(String(64))
+    admitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    limits: Mapped[dict[str, object]] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(16))
+    action_id: Mapped[str | None] = mapped_column(
+        ForeignKey("operation_retention_contacts.action_id"), nullable=True, unique=True
+    )
 
 
 class RetentionContactEventRow(Base):

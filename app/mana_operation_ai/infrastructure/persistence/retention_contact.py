@@ -7,11 +7,20 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.mana_operation_ai.application.chat_ports import ChatError, SessionContextTooLarge
+from app.mana_operation_ai.application.retention.preparation_errors import ContactPreparationError
+from app.mana_operation_ai.domain.contact_admission import (
+    ContactPreparationBinding,
+    ContactPreparationClaim,
+    ContactPreparationLimits,
+)
 from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactAction,
     RetentionContactEvent,
 )
 from app.mana_operation_ai.domain.workspace_retention_contacts import WorkspaceContactHistory
+from app.mana_operation_ai.infrastructure.persistence.contact_admission import (
+    SqlAlchemyContactPreparations,
+)
 from app.mana_operation_ai.infrastructure.persistence.contact_reviews import (
     review_grant,
     reviewer_is_active,
@@ -37,6 +46,18 @@ class SqlAlchemyRetentionContacts:
             raise ValueError("Contact history capture requires an explicit bounded SQL event limit")
         self._sessions = database.session_factory
         self._history_event_limit = history_event_limit
+        self._preparations = SqlAlchemyContactPreparations(database)
+
+    async def admit_preparation(
+        self, binding: ContactPreparationBinding, *, limits: ContactPreparationLimits, now: datetime
+    ) -> ContactPreparationClaim | None:
+        return await self._preparations.admit(binding, limits=limits, now=now)
+
+    async def preparation_pending(self, owner: str, topic_id: str, turn_id: str) -> bool:
+        return await self._preparations.pending(owner, topic_id, turn_id)
+
+    async def preparation_request_pending(self, owner: str, request_id: str) -> bool:
+        return await self._preparations.request_pending(owner, request_id)
 
     async def history(
         self, owner: str, topic_id: str, *, before: datetime
@@ -137,7 +158,9 @@ class SqlAlchemyRetentionContacts:
                 raise ChatError("Действие не найдено.", 404)
             return _action(row)
 
-    async def create(self, action: RetentionContactAction) -> RetentionContactAction:
+    async def create(
+        self, action: RetentionContactAction, *, preparation: ContactPreparationClaim | None = None
+    ) -> RetentionContactAction:
         try:
             async with self._sessions() as session, session.begin():
                 owned = await session.scalar(
@@ -194,8 +217,12 @@ class SqlAlchemyRetentionContacts:
                         ).model_dump(mode="json"),
                     )
                 )
+                if preparation is not None:
+                    await self._preparations.complete(session, preparation, action)
             return action
         except IntegrityError:
+            if preparation is not None:
+                raise ContactPreparationError("contact_preparation_pending") from None
             existing = await self.by_request(action.owner, str(action.request.request_id))
             if (
                 existing is not None

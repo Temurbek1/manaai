@@ -19,7 +19,13 @@ from app.mana_operation_ai.application.retention.contact_templates import (
     contact_dispatch_fingerprint,
     contact_message,
 )
-from app.mana_operation_ai.domain.enums import UserRole
+from app.mana_operation_ai.application.retention.preparation_errors import ContactPreparationError
+from app.mana_operation_ai.domain.contact_admission import (
+    ContactPreparationAvailability,
+    ContactPreparationLimits,
+    preparation_binding,
+)
+from app.mana_operation_ai.domain.enums import AgentStatus, UserRole
 from app.mana_operation_ai.domain.manual_action_controls import (
     RETENTION_CONTACT_CONTROL_KEY,
     ManualActionControlDefinition,
@@ -50,6 +56,7 @@ class RetentionContactService:
         controls: RetentionContactControls,
         global_kill_switch_default: bool,
         review_access: RetentionContactReviewAccess | None = None,
+        preparation_limits: ContactPreparationLimits | None = None,
     ) -> None:
         if executor.provider_name != "fake_retention_contact":
             raise ValueError("Only the explicitly fictional contact executor is supported")
@@ -58,6 +65,7 @@ class RetentionContactService:
         self._enabled, self._allow_self_approval = enabled, allow_self_approval
         self._controls, self._global_kill_default = controls, global_kill_switch_default
         self._review_access = review_access
+        self._preparation_limits = preparation_limits or ContactPreparationLimits()
 
     def control_definition(self) -> ManualActionControlDefinition | None:
         return ManualActionControlDefinition() if self._enabled else None
@@ -70,7 +78,18 @@ class RetentionContactService:
         ]:
             if await self._controls.get_control(key, default=default):
                 return False
-        return True
+        agent = await self._controls.get_agent("retention-agent")
+        return agent is not None and agent.status is AgentStatus.ENABLED
+
+    async def preparation_availability(
+        self, owner: str, topic_id: str, turn_id: str
+    ) -> ContactPreparationAvailability:
+        await self._topic_access(owner, topic_id)
+        if await self._store.preparation_pending(owner, topic_id, turn_id):
+            return ContactPreparationAvailability(state="pending")
+        return ContactPreparationAvailability(
+            state="requires_confirmation" if await self._execution_allowed() else "stopped"
+        )
 
     async def _access(self, actor: ActorContext, topic_id: str) -> None:
         await self._topic_access(actor.actor_id, topic_id)
@@ -105,9 +124,37 @@ class RetentionContactService:
             ):
                 raise ChatError("Этот запрос уже связан с другим предложением.")
             return existing
+        if await self._store.preparation_request_pending(actor.actor_id, str(request.request_id)):
+            # A later stop is not proof that an earlier admitted target lookup
+            # never ran. Preserve unknown recovery instead of a closed refusal.
+            raise ContactPreparationError("contact_preparation_pending")
         if not await self._execution_allowed():
-            raise ChatError("Контактные действия Retention остановлены.", 423)
-        target = await self._target(request.parameters.account_ref)
+            raise ContactPreparationError("contact_preparation_stopped")
+        claim = await self._store.admit_preparation(
+            preparation_binding(actor.actor_id, topic_id, turn_id, request),
+            limits=self._preparation_limits,
+            now=self._clock.now(),
+        )
+        if claim is None:
+            existing = await self._store.by_request(actor.actor_id, str(request.request_id))
+            if (
+                existing is not None
+                and existing.topic_id == topic_id
+                and existing.turn_id == turn_id
+                and existing.request == request
+            ):
+                return existing
+            raise ContactPreparationError("contact_preparation_pending")
+        # Committed admission survives cancellation/process death and failed result
+        # writes. Replays and fresh nonces must not redispatch the target read.
+        if not await self._execution_allowed():
+            # Admission is already durable: observing a stop here must not free
+            # its request for redispatch or pretend the SQL result was recorded.
+            raise ContactPreparationError("contact_preparation_pending")
+        try:
+            target = await self._target(request.parameters.account_ref)
+        except Exception:
+            raise ContactPreparationError("contact_preparation_pending") from None
         policy = evaluate_contact(request.parameters, target, now=self._clock.now())
         if not await self._execution_allowed():
             policy.eligible_for_review = False
@@ -150,7 +197,8 @@ class RetentionContactService:
                 result_code="awaiting_human_decision"
                 if policy.eligible_for_review
                 else "policy_denied",
-            )
+            ),
+            preparation=claim,
         )
 
     async def get(self, actor: ActorContext, action_id: str) -> RetentionContactAction:

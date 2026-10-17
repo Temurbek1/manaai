@@ -57,7 +57,8 @@ from app.mana_operation_ai.domain.contact_preparation import (  # noqa: E402
     contact_selection_fingerprint,
 )
 from app.mana_operation_ai.domain.cost_control import CostLimits, ResourceUsage  # noqa: E402
-from app.mana_operation_ai.domain.enums import UserRole  # noqa: E402
+from app.mana_operation_ai.domain.enums import AgentStatus, UserRole  # noqa: E402
+from app.mana_operation_ai.domain.models import AgentDefinition  # noqa: E402
 from app.mana_operation_ai.domain.workspace_retention_contacts import (  # noqa: E402
     WorkspaceContactPrepare,
 )
@@ -276,6 +277,19 @@ async def run(directory: Path) -> dict[str, object]:
         )
         await chats.update(condition.model_copy(update={"status": "completed"}))
         store = SqlAlchemyRetentionContacts(database)
+        await SqlAlchemyOperationRepository(database).register_agent(
+            AgentDefinition(
+                agent_id="retention-agent",
+                display_name="Fictional diagnostic owner",
+                description="Explicit isolated owner, not a loaded production capability.",
+                version="synthetic",
+                status=AgentStatus.ENABLED,
+                capabilities=[],
+                default_capability_key="retention.engagement.analyze",
+                configuration_schema={},
+                registered_at=fixture_clock.now(),
+            )
+        )
         contacts = RetentionContactService(
             store=store,
             executor=catalog,

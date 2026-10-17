@@ -3,6 +3,29 @@ export type TranslationValues = Readonly<Record<string, string | number>>;
 
 // Source-language keys keep existing Russian text and historical artifacts unchanged.
 export const UZ: Readonly<Record<string, string>> = {
+  "Владелец действия приостановлен или отключён. Снятие остановки sandbox его не включает.":
+    "Amal egasi pauzada yoki o‘chirilgan. Sandbox to‘xtashini bekor qilish uni yoqmaydi.",
+  "Не удалось сохранить запрос подготовки. Подготовка заблокирована.":
+    "Tayyorlash so‘rovini saqlab bo‘lmadi. Tayyorlash bloklandi.",
+  "Результат подготовки неизвестен. Новый запрос не отправляется.":
+    "Tayyorlash natijasi noma’lum. Yangi so‘rov yuborilmaydi.",
+  "Подготовка отклонена до чтения. Проверьте статус перед новым подтверждением.":
+    "Tayyorlash o‘qish boshlanmasdan rad etildi. Yangi tasdiqdan oldin holatni tekshiring.",
+  "Подготовка остановлена. Снятие остановки не подтверждает действие.":
+    "Tayyorlash to‘xtatilgan. To‘xtatishni bekor qilish amalni tasdiqlamaydi.",
+  "Подготовка уже начата. Повторное чтение запрещено.":
+    "Tayyorlash allaqachon boshlangan. Qayta o‘qish taqiqlangan.",
+  "Проверить подготовку": "Tayyorlashni tekshirish",
+  "Подготовка контактных действий Retention остановлена.":
+    "Retention aloqa amallarini tayyorlash to‘xtatilgan.",
+  "Подготовка уже начата; результат пока не подтверждён. Чтение не повторялось.":
+    "Tayyorlash allaqachon boshlangan; natija hali tasdiqlanmagan. O‘qish takrorlanmadi.",
+  "Достигнут лимит подготовки. Новое чтение не начиналось.":
+    "Tayyorlash limiti tugagan. Yangi o‘qish boshlanmadi.",
+  "Запрос подготовки уже связан с другими параметрами.":
+    "Tayyorlash so‘rovi allaqachon boshqa parametrlar bilan bog‘langan.",
+  "История допуска требует проверки. Новое чтение не начиналось.":
+    "Ruxsat tarixi tekshirilishi kerak. Yangi o‘qish boshlanmadi.",
   "Ручные действия Retention": "Retention qo‘lda boshqariladigan amallari",
   "Контактный sandbox MANA: только вымышленные взрослые и fake-получатель. Без расписания.":
     "MANA aloqa sinov muhiti: faqat xayoliy kattalar va soxta qabul qiluvchi. Jadvalsiz.",

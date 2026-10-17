@@ -31,6 +31,7 @@ chmod 755 "${audit_dir}"
 cd "${project_root}"
 database_file="${audit_dir}/synthetic.db"
 probe_script="${project_root}/scripts/operation_workspace_compatibility_probe.py"
+admission_script="${project_root}/scripts/operation_contact_admission_compatibility.py"
 catalog_args=()
 if [[ "${WORKSPACE_REPORT_DISCOVERY_AUDIT:-false}" == true ]]; then
   catalog_args=(--catalog)
@@ -53,6 +54,9 @@ fi
 if [[ "${WORKSPACE_CONTACT_CONTINUATION_AUDIT:-false}" == true ]]; then
   catalog_args+=(--contacts --native-contact --contact-continuation)
 fi
+if [[ "${WORKSPACE_CONTACT_ADMISSION_AUDIT:-false}" == true ]]; then
+  catalog_args+=(--contacts --native-contact --contact-continuation --contact-admissions)
+fi
 
 .venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {
@@ -60,6 +64,7 @@ run_legacy() {
     --user "$(id -u):$(id -g)" --workdir /app \
     --mount "type=bind,source=${audit_dir},target=/audit-data" \
     --mount "type=bind,source=${probe_script},target=/audit/probe.py,readonly" \
+    --mount "type=bind,source=${admission_script},target=/audit/scripts/operation_contact_admission_compatibility.py,readonly" \
     --entrypoint python "${legacy_image}" /audit/probe.py \
     --database-file /audit-data/synthetic.db --stage legacy "${catalog_args[@]}" "$@"
 }
@@ -69,6 +74,7 @@ run_current() {
       --user "$(id -u):$(id -g)" --workdir /app \
       --mount "type=bind,source=${audit_dir},target=/audit-data" \
       --mount "type=bind,source=${probe_script},target=/audit/probe.py,readonly" \
+      --mount "type=bind,source=${admission_script},target=/audit/scripts/operation_contact_admission_compatibility.py,readonly" \
       --entrypoint python "${current_image}" /audit/probe.py \
       --database-file /audit-data/synthetic.db --stage verify "${catalog_args[@]}" "$@"
   fi

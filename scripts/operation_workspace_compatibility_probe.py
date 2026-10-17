@@ -44,7 +44,10 @@ async def probe(
     contacts: bool = False,
     native_contact: bool = False,
     contact_continuation: bool = False,
+    contact_admissions: bool = False,
 ) -> None:
+    if contact_admissions and not contact_continuation:
+        raise ValueError("Admission compatibility requires the full contact continuation fixture")
     if contact_continuation and not native_contact:
         raise ValueError("Contact continuation requires the native contact fixture")
     if native_contact and not contacts:
@@ -549,6 +552,13 @@ async def probe(
                             maximum_bytes=192000,
                         )
                     assert await repository.save(OWNER, goal, updated)
+            if contact_admissions:
+                from scripts.operation_contact_admission_compatibility import check_admissions
+
+                admission_topic = (await chats.topics(OWNER))[0]
+                await check_admissions(
+                    path, stage="setup", owner=OWNER, topic_id=admission_topic.topic_id
+                )
             return
 
         topics = await chats.topics(OWNER)
@@ -728,6 +738,18 @@ async def probe(
                 )
             if paused:
                 assert await repository.claim() is None
+        if contact_admissions:
+            from scripts.operation_contact_admission_compatibility import (
+                check_admissions,
+                check_legacy_admissions,
+            )
+
+            if stage == "legacy":
+                check_legacy_admissions(path)
+            else:
+                await check_admissions(
+                    path, stage="verify", owner=OWNER, topic_id=topics[0].topic_id
+                )
         print(f"Workspace compatibility probe passed: {stage}, paused={paused}")
     finally:
         await database.dispose()
@@ -745,6 +767,7 @@ def main() -> None:
     parser.add_argument("--contacts", action="store_true")
     parser.add_argument("--native-contact", action="store_true")
     parser.add_argument("--contact-continuation", action="store_true")
+    parser.add_argument("--contact-admissions", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -758,6 +781,7 @@ def main() -> None:
             contacts=args.contacts,
             native_contact=args.native_contact,
             contact_continuation=args.contact_continuation,
+            contact_admissions=args.contact_admissions,
         )
     )
 

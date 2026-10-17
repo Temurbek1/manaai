@@ -2,6 +2,12 @@
 
 ## Repository expectations
 
+- The owner paused the broad Codex/Claude-style workspace goal on 2026-10-16 and
+  explicitly resumed it on 2026-10-17. Read the historical
+  `docs/operation-contact-admission-pause.md` and
+  `docs/operation-contact-admission-checkpoint.md` before continuing.
+  Preparation-admission work remains local and is not a production
+  release; resuming the goal does not approve real contacts or a contact deployment.
 - Work in English for code, comments, commit messages, and identifiers.
 - User-facing documentation may be Russian when the product audience is Russian.
 - Preserve Russian and Uzbek Latin interface support. Response language is presentation,

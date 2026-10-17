@@ -125,6 +125,10 @@ class Settings(BaseSettings):
     operation_workspace_contact_tool_proposals_enabled: bool = False
     operation_workspace_contact_tool_continuations_enabled: bool = False
     operation_workspace_context_contact_event_limit: int = Field(default=400, ge=4, le=10000)
+    operation_contact_preparations_per_turn: int = Field(default=3, ge=1, le=3)
+    operation_contact_preparations_per_owner_hour: int = Field(default=10, ge=1, le=100)
+    operation_contact_preparations_per_day: int = Field(default=100, ge=1, le=1000)
+    operation_contact_preparation_legacy_scan_limit: int = Field(default=400, ge=1, le=10000)
     operation_workspace_transcript_enabled: bool = True
     operation_workspace_report_discovery_enabled: bool = False
     operation_workspace_snapshot_replacement_enabled: bool = False

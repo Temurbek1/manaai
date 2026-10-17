@@ -2,41 +2,145 @@
 
 import { useRef, useState } from "react";
 import useSWR from "swr";
-import { apiPost } from "@/api/client";
+import { ApiError, apiGet, apiPost } from "@/api/client";
 import type { components } from "@/api/schema";
 import { hasRole, useSession } from "@/auth/SessionContext";
 import { ConfirmAction } from "@/components/ConfirmAction";
 import { QueryState } from "@/components/QueryState";
 import { useI18n } from "@/i18n/LanguageProvider";
 import { ContactReviewAssignment } from "./ContactReviewAssignment";
+import {
+  loadPreparationAttempt,
+  preparationScope,
+  savePreparationAttempt,
+  type PreparationAttempt,
+} from "./contactPreparationAttempt";
 
 type Page = components["schemas"]["WorkspaceContactPage"];
 type Contact = components["schemas"]["WorkspaceContactView"];
 type Prepare = components["schemas"]["WorkspaceContactPrepare"];
 
-export function RetentionContactActions({
-  topicId,
-  turnId,
-  onContinued,
-}: {
+type Props = {
   topicId: string;
   turnId: string;
   onContinued?: () => Promise<unknown>;
-}): React.JSX.Element {
+};
+
+export function RetentionContactActions(props: Props): React.JSX.Element {
+  const { session } = useSession();
+  return (
+    <BoundRetentionContactActions
+      key={preparationScope(session.user.user_id, props.topicId, props.turnId)}
+      {...props}
+    />
+  );
+}
+
+function BoundRetentionContactActions({
+  topicId,
+  turnId,
+  onContinued,
+}: Props): React.JSX.Element {
   const { t } = useI18n();
   const { session } = useSession();
   const url = `/api/v1/admin/operation/workspace/topics/${encodeURIComponent(topicId)}/messages/${encodeURIComponent(turnId)}/retention-contacts`;
   const { data, error, isLoading, isValidating, mutate } = useSWR<Page, Error>(
     url,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      shouldRetryOnError: false,
+    },
   );
   const [recipient, setRecipient] = useState<Prepare["recipient"]>("sample_ru");
   const [template, setTemplate] =
     useState<Prepare["template"]>("onboarding_help");
-  const [attempted, setAttempted] = useState(false);
+  const scope = preparationScope(session.user.user_id, topicId, turnId);
+  const [initial] = useState(() => {
+    try {
+      return { attempt: loadPreparationAttempt(scope), blocked: false };
+    } catch {
+      return { attempt: null, blocked: true };
+    }
+  });
+  const [attempt, setAttempt] = useState<PreparationAttempt | null>(
+    initial.attempt,
+  );
+  const [storageBlocked, setStorageBlocked] = useState(initial.blocked);
+  const [admissionChecked, setAdmissionChecked] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [observed, setObserved] = useState<Contact | null>(null);
+  const canPrepare =
+    !storageBlocked &&
+    !checking &&
+    !error &&
+    data?.items.length === 0 &&
+    !observed &&
+    data?.preparation_availability?.state === "requires_confirmation" &&
+    (!attempt || (attempt.state === "refused" && admissionChecked)) &&
+    hasRole(session, "operator");
+  const attempted = attempt !== null || storageBlocked;
   const guard = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
   const continueGuard = useRef(false);
   const [continueAttempted, setContinueAttempted] = useState(false);
+  function retain(next: PreparationAttempt): void {
+    try {
+      savePreparationAttempt(next);
+      setAttempt(next);
+    } catch {
+      setStorageBlocked(true);
+      throw Error("Preparation recovery storage unavailable");
+    }
+  }
+  function matches(action: Contact, request: Prepare): boolean {
+    return (
+      action.topic_id === topicId &&
+      action.turn_id === turnId &&
+      action.recipient === request.recipient &&
+      action.message?.template === request.template &&
+      action.product === "mana" &&
+      action.synthetic === true &&
+      action.provider === "fake_retention_contact"
+    );
+  }
+  async function observePreparation(): Promise<void> {
+    if (checking) return;
+    setChecking(true);
+    setAdmissionChecked(false);
+    try {
+      if (attempt) {
+        const result = await apiGet<
+          components["schemas"]["WorkspacePreparationObservation"]
+        >(
+          `${url}/preparation?request_id=${encodeURIComponent(attempt.request.request_id)}`,
+        );
+        if (result.request_id !== attempt.request.request_id)
+          throw Error("Wrong request receipt");
+        if (
+          result.state === "recorded" &&
+          result.action &&
+          matches(result.action, attempt.request)
+        ) {
+          retain({ ...attempt, state: "recorded" });
+          setObserved(result.action);
+        } else if (result.state !== "absent" && result.state !== "pending")
+          throw Error("Invalid preparation observation");
+        // An absent SQL row cannot prove a delayed POST will not arrive later.
+        // Only a closed refusal of this exact request permits human re-admission.
+        if (result.state === "pending" && attempt.state === "refused")
+          retain({ ...attempt, state: "unknown" });
+      }
+      const fresh = await mutate();
+      if (fresh?.preparation_availability?.state === "requires_confirmation")
+        setAdmissionChecked(true);
+      setNotice(null);
+    } catch {
+      setNotice("Статус недоступен. Повтор не отправлен.");
+    } finally {
+      setChecking(false);
+    }
+  }
   async function continueWithAgent(): Promise<void> {
     const action = data?.items[0];
     if (
@@ -68,11 +172,12 @@ export function RetentionContactActions({
     }
   }
   async function prepare(): Promise<void> {
-    if (guard.current || !hasRole(session, "operator") || !data) return;
+    if (guard.current || !canPrepare || !data) return;
     guard.current = true;
-    setAttempted(true);
+    setAdmissionChecked(false);
+    let pending: PreparationAttempt | null = null;
     try {
-      await apiPost<Contact>(`${url}/prepare`, {
+      const request: Prepare = attempt?.request ?? {
         request_id: crypto.randomUUID(),
         confirmed: true,
         recipient: data.preparation_request?.recipient ?? recipient,
@@ -83,10 +188,36 @@ export function RetentionContactActions({
                 data.preparation_request.selection_fingerprint,
             }
           : {}),
-      });
-    } catch {
-      setNotice("Ответ не подтверждён. Повтор не отправлен. Обновите статус.");
+      };
+      pending = { version: 1, scope, request, state: "unknown" };
+      retain(pending);
+      const saved = await apiPost<Contact>(`${url}/prepare`, request);
+      if (!matches(saved, request)) throw Error("Wrong preparation receipt");
+      retain({ ...pending, state: "recorded" });
+      setObserved(saved);
+      setNotice(null);
+    } catch (failure) {
+      if (
+        pending &&
+        failure instanceof ApiError &&
+        [
+          "contact_preparation_stopped",
+          "contact_preparation_limit",
+          "contact_preparation_history_unavailable",
+        ].includes(failure.code ?? "")
+      ) {
+        try {
+          retain({ ...pending, state: "refused" });
+        } catch {
+          /* Keep fail-closed storage state. */
+        }
+        setNotice(failure.message);
+      } else
+        setNotice(
+          "Ответ не подтверждён. Повтор не отправлен. Обновите статус.",
+        );
     } finally {
+      guard.current = false;
       await mutate().catch(() =>
         setNotice("Статус недоступен. Повтор не отправлен."),
       );
@@ -134,7 +265,7 @@ export function RetentionContactActions({
                     {t("Вымышленный получатель")}
                     <select
                       aria-label={t("Вымышленный получатель")}
-                      value={recipient}
+                      value={attempt?.request.recipient ?? recipient}
                       disabled={attempted || !hasRole(session, "operator")}
                       onChange={(event) =>
                         setRecipient(
@@ -156,7 +287,7 @@ export function RetentionContactActions({
                   <label>
                     {t("Шаблон сообщения")}
                     <select
-                      value={template}
+                      value={attempt?.request.template ?? template}
                       disabled={attempted || !hasRole(session, "operator")}
                       onChange={(event) =>
                         setTemplate(
@@ -180,7 +311,7 @@ export function RetentionContactActions({
                 className="button secondary compact"
                 label={t("Подготовить тестовое сообщение")}
                 confirmLabel={t("Подтвердить подготовку")}
-                disabled={attempted || !hasRole(session, "operator")}
+                disabled={!canPrepare}
                 onConfirm={() => void prepare()}
                 description={t(
                   "Подготовка сохраняет проект сообщения. Отправка требует отдельного решения.",
@@ -188,7 +319,11 @@ export function RetentionContactActions({
               />
             </>
           )}
-          {data.items.map((item) => (
+          {(observed &&
+          !data.items.some((item) => item.action_id === observed.action_id)
+            ? [observed, ...data.items]
+            : data.items
+          ).map((item) => (
             <RetentionContactCard
               key={item.action_id}
               action={item}
@@ -221,6 +356,45 @@ export function RetentionContactActions({
           )}
         </>
       )}
+      {storageBlocked && (
+        <p role="status">
+          {t(
+            "Не удалось сохранить запрос подготовки. Подготовка заблокирована.",
+          )}
+        </p>
+      )}
+      {attempt?.state === "unknown" && (
+        <p role="status">
+          {t("Результат подготовки неизвестен. Новый запрос не отправляется.")}
+        </p>
+      )}
+      {attempt?.state === "refused" && (
+        <p role="status">
+          {t(
+            "Подготовка отклонена до чтения. Проверьте статус перед новым подтверждением.",
+          )}
+        </p>
+      )}
+      {data?.preparation_availability?.state === "stopped" && (
+        <p role="status">
+          {t(
+            "Подготовка остановлена. Снятие остановки не подтверждает действие.",
+          )}
+        </p>
+      )}
+      {data?.preparation_availability?.state === "pending" && (
+        <p role="status">
+          {t("Подготовка уже начата. Повторное чтение запрещено.")}
+        </p>
+      )}
+      <button
+        type="button"
+        className="button secondary compact"
+        disabled={checking || isValidating}
+        onClick={() => void observePreparation()}
+      >
+        {t("Проверить подготовку")}
+      </button>
       {notice && <p role="status">{t(notice)}</p>}
     </section>
   );

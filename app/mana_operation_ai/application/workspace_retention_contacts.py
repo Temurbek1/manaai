@@ -1,7 +1,7 @@
 """A human review lane delegates to Retention; Goals retain read-only tools."""
 
 from datetime import datetime
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from app.mana_operation_ai.application.admin_service import ActorContext
 from app.mana_operation_ai.application.chat_ports import (
@@ -27,6 +27,7 @@ from app.mana_operation_ai.domain.workspace_retention_contacts import (
     WorkspaceContactRecipient,
     WorkspaceContactReconcile,
     WorkspaceContactView,
+    WorkspacePreparationObservation,
 )
 
 
@@ -126,6 +127,36 @@ class WorkspaceRetentionContacts:
             )
             if child
             else None,
+            preparation_availability=await self._contacts.preparation_availability(
+                owner, topic_id, turn_id
+            ),
+        )
+
+    async def _preparation_id(self, owner: str, topic_id: str, turn_id: str, nonce: UUID) -> UUID:
+        turn = await self._chats.turn(owner, topic_id, turn_id)
+        selection = turn.contact_preparation
+        return uuid5(
+            NAMESPACE_URL,
+            f"retention-native:{topic_id}:{turn_id}:{selection.selection_fingerprint}"
+            if selection and selection.contract == "native_contact_preparation_v2"
+            else f"retention-chat:{topic_id}:{turn_id}:{nonce}",
+        )
+
+    async def observe_preparation(
+        self, owner: str, topic_id: str, turn_id: str, nonce: UUID
+    ) -> WorkspacePreparationObservation:
+        await self._access(owner, topic_id, turn_id)
+        request_id = await self._preparation_id(owner, topic_id, turn_id, nonce)
+        action = await self._store.by_request(owner, str(request_id))
+        if action is not None:
+            if action.topic_id != topic_id or action.turn_id != turn_id:
+                raise ChatError("Подготовка не найдена в этом сообщении.", 404)
+            return WorkspacePreparationObservation(
+                request_id=nonce, state="recorded", action=self.view(action)
+            )
+        pending = await self._store.preparation_request_pending(owner, str(request_id))
+        return WorkspacePreparationObservation(
+            request_id=nonce, state="pending" if pending else "absent"
         )
 
     async def history(
@@ -158,11 +189,8 @@ class WorkspaceRetentionContacts:
             actor,
             topic_id,
             RetentionContactPrepare(
-                request_id=uuid5(
-                    NAMESPACE_URL,
-                    f"retention-native:{topic_id}:{turn_id}:{selection.selection_fingerprint}"
-                    if selection and selection.contract == "native_contact_preparation_v2"
-                    else f"retention-chat:{topic_id}:{turn_id}:{request.request_id}",
+                request_id=await self._preparation_id(
+                    actor.actor_id, topic_id, turn_id, request.request_id
                 ),
                 parameters=RetentionContactParameters(
                     account_ref=self._account_refs[recipient.key],

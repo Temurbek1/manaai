@@ -1,11 +1,15 @@
 """Minimized, topic/turn-owned contact review; not a Goal tool or a live recipient API."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, field_validator
+from pydantic import AwareDatetime, Field, field_validator, model_validator
 
+from app.mana_operation_ai.domain.contact_admission import (
+    ContactPreparationAvailability,
+    ContactPreparationFailure,
+)
 from app.mana_operation_ai.domain.contact_continuation import ContactContinuationView
 from app.mana_operation_ai.domain.contact_preparation import ContactToolRequest
 from app.mana_operation_ai.domain.models import DomainModel
@@ -86,6 +90,23 @@ class WorkspaceContactPage(DomainModel):
     preparation_request: ContactToolRequest | None = None
     continuation_available: bool = False
     continuation: ContactContinuationView | None = None
+    preparation_availability: ContactPreparationAvailability | None = None
+
+
+class WorkspacePreparationObservation(DomainModel):
+    request_id: UUID
+    state: Literal["absent", "pending", "recorded"]
+    action: WorkspaceContactView | None = None
+
+    @model_validator(mode="after")
+    def exact_recorded_result(self) -> Self:
+        if (self.state == "recorded") != (self.action is not None):
+            raise ValueError("Only a recorded preparation has an exact SQL action result")
+        return self
+
+
+class WorkspacePreparationFailure(DomainModel):
+    detail: ContactPreparationFailure
 
 
 class WorkspaceContactHistory(DomainModel):

@@ -553,9 +553,11 @@ class OperationAdminService:
         definitions = self._agents.manual_action_controls(agent_id)
         items: list[ManualActionControlView] = []
         for definition in definitions:
+            owner = await self.repository.get_agent(definition.agent_id)
             items.append(
                 ManualActionControlView(
                     definition=definition,
+                    agent_status=owner.status if owner is not None else None,
                     capability_kill_switch=await self.repository.get_control(
                         f"capability_kill_switch:{definition.agent_id}:{definition.capability_key}"
                     ),

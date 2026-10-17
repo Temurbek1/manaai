@@ -1102,6 +1102,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observe Preparation */
+        get: operations["observe_preparation_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_preparation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operation/workspace/topics/{topic_id}/messages/{turn_id}/retention-contacts/prepare": {
         parameters: {
             query?: never;
@@ -3980,6 +3997,24 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ContactPreparationAvailability */
+        ContactPreparationAvailability: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "requires_confirmation" | "stopped" | "pending";
+        };
+        /** ContactPreparationFailure */
+        ContactPreparationFailure: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "contact_preparation_stopped" | "contact_preparation_pending" | "contact_preparation_limit" | "contact_preparation_conflict" | "contact_preparation_history_unavailable";
+            /** Message */
+            message: string;
+        };
         /**
          * ContactPreparationResult
          * @description A dated SQL observation, never a real delivery or a grant for another action.
@@ -5406,6 +5441,7 @@ export interface components {
         ManualActionControlView: {
             /** Agent Kill Switch */
             agent_kill_switch: boolean;
+            agent_status?: components["schemas"]["AgentStatus"] | null;
             /** Capability Kill Switch */
             capability_kill_switch: boolean;
             definition: components["schemas"]["ManualActionControlDefinition"];
@@ -8385,6 +8421,7 @@ export interface components {
              * @default false
              */
             peer_reviews_enabled: boolean;
+            preparation_availability?: components["schemas"]["ContactPreparationAvailability"] | null;
             preparation_request?: components["schemas"]["ContactToolRequest"] | null;
             /** Recipients */
             recipients: [
@@ -8572,6 +8609,24 @@ export interface components {
             items?: (components["schemas"]["WorkspaceEvent"] | components["schemas"]["ChatTextEvent"])[];
             /** Next Cursor */
             next_cursor: number;
+        };
+        /** WorkspacePreparationFailure */
+        WorkspacePreparationFailure: {
+            detail: components["schemas"]["ContactPreparationFailure"];
+        };
+        /** WorkspacePreparationObservation */
+        WorkspacePreparationObservation: {
+            action?: components["schemas"]["WorkspaceContactView"] | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "absent" | "pending" | "recorded";
         };
         /** WorkspaceToolState */
         WorkspaceToolState: {
@@ -10973,6 +11028,45 @@ export interface operations {
             };
         };
     };
+    observe_preparation_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_preparation_get: {
+        parameters: {
+            query: {
+                request_id: string;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+                "X-MANA-Actor-ID"?: string | null;
+                "X-MANA-Role"?: string | null;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                topic_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePreparationObservation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     prepare_api_v1_admin_operation_workspace_topics__topic_id__messages__turn_id__retention_contacts_prepare_post: {
         parameters: {
             query?: never;
@@ -11003,6 +11097,15 @@ export interface operations {
                     "application/json": components["schemas"]["WorkspaceContactView"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePreparationFailure"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11010,6 +11113,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Locked */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePreparationFailure"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePreparationFailure"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacePreparationFailure"];
                 };
             };
         };

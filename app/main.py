@@ -82,6 +82,7 @@ from app.mana_operation_ai.application.workspace_service import OperationWorkspa
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
 from app.mana_operation_ai.domain.chat import ChatAvailability
+from app.mana_operation_ai.domain.contact_admission import ContactPreparationLimits
 from app.mana_operation_ai.domain.cost_control import (
     CostAttribution,
     CostLimits,
@@ -734,6 +735,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         controls=operation_repository,
         global_kill_switch_default=settings.operation_global_kill_switch,
         review_access=review_access if peer_reviews_enabled else None,
+        preparation_limits=ContactPreparationLimits(
+            per_turn=settings.operation_contact_preparations_per_turn,
+            per_owner_hour=settings.operation_contact_preparations_per_owner_hour,
+            per_day=settings.operation_contact_preparations_per_day,
+            legacy_scan_limit=settings.operation_contact_preparation_legacy_scan_limit,
+        ),
     )
     contact_control = contacts.control_definition()
     if contact_control is not None:

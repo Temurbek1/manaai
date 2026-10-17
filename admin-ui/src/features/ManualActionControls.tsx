@@ -98,6 +98,13 @@ export function ManualActionControls(): React.JSX.Element | null {
                 : "Остановка снята",
             )}
           </p>
+          {control.agent_status && control.agent_status !== "enabled" && (
+            <p className="notice">
+              {t(
+                "Владелец действия приостановлен или отключён. Снятие остановки sandbox его не включает.",
+              )}
+            </p>
+          )}
           {control.agent_kill_switch || control.global_kill_switch ? (
             <p className="notice">
               {t(

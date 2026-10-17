@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { renderWithSession } from "@/test/render";
 import { requestUrl } from "@/test/http";
 import { RetentionContactActions } from "./RetentionContactActions";
@@ -44,6 +44,173 @@ function response(body: unknown): Promise<Response> {
 }
 
 describe("Retention contact chat lane", () => {
+  beforeEach(() => sessionStorage.clear());
+  const basePage = {
+    items: [],
+    recipients,
+    more_omitted: false,
+    preparation_availability: { state: "requires_confirmation" },
+  };
+  async function confirmPreparation(): Promise<void> {
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Подготовить тестовое сообщение",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подтвердить подготовку" }),
+    );
+  }
+
+  it("requires a fresh observation and another human confirmation after a closed stop, retaining exact request", async () => {
+    const posts: Array<Record<string, unknown>> = [];
+    let armed = false;
+    const saved = { ...contact, recipient: "sample_ru" };
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return posts.length === 1
+          ? Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  detail: {
+                    code: "contact_preparation_stopped",
+                    message:
+                      "Подготовка контактных действий Retention остановлена.",
+                  },
+                }),
+                { status: 423 },
+              ),
+            )
+          : response(saved);
+      }
+      if (requestUrl(input).includes("/preparation?"))
+        return response({
+          request_id: posts[0]!.request_id,
+          state: "absent",
+          action: null,
+        });
+      return response({
+        ...basePage,
+        preparation_availability: {
+          state: posts.length && !armed ? "stopped" : "requires_confirmation",
+        },
+      });
+    });
+    renderWithSession(
+      <RetentionContactActions topicId="topic-1" turnId="turn-1" />,
+    );
+    await confirmPreparation();
+    await screen.findByText(
+      "Подготовка контактных действий Retention остановлена.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Подготовить тестовое сообщение" }),
+    ).toBeDisabled();
+    armed = true;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проверить подготовку" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Подготовить тестовое сообщение" }),
+      ).toBeEnabled(),
+    );
+    expect(posts).toHaveLength(1);
+    await confirmPreparation();
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1]).toEqual(posts[0]);
+  });
+
+  it("retains an unknown request across reload and observes an absent/recorded row without another POST", async () => {
+    const posts: Array<Record<string, unknown>> = [];
+    let recorded = false;
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return Promise.reject(new Error("Synthetic lost acknowledgement"));
+      }
+      if (requestUrl(input).includes("/preparation?"))
+        return response({
+          request_id: posts[0]!.request_id,
+          state: recorded ? "recorded" : "absent",
+          action: recorded ? { ...contact, recipient: "sample_ru" } : null,
+        });
+      return response(basePage);
+    });
+    const first = renderWithSession(
+      <RetentionContactActions topicId="topic-1" turnId="turn-1" />,
+    );
+    await confirmPreparation();
+    await screen.findByText(
+      "Результат подготовки неизвестен. Новый запрос не отправляется.",
+    );
+    await screen.findByText(
+      "Ответ не подтверждён. Повтор не отправлен. Обновите статус.",
+    );
+    first.unmount();
+    renderWithSession(
+      <RetentionContactActions topicId="topic-1" turnId="turn-1" />,
+    );
+    await screen.findByText(
+      "Результат подготовки неизвестен. Новый запрос не отправляется.",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проверить подготовку" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Проверить подготовку" }),
+      ).toBeEnabled(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Подготовить тестовое сообщение" }),
+    ).toBeDisabled();
+    recorded = true;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проверить подготовку" }),
+    );
+    expect(await screen.findByText(contact.message.text)).toBeVisible();
+    expect(posts).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Подготовить тестовое сообщение" }),
+    ).toBeDisabled();
+  });
+
+  it("refuses before POST when browser recovery storage cannot persist the frozen choice", async () => {
+    const fetch = jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => response(basePage));
+    jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw Error("Synthetic storage denial");
+    });
+    renderWithSession(
+      <RetentionContactActions topicId="topic-1" turnId="turn-1" />,
+    );
+    await confirmPreparation();
+    expect(
+      await screen.findByText(
+        "Не удалось сохранить запрос подготовки. Подготовка заблокирована.",
+      ),
+    ).toBeVisible();
+    expect(fetch.mock.calls.every(([, init]) => init?.method !== "POST")).toBe(
+      true,
+    );
+  });
+
+  it("does not prepare against an older server missing admission metadata", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => response({ items: [], recipients }));
+    renderWithSession(
+      <RetentionContactActions topicId="topic-1" turnId="turn-1" />,
+    );
+    expect(
+      await screen.findByRole("button", {
+        name: "Подготовить тестовое сообщение",
+      }),
+    ).toBeDisabled();
+  });
   it.each([false, true])(
     "continues one frozen SQL result and only observes a lost answer (%s)",
     async (lost) => {
@@ -120,6 +287,7 @@ describe("Retention contact chat lane", () => {
         recipients,
         more_omitted: false,
         preparation_request: preparation,
+        preparation_availability: { state: "requires_confirmation" },
       });
     });
     renderWithSession(
@@ -154,6 +322,7 @@ describe("Retention contact chat lane", () => {
         items: saved ? [contact] : [],
         recipients,
         templates: ["onboarding_help", "renewal_reminder"],
+        preparation_availability: { state: "requires_confirmation" },
         more_omitted: false,
       });
     });

@@ -2,13 +2,15 @@
 
 ## Objective and evidence
 
-Latest status: operational API/Goals worker and UI are deployed as `38cdac4`, adding
+Latest operational status: API/Goals worker is deployed as `38cdac4`, adding
 Russian/Uzbek presentation while preserving the scoped `6babf75` profile, with
 saved-report discovery, retained full context, bound independent review and compatible
 UI. Actual checks/limits/rollback are in
 [the active release report](operation-agent-workspace-profile-release.md).
 Language-specific actual checks and rollback are in
 [the RU/UZ release report](operation-interface-language-release.md).
+The subsequent UI-only professional release is `faf0a78`; see
+[its release record](operation-professional-ui-release.md).
 The subsequent [Retention contact review](operation-retention-contact-chat-checkpoint.md)
 is local and default disabled; neither its contact migration nor its chat lane is
 deployed. It does not enable real parent contact or close the action acceptance gaps.
@@ -29,6 +31,10 @@ The following [manual action controls](operation-manual-action-controls.md) add 
 owning stop-control registration outside analysis/scheduler catalogs, pre-target
 stop checks and a separate professional control surface. This is not full action
 capability activation, bounded proposal admission, real contact or release acceptance.
+The owner resumed the paused objective on 2026-10-17. The following
+[preparation-admission checkpoint](operation-contact-admission-checkpoint.md) records
+local SQL ceilings, exact-request human recovery and retained unknown holds. Its
+current checks do not activate a source, authorize a real contact or deploy the lane.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

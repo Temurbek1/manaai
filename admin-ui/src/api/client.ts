@@ -57,11 +57,13 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly code: string | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -155,7 +157,24 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
     ) {
       window.dispatchEvent(new Event("mana:unauthorized"));
     }
-    throw new ApiError(response.status, detail);
+    const code =
+      typeof rawDetail === "object" && rawDetail !== null && "code" in rawDetail
+        ? (rawDetail as Record<string, unknown>).code
+        : null;
+    const preparationCodes: Record<string, number> = {
+      contact_preparation_stopped: 423,
+      contact_preparation_limit: 429,
+      contact_preparation_pending: 409,
+      contact_preparation_conflict: 409,
+      contact_preparation_history_unavailable: 503,
+    };
+    throw new ApiError(
+      response.status,
+      detail,
+      typeof code === "string" && preparationCodes[code] === response.status
+        ? code
+        : undefined,
+    );
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;

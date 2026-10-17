@@ -1,6 +1,12 @@
 from datetime import datetime
 from typing import Protocol
 
+from app.mana_operation_ai.domain.contact_admission import (
+    ContactPreparationBinding,
+    ContactPreparationClaim,
+    ContactPreparationLimits,
+)
+from app.mana_operation_ai.domain.models import AgentDefinition
 from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactAction,
     RetentionContactDelivery,
@@ -25,7 +31,17 @@ class RetentionContactStore(Protocol):
 
     async def get(self, owner: str, action_id: str) -> RetentionContactAction: ...
 
-    async def create(self, action: RetentionContactAction) -> RetentionContactAction: ...
+    async def admit_preparation(
+        self, binding: ContactPreparationBinding, *, limits: ContactPreparationLimits, now: datetime
+    ) -> ContactPreparationClaim | None: ...
+
+    async def preparation_pending(self, owner: str, topic_id: str, turn_id: str) -> bool: ...
+
+    async def preparation_request_pending(self, owner: str, request_id: str) -> bool: ...
+
+    async def create(
+        self, action: RetentionContactAction, *, preparation: ContactPreparationClaim | None = None
+    ) -> RetentionContactAction: ...
 
     async def transition(
         self,
@@ -37,6 +53,8 @@ class RetentionContactStore(Protocol):
 
 class RetentionContactControls(Protocol):
     async def get_control(self, key: str, *, default: bool = False) -> bool: ...
+
+    async def get_agent(self, agent_id: str) -> AgentDefinition | None: ...
 
 
 class RetentionContactHistoryReader(Protocol):

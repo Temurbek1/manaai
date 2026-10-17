@@ -16,7 +16,8 @@ from app.mana_operation_ai.application.retention.contact import RetentionContact
 from app.mana_operation_ai.application.retention.contact_policy import evaluate_contact
 from app.mana_operation_ai.application.runtime import UuidGenerator
 from app.mana_operation_ai.domain.chat import TopicCreate
-from app.mana_operation_ai.domain.enums import UserRole
+from app.mana_operation_ai.domain.enums import AgentStatus, UserRole
+from app.mana_operation_ai.domain.models import AgentDefinition
 from app.mana_operation_ai.domain.retention_contact import (
     RetentionContactDecision,
     RetentionContactParameters,
@@ -79,6 +80,22 @@ class Clock:
         return self.current
 
 
+async def register_contact_owner(db: OperationDatabase, clock: Clock) -> None:
+    await SqlAlchemyOperationRepository(db).register_agent(
+        AgentDefinition(
+            agent_id="retention-agent",
+            display_name="Fictional Retention owner",
+            description="Explicit owner for the isolated contact foundation fixture.",
+            version="synthetic",
+            status=AgentStatus.ENABLED,
+            capabilities=[],
+            default_capability_key="retention.engagement.analyze",
+            configuration_schema={},
+            registered_at=clock.now(),
+        )
+    )
+
+
 def target_payload() -> dict[str, Any]:
     facts = facts_payload()
     facts["activity"].update(
@@ -133,6 +150,7 @@ async def system(tmp_path: Path):  # type: ignore[no-untyped-def]
         TopicCreate(agent_id="retention-agent", product="mana", title="Fictional contact review"),
     )
     clock = Clock()
+    await register_contact_owner(db, clock)
     executor = FakeRetentionContactExecutor(clock=clock, target=target())
     store = SqlAlchemyRetentionContacts(db)
     service = RetentionContactService(
