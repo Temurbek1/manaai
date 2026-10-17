@@ -44,6 +44,7 @@ class WorkspaceRetentionContacts:
         account_refs: dict[SandboxRecipient, str],
         peer_reviews_enabled: bool = False,
         continuations_enabled: bool = False,
+        loops_enabled: bool = False,
     ) -> None:
         if set(account_refs) != {item.key for item in recipients}:
             raise ValueError("Every fictional recipient requires an explicit server-owned binding")
@@ -52,6 +53,7 @@ class WorkspaceRetentionContacts:
         self._recipients, self._account_refs = recipients, dict(account_refs)
         self._peer_reviews_enabled = peer_reviews_enabled
         self._continuations_enabled = continuations_enabled
+        self._loops_enabled = loops_enabled
 
     async def _access(self, owner: str, topic_id: str, turn_id: str) -> None:
         if not self._enabled:
@@ -119,6 +121,14 @@ class WorkspaceRetentionContacts:
                 and turn.contact_model_window is not None
                 and turn.contact_reply_turn_id is None
                 and bool(actions)
+                and (
+                    turn.contact_loop is None
+                    or (
+                        self._loops_enabled
+                        and all(item.status != "proposed" for item in actions)
+                        and await self._contacts._execution_allowed()
+                    )
+                )
             ),
             continuation=ContactContinuationView(
                 turn_id=child.turn_id,
@@ -138,7 +148,9 @@ class WorkspaceRetentionContacts:
         return uuid5(
             NAMESPACE_URL,
             f"retention-native:{topic_id}:{turn_id}:{selection.selection_fingerprint}"
-            if selection and selection.contract == "native_contact_preparation_v2"
+            if selection
+            and selection.contract
+            in {"native_contact_preparation_v2", "native_contact_preparation_v3"}
             else f"retention-chat:{topic_id}:{turn_id}:{nonce}",
         )
 

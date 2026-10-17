@@ -84,6 +84,7 @@ OPERATION_WORKSPACE_RETENTION_CONTACTS_ENABLED="${AUDIT_RETENTION_CONTACTS:-fals
 OPERATION_WORKSPACE_RETENTION_PEER_REVIEWS_ENABLED="${AUDIT_RETENTION_PEER_REVIEWS:-false}" \
 OPERATION_WORKSPACE_CONTACT_TOOL_PROPOSALS_ENABLED="${AUDIT_CONTACT_TOOL_PROPOSALS:-false}" \
 OPERATION_WORKSPACE_CONTACT_TOOL_CONTINUATIONS_ENABLED="${AUDIT_CONTACT_TOOL_CONTINUATIONS:-false}" \
+OPERATION_WORKSPACE_CONTACT_TOOL_LOOPS_ENABLED="${AUDIT_CONTACT_TOOL_LOOPS:-false}" \
 OPERATION_WORKSPACE_MODEL_CONTINUATION_ENABLED="${AUDIT_MODEL_CONTINUATION:-false}" \
 OPERATION_WORKSPACE_REPORT_DISCOVERY_ENABLED="${AUDIT_REPORT_DISCOVERY:-false}" \
 OPERATION_WORKSPACE_SNAPSHOT_REPLACEMENT_ENABLED="${AUDIT_SNAPSHOT_REPLACEMENT:-false}" \
@@ -298,7 +299,11 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
   fi
   browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/retention-agent" >/dev/null
   browser wait --load networkidle >/dev/null
-  browser find label "Сообщение агенту" fill 'Проверь вымышленный контактный sandbox' >/dev/null
+  contact_prompt='Проверь вымышленный контактный sandbox'
+  if [[ "${AUDIT_CONTACT_TOOL_LOOPS:-false}" == true ]]; then
+    contact_prompt='Проверь два вымышленных контакта по очереди'
+  fi
+  browser find label "Сообщение агенту" fill "$contact_prompt" >/dev/null
   browser find role button click --name "Отправить сообщение" >/dev/null
   browser wait --fn 'document.body.innerText.includes("Контактный sandbox Retention")' >/dev/null
   if [[ "${AUDIT_CONTACT_TOOL_PROPOSALS:-false}" == "true" ]]; then
@@ -398,6 +403,55 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
     assert_accessible
     if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
       browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/contact-tool-continuation-mobile.png" --full >/dev/null
+    fi
+    browser set viewport 1440 1000 >/dev/null
+    browser select '.language-select' ru >/dev/null
+  fi
+  if [[ "${AUDIT_CONTACT_TOOL_LOOPS:-false}" == true ]]; then
+    browser wait --fn 'document.querySelectorAll(".chat-turn").length === 2 && Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Подготовить тестовое сообщение" && !b.disabled)' >/dev/null
+    assert_browser 'Array.from(document.querySelectorAll("blockquote")).length === 1' 'next native request automatically prepared another action'
+    browser find role button click --name "Подготовить тестовое сообщение" --exact >/dev/null
+    browser find role button click --name "Подтвердить подготовку" --exact >/dev/null
+    browser wait --fn 'Boolean(document.querySelector("blockquote[lang=ru]"))' >/dev/null
+    if [[ "${AUDIT_RETENTION_PEER_REVIEWS:-false}" == true ]]; then
+      browser eval 'document.querySelector(".chat-proposal-card:has(blockquote[lang=ru]) section select").scrollIntoView({block:"center",behavior:"instant"}); "show second reviewer selector"' >/dev/null
+      assert_browser '(() => { const control=document.querySelector(".chat-proposal-card:has(blockquote[lang=ru]) section select").getBoundingClientRect(); const transcript=document.querySelector(".chat-transcript").getBoundingClientRect(); return control.top>=transcript.top && control.bottom<=transcript.bottom; })()' 'second reviewer selector cannot be scrolled above the composer'
+      browser select '.chat-proposal-card:has(blockquote[lang=ru]) section select' "$contact_peer_user_id" >/dev/null
+      browser find role button click --name "Передать на согласование" --exact >/dev/null
+      browser find role button click --name "Подтвердить передачу" --exact >/dev/null
+      browser wait --fn 'Boolean(document.querySelector(".chat-proposal-card:has(blockquote[lang=ru]) a[href^=\"/reviews?review=\"]"))' >/dev/null
+      second_review_path=$(browser eval 'document.querySelector(".chat-proposal-card:has(blockquote[lang=ru]) a[href^=\"/reviews?review=\"]").getAttribute("href")' | tr -d '"')
+      browser find role button click --name "Выйти" >/dev/null
+      browser open "http://127.0.0.1:${AUDIT_UI_PORT}${second_review_path}" >/dev/null
+      browser wait --fn 'Boolean(document.querySelector("input"))' >/dev/null
+      login_browser 51456737
+      browser wait --fn 'Boolean(document.querySelector("blockquote[lang=ru]"))' >/dev/null
+    fi
+    browser find label "Причина решения" fill 'Separate review of the second fictional recipient' >/dev/null
+    browser find role button click --name "Отправить в sandbox" --exact >/dev/null
+    browser find role button click --name "Подтвердить тестовую отправку" --exact >/dev/null
+    browser wait --fn 'document.querySelector(".chat-proposal-card")?.textContent.includes("Принято тестовым получателем")' >/dev/null
+    if [[ "${AUDIT_RETENTION_PEER_REVIEWS:-false}" == true ]]; then
+      browser find role button click --name "Выйти" >/dev/null
+      browser open "$contact_owner_url" >/dev/null
+      browser wait --fn 'Boolean(document.querySelector("input"))' >/dev/null
+      login_browser 976835256
+    fi
+    browser wait --fn 'Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Продолжить с агентом")' >/dev/null
+    browser find role button click --name "Продолжить с агентом" --exact >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Два тестовых результата сохранены") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+    browser reload >/dev/null
+    browser wait --fn 'document.body.innerText.includes("Два тестовых результата сохранены") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+    assert_browser '!Array.from(document.querySelectorAll("button")).some(b=>["Продолжить с агентом","Подготовить тестовое сообщение"].includes(b.textContent.trim()))' 'consumed loop offered another action'
+    "$PROJECT_ROOT/.venv/bin/python" -c 'import sqlite3,sys,json; c=sqlite3.connect(sys.argv[1]); assert c.execute("SELECT count(*) FROM operation_contact_preparations WHERE status=?",("recorded",)).fetchone()[0]==2; rows=[json.loads(r[0]) for r in c.execute("SELECT workspace_metadata FROM operation_chat_turns") if r[0]]; assert sum(bool(r.get("contact_loop",{}).get("receipts")) for r in rows)==2; print("Contact loop browser passed: two separately prepared/reviewed fake actions, paired continuation, terminal cap and reload without redispatch")' "$AUDIT_TMP_DIR/operation.db"
+    browser select '.language-select' uz >/dev/null
+    browser set viewport 320 812 >/dev/null
+    browser eval 'Array.from(document.querySelectorAll(".chat-turn")).at(-1).scrollIntoView({block:"center",behavior:"instant"}); "show final loop answer"' >/dev/null
+    assert_browser '(() => { const result=Array.from(document.querySelectorAll(".chat-turn")).at(-1).getBoundingClientRect(); const transcript=document.querySelector(".chat-transcript").getBoundingClientRect(); return result.top<transcript.bottom && result.bottom>transcript.top; })()' 'final loop result cannot be viewed above the composer'
+    assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'two-action loop overflows on mobile'
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/contact-tool-loop-mobile.png" --full >/dev/null
     fi
     browser set viewport 1440 1000 >/dev/null
     browser select '.language-select' ru >/dev/null

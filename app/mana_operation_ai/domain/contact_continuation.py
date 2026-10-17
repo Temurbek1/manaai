@@ -40,7 +40,9 @@ def window_digest(model: str, effort: str, instructions: str, context: str, item
 
 
 class BoundContactWindow(DomainModel):
-    protocol: Literal["contact-model-continuation-v1"] = "contact-model-continuation-v1"
+    protocol: Literal["contact-model-continuation-v1", "contact-model-continuation-v2"] = (
+        "contact-model-continuation-v1"
+    )
     selection_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     window: ContactModelWindow
 
@@ -134,6 +136,16 @@ def contact_result_meaning(status: ContactStatus) -> ContactResultMeaning:
                 "or measured retention improvement. No repeat is authorized."
             ),
         }[status],
+    )
+
+
+def contact_result_output(result: ContactPreparationResult) -> str:
+    return json.dumps(
+        {
+            **result.model_dump(mode="json"),
+            "lifecycle": contact_result_meaning(result.status).model_dump(mode="json"),
+        },
+        ensure_ascii=False,
     )
 
 

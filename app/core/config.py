@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     operation_workspace_retention_peer_reviews_enabled: bool = False
     operation_workspace_contact_tool_proposals_enabled: bool = False
     operation_workspace_contact_tool_continuations_enabled: bool = False
+    operation_workspace_contact_tool_loops_enabled: bool = False
     operation_workspace_context_contact_event_limit: int = Field(default=400, ge=4, le=10000)
     operation_contact_preparations_per_turn: int = Field(default=3, ge=1, le=3)
     operation_contact_preparations_per_owner_hour: int = Field(default=10, ge=1, le=100)

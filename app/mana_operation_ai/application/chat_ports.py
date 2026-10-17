@@ -17,6 +17,7 @@ from app.mana_operation_ai.domain.contact_continuation import (
     ContactModelWindow,
     ContactPreparationResult,
 )
+from app.mana_operation_ai.domain.contact_loop import ContactLoopState
 from app.mana_operation_ai.domain.contact_preparation import ContactToolSelection
 from app.mana_operation_ai.domain.session import SessionMemory, SessionUserContext
 
@@ -94,6 +95,19 @@ class ContactContinuationModel(Protocol):
         call_sha256: str,
         owner: str,
         memory: SessionMemory | None = None,
+    ) -> ChatTurnOutput: ...
+
+
+class ContactLoopModel(Protocol):
+    async def continue_contact_loop(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None,
+        loop: ContactLoopState,
     ) -> ChatTurnOutput: ...
 
 

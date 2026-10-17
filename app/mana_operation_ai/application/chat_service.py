@@ -51,9 +51,11 @@ from app.mana_operation_ai.domain.contact_continuation import (
     BoundContactWindow,
     verify_window_request,
 )
+from app.mana_operation_ai.domain.contact_loop import ContactLoopState, verify_loop_window
 from app.mana_operation_ai.domain.contact_preparation import (
     CONTACT_TOOL_CONTINUATION_CONTRACT,
     CONTACT_TOOL_CONTRACT,
+    CONTACT_TOOL_LOOP_CONTRACT,
     ContactToolRequest,
     ContactToolSelection,
     contact_selection_fingerprint,
@@ -183,7 +185,8 @@ the card. Real contact requests remain unsupported; do not redirect them into an
 manual_contact_control_at_admission is a dated host observation, not an execution grant.
 When registration is absent or a kill switch is active, contact preparation is unavailable;
 explain the stop without proposing the tool. Historical observations never renew permission.
-When either native_contact_preparation_v1 or native_contact_preparation_v2 is present,
+When native_contact_preparation_v1, native_contact_preparation_v2 or
+native_contact_preparation_v3 is present,
 use the native
 request_retention_contact_preparation function for an explicit fictional-contact test.
 Choose only the two supported aliases/templates. Do not simulate the call in prose or
@@ -612,9 +615,14 @@ class OperationChatService:
                 if native_contact:
                     turn = turn.model_copy(
                         update={
-                            "contact_tool_contract": CONTACT_TOOL_CONTINUATION_CONTRACT
+                            "contact_tool_contract": CONTACT_TOOL_LOOP_CONTRACT
+                            if self.availability.contact_tool_loops_enabled
+                            else CONTACT_TOOL_CONTINUATION_CONTRACT
                             if self.availability.contact_tool_continuations_enabled
-                            else CONTACT_TOOL_CONTRACT
+                            else CONTACT_TOOL_CONTRACT,
+                            "contact_loop": ContactLoopState(root_turn_id=turn.turn_id)
+                            if self.availability.contact_tool_loops_enabled
+                            else None,
                         }
                     )
                     if not await self.repository.update(turn):
@@ -691,6 +699,11 @@ class OperationChatService:
                                 if native_contact
                                 else {}
                             ),
+                            **(
+                                {"contact_loop": turn.contact_loop.model_dump(mode="json")}
+                                if turn.contact_loop is not None
+                                else {}
+                            ),
                             "response_language": turn.response_language,
                             "inference": {
                                 "model_choice": payload.model_choice,
@@ -753,17 +766,35 @@ class OperationChatService:
                 elif native_contact and next_action == "retention_contacts":
                     raise ChatError("Модель не вернула нативный запрос подготовки.", 502)
                 bound_window = None
-                if preparation and preparation.contract == CONTACT_TOOL_CONTINUATION_CONTRACT:
+                if preparation and preparation.contract in {
+                    CONTACT_TOOL_CONTINUATION_CONTRACT,
+                    CONTACT_TOOL_LOOP_CONTRACT,
+                }:
                     if output.contact_model_window is None:
                         raise ChatError("Нативный запрос не сохранил окно продолжения.", 502)
-                    verify_window_request(
-                        output.contact_model_window,
-                        preparation,
-                        topic_id=topic_id,
-                        message=turn.message,
-                        response_language=turn.response_language,
-                    )
+                    if turn.contact_loop is not None:
+                        verify_loop_window(
+                            output.contact_model_window,
+                            preparation,
+                            turn.contact_loop,
+                            owner=owner,
+                            topic_id=topic_id,
+                            turn_id=turn.turn_id,
+                            root_message=turn.message,
+                            response_language=turn.response_language,
+                        )
+                    else:
+                        verify_window_request(
+                            output.contact_model_window,
+                            preparation,
+                            topic_id=topic_id,
+                            message=turn.message,
+                            response_language=turn.response_language,
+                        )
                     bound_window = BoundContactWindow(
+                        protocol="contact-model-continuation-v2"
+                        if turn.contact_loop
+                        else "contact-model-continuation-v1",
                         selection_fingerprint=preparation.selection_fingerprint,
                         window=output.contact_model_window,
                     )

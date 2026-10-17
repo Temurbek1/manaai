@@ -3420,9 +3420,9 @@ export interface components {
             /**
              * Protocol
              * @default contact-model-continuation-v1
-             * @constant
+             * @enum {string}
              */
-            protocol: "contact-model-continuation-v1";
+            protocol: "contact-model-continuation-v1" | "contact-model-continuation-v2";
             /** Selection Fingerprint */
             selection_fingerprint: string;
             window: components["schemas"]["ContactModelWindow"];
@@ -3523,6 +3523,11 @@ export interface components {
              * @default false
              */
             contact_tool_continuations_enabled: boolean;
+            /**
+             * Contact Tool Loops Enabled
+             * @default false
+             */
+            contact_tool_loops_enabled: boolean;
             /**
              * Contact Tool Proposals Enabled
              * @default false
@@ -3743,7 +3748,7 @@ export interface components {
             answer: string;
             contact_preparation?: components["schemas"]["ContactToolRequest"] | null;
             /** Contact Tool Contract */
-            contact_tool_contract?: ("native_contact_preparation_v1" | "native_contact_preparation_v2") | null;
+            contact_tool_contract?: ("native_contact_preparation_v1" | "native_contact_preparation_v2" | "native_contact_preparation_v3") | null;
             /**
              * Created At
              * Format: date-time
@@ -3969,6 +3974,27 @@ export interface components {
             /** Revision */
             revision: number;
         };
+        /** ContactLoopReceipt */
+        ContactLoopReceipt: {
+            request: components["schemas"]["ContactToolRequest"];
+            result: components["schemas"]["ContactPreparationResult"];
+        };
+        /** ContactLoopState */
+        ContactLoopState: {
+            /**
+             * Maximum Invocations
+             * @default 2
+             * @constant
+             */
+            maximum_invocations: 2;
+            /**
+             * Receipts
+             * @default []
+             */
+            receipts: components["schemas"]["ContactLoopReceipt"][];
+            /** Root Turn Id */
+            root_turn_id: string;
+        };
         /** ContactModelWindow */
         ContactModelWindow: {
             /** Context */
@@ -4153,7 +4179,7 @@ export interface components {
              * @default native_contact_preparation_v1
              * @enum {string}
              */
-            contract: "native_contact_preparation_v1" | "native_contact_preparation_v2";
+            contract: "native_contact_preparation_v1" | "native_contact_preparation_v2" | "native_contact_preparation_v3";
             /** Provider Call Sha256 */
             provider_call_sha256: string;
             /**

@@ -149,7 +149,10 @@ async def test_postgres_preparation_ceiling_serializes_independent_connections()
         await control.dispose()
 
 
-async def test_postgres_native_contact_result_has_one_cross_connection_consumer() -> None:
+@pytest.mark.parametrize("loop_enabled", [False, True])
+async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
+    loop_enabled: bool,
+) -> None:
     import json
 
     from app.mana_operation_ai.application.retention.contact_templates import contact_message
@@ -157,7 +160,9 @@ async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
         BoundContactWindow,
         ContactPreparationResult,
     )
+    from app.mana_operation_ai.domain.contact_loop import ContactLoopState
     from app.mana_operation_ai.domain.contact_preparation import (
+        ContactToolContract,
         ContactToolRequest,
         ContactToolSelection,
         contact_selection_fingerprint,
@@ -192,9 +197,13 @@ async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
         call = tool()
         call_hash = hashlib.sha256(str(call["call_id"]).encode()).hexdigest()
         selection = ContactToolSelection(recipient="sample_uz", template="onboarding_help")
+        contract: ContactToolContract = (
+            "native_contact_preparation_v3" if loop_enabled else "native_contact_preparation_v2"
+        )
+        loop = ContactLoopState(root_turn_id=original.turn_id) if loop_enabled else None
         request = ContactToolRequest(
             **selection.model_dump(),
-            contract="native_contact_preparation_v2",
+            contract=contract,
             provider_call_sha256=call_hash,
             selection_fingerprint=contact_selection_fingerprint(
                 owner,
@@ -202,7 +211,7 @@ async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
                 original.turn_id,
                 selection,
                 call_hash,
-                contract="native_contact_preparation_v2",
+                contract=contract,
             ),
         )
         window = capture_contact_window(
@@ -215,6 +224,7 @@ async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
                     "message": original.message,
                     "response_language": "ru",
                     "contact_tool_contract": request.contract,
+                    **({"contact_loop": loop.model_dump(mode="json")} if loop else {}),
                 }
             ),
             output=[call],
@@ -226,8 +236,13 @@ async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
                     "next_action": "retention_contacts",
                     "contact_tool_contract": request.contract,
                     "contact_preparation": request,
+                    "contact_loop": loop,
                     "contact_model_window": BoundContactWindow(
-                        selection_fingerprint=request.selection_fingerprint, window=window
+                        protocol="contact-model-continuation-v2"
+                        if loop
+                        else "contact-model-continuation-v1",
+                        selection_fingerprint=request.selection_fingerprint,
+                        window=window,
                     ),
                 }
             )
@@ -280,6 +295,11 @@ async def test_postgres_native_contact_result_has_one_cross_connection_consumer(
         replay, admitted = await claim(second)
         assert not admitted and replay.turn_id == child.turn_id and replay.status == "failed"
         assert replay.contact_result == result
+        if loop:
+            assert replay.contact_loop is not None
+            assert replay.contact_loop.root_turn_id == original.turn_id
+            assert replay.contact_loop.receipts[0].result == result
+            assert replay.contact_loop.allowed_recipients() == ()
     finally:
         await first_db.dispose()
         await second_db.dispose()

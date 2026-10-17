@@ -41,6 +41,8 @@ def _turn(row: ChatTurnRow) -> ChatTurn:
         raise ChatError(
             "Сохранённое сообщение требует совместимой версии рабочей среды.", 503
         ) from None
+    if turn.contact_tool_contract == "native_contact_preparation_v3" and turn.contact_loop is None:
+        raise ChatError("Сохранённый цикл утратил приватную привязку.", 503)
     preparation = turn.contact_preparation
     if preparation and preparation.selection_fingerprint != contact_selection_fingerprint(
         row.owner,
@@ -78,6 +80,7 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
             "contact_model_window",
             "contact_result",
             "contact_reply_turn_id",
+            "contact_loop",
         },
     )
     metadata = {
@@ -111,6 +114,11 @@ def _storage(turn: ChatTurn) -> dict[str, object]:
         or turn.response_language is not None
     ):
         workspace = {
+            **(
+                {"contact_loop": turn.contact_loop.model_dump(mode="json")}
+                if turn.contact_loop
+                else {}
+            ),
             **(
                 {"contact_model_window": turn.contact_model_window.model_dump(mode="json")}
                 if turn.contact_model_window
@@ -341,6 +349,8 @@ class SqlAlchemyChatRepository:
                         *self._public_columns(),
                         ChatTurnRow.workspace_metadata["contact_tool_contract"],
                         ChatTurnRow.workspace_metadata["contact_preparation"],
+                        ChatTurnRow.workspace_metadata["contact_loop"],
+                        ChatTurnRow.workspace_metadata["contact_result"],
                     )
                     .where(*conditions)
                     .order_by(ChatTurnRow.created_at.desc(), ChatTurnRow.turn_id.desc())
@@ -359,6 +369,8 @@ class SqlAlchemyChatRepository:
                                     **self._public_turn(row[:6]).model_dump(),
                                     "contact_tool_contract": row[6],
                                     "contact_preparation": row[7],
+                                    "contact_loop": row[8],
+                                    "contact_result": row[9],
                                 }
                             )
                             for row in rows
@@ -426,6 +438,7 @@ class SqlAlchemyChatRepository:
             topic_row = await self._owned(session, owner, topic_id)
             await self._expire(session)
             origin_row = None
+            contact_loop = None
             if contact_result is not None:
                 origin_row = await session.scalar(
                     select(ChatTurnRow)
@@ -456,6 +469,12 @@ class SqlAlchemyChatRepository:
                     ):
                         raise ChatError("Этот вызов уже продолжен с другим SQL-снимком.")
                     return child, False
+                if origin.contact_loop is not None:
+                    if origin.contact_preparation is None:
+                        raise ChatError("Исходный запрос цикла недоступен.", 503)
+                    contact_loop = origin.contact_loop.advance(
+                        origin.contact_preparation, contact_result
+                    )
             existing = await session.scalar(
                 select(ChatTurnRow).where(
                     ChatTurnRow.topic_id == topic_id,
@@ -516,6 +535,8 @@ class SqlAlchemyChatRepository:
                 execution_mode=payload.execution_mode,
                 response_language=payload.response_language,
                 contact_result=contact_result,
+                contact_loop=contact_loop,
+                contact_tool_contract="native_contact_preparation_v3" if contact_loop else None,
                 status="reading",
                 created_at=now,
             )
@@ -564,6 +585,27 @@ class SqlAlchemyChatRepository:
 
     async def _update(self, session: AsyncSession, row: ChatTurnRow, turn: ChatTurn) -> bool:
         prior = _turn(row)
+        if prior.contact_loop is not None and (
+            turn.contact_loop != prior.contact_loop
+            or turn.contact_tool_contract != prior.contact_tool_contract
+            or turn.contact_result != prior.contact_result
+        ):
+            raise ChatError("Зафиксированный цикл или результат инструмента изменился.", 409)
+        if (
+            prior.contact_loop is None
+            and turn.contact_loop is not None
+            and (prior.contact_tool_contract is not None or prior.contact_result is not None)
+        ):
+            raise ChatError("Историческое сообщение не может получить новый цикл.", 409)
+        if (
+            turn.contact_tool_contract == "native_contact_preparation_v3"
+            and turn.contact_loop is None
+        ):
+            raise ChatError("Новый цикл требует зафиксированной приватной привязки.", 409)
+        if turn.contact_loop is not None:
+            turn = ChatTurn.model_validate(
+                {field: getattr(turn, field) for field in ChatTurn.model_fields}
+            )
         terminal = turn.status not in ACTIVE and prior.preview_revision > 0
         turn = turn.model_copy(
             update={

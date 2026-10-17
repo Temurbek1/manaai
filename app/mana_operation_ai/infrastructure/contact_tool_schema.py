@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.mana_operation_ai.application.inference_errors import InferenceProviderError
 from app.mana_operation_ai.domain.contact_preparation import CONTACT_TOOL, ContactToolSelection
+from app.mana_operation_ai.domain.retention_contact import SandboxRecipient
 
 
 class ContactToolOptions(TypedDict, total=False):
@@ -18,7 +19,11 @@ class ContactToolOptions(TypedDict, total=False):
     include: list[ResponseIncludable]
 
 
-def contact_function_tools() -> list[FunctionToolParam]:
+def contact_function_tools(
+    recipients: tuple[SandboxRecipient, ...] | None = None,
+) -> list[FunctionToolParam]:
+    if recipients is not None and (not recipients or len(set(recipients)) != len(recipients)):
+        raise ValueError("Contact tools require a nonempty unique fictional recipient scope")
     return [
         {
             "type": "function",
@@ -32,7 +37,10 @@ def contact_function_tools() -> list[FunctionToolParam]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "recipient": {"type": "string", "enum": ["sample_ru", "sample_uz"]},
+                    "recipient": {
+                        "type": "string",
+                        "enum": list(recipients or ("sample_ru", "sample_uz")),
+                    },
                     "template": {"type": "string", "enum": ["onboarding_help", "renewal_reminder"]},
                 },
                 "required": ["recipient", "template"],

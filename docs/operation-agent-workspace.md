@@ -35,6 +35,10 @@ The owner resumed the paused objective on 2026-10-17. The following
 [preparation-admission checkpoint](operation-contact-admission-checkpoint.md) records
 local SQL ceilings, exact-request human recovery and retained unknown holds. Its
 current checks do not activate a source, authorize a real contact or deploy the lane.
+The subsequent [native sequential contact loop](operation-contact-tool-loop-checkpoint.md)
+is a local, default-disabled v3 increment: a verified fictional result can lead to a
+second independently confirmed request. It preserves the exact root/history and
+does not upgrade old turns, grant Goal writes, contact real users or complete the goal.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

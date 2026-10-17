@@ -27,9 +27,11 @@ from app.mana_operation_ai.domain.contact_continuation import (
     ContactModelWindow,
     ContactPreparationResult,
 )
+from app.mana_operation_ai.domain.contact_loop import ContactLoopState
 from app.mana_operation_ai.domain.contact_preparation import (
     CONTACT_TOOL_CONTINUATION_CONTRACT,
     CONTACT_TOOL_CONTRACT,
+    CONTACT_TOOL_LOOP_CONTRACT,
     ContactToolSelection,
 )
 from app.mana_operation_ai.domain.enums import AgentRunStatus, TriggerType, UserRole
@@ -39,6 +41,7 @@ from app.mana_operation_ai.domain.model_continuation import ModelContinuation
 from app.mana_operation_ai.domain.models import AgentReport, AgentRun
 from app.mana_operation_ai.domain.session import SessionMemory
 from app.mana_operation_ai.infrastructure.agent_tool_schema import agent_function_tools
+from app.mana_operation_ai.infrastructure.contact_loop_model import capture_loop_append, loop_input
 from app.mana_operation_ai.infrastructure.contact_model_continuation import capture_contact_window
 from app.mana_operation_ai.infrastructure.goal_continuation import (
     finish_continuation,
@@ -66,6 +69,55 @@ ARCHIVE_CONSTRAINT = "Не контактируй с родителями; бю�
 
 
 class BrowserConversationFake:
+    async def continue_contact_loop(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None,
+        loop: ContactLoopState,
+    ) -> ChatTurnOutput:
+        assert result.status == "verified" and loop.receipts[-1].result == result
+        if len(loop.receipts) == 2:
+            return ChatTurnOutput(
+                "Два тестовых результата сохранены. Реальной доставки и измеренного удержания нет.",
+                "browser-fake",
+                10,
+                20,
+            )
+        assert loop.allowed_recipients() == ("sample_ru",)
+        call_id = "call_browser_synthetic_contact_second"
+        continued = capture_loop_append(
+            window,
+            input_items=loop_input(window, loop, memory),
+            output=[
+                {
+                    "type": "function_call",
+                    "name": "request_retention_contact_preparation",
+                    "call_id": call_id,
+                    "status": "completed",
+                    "arguments": json.dumps(
+                        {"recipient": "sample_ru", "template": "onboarding_help"}
+                    ),
+                }
+            ],
+        )
+        return ChatTurnOutput(
+            "Агент продолжил по SQL-результату. "
+            "Подтвердите подготовку второго вымышленного сообщения.",
+            "browser-fake",
+            10,
+            20,
+            next_action="retention_contacts",
+            contact_selection=ContactToolSelection(
+                recipient="sample_ru", template="onboarding_help"
+            ),
+            contact_call_sha256=hashlib.sha256(call_id.encode()).hexdigest(),
+            contact_model_window=continued,
+        )
+
     async def continue_contact(
         self,
         *,
@@ -107,15 +159,22 @@ class BrowserConversationFake:
         payload = json.loads(context)
         message = str(payload.get("message", ""))
         agent_mode = "start_goal" in payload.get("allowed_next_actions", [])
-        if message == "Проверь вымышленный контактный sandbox":
+        if message in {
+            "Проверь вымышленный контактный sandbox",
+            "Проверь два вымышленных контакта по очереди",
+        }:
             assert "retention_contacts" in payload["allowed_next_actions"]
             native = payload.get("contact_tool_contract") in (
                 CONTACT_TOOL_CONTRACT,
                 CONTACT_TOOL_CONTINUATION_CONTRACT,
+                CONTACT_TOOL_LOOP_CONTRACT,
             )
             window = None
             call_id = "call_browser_synthetic_contact"
-            if payload.get("contact_tool_contract") == CONTACT_TOOL_CONTINUATION_CONTRACT:
+            if payload.get("contact_tool_contract") in {
+                CONTACT_TOOL_CONTINUATION_CONTRACT,
+                CONTACT_TOOL_LOOP_CONTRACT,
+            }:
                 window = capture_contact_window(
                     output=[
                         {
@@ -510,6 +569,9 @@ def create_app() -> FastAPI:
                     bridge._contacts._allow_self_approval = True
             application.state.operation_chat_service._model = BrowserConversationFake()
             application.state.operation_contact_result_continuation._model = (
+                BrowserConversationFake()
+            )
+            application.state.operation_contact_result_continuation._loop_model = (
                 BrowserConversationFake()
             )
             if settings.operation_workspace_chat_streaming_enabled:

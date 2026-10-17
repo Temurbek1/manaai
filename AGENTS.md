@@ -79,6 +79,16 @@
   receipt and its negative review. The following single synthetic real-model pass
   does not establish broader quality, real contacts or release acceptance. See
   `docs/operation-contact-loop-quality-checkpoint.md`.
+- The new local default-disabled `OPERATION_WORKSPACE_CONTACT_TOOL_LOOPS_ENABLED`
+  captures only new native v3 contact turns. After a verified fake result, one
+  remaining distinct fictional adult may be requested, never prepared/shared/
+  approved/sent automatically. Every step retains its own human confirmations and
+  owning policy; Goals remain read-only. Private root/receipt/window pairing is
+  immutable and bounded to two invocations; old v1/v2 never upgrade. Unknown/cancelled
+  child inference never frees a consumed invocation. Preserve original conditions,
+  model/language and verified costs after stop fences. See
+  `docs/operation-contact-tool-loop-checkpoint.md` for current local acceptance; this
+  is not a deployed contact feature or full multi-action/model-quality acceptance.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - The local manual contact control registry is separate from persisted agent definitions
   and analysis handlers. Never turn it into a scheduled capability or a Goal write tool.

@@ -763,6 +763,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         },
         peer_reviews_enabled=peer_reviews_enabled,
         continuations_enabled=contact_continuations_enabled,
+        loops_enabled=contact_continuations_enabled
+        and settings.operation_workspace_contact_tool_loops_enabled,
     )
     app.state.operation_workspace_contact_reviews = WorkspaceContactReviews(
         access=review_access,
@@ -783,6 +785,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         model=chat_model,
         context=session_context,
         enabled=contact_continuations_enabled,
+        loop_enabled=contact_continuations_enabled
+        and settings.operation_workspace_contact_tool_loops_enabled,
+        loop_model=chat_model,
     )
     app.state.operation_cost_ledger = cost_ledger
     app.state.operation_shared_data_reader = shared_data_reader
@@ -810,6 +815,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 and settings.operation_workspace_contact_tool_proposals_enabled
             ),
             contact_tool_continuations_enabled=contact_continuations_enabled,
+            contact_tool_loops_enabled=(
+                contact_continuations_enabled
+                and settings.operation_workspace_contact_tool_loops_enabled
+            ),
             transcript_pagination_enabled=(
                 settings.operation_agent_workspace_enabled
                 and settings.operation_workspace_transcript_enabled

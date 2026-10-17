@@ -45,7 +45,10 @@ async def probe(
     native_contact: bool = False,
     contact_continuation: bool = False,
     contact_admissions: bool = False,
+    contact_loop: bool = False,
 ) -> None:
+    if contact_loop and not contact_continuation:
+        raise ValueError("Loop audit requires the captured contact continuation profile")
     if contact_admissions and not contact_continuation:
         raise ValueError("Admission compatibility requires the full contact continuation fixture")
     if contact_continuation and not native_contact:
@@ -559,9 +562,26 @@ async def probe(
                 await check_admissions(
                     path, stage="setup", owner=OWNER, topic_id=admission_topic.topic_id
                 )
+            if contact_loop:
+                from scripts.operation_contact_loop_compatibility import check_loop
+
+                await check_loop(path, owner=OWNER, setup=True)
             return
 
         topics = await chats.topics(OWNER)
+        if contact_loop:
+            loop_topic = next(item for item in topics if item.title == "Native contact loop")
+            topics = [item for item in topics if item.topic_id != loop_topic.topic_id]
+            from scripts.operation_contact_loop_compatibility import check_legacy, check_loop
+
+            if stage == "legacy":
+                assert all(
+                    turn.next_action == "none"
+                    for turn in await chats.turns(OWNER, loop_topic.topic_id)
+                )
+                check_legacy(path)
+            else:
+                await check_loop(path, owner=OWNER)
         assert len(topics) == 4
         if stage == "legacy":
             # This process imports the real old image's strict models and repository.
@@ -768,6 +788,7 @@ def main() -> None:
     parser.add_argument("--native-contact", action="store_true")
     parser.add_argument("--contact-continuation", action="store_true")
     parser.add_argument("--contact-admissions", action="store_true")
+    parser.add_argument("--contact-loop", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -782,6 +803,7 @@ def main() -> None:
             native_contact=args.native_contact,
             contact_continuation=args.contact_continuation,
             contact_admissions=args.contact_admissions,
+            contact_loop=args.contact_loop,
         )
     )
 

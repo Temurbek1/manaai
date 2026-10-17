@@ -3602,8 +3602,11 @@
         "additionalProperties": false,
         "properties": {
           "protocol": {
-            "const": "contact-model-continuation-v1",
             "default": "contact-model-continuation-v1",
+            "enum": [
+              "contact-model-continuation-v1",
+              "contact-model-continuation-v2"
+            ],
             "title": "Protocol",
             "type": "string"
           },
@@ -3857,6 +3860,11 @@
           "contact_tool_continuations_enabled": {
             "default": false,
             "title": "Contact Tool Continuations Enabled",
+            "type": "boolean"
+          },
+          "contact_tool_loops_enabled": {
+            "default": false,
+            "title": "Contact Tool Loops Enabled",
             "type": "boolean"
           },
           "contact_tool_proposals_enabled": {
@@ -4318,7 +4326,8 @@
               {
                 "enum": [
                   "native_contact_preparation_v1",
-                  "native_contact_preparation_v2"
+                  "native_contact_preparation_v2",
+                  "native_contact_preparation_v3"
                 ],
                 "type": "string"
               },
@@ -4918,6 +4927,54 @@
         "title": "ContactContinueRequest",
         "type": "object"
       },
+      "ContactLoopReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/ContactToolRequest"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ContactPreparationResult"
+          }
+        },
+        "required": [
+          "request",
+          "result"
+        ],
+        "title": "ContactLoopReceipt",
+        "type": "object"
+      },
+      "ContactLoopState": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_invocations": {
+            "const": 2,
+            "default": 2,
+            "title": "Maximum Invocations",
+            "type": "integer"
+          },
+          "receipts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ContactLoopReceipt"
+            },
+            "maxItems": 2,
+            "title": "Receipts",
+            "type": "array"
+          },
+          "root_turn_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Root Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root_turn_id"
+        ],
+        "title": "ContactLoopState",
+        "type": "object"
+      },
       "ContactModelWindow": {
         "additionalProperties": false,
         "properties": {
@@ -5316,7 +5373,8 @@
             "default": "native_contact_preparation_v1",
             "enum": [
               "native_contact_preparation_v1",
-              "native_contact_preparation_v2"
+              "native_contact_preparation_v2",
+              "native_contact_preparation_v3"
             ],
             "title": "Contract",
             "type": "string"

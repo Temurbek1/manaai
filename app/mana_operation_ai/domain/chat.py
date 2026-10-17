@@ -11,6 +11,7 @@ from app.mana_operation_ai.domain.contact_continuation import (
     BoundContactWindow,
     ContactPreparationResult,
 )
+from app.mana_operation_ai.domain.contact_loop import ContactLoopState
 from app.mana_operation_ai.domain.contact_preparation import ContactToolContract, ContactToolRequest
 from app.mana_operation_ai.domain.inference import ModelChoice, ReasoningChoice
 from app.mana_operation_ai.domain.session import SessionMemory
@@ -107,6 +108,9 @@ class ChatTurn(ChatModel):
         default=None, exclude=True
     )
     contact_reply_turn_id: SkipJsonSchema[str | None] = Field(default=None, exclude=True)
+    contact_loop: SkipJsonSchema[ContactLoopState | None] = Field(
+        default=None, exclude=True, repr=False
+    )
 
     @model_validator(mode="after")
     def contact_contract(self) -> "ChatTurn":
@@ -127,17 +131,45 @@ class ChatTurn(ChatModel):
             raise ValueError("Contact selection requires its original completed native tool turn")
         if self.contact_model_window is not None and (
             self.contact_preparation is None
-            or self.contact_preparation.contract != "native_contact_preparation_v2"
+            or self.contact_preparation.contract
+            not in {"native_contact_preparation_v2", "native_contact_preparation_v3"}
             or self.contact_model_window.selection_fingerprint
             != self.contact_preparation.selection_fingerprint
+            or self.contact_model_window.protocol
+            != (
+                "contact-model-continuation-v2"
+                if self.contact_preparation.contract == "native_contact_preparation_v3"
+                else "contact-model-continuation-v1"
+            )
         ):
-            raise ValueError("A private continuation requires its original v2 preparation request")
+            raise ValueError(
+                "A private continuation requires its captured native preparation protocol"
+            )
         if self.contact_reply_turn_id is not None and self.contact_model_window is None:
             raise ValueError("A consumed contact call requires its retained original model window")
         if self.contact_result is not None and (
-            self.execution_mode != "agent" or self.contact_preparation is not None
+            self.execution_mode != "agent"
+            or (self.contact_preparation is not None and self.contact_loop is None)
         ):
             raise ValueError("A contact result belongs to a separate agent continuation turn")
+        if self.contact_loop is not None and (
+            self.contact_tool_contract != "native_contact_preparation_v3"
+        ):
+            raise ValueError("New loop turns require their explicitly captured v3 contract")
+        if self.contact_loop is not None:
+            if self.contact_result is None:
+                if self.contact_loop.receipts or self.contact_loop.root_turn_id != self.turn_id:
+                    raise ValueError("A new contact loop requires its exact root turn")
+            elif (
+                not self.contact_loop.receipts
+                or self.contact_loop.receipts[-1].result != self.contact_result
+                or self.contact_loop.root_turn_id == self.turn_id
+            ):
+                raise ValueError("A loop continuation must retain its admitted SQL receipt")
+            if self.contact_preparation is not None and (
+                self.contact_preparation.recipient not in self.contact_loop.allowed_recipients()
+            ):
+                raise ValueError("A loop cannot bypass its limit or repeat an earlier recipient")
         return self
 
 
@@ -176,6 +208,7 @@ class ChatAvailability(ChatModel):
     retention_peer_reviews_enabled: bool = False
     contact_tool_proposals_enabled: bool = False
     contact_tool_continuations_enabled: bool = False
+    contact_tool_loops_enabled: bool = False
     transcript_pagination_enabled: bool = False
     chat_streaming_enabled: bool = False
     response_languages: tuple[Literal["ru"], Literal["uz"]] = ("ru", "uz")

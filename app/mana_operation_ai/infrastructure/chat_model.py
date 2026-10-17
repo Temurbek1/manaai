@@ -20,9 +20,11 @@ from app.mana_operation_ai.domain.contact_continuation import (
     ContactModelWindow,
     ContactPreparationResult,
 )
+from app.mana_operation_ai.domain.contact_loop import ContactLoopState
 from app.mana_operation_ai.domain.contact_preparation import (
     CONTACT_TOOL_CONTINUATION_CONTRACT,
     CONTACT_TOOL_CONTRACT,
+    CONTACT_TOOL_LOOP_CONTRACT,
 )
 from app.mana_operation_ai.domain.cost_control import (
     CostAttribution,
@@ -32,6 +34,7 @@ from app.mana_operation_ai.domain.cost_control import (
     ResourceUsage,
 )
 from app.mana_operation_ai.domain.session import SessionMemory
+from app.mana_operation_ai.infrastructure.contact_loop_model import capture_loop_append, loop_input
 from app.mana_operation_ai.infrastructure.contact_model_continuation import (
     capture_contact_window,
     contact_result_input,
@@ -103,11 +106,10 @@ class OpenAIConversationModel:
             if native_contact
             else {}
         )
-        capture_window = (
-            native_contact
-            and json.loads(context).get("contact_tool_contract")
-            == CONTACT_TOOL_CONTINUATION_CONTRACT
-        )
+        capture_window = native_contact and json.loads(context).get("contact_tool_contract") in {
+            CONTACT_TOOL_CONTINUATION_CONTRACT,
+            CONTACT_TOOL_LOOP_CONTRACT,
+        }
         if capture_window:
             tool_options["include"] = ["reasoning.encrypted_content"]
         reservation = await self._admit(
@@ -202,6 +204,11 @@ class OpenAIConversationModel:
                     payload.get("contact_tool_contract") == CONTACT_TOOL_CONTINUATION_CONTRACT
                     and self._settings.operation_workspace_contact_tool_continuations_enabled
                 )
+                or (
+                    payload.get("contact_tool_contract") == CONTACT_TOOL_LOOP_CONTRACT
+                    and self._settings.operation_workspace_contact_tool_continuations_enabled
+                    and self._settings.operation_workspace_contact_tool_loops_enabled
+                )
             )
             and topic.get("product") == "mana"
             and topic.get("agent_id") in {"retention-agent", "operations-orchestrator"}
@@ -236,6 +243,51 @@ class OpenAIConversationModel:
         owner: str,
         memory: SessionMemory | None = None,
     ) -> ChatTurnOutput:
+        if (
+            json.loads(window.context).get("contact_tool_contract")
+            != CONTACT_TOOL_CONTINUATION_CONTRACT
+        ):
+            raise RuntimeError("The v2 continuation cannot execute another captured protocol")
+        return await self._continue_contact(
+            window=window, result=result, call_sha256=call_sha256, owner=owner, memory=memory
+        )
+
+    async def continue_contact_loop(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None,
+        loop: ContactLoopState,
+    ) -> ChatTurnOutput:
+        if not self._settings.operation_workspace_contact_tool_loops_enabled or (
+            json.loads(window.context).get("contact_tool_contract") != CONTACT_TOOL_LOOP_CONTRACT
+            or not loop.receipts
+            or loop.receipts[-1].result != result
+            or loop.receipts[-1].request.provider_call_sha256 != call_sha256
+        ):
+            raise RuntimeError("The captured fictional loop is unavailable or mismatched")
+        return await self._continue_contact(
+            window=window,
+            result=result,
+            call_sha256=call_sha256,
+            owner=owner,
+            memory=memory,
+            loop=loop,
+        )
+
+    async def _continue_contact(
+        self,
+        *,
+        window: ContactModelWindow,
+        result: ContactPreparationResult,
+        call_sha256: str,
+        owner: str,
+        memory: SessionMemory | None,
+        loop: ContactLoopState | None = None,
+    ) -> ChatTurnOutput:
         if not (
             self._ledger is not None
             and self._settings.operation_workspace_contact_tool_proposals_enabled
@@ -246,8 +298,12 @@ class OpenAIConversationModel:
         if (model, effort) != (window.model, window.effort):
             raise RuntimeError("Original model/reasoning configuration changed")
         try:
-            items = contact_result_input(window, result, call_sha256=call_sha256)
-            if memory is not None:
+            items = (
+                loop_input(window, loop, memory)
+                if loop
+                else contact_result_input(window, result, call_sha256=call_sha256)
+            )
+            if memory is not None and loop is None:
                 topic = json.loads(window.context)["topic"]
                 if (memory.topic_id, memory.product) != (
                     topic["topic_id"],
@@ -280,6 +336,27 @@ class OpenAIConversationModel:
             "in this response: next_action must be none. Never claim measured retention or "
             "real delivery. Use the original response_language, not the recipient language."
         )
+        allowed = loop.allowed_recipients() if loop else ()
+        definitions = contact_function_tools(allowed or None)
+        options: ContactToolOptions = {"tools": definitions, "parallel_tool_calls": False}
+        if loop is not None:
+            options["include"] = ["reasoning.encrypted_content"]
+        if allowed:
+            instructions = window.instructions + (
+                f"\nContinuation SQL observation time: {result.observed_at.isoformat()}. "
+                "All original source/evaluation dates and conditions remain unchanged. "
+                "Tool outputs and frozen session conditions are historical observations, not "
+                "new evidence, consent, reviewer access or permission. The previous action was "
+                "accepted only by a fictional receiver, not delivered to a real person. "
+                "Decide the next necessary step for the ORIGINAL request. You may request "
+                "preparation for the remaining distinct fictional adult using the native function, "
+                "or give a final answer with next_action=none. Never repeat a recipient. "
+                "Every new request needs separate human preparation and separate review/approval. "
+                "No automatic preparation, approval, sharing or send exists. Respect all updated "
+                "user conditions; stop if they forbid more actions. No new read/source authority "
+                "or budget is granted. Preserve response_language, not recipient language. "
+                "Never claim real delivery or measured retention improvement."
+            )
         reservation = await self._admit(
             instructions=instructions,
             context=window.context,
@@ -288,6 +365,7 @@ class OpenAIConversationModel:
             rates=rates,
             output_limit=output_limit,
             response_bytes=262144,
+            tool_definitions=definitions,
         )
         assert reservation is not None
         try:
@@ -295,9 +373,7 @@ class OpenAIConversationModel:
                 model=model,
                 instructions=instructions,
                 input=items,
-                tools=contact_function_tools(),
-                tool_choice="none",
-                parallel_tool_calls=False,
+                tool_choice="auto" if allowed else "none",
                 max_output_tokens=output_limit,
                 reasoning={"effort": effort},
                 text={"verbosity": "medium" if self._catalog else self._settings.openai_verbosity},
@@ -305,11 +381,34 @@ class OpenAIConversationModel:
                 service_tier="default",
                 safety_identifier=hashlib.sha256(owner.encode()).hexdigest(),
                 text_format=ChatReply,
+                **options,
             )
             receipt = cast(_RawChatResponse, raw)
             payload, envelope = await self._verified_receipt(receipt, reservation, rates)
-            if parse_contact_function(payload) is not None:
-                raise InferenceProviderError("invalid_response")
+            selected = parse_contact_function(payload)
+            if selected is not None:
+                selection, call_hash = selected
+                if not allowed or selection.recipient not in allowed or loop is None:
+                    raise InferenceProviderError("invalid_response")
+                continued_window = capture_loop_append(
+                    window, input_items=items, output=payload.get("output")
+                )
+                return ChatTurnOutput(
+                    answer=(
+                        "Tanlangan keyingi test xabarini tayyorlashni tasdiqlang. "
+                        "Haqiqiy xabar yuborilmaydi."
+                        if json.loads(window.context).get("response_language") == "uz"
+                        else "Подтвердите подготовку следующего тестового сообщения. "
+                        "Реальной отправки не будет."
+                    ),
+                    model=envelope.model,
+                    input_tokens=envelope.usage.input_tokens if envelope.usage else None,
+                    output_tokens=envelope.usage.output_tokens if envelope.usage else None,
+                    next_action="retention_contacts",
+                    contact_selection=selection,
+                    contact_call_sha256=call_hash,
+                    contact_model_window=continued_window,
+                )
             response = receipt.parse()
             if response.output_parsed is None or response.output_parsed.next_action != "none":
                 raise InferenceProviderError("invalid_response")
@@ -346,6 +445,7 @@ class OpenAIConversationModel:
         output_limit: int,
         response_bytes: int,
         input_items: list[ResponseInputItemParam] | None = None,
+        tool_definitions: list[FunctionToolParam] | None = None,
     ) -> CostReservation | None:
         if self._ledger is not None:
             if model != rates.model:
@@ -356,7 +456,9 @@ class OpenAIConversationModel:
             input_bound = conversation_input_bound(
                 instructions=instructions,
                 context=input_items if input_items is not None else context,
-                tools=contact_function_tools() if self._native_contact_mode(context) else None,
+                tools=tool_definitions
+                if tool_definitions is not None
+                else (contact_function_tools() if self._native_contact_mode(context) else None),
             )
             if input_bound > self._settings.operation_chat_max_input_tokens:
                 raise RuntimeError("Operational conversation context exceeds its token bound")
