@@ -515,6 +515,11 @@ class BrowserGoalFake:
                 )
                 + ("EXACT PAGED FOOTER проверен. " if paged else "")
                 + ("EXACT CATALOG FOOTER проверен. " if discovery else "")
+                + (
+                    "[Сохранённый источник](report:" + goal["evidence"][0]["report_id"] + "). "
+                    if discovery and goal["evidence"]
+                    else ""
+                )
                 + "Тестовый анализ. Есть исторические агрегаты, но платежи и отток "
                 "по единой когорте не подтверждены. Данные пользователей не изменялись.",
                 evidence_ids=[item["report_id"] for item in goal["evidence"]],

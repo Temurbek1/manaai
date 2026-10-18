@@ -2776,6 +2776,23 @@ input[type="checkbox"] {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.goal-result .goal-source-reference {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #285aa8;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.goal-result .goal-source-reference:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
 .goal-report-table {
   max-width: 100%;
   overflow-x: auto;
@@ -2867,6 +2884,10 @@ input[type="checkbox"] {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font: inherit;
+}
+.goal-evidence-text {
+  max-height: min(60vh, 32rem);
+  overflow: auto;
 }
 @media (max-width: 480px) {
   .goal-workspace {

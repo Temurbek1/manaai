@@ -39,6 +39,11 @@ if [[ "${AUDIT_EXPLICIT_NATIVE_GOALS:-false}" == true && "${AUDIT_AGENT_WORKSPAC
   exit 2
 fi
 
+if [[ "${AUDIT_SAVED_SOURCE_VIEWER:-false}" == true && ( "${AUDIT_AGENT_WORKSPACE:-false}" != true || "${AUDIT_REPORT_DISCOVERY:-false}" != true ) ]]; then
+  echo "Saved source viewer audit requires native workspace and report discovery audits." >&2
+  exit 2
+fi
+
 if [[ ! -x "$BROWSER_BIN" ]]; then
   echo "agent-browser is not installed; run npm ci in admin-ui" >&2
   exit 1
@@ -709,6 +714,41 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
       browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/catalog-reviewed-result.png" --full >/dev/null
     fi
     echo "Catalog browser flow passed: three bounded SQL pages, complete saved text, reviewed result and reload without redispatch"
+    if [[ "${AUDIT_SAVED_SOURCE_VIEWER:-false}" == true ]]; then
+      browser set viewport 1440 1000 >/dev/null
+      browser eval 'window.__sourceViewerPosts=0; const original=window.fetch.bind(window);window.fetch=(...args)=>{if(args[1]?.method && args[1].method!=="GET")window.__sourceViewerPosts++;return original(...args);};true' >/dev/null
+      browser find role button click --name "Сохранённый источник" --exact >/dev/null
+      browser wait --fn 'Boolean(document.querySelector(".goal-evidence-text")?.closest("details[open]"))' >/dev/null
+      browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0];const text=document.querySelector(".goal-evidence-text");if(text.textContent!==goal.evidence[0].summary || !text.textContent.endsWith("EXACT CATALOG FOOTER") || text.textContent.length<=5000 || document.activeElement!==text.closest("details").querySelector("summary") || window.__sourceViewerPosts!==0)throw Error("Saved-source viewer changed text, lost focus or dispatched work");return "exact full saved source; no generation or read grant";})()' >/dev/null
+      assert_accessible
+      if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+        browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/saved-source-desktop.png" --full >/dev/null
+      fi
+      browser select '.language-select' uz >/dev/null
+      browser wait --fn 'document.documentElement.lang==="uz" && Boolean(document.querySelector("pre[aria-label=\"Saqlangan manba matni\"]"))' >/dev/null
+      browser set viewport 320 812 >/dev/null
+      browser find role button click --name "Сохранённый источник" --exact >/dev/null
+      browser eval 'JSON.stringify({viewport:innerWidth,source:document.querySelector(".goal-evidence-text").getBoundingClientRect().toJSON(),composer:document.querySelector(".chat-composer").getBoundingClientRect().toJSON()})'
+      assert_browser 'document.documentElement.scrollWidth<=innerWidth && document.querySelector(".goal-evidence-text").textContent.endsWith("EXACT CATALOG FOOTER") && window.__sourceViewerPosts===0' 'saved source clipped, overflowed or redispatched on mobile/locale change'
+      assert_accessible
+      if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+        browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/saved-source-uz-mobile.png" --full >/dev/null
+      fi
+      browser eval 'const text=document.querySelector(".goal-evidence-text");text.focus();text.scrollTop=text.scrollHeight;text.scrollIntoView({block:"end"});const range=document.createRange();range.setStart(text.firstChild,text.firstChild.length-"EXACT CATALOG FOOTER".length);range.setEnd(text.firstChild,text.firstChild.length);const tail=range.getBoundingClientRect(), transcript=document.querySelector(".chat-transcript").getBoundingClientRect(), composer=document.querySelector(".chat-composer").getBoundingClientRect();if(tail.top<transcript.top || tail.bottom>Math.min(transcript.bottom,composer.top) || tail.width<=0)throw Error("Saved source footer is not visibly reachable");"full saved footer is visible through normal nested scrolling"' >/dev/null
+      assert_accessible
+      if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+        browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/saved-source-footer-uz-mobile.png" --full >/dev/null
+      fi
+      browser reload >/dev/null
+      browser wait --fn 'Boolean(document.querySelector(".goal-result .goal-source-reference"))' >/dev/null
+      browser find role button click --name "Сохранённый источник" --exact >/dev/null
+      browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goal=(await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json())[0];if(JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd})!==sessionStorage.getItem("catalog-result") || document.querySelector(".goal-evidence-text").textContent!==goal.evidence[0].summary || goal.read_attempted || goal.approved_capability || goal.requested_capability || goal.unsettled_microusd)throw Error("Source observation/reload changed task or source authority");return "same private SQL snapshot and cost after reload";})()' >/dev/null
+      browser find role button click --name 'Menyuni ochish' >/dev/null
+      browser select '.language-select' ru >/dev/null
+      browser find role button click --name 'Открыть меню' >/dev/null
+      browser set viewport 1440 1000 >/dev/null
+      echo "Saved source viewer browser passed: exact complete SQL text, citation focus, RU/UZ/mobile, accessibility and reload without new work"
+    fi
   fi
   if [[ "${AUDIT_EXPLICIT_NATIVE_GOALS:-false}" == true ]]; then
     # Use a fresh private topic so existing historical/catalog assertions retain

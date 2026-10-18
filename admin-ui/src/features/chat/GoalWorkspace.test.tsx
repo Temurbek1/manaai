@@ -2,7 +2,12 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { renderWithSession } from "@/test/render";
 import { requestUrl } from "@/test/http";
+import parentJourney from "@/test/fixtures/native-parent-journey.json";
 import { formatDate } from "@/ui/format";
+import {
+  LANGUAGE_STORAGE_KEY,
+  LanguageProvider,
+} from "@/i18n/LanguageProvider";
 import {
   GoalWorkspace,
   type Goal,
@@ -100,6 +105,179 @@ describe("GoalWorkspace", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
   });
+
+  it("renders the complete real-model synthetic journey and opens both original saved sources", async () => {
+    const fetchMock = jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+      response([
+        {
+          ...fixture,
+          status: "completed",
+          result: parentJourney.text,
+          request: {
+            ...fixture.request,
+            execution_mode: "agent",
+            analysis_scope: "saved_snapshot",
+          },
+          evidence: parentJourney.sources.map((source) => ({
+            ...savedEvidence,
+            ...source,
+            refresh_status: "cached",
+          })),
+        },
+      ]),
+    );
+    const { container } = renderWithSession(
+      <GoalWorkspace topicId="topic-1" />,
+    );
+    const funnel = await screen.findByRole("button", {
+      name: "Воронка — synthetic-journey-parent-funnel",
+    });
+    const retention = screen.getByRole("button", {
+      name: "Удержание — synthetic-journey-parent-retention",
+    });
+    expect(screen.getAllByRole("table")).toHaveLength(3);
+    expect(screen.getByRole("cell", { name: "37,5%" })).toBeVisible();
+    expect(screen.getByRole("cell", { name: "59,26%" })).toBeVisible();
+    expect(container.textContent).toContain("не причинный эффект оплаты");
+    expect(container.textContent).toContain(
+      "не доказательство улучшения бизнеса или описание текущего MANA.",
+    );
+    expect(container.textContent).not.toContain("(report:");
+    fireEvent.click(funnel);
+    const panels = container.querySelectorAll(".goal-evidence-text");
+    expect(panels).toHaveLength(2);
+    expect(panels[0]).toBeVisible();
+    expect(panels[0]!.textContent).toBe(parentJourney.sources[0]!.summary);
+    fireEvent.click(retention);
+    expect(panels[1]).toBeVisible();
+    expect(panels[1]!.textContent).toBe(parentJourney.sources[1]!.summary);
+    expect(panels[1]!.textContent).toMatch(
+      /EXACT JOURNEY FOOTER[\s\S]*no contact, send or measured lift\.\n$/,
+    );
+    expect(container.querySelector("a, script, img")).toBeNull();
+    expect(
+      fetchMock.mock.calls.every(
+        ([input, init]) =>
+          requestUrl(input).includes("/goals/topics/topic-1") &&
+          (!init?.method || init.method === "GET"),
+      ),
+    ).toBe(true);
+  });
+
+  it("opens the exact saved evidence from a bound citation without source or control requests", async () => {
+    const summary =
+      "  ORIGINAL saved text\n\n<script>not executable</script>\nEXACT TAIL  ";
+    const fetchMock = jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+      response([
+        {
+          ...fixture,
+          status: "completed",
+          result:
+            "Синтетический вывод. [Родительская сводка](report:saved-evidence-1). " +
+            "[Неизвестный источник](report:not-loaded). [Внешний](https://example.com).",
+          evidence: [{ ...savedEvidence, summary }],
+        },
+      ]),
+    );
+    const { container } = renderWithSession(
+      <GoalWorkspace topicId="topic-1" />,
+    );
+    const citation = await screen.findByRole("button", {
+      name: "Родительская сводка",
+    });
+    expect(container.querySelector(".goal-evidence-text")).not.toBeVisible();
+    const requestCount = fetchMock.mock.calls.length;
+    fireEvent.click(citation);
+    const saved = container.querySelector(".goal-evidence-text")!;
+    expect(saved).toBeVisible();
+    expect(saved.textContent).toBe(summary);
+    const details = saved.closest("details")!;
+    expect(details).toHaveAttribute("open");
+    expect(details.parentElement!.closest("details")).toHaveAttribute("open");
+    expect(details.querySelector("summary")).toHaveFocus();
+    expect(container.querySelector("script, img, a")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Неизвестный источник" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Внешний" })).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+    expect(
+      fetchMock.mock.calls.every(
+        ([, init]) => !init?.method || init.method === "GET",
+      ),
+    ).toBe(true);
+    fireEvent.click(details.querySelector("summary")!);
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(citation);
+    expect(saved).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+  });
+
+  it.each(["ru", "uz"])(
+    "keeps partial saved text and qualifications exact in %s",
+    async (locale) => {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, locale);
+      const text = "  EXACT partial source\n<b>not HTML</b>\nTAIL  ";
+      const limitation = "Only ten fictional parents; not population coverage.";
+      const fetchMock = jest.spyOn(globalThis, "fetch").mockImplementation(() =>
+        response([
+          {
+            ...fixture,
+            status: "completed",
+            evidence: [
+              {
+                ...savedEvidence,
+                summary: text,
+                shortened: true,
+                limitations: [limitation],
+              },
+            ],
+          },
+        ]),
+      );
+      try {
+        const { container } = renderWithSession(
+          <LanguageProvider>
+            <GoalWorkspace topicId="topic-1" />
+          </LanguageProvider>,
+        );
+        const source = await screen.findByText(/saved-evidence-1/);
+        fireEvent.click(
+          source
+            .closest("details")!
+            .parentElement!.closest("details")!
+            .querySelector("summary")!,
+        );
+        fireEvent.click(source);
+        const region = screen.getByRole("region", {
+          name:
+            locale === "uz"
+              ? "Saqlangan manba matni"
+              : "Текст сохранённого источника",
+        });
+        expect(region).toBeVisible();
+        expect(region.textContent).toBe(text);
+        expect(region).toHaveAttribute("tabindex", "0");
+        expect(screen.getByRole("note", { name: "" })).toHaveTextContent(
+          locale === "uz"
+            ? "Manba matni qisqartirilgan."
+            : "Текст источника сокращён.",
+        );
+        expect(screen.getByText(limitation)).toBeVisible();
+        expect(container.querySelector("b")).toBeNull();
+        expect(
+          fetchMock.mock.calls.every(
+            ([input, init]) =>
+              requestUrl(input).includes("/goals/topics/topic-1") &&
+              (!init?.method || init.method === "GET"),
+          ),
+        ).toBe(true);
+      } finally {
+        localStorage.clear();
+        document.documentElement.lang = "ru";
+      }
+    },
+  );
 
   it("labels source collection separately from Goal creation without granting reads", async () => {
     jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-08T03:00:00Z"));

@@ -60,23 +60,55 @@ function reportBlocks(text: string): string[][] {
   return blocks;
 }
 
-function inline(text: string): ReactNode[] {
+type SourceReferences = {
+  reportIds?: readonly string[];
+  onShowSource?: (reportId: string) => void;
+};
+
+function inline(text: string, references: SourceReferences): ReactNode[] {
   return text
-    .split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g)
-    .map((part, index) =>
-      part.startsWith("**") && part.endsWith("**") ? (
+    .split(
+      /(\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]{1,160}\]\(report:[^()\s]{1,200}\))/g,
+    )
+    .map((part, index) => {
+      const citation = /^\[([^\]\n]{1,160})\]\(report:([^()\s]{1,200})\)$/.exec(
+        part,
+      );
+      if (
+        citation &&
+        references.onShowSource &&
+        references.reportIds?.includes(citation[2]!)
+      ) {
+        const reportId = citation[2]!;
+        return (
+          <button
+            key={index}
+            type="button"
+            className="goal-source-reference"
+            onClick={() => references.onShowSource?.(reportId)}
+          >
+            {citation[1]}
+          </button>
+        );
+      }
+      return part.startsWith("**") && part.endsWith("**") ? (
         <strong key={index}>{part.slice(2, -2)}</strong>
       ) : part.startsWith("`") && part.endsWith("`") ? (
         <code key={index}>{part.slice(1, -1)}</code>
       ) : (
         part
-      ),
-    );
+      );
+    });
 }
 
-// Deliberately small text renderer: React escapes HTML; no HTML, arbitrary URLs or tool actions.
-export function GoalReport({ text }: { text: string }): React.JSX.Element {
+// React escapes text. Only host-bound saved-source observation is interactive;
+// model URLs, HTML and tool/action payloads remain plain text.
+export function GoalReport({
+  text,
+  ...references
+}: { text: string } & SourceReferences): React.JSX.Element {
   const { t } = useI18n();
+  const content = (value: string): ReactNode[] => inline(value, references);
 
   return (
     <>
@@ -108,7 +140,7 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
                     <tr>
                       {headers.map((cell, column) => (
                         <th key={column} scope="col">
-                          {inline(cell)}
+                          {content(cell)}
                         </th>
                       ))}
                     </tr>
@@ -117,7 +149,7 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
                     {cells.slice(2).map((row, item) => (
                       <tr key={item}>
                         {row.map((cell, column) => (
-                          <td key={column}>{inline(cell)}</td>
+                          <td key={column}>{content(cell)}</td>
                         ))}
                       </tr>
                     ))}
@@ -128,13 +160,15 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
         }
         if (lines.length === 1 && HEADING.test(block))
           return (
-            <h3 key={index}>{inline(block.replace(/^ {0,3}#{1,3}\s+/, ""))}</h3>
+            <h3 key={index}>
+              {content(block.replace(/^ {0,3}#{1,3}\s+/, ""))}
+            </h3>
           );
         if (lines.every((line) => /^[-•]\s/.test(line)))
           return (
             <ul key={index}>
               {lines.map((line, item) => (
-                <li key={item}>{inline(line.replace(/^[-•]\s+/, ""))}</li>
+                <li key={item}>{content(line.replace(/^[-•]\s+/, ""))}</li>
               ))}
             </ul>
           );
@@ -142,11 +176,11 @@ export function GoalReport({ text }: { text: string }): React.JSX.Element {
           return (
             <ol key={index}>
               {lines.map((line, item) => (
-                <li key={item}>{inline(line.replace(/^\d+\.\s+/, ""))}</li>
+                <li key={item}>{content(line.replace(/^\d+\.\s+/, ""))}</li>
               ))}
             </ol>
           );
-        return <p key={index}>{inline(block)}</p>;
+        return <p key={index}>{content(block)}</p>;
       })}
     </>
   );

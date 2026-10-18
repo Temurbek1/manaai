@@ -127,6 +127,8 @@ export function GoalWorkspace({
   const [limitBudget, setLimitBudget] = useState("");
   const guard = useRef(false);
   const pending = useRef<{ goalId: string; payload: object } | null>(null);
+  const sourceHistory = useRef<HTMLDetailsElement>(null);
+  const sourcePanels = useRef(new Map<string, HTMLDetailsElement>());
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
@@ -173,6 +175,16 @@ export function GoalWorkspace({
     (goal.limit_stop !== "steps" || proposedSteps > goal.steps_used) &&
     (goal.limit_stop !== "budget" || proposedBudget > limits.budget_microusd),
   );
+
+  function showSavedSource(reportId: string): void {
+    if (!evidence.some((item) => item.report_id === reportId)) return;
+    const panel = sourcePanels.current.get(reportId);
+    if (!panel || !sourceHistory.current) return;
+    sourceHistory.current.open = true;
+    panel.open = true;
+    panel.querySelector("summary")?.focus({ preventScroll: true });
+    panel.scrollIntoView?.({ block: "nearest" });
+  }
 
   async function control(
     command: Command,
@@ -341,7 +353,11 @@ export function GoalWorkspace({
               : t("Промежуточный результат")
           }
         >
-          <GoalReport text={goal.result} />
+          <GoalReport
+            text={goal.result}
+            reportIds={evidence.map((item) => item.report_id)}
+            onShowSource={showSavedSource}
+          />
         </div>
       )}
       {goal.status === "completed" && (
@@ -527,7 +543,7 @@ export function GoalWorkspace({
           </button>
         </form>
       )}
-      <details className="goal-details">
+      <details className="goal-details" ref={sourceHistory}>
         <summary>{t("История и источники")}</summary>
         <p>
           {goal.steps_used} / {limits.max_steps}{" "}
@@ -544,9 +560,36 @@ export function GoalWorkspace({
         <ul>
           {evidence.map((item) => (
             <li key={item.report_id}>
-              {item.report_id} ·{" "}
-              {t(evidenceStateLabel(evidenceState(item, now)))} ·{" "}
-              {evidenceCollectionLabel(item.collected_at, locale)}
+              <details
+                ref={(panel) => {
+                  if (panel) sourcePanels.current.set(item.report_id, panel);
+                  else sourcePanels.current.delete(item.report_id);
+                }}
+              >
+                <summary tabIndex={0}>
+                  {item.report_id} ·{" "}
+                  {t(evidenceStateLabel(evidenceState(item, now)))} ·{" "}
+                  {evidenceCollectionLabel(item.collected_at, locale)}
+                </summary>
+                {item.shortened && (
+                  <p role="note">{t("Текст источника сокращён.")}</p>
+                )}
+                <pre
+                  className="goal-evidence-text"
+                  role="region"
+                  tabIndex={0}
+                  aria-label={t("Текст сохранённого источника")}
+                >
+                  {item.summary}
+                </pre>
+                {Boolean(item.limitations?.length) && (
+                  <ul>
+                    {item.limitations?.map((note, index) => (
+                      <li key={index}>{note}</li>
+                    ))}
+                  </ul>
+                )}
+              </details>
             </li>
           ))}
         </ul>

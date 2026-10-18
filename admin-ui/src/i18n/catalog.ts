@@ -333,6 +333,8 @@ export const UZ: Readonly<Record<string, string>> = {
   "Отменить цель": "Maqsadni bekor qilish",
   "Предыдущие цели": "Avvalgi maqsadlar",
   "История и источники": "Tarix va manbalar",
+  "Текст источника сокращён.": "Manba matni qisqartirilgan.",
+  "Текст сохранённого источника": "Saqlangan manba matni",
   "Критерий:": "Mezon:",
   "Ограничения:": "Cheklovlar:",
   "Инструменты ·": "Vositalar ·",

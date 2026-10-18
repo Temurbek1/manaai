@@ -1,9 +1,54 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "@jest/globals";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, jest } from "@jest/globals";
 import { GoalReport } from "./GoalReport";
 import syntheticReport from "@/test/fixtures/native-parent-report.json";
 
 describe("GoalReport", () => {
+  it("activates only exact host-bound saved citations, never model URLs or markup", () => {
+    const showSource = jest.fn();
+    const { container } = render(
+      <GoalReport
+        text={
+          "[<img src=x>](report:known-source) " +
+          "[Missing](report:other-source) [External](https://example.com) " +
+          "[Unsafe](javascript:alert(1)) [Relative](/api/v1/change) " +
+          "`[Literal](report:known-source)`"
+        }
+        reportIds={["known-source"]}
+        onShowSource={showSource}
+      />,
+    );
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveTextContent("<img src=x>");
+    fireEvent.click(buttons[0]!);
+    expect(showSource).toHaveBeenCalledTimes(1);
+    expect(showSource).toHaveBeenCalledWith("known-source");
+    expect(container.querySelector("a, img, script")).toBeNull();
+    expect(container.textContent).toContain("[Missing](report:other-source)");
+    expect(container.textContent).toContain("[External](https://example.com)");
+    expect(container.querySelector("code")).toHaveTextContent(
+      "[Literal](report:known-source)",
+    );
+  });
+
+  it("keeps citations inert without both an exact saved ID and an observation callback", () => {
+    const { container, rerender } = render(
+      <GoalReport
+        text="[Source](report:known-source)"
+        reportIds={["known-source"]}
+      />,
+    );
+    expect(container.querySelector("a, button")).toBeNull();
+    rerender(
+      <GoalReport
+        text="[Source](report:known-source)"
+        onShowSource={jest.fn()}
+      />,
+    );
+    expect(container.querySelector("a, button")).toBeNull();
+    expect(container.textContent).toBe("[Source](report:known-source)");
+  });
   it("renders cohort calculations as a semantic table without executing cell markup", () => {
     const { container } = render(
       <GoalReport
