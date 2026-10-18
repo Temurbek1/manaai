@@ -438,10 +438,35 @@ if [[ "${AUDIT_RETENTION_CONTACTS:-false}" == "true" ]]; then
       login_browser 976835256
     fi
     browser wait --fn 'Array.from(document.querySelectorAll("button")).some(b=>b.textContent.trim()==="Продолжить с агентом")' >/dev/null
-    browser find role button click --name "Продолжить с агентом" --exact >/dev/null
-    browser wait --fn 'document.body.innerText.includes("Два тестовых результата сохранены") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
-    browser reload >/dev/null
-    browser wait --fn 'document.body.innerText.includes("Два тестовых результата сохранены") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+    if [[ "${AUDIT_CONTACT_CONTINUATION_STOP:-false}" == true ]]; then
+      browser select '.language-select' uz >/dev/null
+      browser set viewport 320 812 >/dev/null
+      browser find role button click --name 'Agent bilan davom etish' --exact >/dev/null
+    else
+      browser find role button click --name "Продолжить с агентом" --exact >/dev/null
+    fi
+    if [[ "${AUDIT_CONTACT_CONTINUATION_STOP:-false}" == true ]]; then
+      browser wait --fn 'Boolean(document.querySelector("button[aria-label=\"Javobni to‘xtatish\"]")) && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+      "$PROJECT_ROOT/.venv/bin/python" -c 'import sqlite3,sys,json; c=sqlite3.connect(sys.argv[1]); rows=[json.loads(r[0]) for r in c.execute("SELECT payload FROM operation_chat_turns")]; assert sum(r["status"]=="thinking" for r in rows)==1; assert not any("Два тестовых результата сохранены" in r.get("answer","") for r in rows); print("Continuation is visible before its model result")' "$AUDIT_TMP_DIR/operation.db"
+      browser wait --fn 'Boolean(document.querySelector("button[aria-label=\"Javobni to‘xtatish\"]"))' >/dev/null
+      assert_browser '(() => { const latest=Array.from(document.querySelectorAll(".chat-turn")).at(-1).getBoundingClientRect(); const transcript=document.querySelector(".chat-transcript").getBoundingClientRect(); return latest.top<transcript.bottom && latest.bottom>transcript.top; })()' 'active continuation is hidden above the transcript'
+      assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'active continuation overflows on mobile'
+      assert_accessible
+      if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+        browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/contact-continuation-active-uz-mobile.png" --full >/dev/null
+      fi
+      browser find role button click --name 'Javobni to‘xtatish' --exact >/dev/null
+      browser wait --fn 'document.body.innerText.includes("Ответ остановлен. Уже отправленный запрос к AI может быть оплачен.")' >/dev/null
+      browser reload >/dev/null
+      browser wait --fn 'document.body.innerText.includes("Ответ остановлен. Уже отправленный запрос к AI может быть оплачен.") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+      assert_browser '!document.querySelector("button[aria-label=\"Javobni to‘xtatish\"]") && !document.body.innerText.includes("Два тестовых результата сохранены")' 'stopped continuation reappeared or accepted its late answer'
+      browser set viewport 1440 1000 >/dev/null
+      browser select '.language-select' ru >/dev/null
+    else
+      browser wait --fn 'document.body.innerText.includes("Два тестовых результата сохранены") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+      browser reload >/dev/null
+      browser wait --fn 'document.body.innerText.includes("Два тестовых результата сохранены") && document.querySelectorAll(".chat-turn").length === 3' >/dev/null
+    fi
     assert_browser '!Array.from(document.querySelectorAll("button")).some(b=>["Продолжить с агентом","Подготовить тестовое сообщение"].includes(b.textContent.trim()))' 'consumed loop offered another action'
     "$PROJECT_ROOT/.venv/bin/python" -c 'import sqlite3,sys,json; c=sqlite3.connect(sys.argv[1]); assert c.execute("SELECT count(*) FROM operation_contact_preparations WHERE status=?",("recorded",)).fetchone()[0]==2; rows=[json.loads(r[0]) for r in c.execute("SELECT workspace_metadata FROM operation_chat_turns") if r[0]]; assert sum(bool(r.get("contact_loop",{}).get("receipts")) for r in rows)==2; print("Contact loop browser passed: two separately prepared/reviewed fake actions, paired continuation, terminal cap and reload without redispatch")' "$AUDIT_TMP_DIR/operation.db"
     browser select '.language-select' uz >/dev/null
@@ -557,6 +582,7 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
   browser eval '(async () => { const topic = location.pathname.split("/").at(-1); const goals = await (await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json(); if (goals.length !== 2 || goals[0].request.analysis_scope !== "saved_snapshot" || goals[0].status !== "completed" || goals[0].read_attempted || goals[0].approved_capability || goals[0].tools.some(tool => tool.call.name === "request_source_read")) throw new Error("Historical deliverable scope, completion or read safety failed"); return "explicit historical deliverable verified"; })()' >/dev/null
   browser reload >/dev/null
   browser wait --fn 'document.querySelector(".goal-workspace")?.textContent.includes("Исторический срез · не текущее состояние") && document.querySelector(".goal-heading")?.textContent.includes("Анализ готов")' >/dev/null
+  browser wait --fn '(() => { const transcript = document.querySelector(".chat-transcript"); const result = document.querySelector(".goal-result")?.getBoundingClientRect(); const bounds = transcript?.getBoundingClientRect(); return result && bounds && transcript.scrollTop > 0 && result.top < bounds.bottom && result.bottom > bounds.top; })()' >/dev/null
   assert_browser '(() => { const transcript = document.querySelector(".chat-transcript"); const result = document.querySelector(".goal-result").getBoundingClientRect(); const bounds = transcript.getBoundingClientRect(); return transcript.scrollTop > 0 && result.top < bounds.bottom && result.bottom > bounds.top; })()' 'reloaded conversation hid the latest result above or below the viewport'
   assert_accessible
   if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then

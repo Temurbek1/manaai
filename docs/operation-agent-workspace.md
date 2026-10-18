@@ -39,6 +39,9 @@ The subsequent [native sequential contact loop](operation-contact-tool-loop-chec
 is a local, default-disabled v3 increment: a verified fictional result can lead to a
 second independently confirmed request. It preserves the exact root/history and
 does not upgrade old turns, grant Goal writes, contact real users or complete the goal.
+The following [in-flight continuation UI](operation-contact-progress-checkpoint.md)
+uses existing private SQL observation and stop controls while a continuation POST
+is pending. It changes no source refresh, stored contract or execution authority.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

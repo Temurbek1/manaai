@@ -208,11 +208,14 @@ A separately approved scoped release and broad independent real-model/source/act
 quality, live individual consent/billing/channel authority and measurable outcomes
 remain open. Do not deploy or close the overall objective from this checkpoint.
 
-One next UX gap is visible in the current code, not a failed semantic claim: the
+One next UX gap was visible at this checkpoint, not a failed semantic claim: the
 contact continuation POST waits for inference, and the card calls `onContinued` only
 in its `finally` block. Its SQL child exists earlier, but the browser does not yet
 discover that child live through a journal notification. The existing chat stop API
 can cancel it by ID; this is not proof that a user can see/stop the in-flight child
 from this card without explicitly observing status or waiting. An ensuing increment
 should expose truthful admission/status through the authenticated SQL observation
-stream, preserving one-consumer, no-redispatch and cost reconciliation invariants.
+stream or existing SQL observation, preserving one-consumer, no-redispatch and cost
+reconciliation invariants. The subsequent [in-flight UI checkpoint](operation-contact-progress-checkpoint.md)
+uses existing SQL transcript polling and stop controls without a new event protocol;
+its own actual checks are recorded separately.

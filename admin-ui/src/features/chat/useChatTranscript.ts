@@ -108,7 +108,9 @@ export function useChatTranscript(
     },
     {
       persistSize: false,
-      revalidateFirstPage: false,
+      // SWR's interval otherwise reuses the cached head without an HTTP read.
+      // Observe newly admitted/active turns even while their POST is pending.
+      revalidateFirstPage: true,
       refreshInterval: (current) =>
         sending || current?.some((page) => page.turns.some(active)) ? 2000 : 0,
     },
@@ -151,8 +153,7 @@ export function useChatTranscript(
       ];
       if (target === topicId) return paged ? pages.mutate() : legacy.mutate();
       if (!paged) return mutate(key);
-      // Global infinite-key revalidation retains a cached first page when
-      // revalidateFirstPage=false. A new topic has no older admitted pages:
+      // A new topic has no older admitted pages in this hook's closure:
       // load and validate its exact first SQL page, without another generation.
       const page = validatePage(await apiGet<Page>(key[0]), target);
       return mutate(

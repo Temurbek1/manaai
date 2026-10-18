@@ -89,6 +89,12 @@
   model/language and verified costs after stop fences. See
   `docs/operation-contact-tool-loop-checkpoint.md` for current local acceptance; this
   is not a deployed contact feature or full multi-action/model-quality acceptance.
+- The local continuation UI observes private SQL history while its confirmed POST
+  is pending; the paginated head must actually revalidate. Stop uses the admitted
+  child ID, never undoes an already verified action or guarantees no model charge.
+  Navigation/reload/status reads never redispatch work; pending UI state is scoped
+  by owner/topic/origin turn. No stored contact protocol or SSE/source-refresh
+  authority changes. See `docs/operation-contact-progress-checkpoint.md`.
 - Keep the project production-oriented: explicit configuration, typed schemas, clear errors, and no hidden globals.
 - The local manual contact control registry is separate from persisted agent definitions
   and analysis handlers. Never turn it into a scheduled capability or a Goal write tool.

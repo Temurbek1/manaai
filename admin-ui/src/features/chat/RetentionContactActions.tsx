@@ -24,6 +24,7 @@ type Props = {
   topicId: string;
   turnId: string;
   onContinued?: () => Promise<unknown>;
+  onContinuing?: (pending: boolean) => void;
 };
 
 export function RetentionContactActions(props: Props): React.JSX.Element {
@@ -40,6 +41,7 @@ function BoundRetentionContactActions({
   topicId,
   turnId,
   onContinued,
+  onContinuing,
 }: Props): React.JSX.Element {
   const { t } = useI18n();
   const { session } = useSession();
@@ -84,6 +86,7 @@ function BoundRetentionContactActions({
   const [notice, setNotice] = useState<string | null>(null);
   const continueGuard = useRef(false);
   const [continueAttempted, setContinueAttempted] = useState(false);
+  const [continuing, setContinuing] = useState(false);
   function retain(next: PreparationAttempt): void {
     try {
       savePreparationAttempt(next);
@@ -132,6 +135,7 @@ function BoundRetentionContactActions({
           retain({ ...attempt, state: "unknown" });
       }
       const fresh = await mutate();
+      if (fresh?.continuation) await onContinued?.();
       if (fresh?.preparation_availability?.state === "requires_confirmation")
         setAdmissionChecked(true);
       setNotice(null);
@@ -152,6 +156,8 @@ function BoundRetentionContactActions({
       return;
     continueGuard.current = true;
     setContinueAttempted(true);
+    setContinuing(true);
+    onContinuing?.(true);
     try {
       await apiPost<components["schemas"]["ChatTurn"]>(`${url}/continue`, {
         request_id: crypto.randomUUID(),
@@ -169,6 +175,8 @@ function BoundRetentionContactActions({
       await onContinued?.().catch(() =>
         setNotice("Статус недоступен. Повтор не отправлен."),
       );
+      setContinuing(false);
+      onContinuing?.(false);
     }
   }
   async function prepare(): Promise<void> {
@@ -354,6 +362,9 @@ function BoundRetentionContactActions({
               </a>
             </p>
           )}
+          {continuing && (
+            <p role="status">{t("Проверяем состояние ответа…")}</p>
+          )}
         </>
       )}
       {storageBlocked && (
@@ -393,7 +404,11 @@ function BoundRetentionContactActions({
         disabled={checking || isValidating}
         onClick={() => void observePreparation()}
       >
-        {t("Проверить подготовку")}
+        {t(
+          continueAttempted || data?.continuation
+            ? "Проверить статус"
+            : "Проверить подготовку",
+        )}
       </button>
       {notice && <p role="status">{t(notice)}</p>}
     </section>

@@ -165,6 +165,8 @@ export const UZ: Readonly<Record<string, string>> = {
   "Отправка формы": "Shaklni yuborish",
   "Агент выбрал тестовое действие": "Agent sinov amalini tanladi",
   "Продолжить с агентом": "Agent bilan davom etish",
+  "Проверяем состояние ответа…": "Javob holati tekshirilmoqda…",
+  "Проверить статус": "Holatni tekshirish",
   "Продолжение в чате": "Davomi chatda",
   "Передать на согласование": "Tasdiqlashga yuborish",
   согласование: "tasdiqlash",

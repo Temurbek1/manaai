@@ -327,6 +327,91 @@ async def inject(
     )
 
 
+async def test_inflight_result_is_observable_and_stoppable_before_model_receipt(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    app = configure_loop(monkeypatch, tmp_path / "observed-loop.db")
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    calls = 0
+
+    async def transport(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        model = json.loads(request.content)["model"]
+        if calls == 1:
+            return httpx.Response(200, json=selected_wire(model, "sample_ru", 1))
+        entered.set()
+        await release.wait()
+        return httpx.Response(200, json=selected_wire(model, "sample_uz", 2))
+
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client,
+    ):
+        await inject(app, transport)
+        topic = await app.state.operation_chat_service.create(
+            "alice", TopicCreate(agent_id="retention-agent", product="mana", title="Observe only")
+        )
+        topic_id = topic.topic_id
+        initial = await client.post(
+            f"{BASE}/topics/{topic_id}/messages",
+            headers=ADMIN,
+            json={
+                "request_id": str(uuid4()),
+                "message": "Проверь два вымышленных контакта.",
+                "execution_mode": "agent",
+            },
+        )
+        first = initial.json()["turn"]
+        action = await prepare(client, topic_id, first)
+        url = action_url(topic_id, first["turn_id"])
+        action = await decide(client, url, action)
+        pending = asyncio.create_task(
+            client.post(url + "/continue", headers=ADMIN, json=continuation(action))
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), timeout=10)
+            history = f"{BASE}/topics/{topic_id}/messages?limit=20"
+            for _ in range(2):
+                observed = await client.get(history, headers=ADMIN)
+                assert observed.status_code == 200, observed.text
+                turns = observed.json()["turns"]
+                assert len(turns) == 2 and turns[-1]["status"] == "thinking"
+                assert "PRIVATE" not in observed.text
+                assert (
+                    "contact_loop" not in observed.text and "encrypted_content" not in observed.text
+                )
+            child_id = turns[-1]["turn_id"]
+            # This local fixture enables development actors; the default actor
+            # still cannot observe Alice's private topic.
+            assert (await client.get(history)).status_code == 404
+            assert (await client.get(history, headers=headers("bob", "admin"))).status_code == 404
+            replay = await client.post(url + "/continue", headers=ADMIN, json=continuation(action))
+            assert replay.json()["turn_id"] == child_id and not pending.done() and calls == 2
+            stop_url = f"/api/v1/admin/operation/chat/topics/{topic_id}/messages/{child_id}/stop"
+            for _ in range(2):
+                stopped = await client.post(stop_url, headers=ADMIN)
+                assert stopped.status_code == 200 and stopped.json()["status"] == "cancelled"
+            assert not pending.done() and calls == 2
+        finally:
+            release.set()
+            finished = await asyncio.wait_for(pending, timeout=10)
+        assert finished.json()["status"] == "cancelled"
+        assert finished.json()["contact_preparation"] is None
+        assert finished.json()["next_action"] == "none"
+        assert (await client.get(url, headers=ADMIN)).json()["items"][0]["status"] == "verified"
+        async with app.state.operation_database.session_factory() as session:
+            costs = (await session.scalars(select(CostReservationRow))).all()
+            assert len(costs) == 2 and all(row.actual is not None for row in costs)
+            assert len((await session.scalars(select(ContactPreparationRow))).all()) == 1
+        replay = await client.post(url + "/continue", headers=ADMIN, json=continuation(action))
+        assert replay.json() == finished.json() and calls == 2
+        catalog = app.state.operation_workspace_retention_contacts._contacts._executor
+        assert sum(item.dispatch_count for item in catalog.executors.values()) == 1
+    get_settings.cache_clear()
+
+
 def selected_wire(model: str, recipient: str, position: int) -> dict[str, Any]:
     payload = wire(model, "chat")
     payload["output"][0]["content"][0]["text"] = "PRIVATE invalid accompanying prose"

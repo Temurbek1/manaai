@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { ChatPage } from "./ChatPage";
 import { renderWithSession as renderSession } from "@/test/render";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { requestUrl } from "@/test/http";
 import {
   LANGUAGE_STORAGE_KEY,
@@ -66,6 +66,274 @@ describe("ChatPage", () => {
   beforeEach(() => {
     sessionStorage.clear();
     push.mockClear();
+  });
+
+  it.each([
+    [false, false],
+    [true, false],
+    [true, true],
+  ])(
+    "observes and stops a pending contact continuation without waiting for POST (paged=%s, goal=%s)",
+    async (paged, withGoal) => {
+      const contactTopic = { ...topic, agent_id: "retention-agent" };
+      const origin = {
+        ...turn,
+        execution_mode: "agent",
+        next_action: "retention_contacts",
+      };
+      let claimed = false;
+      let stopped = false;
+      let finish: (() => void) | undefined;
+      let continuationFinished = false;
+      const posts: string[] = [];
+      function NavigateWhilePending(): React.JSX.Element {
+        const [opened, setOpened] = useState("topic-1");
+        return (
+          <>
+            <button onClick={() => setOpened("topic-2")}>Другой чат</button>
+            <ChatPage agentId="retention-agent" topicId={opened} />
+          </>
+        );
+      }
+      const child = () => ({
+        ...turn,
+        turn_id: "child-1",
+        request_id: "00000000-0000-4000-8000-000000000002",
+        message: "Продолжи после сохранённого результата",
+        status: stopped ? "cancelled" : "thinking",
+        answer: stopped ? "Ответ остановлен." : "",
+        execution_mode: "agent",
+        next_action: "none",
+      });
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") {
+          posts.push(url);
+          if (url.endsWith("/continue")) {
+            claimed = true;
+            return new Promise<Response>((resolve) => {
+              finish = () => {
+                continuationFinished = true;
+                resolve(
+                  new Response(JSON.stringify(child()), {
+                    headers: { "Content-Type": "application/json" },
+                  }),
+                );
+              };
+            });
+          }
+          if (url.endsWith("/messages/child-1/stop")) {
+            stopped = true;
+            return response(child());
+          }
+          return response({}, 500);
+        }
+        if (url.endsWith("/chat/availability"))
+          return response({
+            enabled: true,
+            agent_workspace_enabled: true,
+            transcript_pagination_enabled: paged,
+            retention_contact_reviews_enabled: true,
+          });
+        if (url.endsWith("/goals/availability"))
+          return response({
+            enabled: true,
+            agent_workspace_enabled: true,
+            budget_microusd: 500000,
+            max_steps: 6,
+          });
+        if (url.endsWith("/goals/topics/topic-1"))
+          return response(
+            withGoal
+              ? [
+                  {
+                    goal_id: "goal-1",
+                    status: "running",
+                    revision: 9,
+                    lease_until: "2099-01-01T00:00:00Z",
+                    request: {
+                      objective: "Проанализировать удержание",
+                      max_steps: 6,
+                      budget_microusd: 500000,
+                    },
+                    plan: [],
+                    events: [],
+                    evidence: [],
+                    result: "",
+                    waiting_reason: "",
+                    steps_used: 1,
+                    accounted_microusd: 10000,
+                  },
+                ]
+              : [],
+          );
+        if (
+          url.endsWith("/chat/topics/topic-2") ||
+          url.endsWith("/topics/topic-2/messages?limit=20")
+        )
+          return response({
+            topic: { ...contactTopic, topic_id: "topic-2" },
+            turns: [],
+            has_more: false,
+            next_cursor: null,
+          });
+        if (url.endsWith("/retention-contacts"))
+          return response({
+            items: [
+              {
+                action_id: "action-1",
+                topic_id: "topic-1",
+                turn_id: "turn-1",
+                recipient: "sample_ru",
+                product: "mana",
+                synthetic: true,
+                provider: "fake_retention_contact",
+                message: {
+                  template: "onboarding_help",
+                  version: "retention-contact-ru-v1",
+                  language: "ru",
+                  text: "Exact fictional approved text",
+                  sha256: "a".repeat(64),
+                },
+                fingerprint: "b".repeat(64),
+                status: "verified",
+                revision: 1,
+                result_code: "fake_accepted",
+                policy_reasons: [],
+                decision_recorded: true,
+                business_outcome: "not_measured",
+              },
+            ],
+            recipients: [],
+            more_omitted: false,
+            continuation_available: !claimed,
+            continuation: claimed ? child() : null,
+          });
+        if (
+          url.endsWith("/chat/topics/topic-1") ||
+          url.endsWith("/messages?limit=20")
+        )
+          return response({
+            topic: contactTopic,
+            turns: claimed ? [origin, child()] : [origin],
+            has_more: false,
+            next_cursor: null,
+          });
+        return response([]);
+      });
+      renderWithSession(<NavigateWhilePending />);
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Продолжить с агентом" }),
+      );
+      try {
+        const stop = await screen.findByRole(
+          "button",
+          { name: "Остановить ответ" },
+          { timeout: 4500 },
+        );
+        expect(continuationFinished).toBe(false);
+        expect(
+          screen.getByRole("textbox", {
+            name: withGoal ? "Уточнение цели" : "Сообщение агенту",
+          }),
+        ).toBeDisabled();
+        expect(posts.filter((url) => url.endsWith("/continue"))).toHaveLength(
+          1,
+        );
+        fireEvent.click(stop);
+        expect(await screen.findByText("Ответ остановлен.")).toBeVisible();
+        expect(posts.filter((url) => url.endsWith("/stop"))).toEqual([
+          "/api/v1/admin/operation/chat/topics/topic-1/messages/child-1/stop",
+        ]);
+        expect(continuationFinished).toBe(false);
+        fireEvent.click(screen.getByRole("button", { name: "Другой чат" }));
+        await waitFor(() =>
+          expect(
+            screen.getByRole("textbox", { name: "Сообщение агенту" }),
+          ).not.toBeDisabled(),
+        );
+      } finally {
+        await act(async () => finish?.());
+      }
+      expect(screen.queryByText("Ответ остановлен.")).not.toBeInTheDocument();
+      expect(
+        posts.filter(
+          (url) => !url.endsWith("/continue") && !url.endsWith("/stop"),
+        ),
+      ).toEqual([]);
+    },
+  );
+
+  it("can stop an ordinary admitted answer while its send POST is still pending", async () => {
+    let admitted = false;
+    let stopped = false;
+    let finish: (() => void) | undefined;
+    const posts: string[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push(url);
+        if (url.endsWith("/messages/turn-1/stop")) {
+          stopped = true;
+          return response({
+            ...turn,
+            status: "cancelled",
+            answer: "Ответ остановлен.",
+          });
+        }
+        if (url.endsWith("/messages")) {
+          admitted = true;
+          return new Promise<Response>((resolve) => {
+            finish = () =>
+              resolve(
+                new Response(JSON.stringify(turn), {
+                  headers: { "Content-Type": "application/json" },
+                }),
+              );
+          });
+        }
+      }
+      if (url.endsWith("/chat/availability"))
+        return response({ enabled: true });
+      if (url.endsWith("/chat/topics/topic-1"))
+        return response({
+          topic,
+          turns: admitted
+            ? [
+                {
+                  ...turn,
+                  status: stopped ? "cancelled" : "thinking",
+                  answer: stopped ? "Ответ остановлен." : "",
+                },
+              ]
+            : [],
+        });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    const input = await screen.findByRole("textbox", {
+      name: "Сообщение агенту",
+    });
+    await waitFor(() => expect(input).not.toBeDisabled());
+    fireEvent.change(input, { target: { value: "Помоги" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Отправить сообщение" }),
+    );
+    try {
+      const stop = await screen.findByRole(
+        "button",
+        { name: "Остановить ответ" },
+        { timeout: 4500 },
+      );
+      expect(stop).not.toBeDisabled();
+      fireEvent.click(stop);
+      expect(await screen.findByText("Ответ остановлен.")).toBeVisible();
+    } finally {
+      await act(async () => finish?.());
+    }
+    expect(posts.filter((url) => url.endsWith("/messages"))).toHaveLength(1);
+    expect(posts.filter((url) => url.endsWith("/stop"))).toHaveLength(1);
+    expect(screen.queryByText(turn.answer)).not.toBeInTheDocument();
   });
 
   it("refreshes a newly created topic after one fast native reply, not another generation", async () => {

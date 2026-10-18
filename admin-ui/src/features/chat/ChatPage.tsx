@@ -67,6 +67,9 @@ export function ChatPage({
     }
   });
   const [sending, setSending] = useState(false);
+  const [continuations, setContinuations] = useState<
+    ReadonlyArray<{ scope: string; turnId: string }>
+  >([]);
   const [modelChoice, setModelChoice] = useState<ModelChoice>("auto");
   const [reasoning, setReasoning] = useState<ReasoningChoice>("auto");
   const [selectedMode, setMode] = useState<"auto" | "chat" | "goal">("auto");
@@ -78,6 +81,13 @@ export function ChatPage({
   const [optimisticId, setOptimisticId] = useState<string | null>(null);
   const [createdTopicId, setCreatedTopicId] = useState<string | null>(null);
   const currentTopicId = topicId ?? createdTopicId;
+  const continuationScope = JSON.stringify([
+    session.user.user_id,
+    currentTopicId,
+  ]);
+  const continuing = continuations.some(
+    (request) => request.scope === continuationScope,
+  );
   const {
     data: savedGoals,
     error: savedGoalsError,
@@ -138,7 +148,7 @@ export function ChatPage({
       : availabilityError
         ? false
         : undefined,
-    sending,
+    sending || continuing,
   );
   const turns = data?.turns ?? [];
   const workspaceEnabled = Boolean(
@@ -189,7 +199,7 @@ export function ChatPage({
   const active = turns.find((turn) => ACTIVE.includes(turn.status));
   const scope = data?.topic.product ?? product;
   const wrongAgent = data && data.topic.agent_id !== agentId;
-  const busy = sending || Boolean(active);
+  const busy = sending || continuing || Boolean(active);
   const modelSelectionEnabled =
     mode === "goal"
       ? goalsAvailability?.model_selection_enabled
@@ -224,9 +234,13 @@ export function ChatPage({
   );
 
   useEffect(() => {
-    if ((sending || active) && !olderGuard.current && !readingEarlier.current)
+    if (
+      (sending || continuing || active) &&
+      !olderGuard.current &&
+      !readingEarlier.current
+    )
       end.current?.scrollIntoView?.({ block: "end", behavior: "instant" });
-  }, [latestRevision, sending, active]);
+  }, [latestRevision, sending, continuing, active]);
 
   useLayoutEffect(() => {
     if (!loadingOlder && olderScroll.current && transcript.current) {
@@ -411,7 +425,7 @@ export function ChatPage({
   }
 
   async function stop(): Promise<void> {
-    if (workingGoal && goalBusy) {
+    if (!active && workingGoal && goalBusy) {
       try {
         await apiPost(`${GOALS_BASE}/${workingGoal.goal_id}/commands`, {
           request_id: crypto.randomUUID(),
@@ -682,6 +696,27 @@ export function ChatPage({
                           topicId={currentTopicId}
                           turnId={turn.turn_id}
                           onContinued={() => refreshTopic(currentTopicId)}
+                          onContinuing={(pending) => {
+                            if (pending) readingEarlier.current = false;
+                            // Each completion removes only its captured request.
+                            // A late response cannot clear another topic's state.
+                            setContinuations((prior) => {
+                              const others = prior.filter(
+                                (request) =>
+                                  request.scope !== continuationScope ||
+                                  request.turnId !== turn.turn_id,
+                              );
+                              return pending
+                                ? [
+                                    ...others,
+                                    {
+                                      scope: continuationScope,
+                                      turnId: turn.turn_id,
+                                    },
+                                  ]
+                                : others;
+                            });
+                          }}
                         />
                       )}
                     {(turn.status === "completed" ||
@@ -951,10 +986,9 @@ export function ChatPage({
                   <button
                     className="chat-send"
                     type="button"
-                    disabled={sending}
                     onClick={() => void stop()}
                     aria-label={
-                      goalBusy
+                      !active && goalBusy
                         ? t("Поставить цель на паузу")
                         : t("Остановить ответ")
                     }

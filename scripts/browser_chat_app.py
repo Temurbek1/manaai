@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import os
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -69,6 +70,9 @@ ARCHIVE_CONSTRAINT = "Не контактируй с родителями; бю�
 
 
 class BrowserConversationFake:
+    def __init__(self, *, delay_final_contact: bool = False) -> None:
+        self._delay_final_contact = delay_final_contact
+
     async def continue_contact_loop(
         self,
         *,
@@ -81,6 +85,8 @@ class BrowserConversationFake:
     ) -> ChatTurnOutput:
         assert result.status == "verified" and loop.receipts[-1].result == result
         if len(loop.receipts) == 2:
+            if self._delay_final_contact:
+                await asyncio.sleep(20)
             return ChatTurnOutput(
                 "Два тестовых результата сохранены. Реальной доставки и измеренного удержания нет.",
                 "browser-fake",
@@ -572,7 +578,9 @@ def create_app() -> FastAPI:
                 BrowserConversationFake()
             )
             application.state.operation_contact_result_continuation._loop_model = (
-                BrowserConversationFake()
+                BrowserConversationFake(
+                    delay_final_contact=os.environ.get("AUDIT_CONTACT_CONTINUATION_STOP") == "true"
+                )
             )
             if settings.operation_workspace_chat_streaming_enabled:
                 application.state.operation_chat_service._streaming_model = (

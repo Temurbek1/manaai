@@ -218,9 +218,11 @@ describe("Retention contact chat lane", () => {
       const onContinued = jest
         .fn<() => Promise<void>>()
         .mockResolvedValue(undefined);
+      const onContinuing = jest.fn<(pending: boolean) => void>();
       let claimed = false;
       jest.spyOn(globalThis, "fetch").mockImplementation((_, init) => {
         if (init?.method === "POST") {
+          expect(onContinuing).toHaveBeenLastCalledWith(true);
           posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
           claimed = true;
           return lost
@@ -246,6 +248,7 @@ describe("Retention contact chat lane", () => {
           topicId="topic-1"
           turnId="turn-1"
           onContinued={onContinued}
+          onContinuing={onContinuing}
         />,
       );
       const button = await screen.findByRole("button", {
@@ -268,6 +271,10 @@ describe("Retention contact chat lane", () => {
         screen.queryByRole("button", { name: "Продолжить с агентом" }),
       ).not.toBeInTheDocument();
       await waitFor(() => expect(onContinued).toHaveBeenCalledTimes(1));
+      expect(onContinuing.mock.calls).toEqual([[true], [false]]);
+      fireEvent.click(screen.getByRole("button", { name: "Проверить статус" }));
+      await waitFor(() => expect(onContinued).toHaveBeenCalledTimes(2));
+      expect(posts).toHaveLength(1);
     },
   );
   it("confirms the frozen native selection without replacing it with manual fields", async () => {
