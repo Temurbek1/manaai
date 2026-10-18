@@ -167,6 +167,103 @@ the root peer-loop audit have their own immutable source/gate receipts.
 The root audit's completed `make verify` does not include this UI fix; session
 `88692` is terminal and its frozen export must not be edited or restarted.
 
+## Root integration boundary
+
+The verified source commits `86934a4` and `a509b0c` were integrated into the shared
+local branch as `539e7dd` and `d42aa0e`, on top of peer-history checkpoint `5245706`.
+The unrelated dirty root worktree delta retained exact SHA-256
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`
+across both picks, before these checkpoint-only documentation updates. No parent-
+application chat code, schemas, Docker/configuration changes or secrets were included.
+
+A final clean operational-only integrated **`make verify` passed**, original
+session `75520` returned **0** and its durable log ends `MAKE_VERIFY_EXIT_CODE=0`:
+**1402 backend tests**, **218 UI tests /30 suites**, Ruff/format/ESLint, mypy
+**398 Python files**, TypeScript, production UI build and npm audit (**zero
+vulnerabilities**). Backend runtime was **49m43s**. **30 PostgreSQL cases were
+skipped** and **two opt-in live cases excluded**, not passed or rerun here.
+Log: `output/operation-goal-integrated-verify-20261018.log`. Its immutable export is
+`/mnt/ssd2/mana-goals-integrated.gmH1Iy`, from index tree
+`3c136508b191b9e2d4ed61b701f0b9a6b4869390` before this documentation update.
+It excludes `.env` and all unrelated parent-application chat source. The original
+wrapper PID `812714` and pytest PID `813194` are terminal; do not restart them.
+
+The standalone 1394/217 and earlier 1402/214 results above still cover their exact
+source versions, independently of this integrated pass. Preserve their exports/logs and
+the negative receipt. The separately prepared UI-only follow-up is on
+`release/ui-native-current-goals-20261018` in `/mnt/ssd2/mana-ui-controls.KbB3wt`;
+its own `docs/operation-current-goal-ui-candidate.md` defines its clean boundary
+and independently verified gates. This root integration deploys neither lane.
+
+That separate clean UI-only source is now local commit
+`54612a274715f0a7b262573f136e518491efe585`, on verified `c198132d`/released
+`faf0a78`, not this contact-bearing branch. Its own full `make verify` returned
+**0** with **1241 backend /190 UI tests**, mypy **350 files**, production build and
+zero npm vulnerabilities; **23 PostgreSQL skips /two live exclusions** remain
+explicit. Its actual fake browser completed the native/current admission,
+catalog/history, limit, streaming, owner/CSRF and accessibility checks, including
+mobile/reload without new work. The expired browser handle's numeric exit receipt
+was not recoverable, so its document asserts retained terminal success markers,
+screenshots and closed listeners rather than inventing an observed exit code.
+
+Its actual local image
+`manaai-admin-nextjs:current-goals-candidate-20261018`, ID
+`sha256:fbb18df342edb6be9d8eb701cb1508eb8f2e0816b8f071082749ceeefcf321f0`,
+passed networkless/read-only/non-root liveness, protected placeholders, CSP and
+client credential/private-contact scans. Four exact rewrites preserve the retained
+released image's separate `operation-chat:8000` and `api:8000` targets. This is not
+a fresh production/proxy audit, authenticated canary or rollout. Its initial
+secret-free Compose interpolation refusal and narrower dummy/no-env syntax pass
+remain qualified in its candidate document. The three-source-file increment against
+`c198132d` retains SHA-256
+`2bd6081b526b34ee2c0d77e4a94c025ab10ef9cc94b491fd338fdbb6bc65b412`.
+Backend, schemas, dependencies, Docker/Compose and all private contact/parent-chat
+code are excluded. The earlier UI-release approval question is still unanswered;
+no Git push or production switch was made. No candidate image or test result grants
+contact authority or resolves the broader objective's remaining acceptance.
+
 No production service, main/audio, application parent chat, key, SSH setting,
 external source or schedule was changed. Wider owning-domain/model/source quality
 and separately approved release remain open under the full original goal.
+
+## Actual peer-action history captured by a new Goal
+
+A separate one-off local diagnostic closes one gap left by the earlier assembled
+v15 fixtures: it creates two real owning-service **fictional** actions/grants through
+personal HTTP admission, then captures their actual SQL history in a new native
+current-data Goal in that same database. No old paid diagnostic was resumed.
+
+The setup uses the existing pinned SDK/mock HTTP fixture, two normal fake OTP/cookie
+identities, exact human preparations/disclosures/decisions and the fake receiver.
+Its fourth synthetic model attempt deliberately loses its receipt, retaining the
+original positive unknown hold. A fresh application/login cycle respects the normal
+31-second OTP cooldown; the owner then submits the exact explicit-Goal request.
+The selected peer still receives 404 for the new Goal and topic.
+
+The saved Goal contains exactly two minimized RU/UZ verified sandbox history entries,
+their original action bindings/dates/message hashes and `business_outcome=not_measured`.
+No reviewer grant ID, raw provider/opaque model window or new source approval enters
+it. Creation/replay return one Goal, with zero steps/new model attempts/target reads/
+dispatches, and leave every original contact/chat/cost fingerprint unchanged. All
+four cost reservations survive, including the one unknown hold; none is refunded.
+
+The actual captured checkpoint is **v15 with underlying profile 2**, not v14.
+Current image `mana-ai-operation:contact-tool-loop-clean-20261017` creates/reads it;
+actual closed `mana-ai-operation:2ea7b9a` sees the closed legacy projection and
+cannot claim it. Current repository reconstruction restores the exact private Goal.
+Combined Goal/event/contact/chat/cost fingerprints remain identical across that
+old/current matrix. Both images run with no network and only fresh fake data/code
+mounts, never credentials or production volumes. The Goal worker remains disabled.
+
+Setup session `62819` and matrix session `47096` exited **0**. Artifacts:
+`output/peer-goal-context-{setup,legacy,restored}-20261018.log`, synthetic database
+`/mnt/ssd2/mpg.WfEYj8/peer-history.db`, and the ignored one-off script
+`output/peer_goal_context_diagnostic_20261018.py` (SHA-256
+`5cec3779ae1c2712bb573f63e8dc7cebdb001514469d8705a7ff6dac38d92ff0`).
+The minimized manifest contains fake IDs/hashes only, not cookies/OTP/provider state.
+
+This is actual HTTP → owning fake lifecycle → SQL Goal capture and narrow image
+observation, not a newly registered automated regression, native generation with
+contact context, a running Goal pause/resume drill, all v1–v14 profiles, PostgreSQL,
+real model/source quality, real customer delivery or production rollout acceptance.
+It does not upgrade any earlier Goal, inherit authority or change the broader goal.

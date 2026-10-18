@@ -46,14 +46,12 @@ The subsequent [peer-loop rollback checkpoint](operation-contact-peer-loop-rollb
 populates actual personal-session fake approvals/results and an unknown model hold
 through the old/current-image matrix. Its separate SQLite fixtures do not establish
 real delivery, integrated peer-history Goal capture or production rollout authority.
-A separate local UI correction is in progress on `feat/operation-explicit-native-goals-20261018`
-at `/mnt/ssd2/mana-explicit-goals.yWx2Nv`: explicit current-data Goals omitted native
-execution and ignored a partial native preflight. Three valid failing regressions
-and the corrected four-case/217-UI-test passes are retained there. Its own full
-gate exposed a separate concurrent-loop test ordering issue and was deliberately
-interrupted for diagnosis; it is not a passing gate. This UI fix is not merged
-into the root peer-loop checkpoint or deployed.
-See that worktree's `docs/operation-explicit-native-goals-checkpoint.md` before continuing it.
+The subsequent [explicit current-data Goal checkpoint](operation-explicit-native-goals-checkpoint.md)
+corrects a UI omission that sent those Goals to legacy analysis despite available
+native execution. It preserves exact scope, old tasks and failed-preflight drafts.
+Its local full gate and actual fake browser passed; the earlier negative gate and
+deterministic concurrency-fixture correction remain recorded separately. This is
+not a production release, source activation, contact grant or full model-quality pass.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

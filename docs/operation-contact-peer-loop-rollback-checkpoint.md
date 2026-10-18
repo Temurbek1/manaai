@@ -183,6 +183,16 @@ acceptance and separately approved rollout remain open under the original goal.
 An independent subsequent UI-fix branch surfaced an ordering assumption in an
 existing concurrent contact-loop test. Its failed run and read-only SQL observation
 are retained under `output/explicit-native-goal-*-20261018.log`; that separate
-branch's diagnostic is not a pass. This checkpoint's original complete gate remains
-a pass, not proof that every race ordering was covered. A deterministic reproduction
-and correction belong to the separate follow-up; no production behavior was changed.
+branch's initial interrupted diagnostic is not a pass. This checkpoint's original
+complete gate remains a pass, not proof that every race ordering was covered.
+The subsequent [explicit Goal checkpoint](operation-explicit-native-goals-checkpoint.md)
+records the deterministic reproduction, test-only correction and fresh complete
+gate; no production contact behavior was changed.
+
+While later independent gates were running, the generated `admin-ui/node_modules`
+directory was removed only from this terminal export
+`/mnt/ssd2/mana-peer-rollback-clean.FVAFSb` to recover about 633 MiB of local SSD
+space. Its committed source, lockfile, build/evidence logs, fake histories and
+model receipts were retained. Reinstall with the existing lockfile (`npm ci`) if
+that export is needed again; this cleanup did not change the passing receipt or
+remove dependencies used by either active verification process.
