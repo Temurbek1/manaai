@@ -173,3 +173,59 @@ service/Goal/unknown-hold fence, retained image/config backup, UI-only canary an
 rollback verification. No database restore/downgrade, backend/Goals worker restart,
 real source/contact request, paid inference, main/audio, parent chat, SSH/key or
 schedule mutation is included. Keep the broader goal active.
+
+## Root integration — verified local checkpoint
+
+The clean UI increment is local commit
+`032a0eda996abf10d5283fa5598361eefab338d6`, on verified `54612a2`/`c198132d` and
+released `faf0a78`. It was selected into the main local operational branch as
+`80746b7`, after the independently verified parent-journey diagnostic `d8e2ebf`.
+The unrelated dirty root delta retained exact SHA-256
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`
+before and after the pick. Parent-chat source, configuration, dirty API contracts
+and keys were not included. No Git push or production change occurred.
+
+The combined committed operational-only export is
+`/mnt/ssd2/mana-evidence-integrated.iacTAS`, source tree
+`f236801f536602f25027814e2a0d5e694987e9c2` before this documentation update.
+It excludes `.env` and all unrelated application-parent-chat changes and uses its
+own lockfile-installed UI dependencies with explicit clean `PYTHONPATH`.
+Its original final **`make verify` passed**, session **36578** returned **0**;
+`output/goal-evidence-integrated-verify-20261018.log` ends `MAKE_VERIFY_EXIT_CODE=0`.
+It passed **1410 backend tests**, **224 UI tests /30 suites**, Ruff/format/ESLint,
+mypy **400 Python files**, TypeScript, production UI build and npm audit (**zero
+vulnerabilities**). Backend runtime was **31m27s**. **Thirty PostgreSQL cases were
+skipped and two live cases excluded**, not passed or rerun here. Wrapper PID
+**958214**, make PID **958276** and pytest PID **958789** are terminal. The earlier
+independent gates still cover their own exact source versions, not this combined run.
+
+The actual integrated browser, session **8293**, returned **0** with
+`BROWSER_EXIT_CODE=0` in `output/goal-evidence-integrated-browser-20261018.log`.
+It explicitly enabled only local fake audit lanes: two personal fake OTP/cookie
+identities, two separately prepared/reviewed fictional contacts, native result/next-
+decision/final loop, manual stop/re-arm, durable preparation refusal/reconfirmation,
+lost acknowledgement and SQL-only recovery. Source-viewing, native current Goal,
+catalog/paging, review, 110-turn/105-Goal context, stream/reconnection, sandbox Growth,
+limits, owner isolation, CSRF and accessibility also passed together. The new desktop
+source, 320px Uzbek reachable footer and final fictional contact result screenshots
+were visually inspected. No real model/source/contact call occurred in this browser.
+
+After both local servers closed, the generated dev-type imports were restored.
+Final `make lint typecheck audit-schema`, production build, standalone liveness,
+protected root/runs/analytics placeholders, CSP, **28**-asset bundle/settings scan
+and no-Vite checks passed; original session **22656** returned **0**. Logs:
+`output/goal-evidence-integrated-final-{static-schema,build,smoke}-20261018.log`.
+Ports 18080/15173/13189 have no listeners. Root secret/quality-marker scans passed
+(**683** Git-listed/unignored paths at that stage). No integrated private-contact UI
+image was substituted for the independently verified clean production-baseline image.
+
+The read-only Goal archive is a subsequent separate WIP branch; its new API/UI is
+not covered by, merged into or deployed from this checkpoint. A documentation-only
+correction records the existing runtime's opt-in manual source allowlist and single
+external-read ceiling; no source permission or read limit was changed. Two public
+read-only production health GETs returned `status=ok` during this work; that is
+liveness only, not authenticated production/new-UI or provider acceptance.
+
+This main branch contains undeployed private contact code and must not replace the
+clean UI-only release branch/image. Production scope/authority is unchanged; full
+workspace acceptance and explicit UI rollout approval remain open.

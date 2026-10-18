@@ -59,6 +59,12 @@ cost. Its clean full gate passed 1410 backend /218 UI tests; an old/current-imag
 copy probe preserved the complete result and ledger. This is one historical
 synthetic case, not real MANA/payment availability, business improvement, broad
 quality, source/contact authority or completion of the nine-item objective.
+The subsequent [saved-source viewer](operation-goal-evidence-viewer-checkpoint.md)
+opens exact already-loaded Goal evidence from host-bound citations, never model
+URLs or new provider reads. Its clean UI candidate passed full gates and actual
+RU/UZ/mobile/footer browser checks. It remains local and undeployed; its integration
+with this contact-bearing branch has a separate final gate in progress, not a
+production, private-contact or overall-parity acceptance claim.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is
