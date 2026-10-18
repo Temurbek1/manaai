@@ -133,3 +133,8 @@ Logs are under `output/contact-progress-*-20261017.log`; they contain no real so
 reads or paid inference. Keep the earlier negative receipts. A clean scoped release,
 production-human acceptance and wider model/action/business-outcome quality remain
 separate open obligations. No source/contact production activation is authorized.
+
+The subsequent [UI-only compatibility candidate](operation-chat-controls-ui-candidate.md)
+starts from deployed `faf0a78`, not this contact-bearing workspace. It carries only
+general chat cache/stop fixes; contact UI/backend remains local and disabled. Its
+verification and any later release approval are recorded separately.
