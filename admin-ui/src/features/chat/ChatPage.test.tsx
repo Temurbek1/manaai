@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { ChatPage } from "./ChatPage";
 import { renderWithSession as renderSession } from "@/test/render";
@@ -701,6 +707,139 @@ describe("ChatPage", () => {
     } finally {
       HTMLElement.prototype.scrollIntoView = original;
     }
+  });
+
+  it("keeps explicit current-data Goals in the enabled native workspace", async () => {
+    const posts: { url: string; body: Record<string, unknown> }[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push({ url, body: JSON.parse(String(init.body)) });
+        return response({});
+      }
+      if (url.endsWith("/availability"))
+        return response({
+          enabled: true,
+          agent_workspace_enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.includes("/goals/topics/")) return response([]);
+      if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    fireEvent.change(await screen.findByLabelText("Режим работы"), {
+      target: { value: "goal" },
+    });
+    expect(await screen.findByLabelText("Область анализа")).toHaveValue(
+      "current",
+    );
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Изучи текущую конверсию по доступным данным" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Поставить цель" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toMatchObject({
+      url: "/api/v1/admin/operation/goals/topics/topic-1",
+      body: {
+        execution_mode: "agent",
+        objective: "Изучи текущую конверсию по доступным данным",
+      },
+    });
+    expect(posts[0]!.body.analysis_scope ?? "current").toBe("current");
+  });
+
+  it.each(["mismatched", "unavailable"] as const)(
+    "preserves explicit current-data Goals when native chat availability is %s",
+    async (state) => {
+      let ready = false;
+      const posts: { url: string; body: Record<string, unknown> }[] = [];
+      jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+        const url = requestUrl(input);
+        if (init?.method === "POST") {
+          posts.push({ url, body: JSON.parse(String(init.body)) });
+          return response({});
+        }
+        if (url === "/api/v1/admin/operation/goals/availability")
+          return response({
+            enabled: true,
+            agent_workspace_enabled: true,
+            budget_microusd: 500000,
+            max_steps: 6,
+          });
+        if (url.endsWith("/availability"))
+          return !ready && state === "unavailable"
+            ? response({ detail: "Unavailable" }, 503)
+            : response({ enabled: true, agent_workspace_enabled: ready });
+        if (url.includes("/goals/topics/")) return response([]);
+        if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+        return response([]);
+      });
+      renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+      fireEvent.change(await screen.findByLabelText("Режим работы"), {
+        target: { value: "goal" },
+      });
+      const input = screen.getByLabelText("Сообщение агенту");
+      fireEvent.change(input, { target: { value: "Изучи текущую конверсию" } });
+      const notice = await screen.findByText(
+        "Работа с целями недоступна. Черновик сохранён.",
+      );
+      expect(
+        screen.getByRole("button", { name: "Поставить цель" }),
+      ).toBeDisabled();
+      await act(async () => fireEvent.submit(input.closest("form")!));
+      expect(posts).toEqual([]);
+      expect(input).toHaveValue("Изучи текущую конверсию");
+      ready = true;
+      fireEvent.click(
+        within(notice.closest("p")!).getByRole("button", {
+          name: "Повторить проверку",
+        }),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Поставить цель" }),
+        ).toBeEnabled(),
+      );
+      expect(posts).toEqual([]);
+      expect(input).toHaveValue("Изучи текущую конверсию");
+      fireEvent.click(screen.getByRole("button", { name: "Поставить цель" }));
+      await waitFor(() => expect(posts).toHaveLength(1));
+      expect(posts[0]!.body).toMatchObject({
+        execution_mode: "agent",
+        objective: "Изучи текущую конверсию",
+      });
+    },
+  );
+
+  it("retains explicit legacy Goals when neither endpoint advertises the workspace", async () => {
+    const posts: Record<string, unknown>[] = [];
+    jest.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)));
+        return response({});
+      }
+      if (url.endsWith("/availability"))
+        return response({
+          enabled: true,
+          budget_microusd: 500000,
+          max_steps: 6,
+        });
+      if (url.includes("/goals/topics/")) return response([]);
+      if (url.endsWith("/topic-1")) return response({ topic, turns: [] });
+      return response([]);
+    });
+    renderWithSession(<ChatPage agentId="growth-agent" topicId="topic-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Цель" }));
+    fireEvent.change(screen.getByLabelText("Сообщение агенту"), {
+      target: { value: "Изучи текущую конверсию" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Поставить цель" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.execution_mode).toBeUndefined();
+    expect(posts[0]!.analysis_scope).toBeUndefined();
   });
 
   it("creates a historical Goal only after an explicit saved-snapshot choice", async () => {

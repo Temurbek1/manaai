@@ -176,7 +176,7 @@ export function ChatPage({
       ? goalsEnabled &&
           !goalsAvailabilityError &&
           (workingGoal ||
-            analysisScope === "current" ||
+            (analysisScope === "current" && !workspaceOffered) ||
             (workspaceEnabled && !availabilityError))
       : mode === "agent"
         ? workspaceEnabled && !goalsAvailabilityError && !availabilityError
@@ -358,8 +358,8 @@ export function ChatPage({
                 : {}),
               max_steps: goalsAvailability!.max_steps,
               budget_microusd: goalsAvailability!.budget_microusd,
-              ...(workspaceEnabled && analysisScope === "saved_snapshot"
-                ? { analysis_scope: "saved_snapshot", execution_mode: "agent" }
+              ...(workspaceEnabled
+                ? { analysis_scope: analysisScope, execution_mode: "agent" }
                 : {}),
               ...inference,
             },

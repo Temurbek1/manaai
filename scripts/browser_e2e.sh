@@ -34,6 +34,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+if [[ "${AUDIT_EXPLICIT_NATIVE_GOALS:-false}" == true && "${AUDIT_AGENT_WORKSPACE:-false}" != true ]]; then
+  echo "Explicit native Goal audit requires AUDIT_AGENT_WORKSPACE=true." >&2
+  exit 2
+fi
+
 if [[ ! -x "$BROWSER_BIN" ]]; then
   echo "agent-browser is not installed; run npm ci in admin-ui" >&2
   exit 1
@@ -704,6 +709,36 @@ if [[ "${AUDIT_AGENT_WORKSPACE:-false}" == "true" ]]; then
       browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/catalog-reviewed-result.png" --full >/dev/null
     fi
     echo "Catalog browser flow passed: three bounded SQL pages, complete saved text, reviewed result and reload without redispatch"
+  fi
+  if [[ "${AUDIT_EXPLICIT_NATIVE_GOALS:-false}" == true ]]; then
+    # Use a fresh private topic so existing historical/catalog assertions retain
+    # their exact task counts. Observe request shape only, never session headers.
+    browser set viewport 1440 1000 >/dev/null
+    browser open "http://127.0.0.1:${AUDIT_UI_PORT}/chat/operations-orchestrator" >/dev/null
+    browser wait --fn 'Boolean(document.querySelector("select[aria-label=\"Режим работы\"]")) && !document.querySelector(".chat-page")?.textContent.includes("Проверяем рабочий режим")' >/dev/null
+    browser select 'select[aria-label="Режим работы"]' goal >/dev/null
+    browser wait --fn 'document.querySelector("select[aria-label=\"Область анализа\"]")?.value === "current"' >/dev/null
+    browser eval '(() => { window.__explicitCurrentPosts=[]; window.__explicitMessagePosts=0; const original=window.fetch.bind(window); window.fetch=(...args)=>{const url=String(args[0]); if(args[1]?.method==="POST"){if(url.includes("/goals/topics/")){const body=JSON.parse(args[1].body); window.__explicitCurrentPosts.push({execution_mode:body.execution_mode,analysis_scope:body.analysis_scope,objective:body.objective});} if(/\/(workspace|chat)\/topics\/[^/]+\/messages$/.test(url)) window.__explicitMessagePosts++;} return original(...args);}; return "minimized Goal admission observation installed";})()' >/dev/null
+    browser find label "Сообщение агенту" fill 'Проанализируй текущие данные MANA: родительские действия, без изменений' >/dev/null
+    browser find role button click --name "Поставить цель" --exact >/dev/null
+    browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json();const goal=goals[0];const objective="Проанализируй текущие данные MANA: родительские действия, без изменений";if(window.__explicitCurrentPosts.length!==1 || JSON.stringify(window.__explicitCurrentPosts[0])!==JSON.stringify({execution_mode:"agent",analysis_scope:"current",objective}) || window.__explicitMessagePosts!==0 || goals.length!==1 || goal.request.execution_mode!=="agent" || goal.request.analysis_scope!=="current" || goal.request.objective!==objective || goal.status!=="waiting" || JSON.stringify(goal.tools.map(tool=>tool.call.name))!==JSON.stringify(["inspect_sources","read_saved_report","ask_user"]) || goal.read_attempted || goal.approved_capability || goal.requested_capability || goal.unsettled_microusd) throw new Error("Explicit current Goal downgraded, duplicated or acquired source authority");sessionStorage.setItem("mana:audit:explicit-current:v1",JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd,objective}));return "one native/current Goal; SQL tools only; no source grant";})()' >/dev/null
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/explicit-current-goal-desktop.png" --full >/dev/null
+    fi
+    browser set viewport 320 812 >/dev/null
+    assert_browser 'document.documentElement.scrollWidth <= innerWidth' 'explicit current Goal overflows at 320 CSS pixels'
+    assert_accessible
+    if [[ -n "${AUDIT_SCREENSHOT_DIRECTORY:-}" ]]; then
+      browser screenshot "$AUDIT_SCREENSHOT_DIRECTORY/explicit-current-goal-mobile.png" --full >/dev/null
+    fi
+    browser reload >/dev/null
+    browser wait --fn 'document.querySelector(".goal-waiting")?.textContent.includes("Уточните период анализа")' >/dev/null
+    browser eval '(async()=>{const topic=location.pathname.split("/").at(-1);const goals=await(await fetch(`/api/v1/admin/operation/goals/topics/${topic}`)).json();const goal=goals[0];const baseline=JSON.parse(sessionStorage.getItem("mana:audit:explicit-current:v1"));if(goals.length!==1 || JSON.stringify({id:goal.goal_id,revision:goal.revision,steps:goal.steps_used,cost:goal.accounted_microusd,objective:goal.request.objective})!==JSON.stringify(baseline) || goal.request.execution_mode!=="agent" || goal.request.analysis_scope!=="current" || goal.status!=="waiting" || goal.read_attempted || goal.approved_capability || goal.requested_capability || goal.unsettled_microusd) throw new Error("Reload changed native current Goal or redispatched work");sessionStorage.removeItem("mana:audit:explicit-current:v1");return "same SQL Goal, steps and accounted fake cost after reload";})()' >/dev/null
+    assert_accessible
+    browser set viewport 1440 1000 >/dev/null
+    echo "Explicit current Goal browser flow passed: one native admission, saved SQL tools, focused question and mobile/reload without new work"
   fi
   browser eval 'document.querySelector(".session-box button").click(); "logged out"' >/dev/null
   browser wait --fn 'document.body.innerText.includes("Вход в MANA")' >/dev/null
