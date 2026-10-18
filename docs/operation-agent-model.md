@@ -192,6 +192,14 @@ Required source ports are introduced only with a concrete capability. Expected c
 product analytics, billing/subscriptions, advertising platforms, experimentation, messaging,
 support, app stores, observability, releases, and issue tracking.
 
+Owner direction, 2026-10-18: the number of governed source connections has no fixed
+business cap; target bulk collection is shared twice daily at 09:00/15:00, proposed
+timezone Asia/Tashkent. This is not yet a deployed schedule, source activation or
+unbounded scan/tool grant. See the [source refresh policy](operation-source-refresh-policy.md)
+for immutable windows, cost/unknown holds, incremental-sync limits and the unresolved
+between-window behavior. Existing manual handlers and historical Goals retain their
+current contracts until a compatible replacement is separately verified.
+
 The database is authoritative for goals, tasks, lifecycle state, evidence metadata, approvals,
 executions, verification, outcomes, and audit. Vector search may assist retrieval of narrative
 documents, but it is never authoritative memory for policy, metrics, action state, or task status.
