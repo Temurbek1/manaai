@@ -52,6 +52,13 @@ native execution. It preserves exact scope, old tasks and failed-preflight draft
 Its local full gate and actual fake browser passed; the earlier negative gate and
 deterministic concurrency-fixture correction remain recorded separately. This is
 not a production release, source activation, contact grant or full model-quality pass.
+The subsequent [two-report parent-journey diagnostic](operation-parent-journey-quality-checkpoint.md)
+completed one new synthetic native catalog → full evidence → analysis → bound-review
+task, with independently checked arithmetic and $0.107914 settled estimated model
+cost. Its clean full gate passed 1410 backend /218 UI tests; an old/current-image
+copy probe preserved the complete result and ledger. This is one historical
+synthetic case, not real MANA/payment availability, business improvement, broad
+quality, source/contact authority or completion of the nine-item objective.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is
