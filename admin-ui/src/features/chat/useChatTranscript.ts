@@ -27,6 +27,7 @@ export function applyChatText(
       return null;
     return {
       ...turn,
+      status: "thinking",
       preview: preview + event.delta,
       preview_revision: event.revision,
     };

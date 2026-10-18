@@ -42,6 +42,18 @@ does not upgrade old turns, grant Goal writes, contact real users or complete th
 The following [in-flight continuation UI](operation-contact-progress-checkpoint.md)
 uses existing private SQL observation and stop controls while a continuation POST
 is pending. It changes no source refresh, stored contract or execution authority.
+The subsequent [peer-loop rollback checkpoint](operation-contact-peer-loop-rollback-checkpoint.md)
+populates actual personal-session fake approvals/results and an unknown model hold
+through the old/current-image matrix. Its separate SQLite fixtures do not establish
+real delivery, integrated peer-history Goal capture or production rollout authority.
+A separate local UI correction is in progress on `feat/operation-explicit-native-goals-20261018`
+at `/mnt/ssd2/mana-explicit-goals.yWx2Nv`: explicit current-data Goals omitted native
+execution and ignored a partial native preflight. Three valid failing regressions
+and the corrected four-case/217-UI-test passes are retained there. Its own full
+gate exposed a separate concurrent-loop test ordering issue and was deliberately
+interrupted for diagnosis; it is not a passing gate. This UI fix is not merged
+into the root peer-loop checkpoint or deployed.
+See that worktree's `docs/operation-explicit-native-goals-checkpoint.md` before continuing it.
 The operational receipt/error sidecar increment is recorded in
 [the production receipt checkpoint](operation-inference-receipts-checkpoint.md).
 Its subsequent bounded decision-schema diagnostic was deployed as `a7752dc` and is

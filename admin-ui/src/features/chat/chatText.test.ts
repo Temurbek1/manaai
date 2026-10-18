@@ -32,27 +32,30 @@ const frame = (value: ChatTextEvent) =>
   `id: ${value.event_id}\nevent: chat_text\ndata: ${JSON.stringify(value)}\n\n`;
 
 describe("durable chat text", () => {
-  it("applies Unicode offsets once and does not promote a preview to a result", () => {
-    const changed = applyChatText(turn, event)!;
-    expect(changed.preview).toBe("Привет 🧒!");
-    expect(changed.answer).toBe("");
-    expect(changed.status).toBe("thinking");
-    expect(applyChatText(changed, event)).toBe(changed);
-    expect(
-      applyChatText(changed, { ...event, revision: 3, offset: 999 }),
-    ).toBeNull();
-    expect(applyChatText(turn, { ...event, topic_id: "foreign" })).toBeNull();
-    const done = applyChatText(changed, {
-      ...event,
-      revision: 3,
-      status: "completed",
-      delta: "",
-      final_answer: "Final verified text",
-    })!;
-    expect(done.answer).toBe("Final verified text");
-    expect(done.status).toBe("completed");
-    expect(applyChatText(done, { ...event, revision: 4 })).toBe(done);
-  });
+  it.each(["reading", "thinking"] as const)(
+    "applies Unicode offsets once from %s without promoting a preview to a result",
+    (status) => {
+      const changed = applyChatText({ ...turn, status }, event)!;
+      expect(changed.preview).toBe("Привет 🧒!");
+      expect(changed.answer).toBe("");
+      expect(changed.status).toBe("thinking");
+      expect(applyChatText(changed, event)).toBe(changed);
+      expect(
+        applyChatText(changed, { ...event, revision: 3, offset: 999 }),
+      ).toBeNull();
+      expect(applyChatText(turn, { ...event, topic_id: "foreign" })).toBeNull();
+      const done = applyChatText(changed, {
+        ...event,
+        revision: 3,
+        status: "completed",
+        delta: "",
+        final_answer: "Final verified text",
+      })!;
+      expect(done.answer).toBe("Final verified text");
+      expect(done.status).toBe("completed");
+      expect(applyChatText(done, { ...event, revision: 4 })).toBe(done);
+    },
+  );
   it("validates chat frames separately and leaves the legacy Goal parser compatible", () => {
     expect(parseWorkspaceFrame(frame(event), "topic")).toBeNull();
     expect(parseWorkspaceFrame(frame(event), "topic", true)).toEqual(event);

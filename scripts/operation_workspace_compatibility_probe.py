@@ -46,6 +46,7 @@ async def probe(
     contact_continuation: bool = False,
     contact_admissions: bool = False,
     contact_loop: bool = False,
+    peer_contact_loop: bool = False,
 ) -> None:
     if contact_loop and not contact_continuation:
         raise ValueError("Loop audit requires the captured contact continuation profile")
@@ -566,8 +567,18 @@ async def probe(
                 from scripts.operation_contact_loop_compatibility import check_loop
 
                 await check_loop(path, owner=OWNER, setup=True)
+            if peer_contact_loop:
+                from scripts.operation_contact_peer_loop_compatibility import check_peer_loop
+
+                # Independent fictional recipients retain global cooldown/unknown
+                # target holds in the original admission fixture without bypass.
+                await check_peer_loop(path.with_name("peer-history.db"), stage="setup")
             return
 
+        if peer_contact_loop:
+            from scripts.operation_contact_peer_loop_compatibility import check_peer_loop
+
+            await check_peer_loop(path.with_name("peer-history.db"), stage=stage)
         topics = await chats.topics(OWNER)
         if contact_loop:
             loop_topic = next(item for item in topics if item.title == "Native contact loop")
@@ -789,6 +800,7 @@ def main() -> None:
     parser.add_argument("--contact-continuation", action="store_true")
     parser.add_argument("--contact-admissions", action="store_true")
     parser.add_argument("--contact-loop", action="store_true")
+    parser.add_argument("--peer-contact-loop", action="store_true")
     args = parser.parse_args()
     asyncio.run(
         probe(
@@ -804,6 +816,7 @@ def main() -> None:
             contact_continuation=args.contact_continuation,
             contact_admissions=args.contact_admissions,
             contact_loop=args.contact_loop,
+            peer_contact_loop=args.peer_contact_loop,
         )
     )
 

@@ -3,6 +3,8 @@
 import hashlib
 import json
 import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -14,6 +16,14 @@ TABLES = (
     "operation_retention_contact_events",
     "operation_retention_contact_guards",
 )
+
+
+@dataclass(frozen=True)
+class FixtureClock:
+    at: datetime
+
+    def now(self) -> datetime:
+        return self.at
 
 
 def ledger_fingerprint(path: Path) -> str:
@@ -66,7 +76,20 @@ async def check_admissions(path: Path, *, stage: str, owner: str, topic_id: str)
 
     manifest = path.with_suffix(".admissions.json")
     database = OperationDatabase(f"sqlite+aiosqlite:///{path}")
-    clock = SystemClock()
+    real_clock = SystemClock()
+    if stage == "setup":
+        fixture_at = (real_clock.now() - timedelta(days=1)).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
+    else:
+        saved = json.loads(manifest.read_text())
+        fixture_at = (
+            datetime.fromisoformat(saved["fixture_at"])
+            if "fixture_at" in saved
+            else real_clock.now()
+        )
+    # Fictional policy time only: real quiet-hour checks must remain unchanged.
+    clock = FixtureClock(fixture_at)
     catalog = LostTargetCatalog(clock)
     controls = SqlAlchemyOperationRepository(database)
     store = SqlAlchemyRetentionContacts(database)
@@ -126,6 +149,7 @@ async def check_admissions(path: Path, *, stage: str, owner: str, topic_id: str)
                 json.dumps(
                     {
                         "fingerprint": ledger_fingerprint(path),
+                        "fixture_at": fixture_at.isoformat(),
                         "requests": [request.model_dump(mode="json") for request in requests],
                         "action": recorded.model_dump(mode="json"),
                     }

@@ -34,8 +34,9 @@ renews a source/action grant. Stop does not undo a completed action or waive usa
 An authenticated, sequential `thinking` text event also updates display status;
 otherwise a cached `reading` turn incorrectly said it was still reading reports
 while answer text was already arriving. This UI correction changes no server state
-or tool authority. It is isolated in this candidate, not yet ported to the private
-contact-bearing root workspace.
+or tool authority. It was first isolated in this candidate; the subsequent
+[peer-loop checkpoint](operation-contact-peer-loop-rollback-checkpoint.md) also
+ports this one-line display correction to the private contact-bearing root workspace.
 
 The fresh-topic cache fix is carried over from the already tested operational
 source because `faf0a78` predates it. It changes only existing authenticated SQL
@@ -115,3 +116,8 @@ The next rollback increment should exercise that real owning-service fake lifecy
 through old-reader/current-image/pause/reconstruction without real sends, new source
 access, schema downgrade or replay. It must not relabel the older narrow probe as
 complete grant-history acceptance or complete the overall goal from this UI candidate.
+
+The subsequent [local peer-loop matrix](operation-contact-peer-loop-rollback-checkpoint.md)
+addresses that fixture gap through actual owning-service fake actions and personal
+HTTP admission. Its checks and limitations are separate; they neither change this
+UI candidate nor approve its release.

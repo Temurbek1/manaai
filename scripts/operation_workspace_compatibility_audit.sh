@@ -33,6 +33,7 @@ database_file="${audit_dir}/synthetic.db"
 probe_script="${project_root}/scripts/operation_workspace_compatibility_probe.py"
 admission_script="${project_root}/scripts/operation_contact_admission_compatibility.py"
 loop_script="${project_root}/scripts/operation_contact_loop_compatibility.py"
+peer_loop_script="${project_root}/scripts/operation_contact_peer_loop_compatibility.py"
 catalog_args=()
 if [[ "${WORKSPACE_REPORT_DISCOVERY_AUDIT:-false}" == true ]]; then
   catalog_args=(--catalog)
@@ -61,6 +62,9 @@ fi
 if [[ "${WORKSPACE_CONTACT_LOOP_AUDIT:-false}" == true ]]; then
   catalog_args+=(--contacts --native-contact --contact-continuation --contact-loop)
 fi
+if [[ "${WORKSPACE_CONTACT_PEER_LOOP_AUDIT:-false}" == true ]]; then
+  catalog_args+=(--peer-contact-loop)
+fi
 
 .venv/bin/python "${probe_script}" --database-file "${database_file}" --stage setup "${catalog_args[@]}"
 run_legacy() {
@@ -70,6 +74,7 @@ run_legacy() {
     --mount "type=bind,source=${probe_script},target=/audit/probe.py,readonly" \
     --mount "type=bind,source=${admission_script},target=/audit/scripts/operation_contact_admission_compatibility.py,readonly" \
     --mount "type=bind,source=${loop_script},target=/audit/scripts/operation_contact_loop_compatibility.py,readonly" \
+    --mount "type=bind,source=${peer_loop_script},target=/audit/scripts/operation_contact_peer_loop_compatibility.py,readonly" \
     --entrypoint python "${legacy_image}" /audit/probe.py \
     --database-file /audit-data/synthetic.db --stage legacy "${catalog_args[@]}" "$@"
 }
@@ -81,6 +86,7 @@ run_current() {
       --mount "type=bind,source=${probe_script},target=/audit/probe.py,readonly" \
       --mount "type=bind,source=${admission_script},target=/audit/scripts/operation_contact_admission_compatibility.py,readonly" \
       --mount "type=bind,source=${loop_script},target=/audit/scripts/operation_contact_loop_compatibility.py,readonly" \
+      --mount "type=bind,source=${peer_loop_script},target=/audit/scripts/operation_contact_peer_loop_compatibility.py,readonly" \
       --entrypoint python "${current_image}" /audit/probe.py \
       --database-file /audit-data/synthetic.db --stage verify "${catalog_args[@]}" "$@"
   fi

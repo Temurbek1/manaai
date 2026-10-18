@@ -112,3 +112,8 @@ Ignored evidence: `output/retention-peer-verify.log`,
 `output/retention-peer-browser-fixed/retention-contact-mobile.png`.
 No paid inference, live source access, real customer contact, production migration
 or deployment occurred. The browser and application receiver/model paths were fake.
+
+The subsequent [peer-loop rollback checkpoint](operation-contact-peer-loop-rollback-checkpoint.md)
+adds actual old/current-image observation of a populated two-action personal-review
+history and unknown model hold. It is separate SQLite/fake evidence, not a rewrite
+of the narrower checks above, integrated peer-history Goal capture or release authority.
