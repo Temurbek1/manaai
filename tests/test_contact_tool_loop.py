@@ -492,6 +492,8 @@ async def test_two_requests_preserve_pairing_conditions_restart_and_one_consumer
     app = configure_loop(monkeypatch, path)
     requests: list[dict[str, Any]] = []
     root_context = ""
+    continuation_entered = asyncio.Event()
+    allow_continuation = asyncio.Event()
 
     async def transport(request: httpx.Request) -> httpx.Response:
         nonlocal root_context
@@ -520,6 +522,8 @@ async def test_two_requests_preserve_pairing_conditions_restart_and_one_consumer
             assert body["tools"][0]["parameters"]["properties"]["recipient"]["enum"] == [
                 "sample_uz"
             ]
+            continuation_entered.set()
+            await asyncio.wait_for(allow_continuation.wait(), timeout=10)
             return httpx.Response(200, json=selected_wire(body["model"], "sample_uz", 2))
         assert len(outputs) == 2 and body["tool_choice"] == "none"
         assert "test-opaque-loop-1" in json.dumps(body["input"])
@@ -570,15 +574,31 @@ async def test_two_requests_preserve_pairing_conditions_restart_and_one_consumer
         assert early.status_code == 409 and len(requests) == 2
         action = await decide(client, url, action)
         assert action["status"] == "verified"
+
+        async def observe_pending() -> httpx.Response:
+            try:
+                await asyncio.wait_for(continuation_entered.wait(), timeout=10)
+                observed = await client.post(
+                    url + "/continue", headers=ADMIN, json=continuation(action)
+                )
+                assert observed.status_code == 200, observed.text
+                assert observed.json()["status"] == "thinking"
+                assert observed.json()["contact_preparation"] is None
+                return observed
+            finally:
+                allow_continuation.set()
+
+        # The first gathered response deliberately observes the in-flight child;
+        # only the owning inference request waits for the terminal result.
         replies = await asyncio.gather(
-            *[
-                client.post(url + "/continue", headers=ADMIN, json=continuation(action))
-                for _ in range(2)
-            ]
+            observe_pending(),
+            client.post(url + "/continue", headers=ADMIN, json=continuation(action)),
         )
         assert all(reply.status_code == 200 for reply in replies), [reply.text for reply in replies]
-        second = replies[0].json()
-        assert second["turn_id"] == replies[1].json()["turn_id"] and len(requests) == 3
+        observed = replies[0].json()
+        second = replies[1].json()
+        assert second["status"] == "completed"
+        assert observed["turn_id"] == second["turn_id"] and len(requests) == 3
         assert second["contact_preparation"]["recipient"] == "sample_uz"
         assert second["next_action"] == "retention_contacts"
         ChatTurn.model_validate(second)
