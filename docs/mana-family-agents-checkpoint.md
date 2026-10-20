@@ -20,6 +20,7 @@ operational analytics direction is not this child-safety event-trigger policy.
 - Local core commit **`d796c8c`** (`Build durable Parent-Touch question coordination core`).
 - Local HTTP/runtime commit **`3f8f3f4`** (`Wire backend-only Parent-Touch chat and durable delivery API`).
 - Local event/budget core commit **`867d915`** (`Add durable Child-Safety event outbox and separate token ledger`).
+- Local API/runtime commit **`e30fba4`** (`Wire Child-Safety API, metered analysis and Parent-Touch question worker`).
 - Detailed contracts and full remaining acceptance:
   [family-agent implementation document](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-agents.md).
 
@@ -100,7 +101,43 @@ older v1/v2 readers **refuse it**. That is fail-closed evidence,
 not a working rollback. Do not deploy this checkpoint, downgrade its populated
 tables or restore an old database over newer history.
 
-## Continue the entire requested API
+## Latest API/runtime checkpoint
+
+`e30fba4` wires all ten Child-Safety POST contracts, SQL job paging/status/budget
+GETs, strict SDK receipts, fresh own-child profile checks, existing deterministic/
+evidence/proposal validation and the SQL-only event worker. One metered generation
+is captured for existing validation, never repeated by another gateway. New
+information needs automatically reach the one chat through stable-ID Parent-Touch
+delivery; its assistant-only turns do not trigger another safety analysis.
+The actual lifespan/HTTP fake-model test verifies analysis -> automatic question
+-> parent reply -> historical follow-up, separate token counters and safe replay.
+Global daily attempts also bound zero-token source failures.
+
+Runtime is default disabled via `MANA_CHILD_SAFETY_ENABLED`; explicit
+`MANA_CHILD_SAFETY_LIMITS` JSON and Parent-Touch/chat configuration are mandatory.
+No real budget or production/source/model integration was activated. GET/replay
+never dispatch; an unavailable worker refuses new jobs but preserves saved replay.
+The SDK adapter reuses strict terminal/raw usage transport, disables retries/
+storage and uses pinned SDK 2.53.0 strict-schema conversion before requests.
+
+Terminal `make verify`, session **74434**, exit **0**:
+`output/family-agent-child-runtime-final-verify-20261020.log`: **416 backend tests**,
+**1 skipped**, **2 live tests excluded**, **26 UI tests /11 suites**, lint/format,
+mypy **232 files**, TypeScript/build, zero npm vulnerabilities. **41** focused
+tests overlap that gate. Docs expose **30 paths**; all earlier path definitions
+remain unchanged. Schema synchronization and secret scan **393 files** pass.
+The earlier format-only failed gate is retained separately, not called a pass.
+
+Remaining: Parent-Touch needs frozen validated assessment context and automatic
+assessment/urgent-notice delivery when no clarification is needed. The current
+worker only automatically delivers questions. Add a compatible v4 closed reader
+before release: disabling safety currently selects a v3 reader that refuses a
+populated v4 DB, preserving data but breaking availability. Never downgrade/restore
+history to bypass it. Broader semantic and actual candidate/rollback checks remain
+open; current results are fakes/SDK MockTransport, not real-model quality,
+production deployment or full goal completion. No external source/model spend.
+
+## Earlier continuation notes (latest checkpoint above is authoritative)
 
 1. Wire the implemented outbox, immutable data/chat admissions and separate ledger
    into the actual Child-Safety application service/worker. Read fresh ownership
