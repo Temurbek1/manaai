@@ -1,6 +1,56 @@
-# Parent-Touch / Child-Safety — active application redesign, 2026-10-20
+# Parent-Touch / Child-Safety — production handoff, 2026-10-20
 
-Current local implementation: **`f8d095e`**, additive SQLite v6 /captured review-first
+## Active production release
+
+The owner authorized deployment and explicitly set **2000 Child-Safety tokens/day
+globally across all parents**, separate from **2000 Parent-Touch tokens/day per
+parent**. Application **`f8d095e`**, private SQLite **v6**, is now enabled on the
+isolated parent-chat sidecar. Release documentation is committed as **`813ad50`**
+in the clean feature worktree; this root tree retains unrelated owner changes.
+
+Read [the authoritative production record](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-agents-release.md)
+and [backend integration](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-agents-integration.md).
+
+- Swagger: <https://ai.360rec.uz/docs#/mana-ai>; API base:
+  `https://ai.360rec.uz/api/v1/mana-ai`.
+- New `POST /parent-touch/messages` admits review-first work with `202`;
+  SQL-only status/history GETs observe it. The legacy `/chat` stays compatible,
+  not silently upgraded. The existing isolated backend token remains required;
+  the general inference key cannot access family history.
+- Child-Safety and automatic private-SQL event handling are enabled. New parent
+  messages and backend-submitted child observations trigger work; no Firebase/GA4
+  refresh, listener, historical backfill or operational schedule was activated.
+  The application backend still needs to submit observations to the typed APIs.
+- Safety reserves the whole **2000-token job** before inference. This tiny global
+  pool generally admits only **one short analysis/day**, not continuous coverage
+  for every family. Review-first messages cannot bypass an unavailable review.
+  Unknown costs keep their holds; unchanged observations/replays do not regenerate.
+- Only `mana-parent-chat-parent-chat-1` was recreated. Existing private volume,
+  history, quota rows, backend/provider keys and SSH were preserved. Main/audio,
+  operational API, UI, scheduler and PostgreSQL retained their container IDs,
+  start times and configurations. All six containers are healthy.
+- Fresh `make verify`: original session **88188**, exit **0**, **509 backend /
+  26 UI tests**, mypy **247 files**, lint/types/build. Actual packaged-app checks
+  used network-disabled fake providers. Both copied and live v1-to-v6 migrations
+  preserved legacy row fingerprints; current compatible closed readers passed.
+- Public/private authorization, all ten protective request validations, historical
+  idempotent replay and Chromium Swagger rendering passed: **32 paths /35
+  operations**. At acceptance safety used/reserved **0**, remaining **2000**.
+  Two production-key model-metadata GETs returned 200; no new paid production
+  generation was attempted. This is not real-family semantic acceptance.
+- Server image `af269c62bdd3…` matches all ten filesystem layers and all nonempty
+  runtime configuration of tested local image `d4e3af258227…`; only allowlisted
+  omitted empty Docker metadata differs. The raw image digest is not identical.
+- Kit: `/opt/manaai-releases/family-f8d095e-20261020/kit/`; backups:
+  `/var/backups/mana-ai/family-f8d095e-20261020/`. Compatible deactivation retains
+  v6 history with the current image; never restore an old database/image over it.
+- GitHub push remains **403**: account `samanwirst` has pull but no push permission
+  on `Temurbek1/manaai`. Production uses verified tracked source/image artifacts;
+  remote branch publication still requires repository Write access.
+
+## Historical local review-first checkpoint — `f8d095e`
+
+Local implementation at that checkpoint: **`f8d095e`**, additive SQLite v6 /captured review-first
 parent messages. Parent-Touch speaks only after the new Child-Safety review supplies
 qualified guidance. New `POST /parent-touch/messages` returns `202`; its GET status
 and the shared single-chat history are observation only. Old synchronous `/chat`
