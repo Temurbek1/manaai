@@ -5,7 +5,13 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, Field, StringConstraints, model_validator
 
-from app.mana_ai.domain.chat import ChatContract, ParentChatId, ParentChatRequest
+from app.mana_ai.domain.chat import (
+    ChatContract,
+    ParentChatHistory,
+    ParentChatId,
+    ParentChatRequest,
+    ParentChatResponse,
+)
 from app.mana_ai.domain.enums import ManaAICapability
 
 FamilyAgentId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{1,63}$", strict=True)]
@@ -74,6 +80,43 @@ class AgentQuestionPage(ChatContract):
 
 class ParentTouchRequest(ParentChatRequest):
     reply_to_question_id: UUID | None = None
+
+
+class ParentTouchDeliveryRequest(ChatContract):
+    parent_id: ParentChatId
+    request_id: UUID
+
+
+class ParentTouchDeliveryTurn(ParentChatRequest):
+    """Host-only assistant turn; never persist a fabricated parent message."""
+
+    message: Literal[""] = ""
+
+
+class ParentTouchQuestion(ChatContract):
+    question_id: UUID
+    child_id: int = Field(gt=0, strict=True)
+    turn_id: int = Field(gt=0, strict=True)
+
+
+class ParentTouchResponse(ParentChatResponse):
+    speaker: Literal["parent-touch"] = "parent-touch"
+    asked_question: ParentTouchQuestion | None
+
+
+class ParentTouchHistory(ParentChatHistory):
+    speaker: Literal["parent-touch"] = "parent-touch"
+    active_question: ParentTouchQuestion | None
+    message_questions: list[ParentTouchQuestion]
+
+
+class FamilyAgentAvailability(ChatContract):
+    definition: FamilyAgentDefinition
+    status: Literal["available", "not_implemented"]
+
+
+class FamilyAgentDirectory(ChatContract):
+    agents: list[FamilyAgentAvailability]
 
 
 class ParentTouchModelReply(ChatContract):

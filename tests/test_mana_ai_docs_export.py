@@ -21,18 +21,24 @@ def test_public_docs_export_has_only_product_contracts(monkeypatch: MonkeyPatch)
     assert set(schema["paths"]) == expected | {
         "/api/v1/mana-ai/capabilities",
         "/api/v1/mana-ai/chat",
+        "/api/v1/mana-ai/agents",
+        "/api/v1/mana-ai/parent-touch/chat",
+        "/api/v1/mana-ai/parent-touch/deliver",
+        "/api/v1/mana-ai/parent-touch/requests",
     }
-    assert len(schema["paths"]) == 13
+    assert len(schema["paths"]) == 17
     assert schema["servers"] == [{"url": "/", "description": "Same-origin production API"}]
     assert set(schema["components"]["securitySchemes"]) == {"BearerToken", "ParentChatBackendToken"}
     for path, operations in schema["paths"].items():
-        operation = operations["get" if path.endswith("/capabilities") else "post"]
-        scheme = "ParentChatBackendToken" if path.endswith("/chat") else "BearerToken"
-        assert operation["security"] == [{scheme: []}]
-        if path.endswith("/chat"):
-            assert operations["get"]["security"] == [{scheme: []}]
+        family = "/parent-touch/" in path or path.endswith("/agents")
+        scheme = "ParentChatBackendToken" if family or path.endswith("/chat") else "BearerToken"
+        for operation in operations.values():
+            assert operation["security"] == [{scheme: []}]
         if "post" in operations:
-            assert operations["post"]["requestBody"]["content"]["application/json"]["examples"]
+            body = operations["post"]["requestBody"]["content"]["application/json"]
+            assert body["schema"]["$ref"]
+            if not family:
+                assert body["examples"]
 
 
 def test_html_uses_local_assets_without_authorization_persistence() -> None:
@@ -58,7 +64,7 @@ def test_export_is_exclusive_and_records_runtime(monkeypatch: MonkeyPatch, tmp_p
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest == {
         "runtime_image": image,
-        "path_count": 13,
+        "path_count": 17,
         "swagger_ui_version": "5.33.2",
         "source_reads": 0,
         "provider_calls": 0,

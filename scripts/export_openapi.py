@@ -1,11 +1,15 @@
 import json
 import os
+import sys
 from pathlib import Path
 
 
 def main() -> None:
     project_root = Path(__file__).parents[1]
     os.chdir(project_root)
+    # An editable installation may point at another checkout. Export this source,
+    # not that checkout's unrelated routes or local working changes.
+    sys.path.insert(0, str(project_root))
     os.environ.setdefault("OPENAI_API_KEY", "openapi-schema-placeholder")
     from app.main import create_app
 

@@ -1,12 +1,21 @@
 from fastapi import APIRouter, Depends
 
-from app.api.routes import ai, audio_moderation, health, mana_ai, mana_ai_chat, marketing
+from app.api.routes import (
+    ai,
+    audio_moderation,
+    health,
+    mana_ai,
+    mana_ai_chat,
+    mana_family_agents,
+    marketing,
+)
 from app.api.security import require_bearer_token
 from app.mana_operation_ai.api.auth_router import auth_router, users_router
 from app.mana_operation_ai.api.router import router as operation_router
 
 api_router = APIRouter()
 api_router.include_router(mana_ai_chat.router, prefix="/mana-ai", tags=["mana-ai"])
+api_router.include_router(mana_family_agents.router, prefix="/mana-ai", tags=["mana-ai"])
 api_router.include_router(health.router, prefix="/health", tags=["health"])
 api_router.include_router(
     audio_moderation.router,

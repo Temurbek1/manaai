@@ -207,7 +207,7 @@ async def test_legacy_history_and_quota_survive_additive_migration(tmp_path: Pat
     assert (await upgraded.admit(touch_replay, NOW)).result == expected
     assert model.calls == source.calls == 1
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
     old_reader = SqliteParentChatStore(path, daily_limit=2000, timezone="Asia/Tashkent")
     with pytest.raises(RuntimeError, match="dedicated database"):
         await old_reader.initialize()

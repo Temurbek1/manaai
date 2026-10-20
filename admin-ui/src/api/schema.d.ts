@@ -972,6 +972,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read family-agent availability */
+        get: operations["read_agents_api_v1_mana_ai_agents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/ai-gaming-safety": {
         parameters: {
             query?: never;
@@ -1232,6 +1249,71 @@ export interface paths {
          *     **Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.
          */
         post: operations["respond_with_parent_copilot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-touch/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the parent's one chat and exact reply identities
+         * @description Backend-only. SQL observation: no source read, model call or question delivery. message_questions maps visible assistant turns to their frozen question identities. active_question may be outside the requested page; fetch its turn before showing a reply UI.
+         */
+        get: operations["read_chat_api_v1_mana_ai_parent_touch_chat_get"];
+        put?: never;
+        /**
+         * Send a parent message to Parent-Touch
+         * @description Derive parent_id from the authenticated MANA backend session. One chat only. Reuse the identical request_id/body after transport loss. reply_to_question_id explicitly binds an answer to one previously displayed question; omitted metadata never answers it. A replay preserves the original asked_question, not the current active question. The existing /chat shares this service, history and 2000-token default allowance.
+         */
+        post: operations["send_chat_api_v1_mana_ai_parent_touch_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-touch/deliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deliver at most one queued specialist question in the same chat
+         * @description Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/context. Unknown receipts remain held.
+         */
+        post: operations["deliver_question_api_v1_mana_ai_parent_touch_deliver_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-touch/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observe same-family specialist requests (backend only) */
+        get: operations["read_requests_api_v1_mana_ai_parent_touch_requests_get"];
+        put?: never;
+        /**
+         * Admit a registered specialist's information need, without sending it
+         * @description Trusted backend coordination only; do not expose this producer API to mobile. Fresh own-child validation precedes a new intent. Durable nonce/body/revision deduplication runs before source I/O; failed or abandoned admissions never auto-retry. Priority is 0–3 (higher first), FIFO for ties; one parent has only one active question.
+         */
+        post: operations["request_question_api_v1_mana_ai_parent_touch_requests_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2229,6 +2311,66 @@ export interface components {
             kill_switch_enabled: boolean;
             /** Schedules */
             schedules: components["schemas"]["AgentSchedule"][];
+        };
+        /** AgentQuestionPage */
+        AgentQuestionPage: {
+            /** Next After */
+            next_after?: number | null;
+            /** Parent Id */
+            parent_id: string;
+            /** Questions */
+            questions: components["schemas"]["FamilyQuestion"][];
+        };
+        /** AgentQuestionReceipt */
+        AgentQuestionReceipt: {
+            /** Coalesced */
+            coalesced: boolean;
+            question: components["schemas"]["FamilyQuestion"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /**
+         * AgentQuestionRequest
+         * @description A specialist's intent, never a ready-to-send parent message or action grant.
+         */
+        AgentQuestionRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Child Id */
+            child_id: number;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Information Key */
+            information_key: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Priority
+             * @default 1
+             */
+            priority: number;
+            /** Question */
+            question: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Source Revision */
+            source_revision: string;
         };
         /** AgentReport */
         AgentReport: {
@@ -3332,6 +3474,34 @@ export interface components {
             /** Requested Minutes */
             requested_minutes: number;
         };
+        /** FamilyAgentAvailability */
+        FamilyAgentAvailability: {
+            definition: components["schemas"]["FamilyAgentDefinition"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "not_implemented";
+        };
+        /** FamilyAgentDefinition */
+        FamilyAgentDefinition: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Capabilities
+             * @default []
+             */
+            capabilities: components["schemas"]["ManaAICapability"][];
+            /** Speaks To Parent */
+            speaks_to_parent: boolean;
+            /** Title */
+            title: string;
+        };
+        /** FamilyAgentDirectory */
+        FamilyAgentDirectory: {
+            /** Agents */
+            agents: components["schemas"]["FamilyAgentAvailability"][];
+        };
         /** FamilyAgreementActionProposal */
         FamilyAgreementActionProposal: {
             /** Action */
@@ -3565,6 +3735,50 @@ export interface components {
             night_window?: components["schemas"]["DailyTimeWindow"] | null;
             /** Parent Visible Data */
             parent_visible_data?: string[];
+        };
+        /** FamilyQuestion */
+        FamilyQuestion: {
+            /** Answer Turn Id */
+            answer_turn_id?: number | null;
+            /** Child Id */
+            child_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Information Key */
+            information_key: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Offered Turn Id */
+            offered_turn_id?: number | null;
+            /** Parent Id */
+            parent_id: string;
+            /** Priority */
+            priority: number;
+            /** Question */
+            question: string;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "offered" | "awaiting_reply" | "answered" | "cancelled" | "expired" | "held";
         };
         /** FamilyReportAction */
         FamilyReportAction: {
@@ -5084,6 +5298,99 @@ export interface components {
             /** Summary */
             summary: string;
             verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /** ParentTouchDeliveryRequest */
+        ParentTouchDeliveryRequest: {
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ParentTouchHistory */
+        ParentTouchHistory: {
+            active_question: components["schemas"]["ParentTouchQuestion"] | null;
+            /** Latest Error Code */
+            latest_error_code?: string | null;
+            /** Latest Request Id */
+            latest_request_id?: string | null;
+            /** Latest Request Status */
+            latest_request_status?: ("preparing" | "submitted" | "completed" | "failed" | "unknown") | null;
+            /** Message Questions */
+            message_questions: components["schemas"]["ParentTouchQuestion"][];
+            /** Messages */
+            messages: components["schemas"]["ParentChatMessage"][];
+            /** Next Before Turn Id */
+            next_before_turn_id: number | null;
+            /** Parent Id */
+            parent_id: string;
+            quota: components["schemas"]["ChatQuota"];
+            /**
+             * Speaker
+             * @default parent-touch
+             * @constant
+             */
+            speaker: "parent-touch";
+        };
+        /** ParentTouchQuestion */
+        ParentTouchQuestion: {
+            /** Child Id */
+            child_id: number;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Turn Id */
+            turn_id: number;
+        };
+        /** ParentTouchRequest */
+        ParentTouchRequest: {
+            /** Child Observations */
+            child_observations?: components["schemas"]["ChildChatObservation"][];
+            /** Message */
+            message: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Reply To Question Id */
+            reply_to_question_id?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ParentTouchResponse */
+        ParentTouchResponse: {
+            /** Answer */
+            answer: string;
+            asked_question: components["schemas"]["ParentTouchQuestion"] | null;
+            /**
+             * Child Context Collected At
+             * Format: date-time
+             */
+            child_context_collected_at: string;
+            /** History Turns Included */
+            history_turns_included: number;
+            /** Model */
+            model: string;
+            /** Parent Id */
+            parent_id: string;
+            quota: components["schemas"]["ChatQuota"];
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /**
+             * Speaker
+             * @default parent-touch
+             * @constant
+             */
+            speaker: "parent-touch";
+            usage: components["schemas"]["ChatTokens"];
         };
         /** PerformanceMetrics */
         PerformanceMetrics: {
@@ -8265,6 +8572,26 @@ export interface operations {
             };
         };
     };
+    read_agents_api_v1_mana_ai_agents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyAgentDirectory"];
+                };
+            };
+        };
+    };
     analyze_ai_gaming_safety: {
         parameters: {
             query?: never;
@@ -8761,6 +9088,171 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    read_chat_api_v1_mana_ai_parent_touch_chat_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+                before_turn_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentTouchHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chat_api_v1_mana_ai_parent_touch_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentTouchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentTouchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliver_question_api_v1_mana_ai_parent_touch_deliver_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentTouchDeliveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentTouchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_requests_api_v1_mana_ai_parent_touch_requests_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+                after?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentQuestionPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_question_api_v1_mana_ai_parent_touch_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentQuestionReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

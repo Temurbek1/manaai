@@ -5,7 +5,7 @@ import hashlib
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
 from app.mana_ai.domain.chat import ParentChatRequest, StoredChatTurn
@@ -14,15 +14,21 @@ from app.mana_ai.domain.family_agents import (
     AgentQuestionReceipt,
     AgentQuestionRequest,
     FamilyQuestion,
+    ParentTouchDeliveryTurn,
+    ParentTouchHistory,
+    ParentTouchQuestion,
     ParentTouchRequest,
 )
 from app.services.parent_chat_store import SqliteParentChatStore
 
 
 class SqliteFamilyAgentStore(SqliteParentChatStore):
-    """Opt-in v2 reader. The released v1 reader must refuse this schema, not downgrade it."""
+    """Opt-in family reader. Older readers must refuse, never downgrade, its schema."""
 
-    _schema_version = 2
+    _schema_version = 3
+
+    def _supported_versions(self) -> set[int]:
+        return super()._supported_versions() | {2}
 
     def __init__(
         self,
@@ -41,7 +47,14 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         self._question_limit = question_limit
 
     def _allowed_tables(self) -> set[str]:
-        return super()._allowed_tables() | {"family_questions", "family_question_intents"}
+        return super()._allowed_tables() | {
+            "family_questions",
+            "family_question_intents",
+            "family_turn_metadata",
+            "family_intent_claims",
+            "family_intent_admissions",
+            "family_information_revisions",
+        }
 
     def _extra_schema(self) -> str:
         return """
@@ -77,6 +90,46 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 coalesced INTEGER NOT NULL,
                 PRIMARY KEY(parent_id, agent_id, request_id)
             );
+            CREATE INDEX IF NOT EXISTS family_intent_digest
+                ON family_question_intents(parent_id, agent_id, digest);
+            CREATE TABLE IF NOT EXISTS family_turn_metadata (
+                parent_id TEXT NOT NULL,
+                turn_id INTEGER NOT NULL UNIQUE,
+                kind TEXT NOT NULL,
+                offered_question_id TEXT,
+                published_question_id TEXT,
+                language_turn_id INTEGER NOT NULL,
+                language_reference TEXT NOT NULL,
+                PRIMARY KEY(parent_id, turn_id)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS family_delivery_context
+                ON family_turn_metadata(parent_id, offered_question_id, language_turn_id)
+                WHERE kind='delivery';
+            CREATE TABLE IF NOT EXISTS family_intent_claims (
+                parent_id TEXT NOT NULL,
+                agent_id TEXT NOT NULL,
+                digest TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                error_code TEXT,
+                error_status INTEGER,
+                PRIMARY KEY(parent_id, agent_id, digest)
+            );
+            CREATE TABLE IF NOT EXISTS family_intent_admissions (
+                parent_id TEXT NOT NULL,
+                agent_id TEXT NOT NULL,
+                request_id TEXT NOT NULL,
+                digest TEXT NOT NULL,
+                PRIMARY KEY(parent_id, agent_id, request_id)
+            );
+            CREATE TABLE IF NOT EXISTS family_information_revisions (
+                parent_id TEXT NOT NULL,
+                child_id INTEGER NOT NULL,
+                information_key TEXT NOT NULL,
+                source_revision TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                PRIMARY KEY(parent_id, child_id, information_key, source_revision)
+            );
         """
 
     @staticmethod
@@ -107,7 +160,41 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 "WHERE question_id=?",
                 (turn_id, row["question_id"]),
             )
-        self._offer_in_transaction(connection, request.parent_id, turn_id, now)
+        selected = self._offer_in_transaction(connection, request.parent_id, turn_id, now)
+        language_turn_id, reference = turn_id, request.message
+        delivery = isinstance(request, ParentTouchDeliveryTurn)
+        if delivery:
+            if selected is None:
+                raise ParentChatError("no_question_ready_for_delivery", 409)
+            previous = connection.execute(
+                "SELECT id,message FROM parent_chat_turns WHERE parent_id=? AND id<? "
+                "AND message!='' ORDER BY id DESC LIMIT 1",
+                (request.parent_id, turn_id),
+            ).fetchone()
+            if previous is None:
+                raise ParentChatError("parent_language_not_established", 409)
+            language_turn_id, reference = previous["id"], previous["message"]
+            if (
+                connection.execute(
+                    "SELECT 1 FROM family_turn_metadata WHERE parent_id=? AND kind='delivery' "
+                    "AND offered_question_id=? AND language_turn_id=?",
+                    (request.parent_id, str(selected.question_id), language_turn_id),
+                ).fetchone()
+                is not None
+            ):
+                raise ParentChatError("delivery_context_already_processed", 409)
+        connection.execute(
+            "INSERT INTO family_turn_metadata(parent_id,turn_id,kind,offered_question_id,"
+            "language_turn_id,language_reference) VALUES(?,?,?,?,?,?)",
+            (
+                request.parent_id,
+                turn_id,
+                "delivery" if delivery else "message",
+                str(selected.question_id) if selected else None,
+                language_turn_id,
+                reference,
+            ),
+        )
 
     def _valid_decision(
         self,
@@ -135,6 +222,15 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         *,
         valid: bool,
     ) -> None:
+        connection.execute(
+            "UPDATE family_turn_metadata SET published_question_id=? WHERE parent_id=? "
+            "AND turn_id=?",
+            (
+                str(receipt.question_id) if valid and receipt.question_id else None,
+                turn.parent_id,
+                turn.turn_id,
+            ),
+        )
         connection.execute(
             "UPDATE family_questions SET status=? WHERE parent_id=? AND offered_turn_id=? "
             "AND status IN ('offered','held')",
@@ -181,6 +277,72 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                     (parent_id, turn_id),
                 ).fetchone()
                 return self._question(row) if row is not None else None
+
+        return await asyncio.to_thread(read)
+
+    async def language_reference(self, parent_id: str, turn_id: int) -> str | None:
+        def read() -> str | None:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT language_reference FROM family_turn_metadata WHERE parent_id=? "
+                    "AND turn_id=? AND kind='delivery'",
+                    (parent_id, turn_id),
+                ).fetchone()
+                return row[0] if row else None
+
+        return await asyncio.to_thread(read)
+
+    @staticmethod
+    def _public_question(row: sqlite3.Row) -> ParentTouchQuestion:
+        return ParentTouchQuestion(
+            question_id=row["question_id"], child_id=row["child_id"], turn_id=row["turn_id"]
+        )
+
+    async def asked_question(self, parent_id: str, request_id: UUID) -> ParentTouchQuestion | None:
+        def read() -> ParentTouchQuestion | None:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT q.question_id,q.child_id,m.turn_id FROM family_turn_metadata m "
+                    "JOIN parent_chat_turns t ON t.id=m.turn_id AND t.parent_id=m.parent_id "
+                    "JOIN family_questions q ON q.question_id=m.published_question_id "
+                    "AND q.parent_id=m.parent_id WHERE m.parent_id=? AND t.request_id=? "
+                    "AND t.status='completed'",
+                    (parent_id, str(request_id)),
+                ).fetchone()
+                return self._public_question(row) if row else None
+
+        return await asyncio.to_thread(read)
+
+    async def touch_history(
+        self, parent_id: str, *, before: int | None, limit: int, now: datetime
+    ) -> ParentTouchHistory:
+        def read() -> ParentTouchHistory:
+            with self._transaction() as connection:
+                self._recover_pre_dispatch(connection, parent_id, self._utc(now))
+                history = self._history_in_transaction(connection, parent_id, before, limit, now)
+                active = connection.execute(
+                    "SELECT question_id,child_id,offered_turn_id AS turn_id FROM family_questions "
+                    "WHERE parent_id=? AND status='awaiting_reply'",
+                    (parent_id,),
+                ).fetchone()
+                ids = {
+                    message.turn_id for message in history.messages if message.role == "assistant"
+                }
+                questions: list[ParentTouchQuestion] = []
+                for turn_id in sorted(ids):
+                    row = connection.execute(
+                        "SELECT q.question_id,q.child_id,m.turn_id FROM family_turn_metadata m "
+                        "JOIN family_questions q ON q.question_id=m.published_question_id "
+                        "AND q.parent_id=m.parent_id WHERE m.parent_id=? AND m.turn_id=?",
+                        (parent_id, turn_id),
+                    ).fetchone()
+                    if row is not None:
+                        questions.append(self._public_question(row))
+                return ParentTouchHistory(
+                    **history.model_dump(),
+                    active_question=self._public_question(active) if active else None,
+                    message_questions=questions,
+                )
 
         return await asyncio.to_thread(read)
 
@@ -239,88 +401,240 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
 
         return await asyncio.to_thread(read)
 
+    def _alias_intent(
+        self,
+        connection: sqlite3.Connection,
+        request: AgentQuestionRequest,
+        question_id: str,
+        *,
+        coalesced: bool,
+    ) -> AgentQuestionReceipt:
+        connection.execute(
+            "INSERT INTO family_question_intents VALUES(?,?,?,?,?,?)",
+            (
+                request.parent_id,
+                request.agent_id,
+                str(request.request_id),
+                self._question_digest(request),
+                question_id,
+                int(coalesced),
+            ),
+        )
+        result = self._known_intent(connection, request)
+        assert result is not None
+        return result
+
+    def _duplicate_intent(
+        self,
+        connection: sqlite3.Connection,
+        request: AgentQuestionRequest,
+    ) -> AgentQuestionReceipt | None:
+        row = connection.execute(
+            "SELECT question_id FROM family_question_intents WHERE parent_id=? AND agent_id=? "
+            "AND digest=? LIMIT 1",
+            (request.parent_id, request.agent_id, self._question_digest(request)),
+        ).fetchone()
+        if row is None:
+            row = connection.execute(
+                "SELECT question_id FROM family_information_revisions WHERE parent_id=? "
+                "AND child_id=? AND information_key=? AND source_revision=?",
+                (
+                    request.parent_id,
+                    request.child_id,
+                    request.information_key,
+                    request.source_revision,
+                ),
+            ).fetchone()
+        if row is not None:
+            connection.execute(
+                "UPDATE family_questions SET priority=MAX(priority,?) WHERE parent_id=? "
+                "AND question_id=? AND status='queued'",
+                (request.priority, request.parent_id, row["question_id"]),
+            )
+            return self._alias_intent(connection, request, row["question_id"], coalesced=True)
+        return None
+
+    async def claim_intent(
+        self,
+        request: AgentQuestionRequest,
+        now: datetime,
+    ) -> AgentQuestionReceipt | None:
+        def claim() -> AgentQuestionReceipt | None:
+            failure: ParentChatError | None = None
+            with self._transaction() as connection:
+                known = self._known_intent(connection, request)
+                if known is not None:
+                    return known
+                digest = self._question_digest(request)
+                alias = connection.execute(
+                    "SELECT digest FROM family_intent_admissions WHERE parent_id=? "
+                    "AND agent_id=? AND request_id=?",
+                    (request.parent_id, request.agent_id, str(request.request_id)),
+                ).fetchone()
+                if alias is not None and alias[0] != digest:
+                    raise ParentChatError("request_id_conflict", 409)
+                duplicate = self._duplicate_intent(connection, request)
+                if duplicate is not None:
+                    return duplicate
+                connection.execute(
+                    "INSERT OR IGNORE INTO family_intent_admissions VALUES(?,?,?,?)",
+                    (request.parent_id, request.agent_id, str(request.request_id), digest),
+                )
+                row = connection.execute(
+                    "SELECT * FROM family_intent_claims WHERE parent_id=? "
+                    "AND agent_id=? AND digest=?",
+                    (request.parent_id, request.agent_id, digest),
+                ).fetchone()
+                if row is None:
+                    connection.execute(
+                        "INSERT INTO family_intent_claims"
+                        "(parent_id,agent_id,digest,status,created_at) "
+                        "VALUES(?,?,?,'preparing',?)",
+                        (request.parent_id, request.agent_id, digest, self._utc(now).isoformat()),
+                    )
+                else:
+                    failure = ParentChatError(
+                        row["error_code"] or "intent_already_admitted", row["error_status"] or 409
+                    )
+            if failure is not None:
+                raise failure
+            return None
+
+        return await asyncio.to_thread(claim)
+
+    async def finish_intent(
+        self,
+        request: AgentQuestionRequest,
+        now: datetime,
+    ) -> AgentQuestionReceipt:
+        def finish() -> AgentQuestionReceipt:
+            with self._transaction() as connection:
+                row = connection.execute(
+                    "SELECT status FROM family_intent_claims WHERE parent_id=? "
+                    "AND agent_id=? AND digest=?",
+                    (request.parent_id, request.agent_id, self._question_digest(request)),
+                ).fetchone()
+                if row is None or row[0] != "preparing":
+                    raise ParentChatError("intent_no_longer_admitted", 409)
+                result = self._enqueue_in_transaction(connection, request, self._utc(now))
+                connection.execute(
+                    "UPDATE family_intent_claims SET status='completed' WHERE parent_id=? "
+                    "AND agent_id=? AND digest=?",
+                    (request.parent_id, request.agent_id, self._question_digest(request)),
+                )
+                return result
+
+        return await asyncio.to_thread(finish)
+
+    async def fail_intent(self, request: AgentQuestionRequest, error: ParentChatError) -> None:
+        def fail() -> None:
+            with self._transaction() as connection:
+                connection.execute(
+                    "UPDATE family_intent_claims SET status='failed',error_code=?,error_status=? "
+                    "WHERE parent_id=? AND agent_id=? AND digest=? AND status='preparing'",
+                    (
+                        error.code,
+                        error.status_code,
+                        request.parent_id,
+                        request.agent_id,
+                        self._question_digest(request),
+                    ),
+                )
+
+        await asyncio.to_thread(fail)
+
     async def enqueue(self, request: AgentQuestionRequest, now: datetime) -> AgentQuestionReceipt:
         return await asyncio.to_thread(self._enqueue, request, now)
 
     def _enqueue(self, request: AgentQuestionRequest, now: datetime) -> AgentQuestionReceipt:
         now = self._utc(now)
         with self._transaction() as connection:
-            known = self._known_intent(connection, request)
-            if known is not None:
-                return known
-            if request.observed_at > now + timedelta(minutes=5) or request.expires_at <= now:
-                raise ParentChatError("question_outside_observation_window", 422)
-            # Only unsent questions can expire automatically. An offered/unknown
-            # generation may already have cost money and never frees by clock alone.
-            connection.execute(
-                "UPDATE family_questions SET status='expired' WHERE parent_id=? "
-                "AND status='queued' AND expires_at<=?",
-                (request.parent_id, now.isoformat()),
+            return self._enqueue_in_transaction(connection, request, now)
+
+    def _enqueue_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        request: AgentQuestionRequest,
+        now: datetime,
+    ) -> AgentQuestionReceipt:
+        known = self._known_intent(connection, request)
+        if known is not None:
+            return known
+        duplicate = self._duplicate_intent(connection, request)
+        if duplicate is not None:
+            return duplicate
+        if request.observed_at > now + timedelta(minutes=5) or request.expires_at <= now:
+            raise ParentChatError("question_outside_observation_window", 422)
+        # Only unsent questions can expire automatically. An offered/unknown
+        # generation may already have cost money and never frees by clock alone.
+        connection.execute(
+            "UPDATE family_questions SET status='expired' WHERE parent_id=? "
+            "AND status='queued' AND expires_at<=?",
+            (request.parent_id, now.isoformat()),
+        )
+        row = connection.execute(
+            "SELECT * FROM family_questions WHERE parent_id=? AND child_id=? "
+            "AND information_key=? AND status IN ('queued','offered','awaiting_reply','held')",
+            (request.parent_id, request.child_id, request.information_key),
+        ).fetchone()
+        coalesced = row is not None
+        if row is None:
+            count = connection.execute(
+                "SELECT COUNT(*) FROM family_questions WHERE parent_id=? "
+                "AND status IN ('queued','offered','awaiting_reply','held')",
+                (request.parent_id,),
+            ).fetchone()[0]
+            if count >= self._question_limit:
+                raise ParentChatError("parent_question_queue_full", 429)
+            question = FamilyQuestion(
+                question_id=uuid4(),
+                parent_id=request.parent_id,
+                child_id=request.child_id,
+                information_key=request.information_key,
+                question=request.question,
+                reason=request.reason,
+                priority=request.priority,
+                status="queued",
+                observed_at=request.observed_at,
+                expires_at=request.expires_at,
+                created_at=now,
             )
-            row = connection.execute(
-                "SELECT * FROM family_questions WHERE parent_id=? AND child_id=? "
-                "AND information_key=? AND status IN ('queued','offered','awaiting_reply','held')",
-                (request.parent_id, request.child_id, request.information_key),
-            ).fetchone()
-            coalesced = row is not None
-            if row is None:
-                count = connection.execute(
-                    "SELECT COUNT(*) FROM family_questions WHERE parent_id=? "
-                    "AND status IN ('queued','offered','awaiting_reply','held')",
-                    (request.parent_id,),
-                ).fetchone()[0]
-                if count >= self._question_limit:
-                    raise ParentChatError("parent_question_queue_full", 429)
-                question = FamilyQuestion(
-                    question_id=uuid4(),
-                    parent_id=request.parent_id,
-                    child_id=request.child_id,
-                    information_key=request.information_key,
-                    question=request.question,
-                    reason=request.reason,
-                    priority=request.priority,
-                    status="queued",
-                    observed_at=request.observed_at,
-                    expires_at=request.expires_at,
-                    created_at=now,
-                )
-                connection.execute(
-                    "INSERT INTO family_questions(question_id,parent_id,child_id,information_key,"
-                    "status,payload,created_at,expires_at,priority) "
-                    "VALUES(?,?,?,?,'queued',?,?,?,?)",
-                    (
-                        str(question.question_id),
-                        request.parent_id,
-                        request.child_id,
-                        request.information_key,
-                        question.model_dump_json(),
-                        now.isoformat(),
-                        request.expires_at.astimezone(now.tzinfo).isoformat(),
-                        request.priority,
-                    ),
-                )
-            else:
-                question = self._question(row)
-                if row["status"] == "queued" and request.priority > row["priority"]:
-                    connection.execute(
-                        "UPDATE family_questions SET priority=? WHERE question_id=?",
-                        (request.priority, row["question_id"]),
-                    )
-                    question = question.model_copy(update={"priority": request.priority})
             connection.execute(
-                "INSERT INTO family_question_intents VALUES(?,?,?,?,?,?)",
+                "INSERT INTO family_questions(question_id,parent_id,child_id,information_key,"
+                "status,payload,created_at,expires_at,priority) "
+                "VALUES(?,?,?,?,'queued',?,?,?,?)",
                 (
-                    request.parent_id,
-                    request.agent_id,
-                    str(request.request_id),
-                    self._question_digest(request),
                     str(question.question_id),
-                    int(coalesced),
+                    request.parent_id,
+                    request.child_id,
+                    request.information_key,
+                    question.model_dump_json(),
+                    now.isoformat(),
+                    request.expires_at.astimezone(now.tzinfo).isoformat(),
+                    request.priority,
                 ),
             )
-            return AgentQuestionReceipt(
-                request_id=request.request_id, question=question, coalesced=coalesced
-            )
+        else:
+            question = self._question(row)
+            if row["status"] == "queued" and request.priority > row["priority"]:
+                connection.execute(
+                    "UPDATE family_questions SET priority=? WHERE question_id=?",
+                    (request.priority, row["question_id"]),
+                )
+                question = question.model_copy(update={"priority": request.priority})
+        connection.execute(
+            "INSERT OR IGNORE INTO family_information_revisions VALUES(?,?,?,?,?)",
+            (
+                request.parent_id,
+                request.child_id,
+                request.information_key,
+                request.source_revision,
+                str(question.question_id),
+            ),
+        )
+        return self._alias_intent(
+            connection, request, str(question.question_id), coalesced=coalesced
+        )
 
     async def questions(
         self, parent_id: str, *, after: int | None = None, limit: int = 20

@@ -67,6 +67,11 @@ class ParentChatService:
         turn = await self.store.admit(request, self._clock())
         if turn.result is not None:
             return turn.result
+        return await self._respond_to_admitted(turn, request)
+
+    async def _respond_to_admitted(
+        self, turn: StoredChatTurn, request: ParentChatRequest
+    ) -> ParentChatResponse:
         # Only admit() can issue a new preparing turn to this invocation. Replays
         # are rejected there, including submitted/unknown calls after a restart.
         submitted = False
@@ -111,17 +116,24 @@ class ParentChatService:
                 )
             ]
             for previous in history:
-                messages.append(("user", previous.message))
+                if previous.message:
+                    messages.append(("user", previous.message))
                 if previous.answer is not None:
                     messages.append(("assistant", previous.answer))
-            messages.append(("user", request.message))
+            if request.message:
+                messages.append(("user", request.message))
             prompt = await self._prepare_prompt(turn, request, context, tuple(messages))
             input_tokens = await self._count_input(prompt)
             if history and input_tokens + 32 > turn.reserved_tokens:
                 # Re-size a different input only after a verified count. Never
                 # retry a failed count/source/generation or shorten current facts.
                 history = []
-                prompt = replace(prompt, messages=(prompt.messages[0], prompt.messages[-1]))
+                prompt = replace(
+                    prompt,
+                    messages=(prompt.messages[0], prompt.messages[-1])
+                    if request.message
+                    else (prompt.messages[0],),
+                )
                 input_tokens = await self._count_input(prompt)
             output_cap = min(self._max_output, turn.reserved_tokens - input_tokens)
             if output_cap < 32:

@@ -29,6 +29,9 @@ from app.mana_ai.domain.chat import (
 class SqliteParentChatStore:
     _schema_version = 1
 
+    def _supported_versions(self) -> set[int]:
+        return {0, 1, self._schema_version}
+
     def _allowed_tables(self) -> set[str]:
         return {"parent_chat_turns", "parent_chat_quota"}
 
@@ -100,7 +103,7 @@ class SqliteParentChatStore:
             if tables - self._allowed_tables():
                 raise RuntimeError("Parent chat requires a dedicated database")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in {0, 1, self._schema_version}:
+            if version not in self._supported_versions():
                 raise RuntimeError("Unsupported parent chat storage version")
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(f"""
@@ -479,40 +482,50 @@ class SqliteParentChatStore:
         now = self._utc(now)
         with self._transaction() as connection:
             self._recover_pre_dispatch(connection, parent_id, now)
-            rows = connection.execute(
-                "SELECT * FROM parent_chat_turns WHERE parent_id=? AND (? IS NULL OR id < ?) "
-                "ORDER BY id DESC LIMIT ?",
-                (parent_id, before, before, limit + 1),
-            ).fetchall()
-            latest = connection.execute(
-                "SELECT request_id, status, error_code FROM parent_chat_turns "
-                "WHERE parent_id=? ORDER BY id DESC LIMIT 1",
-                (parent_id,),
-            ).fetchone()
-            selected = rows[:limit]
-            messages: list[ParentChatMessage] = []
-            for row in reversed(selected):
-                for role in ("user", "assistant"):
-                    content = row["message"] if role == "user" else row["answer"]
-                    if content is not None:
-                        messages.append(
-                            ParentChatMessage(
-                                turn_id=row["id"],
-                                request_id=UUID(row["request_id"]),
-                                role=role,
-                                content=content,
-                                created_at=datetime.fromisoformat(
-                                    row["created_at"] if role == "user" else row["updated_at"]
-                                ),
-                                status=row["status"],
-                            )
+            return self._history_in_transaction(connection, parent_id, before, limit, now)
+
+    def _history_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        parent_id: str,
+        before: int | None,
+        limit: int,
+        now: datetime,
+    ) -> ParentChatHistory:
+        rows = connection.execute(
+            "SELECT * FROM parent_chat_turns WHERE parent_id=? AND (? IS NULL OR id < ?) "
+            "ORDER BY id DESC LIMIT ?",
+            (parent_id, before, before, limit + 1),
+        ).fetchall()
+        latest = connection.execute(
+            "SELECT request_id, status, error_code FROM parent_chat_turns "
+            "WHERE parent_id=? ORDER BY id DESC LIMIT 1",
+            (parent_id,),
+        ).fetchone()
+        selected = rows[:limit]
+        messages: list[ParentChatMessage] = []
+        for row in reversed(selected):
+            for role in ("user", "assistant"):
+                content = row["message"] if role == "user" else row["answer"]
+                if content is not None and (role != "user" or content):
+                    messages.append(
+                        ParentChatMessage(
+                            turn_id=row["id"],
+                            request_id=UUID(row["request_id"]),
+                            role=role,
+                            content=content,
+                            created_at=datetime.fromisoformat(
+                                row["created_at"] if role == "user" else row["updated_at"]
+                            ),
+                            status=row["status"],
                         )
-            return ParentChatHistory(
-                parent_id=parent_id,
-                messages=messages,
-                next_before_turn_id=selected[-1]["id"] if len(rows) > limit else None,
-                quota=self._quota(connection, parent_id, now),
-                latest_request_id=latest["request_id"] if latest else None,
-                latest_request_status=latest["status"] if latest else None,
-                latest_error_code=latest["error_code"] if latest else None,
-            )
+                    )
+        return ParentChatHistory(
+            parent_id=parent_id,
+            messages=messages,
+            next_before_turn_id=selected[-1]["id"] if len(rows) > limit else None,
+            quota=self._quota(connection, parent_id, now),
+            latest_request_id=latest["request_id"] if latest else None,
+            latest_request_status=latest["status"] if latest else None,
+            latest_error_code=latest["error_code"] if latest else None,
+        )

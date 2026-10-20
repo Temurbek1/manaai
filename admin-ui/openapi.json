@@ -1729,6 +1729,146 @@
         "title": "AgentDetailResponse",
         "type": "object"
       },
+      "AgentQuestionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyQuestion"
+            },
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parent_id",
+          "questions"
+        ],
+        "title": "AgentQuestionPage",
+        "type": "object"
+      },
+      "AgentQuestionReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "coalesced": {
+            "title": "Coalesced",
+            "type": "boolean"
+          },
+          "question": {
+            "$ref": "#/components/schemas/FamilyQuestion"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "question",
+          "coalesced"
+        ],
+        "title": "AgentQuestionReceipt",
+        "type": "object"
+      },
+      "AgentQuestionRequest": {
+        "additionalProperties": false,
+        "description": "A specialist's intent, never a ready-to-send parent message or action grant.",
+        "properties": {
+          "agent_id": {
+            "pattern": "^[a-z][a-z0-9-]{1,63}$",
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "information_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{0,99}$",
+            "title": "Information Key",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "priority": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "question": {
+            "maxLength": 400,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Question",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 700,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "agent_id",
+          "request_id",
+          "information_key",
+          "question",
+          "reason",
+          "source_revision",
+          "observed_at",
+          "expires_at"
+        ],
+        "title": "AgentQuestionRequest",
+        "type": "object"
+      },
       "AgentReport": {
         "additionalProperties": false,
         "properties": {
@@ -4720,6 +4860,78 @@
         "title": "ExtraTimeRequest",
         "type": "object"
       },
+      "FamilyAgentAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/FamilyAgentDefinition"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "not_implemented"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition",
+          "status"
+        ],
+        "title": "FamilyAgentAvailability",
+        "type": "object"
+      },
+      "FamilyAgentDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "pattern": "^[a-z][a-z0-9-]{1,63}$",
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ManaAICapability"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "speaks_to_parent": {
+            "title": "Speaks To Parent",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_id",
+          "title",
+          "speaks_to_parent"
+        ],
+        "title": "FamilyAgentDefinition",
+        "type": "object"
+      },
+      "FamilyAgentDirectory": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyAgentAvailability"
+            },
+            "title": "Agents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "agents"
+        ],
+        "title": "FamilyAgentDirectory",
+        "type": "object"
+      },
       "FamilyAgreementActionProposal": {
         "additionalProperties": false,
         "properties": {
@@ -5356,6 +5568,110 @@
           }
         },
         "title": "FamilyPreferences",
+        "type": "object"
+      },
+      "FamilyQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "answer_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Turn Id"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "information_key": {
+            "pattern": "^[a-z][a-z0-9_.-]{0,99}$",
+            "title": "Information Key",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "offered_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offered Turn Id"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "priority": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "offered",
+              "awaiting_reply",
+              "answered",
+              "cancelled",
+              "expired",
+              "held"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "parent_id",
+          "child_id",
+          "information_key",
+          "question",
+          "reason",
+          "priority",
+          "status",
+          "observed_at",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "FamilyQuestion",
         "type": "object"
       },
       "FamilyReportAction": {
@@ -9874,6 +10190,275 @@
           "proposed_actions"
         ],
         "title": "ParentCopilotResponse",
+        "type": "object"
+      },
+      "ParentTouchDeliveryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id"
+        ],
+        "title": "ParentTouchDeliveryRequest",
+        "type": "object"
+      },
+      "ParentTouchHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "active_question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParentTouchQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Error Code"
+          },
+          "latest_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Request Id"
+          },
+          "latest_request_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "preparing",
+                  "submitted",
+                  "completed",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Request Status"
+          },
+          "message_questions": {
+            "items": {
+              "$ref": "#/components/schemas/ParentTouchQuestion"
+            },
+            "title": "Message Questions",
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ParentChatMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "next_before_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Before Turn Id"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/ChatQuota"
+          },
+          "speaker": {
+            "const": "parent-touch",
+            "default": "parent-touch",
+            "title": "Speaker",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "messages",
+          "next_before_turn_id",
+          "quota",
+          "active_question",
+          "message_questions"
+        ],
+        "title": "ParentTouchHistory",
+        "type": "object"
+      },
+      "ParentTouchQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_id",
+          "child_id",
+          "turn_id"
+        ],
+        "title": "ParentTouchQuestion",
+        "type": "object"
+      },
+      "ParentTouchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "child_observations": {
+            "items": {
+              "$ref": "#/components/schemas/ChildChatObservation"
+            },
+            "maxItems": 20,
+            "title": "Child Observations",
+            "type": "array"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Message",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "reply_to_question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To Question Id"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id",
+          "message"
+        ],
+        "title": "ParentTouchRequest",
+        "type": "object"
+      },
+      "ParentTouchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "asked_question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParentTouchQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "child_context_collected_at": {
+            "format": "date-time",
+            "title": "Child Context Collected At",
+            "type": "string"
+          },
+          "history_turns_included": {
+            "title": "History Turns Included",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/ChatQuota"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "speaker": {
+            "const": "parent-touch",
+            "default": "parent-touch",
+            "title": "Speaker",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/ChatTokens"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id",
+          "answer",
+          "model",
+          "usage",
+          "quota",
+          "history_turns_included",
+          "child_context_collected_at",
+          "asked_question"
+        ],
+        "title": "ParentTouchResponse",
         "type": "object"
       },
       "PerformanceMetrics": {
@@ -18501,6 +19086,32 @@
         ]
       }
     },
+    "/api/v1/mana-ai/agents": {
+      "get": {
+        "operationId": "read_agents_api_v1_mana_ai_agents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyAgentDirectory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Read family-agent availability",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
     "/api/v1/mana-ai/ai-gaming-safety": {
       "post": {
         "description": "**Usage metadata only.** Analyzes time spent in AI services and games: duration, night activity, changes against baseline, limits, and extra-time requests.\n\n**Send** the required `app_usage`, plus `usage_baselines`, `limits`, `schedules`, `extra_time_requests`.\n\n**Returns** `details.ai_service_summary`, `gaming_summary`, `affected_packages`.\n\nThis capability has **no access to chat content or gameplay** and will never imply it does — it reasons strictly about metadata you supply.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
@@ -19212,6 +19823,298 @@
           }
         ],
         "summary": "Answer a parent using supplied family context",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/chat": {
+      "get": {
+        "description": "Backend-only. SQL observation: no source read, model call or question delivery. message_questions maps visible assistant turns to their frozen question identities. active_question may be outside the requested page; fetch its turn before showing a reply UI.",
+        "operationId": "read_chat_api_v1_mana_ai_parent_touch_chat_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_turn_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Turn Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentTouchHistory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Read the parent's one chat and exact reply identities",
+        "tags": [
+          "mana-ai"
+        ]
+      },
+      "post": {
+        "description": "Derive parent_id from the authenticated MANA backend session. One chat only. Reuse the identical request_id/body after transport loss. reply_to_question_id explicitly binds an answer to one previously displayed question; omitted metadata never answers it. A replay preserves the original asked_question, not the current active question. The existing /chat shares this service, history and 2000-token default allowance.",
+        "operationId": "send_chat_api_v1_mana_ai_parent_touch_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParentTouchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentTouchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Send a parent message to Parent-Touch",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/deliver": {
+      "post": {
+        "description": "Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/context. Unknown receipts remain held.",
+        "operationId": "deliver_question_api_v1_mana_ai_parent_touch_deliver_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParentTouchDeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentTouchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Deliver at most one queued specialist question in the same chat",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/requests": {
+      "get": {
+        "operationId": "read_requests_api_v1_mana_ai_parent_touch_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQuestionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe same-family specialist requests (backend only)",
+        "tags": [
+          "mana-ai"
+        ]
+      },
+      "post": {
+        "description": "Trusted backend coordination only; do not expose this producer API to mobile. Fresh own-child validation precedes a new intent. Durable nonce/body/revision deduplication runs before source I/O; failed or abandoned admissions never auto-retry. Priority is 0–3 (higher first), FIFO for ties; one parent has only one active question.",
+        "operationId": "request_question_api_v1_mana_ai_parent_touch_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentQuestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQuestionReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Admit a registered specialist's information need, without sending it",
         "tags": [
           "mana-ai"
         ]

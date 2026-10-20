@@ -10,8 +10,12 @@
   a separate explicit server budget. See `docs/mana-family-agents.md` for actual
   implemented versus unfinished API/runtime/worker scope. This does not replace
   the four administrative OPERATION agents or authorize deployment/source refresh.
-  The local v2 family queue preserves old chat history/holds but old v1 code refuses
-  it; do not call that refusal a working rollback or downgrade populated tables.
+  Parent-Touch HTTP/runtime, assistant-only delivery and durable producer dedup are
+  local and default disabled. Child-Safety/event execution is still unimplemented;
+  the directory must report that honestly. The local v3 family queue preserves old
+  chat history/holds but old v1/v2 code refuses it; do not call that refusal a
+  working rollback or downgrade populated tables. Standalone docs exporters must
+  resolve this checkout, not an unrelated editable Python installation.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

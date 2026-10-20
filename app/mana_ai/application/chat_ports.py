@@ -12,7 +12,14 @@ from app.mana_ai.domain.chat import (
     ParentChildContext,
     StoredChatTurn,
 )
-from app.mana_ai.domain.family_agents import FamilyQuestion
+from app.mana_ai.domain.family_agents import (
+    AgentQuestionPage,
+    AgentQuestionReceipt,
+    AgentQuestionRequest,
+    FamilyQuestion,
+    ParentTouchHistory,
+    ParentTouchQuestion,
+)
 
 
 class ParentChatError(Exception):
@@ -86,3 +93,27 @@ class ParentChatStore(Protocol):
 
 class ParentTouchStore(ParentChatStore, Protocol):
     async def question_for_turn(self, parent_id: str, turn_id: int) -> FamilyQuestion | None: ...
+
+    async def language_reference(self, parent_id: str, turn_id: int) -> str | None: ...
+
+    async def asked_question(
+        self, parent_id: str, request_id: UUID
+    ) -> ParentTouchQuestion | None: ...
+
+    async def touch_history(
+        self, parent_id: str, *, before: int | None, limit: int, now: datetime
+    ) -> ParentTouchHistory: ...
+
+    async def claim_intent(
+        self, request: AgentQuestionRequest, now: datetime
+    ) -> AgentQuestionReceipt | None: ...
+
+    async def finish_intent(
+        self, request: AgentQuestionRequest, now: datetime
+    ) -> AgentQuestionReceipt: ...
+
+    async def fail_intent(self, request: AgentQuestionRequest, error: ParentChatError) -> None: ...
+
+    async def questions(
+        self, parent_id: str, *, after: int | None = None, limit: int = 20
+    ) -> AgentQuestionPage: ...

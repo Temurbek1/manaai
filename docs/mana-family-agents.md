@@ -35,7 +35,7 @@ key/history/quota and main/audio services remain unchanged on production.
   specialist prompt. Data/prompt text cannot change grants, recipient or language
   authority. Raw child signals must not enter operational reports or logs.
 
-## Intended API shape — not yet all implemented
+## API shape — Parent-Touch implemented locally, Child-Safety still pending
 
 All paths are under `/api/v1/mana-ai`; this remains an independent product API.
 
@@ -55,6 +55,64 @@ Do not introduce a capability-discriminated generic `/mana-ai/analyze`, a second
 chat, a user-selectable sender, arbitrary provider payload or contact/write tool.
 Existing `/chat` must remain compatible and share the same Parent-Touch history;
 both paths must use the same broker once that mode is enabled, not rival writers.
+
+The four Parent-Touch/directory paths above are now implemented behind
+`MANA_PARENT_TOUCH_ENABLED=false` by default. Enabling it requires the existing
+isolated `MANA_PARENT_CHAT_ENABLED` runtime and its strong backend credential.
+`MANA_PARENT_TOUCH_QUESTION_LIMIT` bounds pending questions (default 100).
+No Child-Safety execution endpoint or worker is advertised as implemented.
+
+`GET /agents` deliberately reports Parent-Touch `available`, Child-Safety
+`not_implemented`; the latter's definition lists its existing protective contracts,
+not a running background agent. Every new route uses `ParentChatBackendToken`,
+not the general inference security scheme. The existing `/chat` contract is
+unchanged and uses the same runtime/history/quota when Parent-Touch is enabled.
+
+### Mobile/backend integration
+
+Only the trusted application backend calls these routes. It derives `parent_id`
+from its authenticated MANA profile, never an arbitrary mobile-supplied family ID.
+The app still shows one chat and one message input; the backend supplies hidden
+correlation fields, not separate specialist chats.
+
+1. Read `GET /parent-touch/chat?parent_id=123`. `message_questions` maps assistant
+   turns in that page to the exact question/child identity. `active_question` is
+   the currently awaiting question, possibly on an older page; load its turn before
+   presenting a reply UI. History/quota/question metadata share one SQL snapshot.
+2. Send `POST /parent-touch/chat` with `parent_id`, a UUID `request_id`, `message`
+   and, for an explicit answer, `reply_to_question_id` from that displayed question.
+   Missing metadata does not silently attach unrelated prose to a child/question;
+   a stale, foreign or already answered question returns `409 question_reply_mismatch`.
+3. `asked_question` in the response describes only the question actually published
+   by **that turn**. It remains unchanged on replay after the parent answers or
+   another question becomes active. Read history for the current active state.
+4. Internal specialists submit their dated `AgentQuestionRequest` to
+   `POST /parent-touch/requests`. This validates the registered specialist and
+   fresh connected child, deduplicates and queues; it does **not** send to the chat.
+   `GET /parent-touch/requests` pages that parent's internal queue only.
+5. `POST /parent-touch/deliver` accepts only `parent_id` and UUID `request_id`.
+   It admits one queued question and stores an **assistant-only** turn, with no fake
+   parent message or push notification. It freezes the latest saved parent text as
+   its language/script reference and rechecks fresh child ownership before inference.
+   No earlier parent text gives `409 parent_language_not_established`; no ready
+   question/another active question gives `409 no_question_ready_for_delivery`.
+   These refused admissions perform no source/model call. There is no automatic
+   delivery worker yet; this is an explicit backend invocation.
+
+Reuse the same request UUID and **identical body** after transport loss. Replays
+never read children, resize input, regenerate or publish a question twice. Both
+message and delivery inference count raw input+output toward the **same** default
+2000 daily tokens. A new nonce cannot repeat a deferred delivery for the same
+question and frozen parent-language turn. A genuinely new parent message changes
+that context, without refunding any earlier verified model cost.
+
+Producer admission is persisted **before** a new ownership source call. Exact
+nonce conflicts, identical-body new nonces and already answered information-key/
+source-revision requests are deduplicated before I/O. Coalescing retains specialist
+subscriptions and the original question/observation window; only queued priority
+may increase. Rejected, failed or abandoned producer admissions do not expire into
+an automatic source retry. A genuinely new observation/revision is separate work,
+not permission to replay an unknown charge or relabel old data as current.
 
 ## Durable flow
 
@@ -83,7 +141,7 @@ and journaling its follow-up must share a SQL transaction. Likewise, admitting a
 parent reply must bind that exact stored turn to the active question atomically.
 Do not deploy a sequence of independent best-effort post-response callbacks.
 
-## Current local increment (not a working full API yet)
+## Current local increment (not the complete two-agent environment)
 
 Worktree: `/mnt/ssd2/mana-family-agents-20261020`, branch
 `feat/mana-family-agents-20261020`, clean source baseline `bf1d12a` on the actual
@@ -121,11 +179,24 @@ Implemented so far:
   neither message nor question and retains the original submitted hold. Unknown
   calls hold the question indefinitely; safe pre-inference abandonment can recover
   without letting its old process submit a model call.
+- Authenticated HTTP/runtime wiring, directory, queue admission/observation, frozen
+  reply identities and proactive assistant-only delivery now use that same lifecycle.
+  Inactive mode remains the unchanged legacy service/store. New family metadata lives
+  outside legacy response JSON. Public docs and generated TypeScript include the
+  implemented routes, but do not advertise a working Child-Safety worker.
+- The family schema is now **v3**, additively accepting v1/v2 histories without
+  recapturing old turns. New metadata is absent on historical turns; do not invent
+  question identities for them. Older v1/v2 code refuses v3; this is still **not**
+  a tested rollback reader or a production release.
+- Both standalone OpenAPI exporters now resolve their own source checkout before
+  importing `app`. An unrelated editable Python installation must not leak its
+  operational working changes into this product's generated contracts.
 
-These services/transitions are **not yet wired into a public API or runtime
-activation**. There is no event worker, automatic delivery admission, Child-Safety
-model-budget ledger or agent deployment yet. A queue fixture pass and punctuation
-validation are not semantic language/safety acceptance or proof of real delivery.
+There is still no event worker, automatic delivery dispatch, urgent-notice delivery
+policy, Child-Safety model-budget ledger or agent deployment. A queue fixture pass
+and punctuation validation are not semantic language/safety acceptance or proof
+of real delivery. Revoked selected children fail closed before question inference;
+automatic cancellation/filtering of obsolete queue items is not implemented.
 
 Actual checks: **82 related cases** passed (including actual SDK over MockTransport,
 not a real provider). Full clean-worktree **`make verify` passed**, original session
@@ -134,21 +205,31 @@ excluded**; **26 UI tests /11 suites**, Ruff/format/ESLint, mypy **217 files**,
 TypeScript, production UI build and zero npm vulnerabilities. Logs are in the main
 workspace's ignored `output/family-agent-*-20261020.log`, especially
 `family-agent-core-verify-20261020.log` and `family-agent-parent-touch-final-20261020.log`.
-Generated OpenAPI/TypeScript contracts remain unchanged: no unsupported endpoint is
-being advertised yet. This is an intermediate local code checkpoint, not completion
-of the user-requested two-agent API or the goal.
+That is the historical core gate, not acceptance of the subsequent HTTP increment.
+The HTTP increment's related suite has **97 passing tests** (overlapping the core
+suite), plus a standalone checkout-resolution regression. Its terminal full gate
+`OPENAI_API_KEY=unit-synthetic-key make verify` passed in original session **28013**,
+actual exit **0**, log `family-agent-parent-touch-api-final-verify-20261020.log`:
+**375 backend tests**, **1 skipped**, **2 opt-in live tests excluded**; **26 UI
+tests /11 suites**; Ruff/format/ESLint, mypy **220 files**, TypeScript, production
+UI build and zero npm vulnerabilities. `make audit-schema` passed after the
+checkout-resolution fix; standalone product docs export reports **17 paths** and
+zero provider/source calls. Secret scan passed for **381** tracked/unignored files.
+The first full-gate attempt without a synthetic key failed at legacy test import;
+its log remains `family-agent-parent-touch-api-verify-20261020.log`, not a pass.
+None of these tests calls the live model, children, Firebase/GA4 or production.
+This remains an intermediate checkpoint, not completion of the user-requested
+two-agent API or goal.
 
 ## Remaining acceptance — preserve the full task
 
-1. Wire the now-tested Parent-Touch persona/one-question service into the runtime
-   and HTTP contract; preserve existing model, old request digests and chat path.
-   Add explicit parent-visible metadata and proactive delivery without a fabricated
-   user message. Freeze the reply language for delivery without a new parent text.
-2. Add durable specialist-intent admission/ownership checks and outbox/version jobs
-   around the now-atomic chat lifecycle. Repeated nonce-independent identical intents
-   and already-answered information need stronger terminal-state filtering; current
-   request replay and open-question coalescing are not that complete policy.
-   Replay and GETs observe only; unknown calls never redispatch.
+1. Add transactional outbox/version jobs around the now-wired, atomic chat lifecycle:
+   only new parent messages/child facts trigger safety analysis, not assistant replies,
+   GET/replay or unchanged context. Bound same-parent history and avoid recursive
+   self-triggered inference. Preserve the implemented producer dedup/ownership policy.
+2. Add automatic communication delivery and a separate typed urgent-notice policy;
+   retain Parent-Touch as the only speaker, no fake parent turns and one active
+   clarification. A routine question must not masquerade as an urgent safety alert.
 3. Build actual capability-specific Child-Safety routes using the existing
    deterministic validation/evidence/action-proposal pipeline, dated own-child
    facts and bounded same-parent chat. No execution of proposed controls.

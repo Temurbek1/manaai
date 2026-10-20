@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     mana_parent_chat_history_turns: int = Field(default=2, ge=0, le=10)
     mana_parent_chat_max_attempts_per_day: int = Field(default=20, ge=1, le=100)
     mana_parent_chat_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
+    mana_parent_touch_enabled: bool = False
+    mana_parent_touch_question_limit: int = Field(default=100, ge=1, le=1000)
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -372,6 +374,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":
+        if self.mana_parent_touch_enabled and not self.mana_parent_chat_enabled:
+            raise ValueError("Parent-Touch requires the isolated parent chat runtime")
         try:
             ZoneInfo(self.mana_parent_chat_timezone)
         except (ZoneInfoNotFoundError, ValueError) as exc:
