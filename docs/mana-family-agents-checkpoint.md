@@ -1,12 +1,13 @@
 # Parent-Touch / Child-Safety — active application redesign, 2026-10-20
 
-Current local checkpoint: **`1bea31c`**, private schema v5. Both APIs, the event
-worker, frozen validated report context, ordinary/urgent Parent-Touch notices and
-same-candidate closed profiles are implemented. **Real-model quality remains open**:
-four new synthetic parties revealed format/semantic/quota limits; do not call this
-a production-ready release or complete the goal. Read the latest v5 section below
-and the feature worktree's full checkpoint before continuing. Older zero-spend/
-unimplemented statements below describe their historical stages only.
+Current local checkpoint: **`56e880f`**, SQLite v5 /new private safety context v2.
+The two APIs, event worker, notices and closed profiles now have host-bound text
+slots, conservative language hints, output admission floors and independent role
+models (new roles GPT-5.4 /mini; old production OPENAI_MODEL unchanged).
+Read [the latest conversation checkpoint](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-conversation-checkpoint.md).
+Full fake gates and a qualified real-model RU/UZ seeded-question loop passed;
+**broader model quality and the complete goal remain open**. No production release.
+Older zero-spend/unimplemented statements below describe their historical stages.
 
 The owner requested a new **application-facing** agent environment. Parent-Touch
 is the only speaker in the parent's single chat and manages other agents'
@@ -184,7 +185,7 @@ providers, schedules and production remain untouched.
 Root unrelated tracked diff remains SHA-256
 `f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
 
-## Latest v5 checkpoint — `1bea31c`
+## Earlier v5 checkpoint — `1bea31c`
 
 Feature worktree `/mnt/ssd2/mana-family-agents-20261020`, branch
 `feat/mana-family-agents-20261020`; production/root application code untouched.
@@ -247,4 +248,61 @@ quality remains unaccepted; keep the goal active. No deployment, real customer
 source read/contact, Firebase/GA4 refresh, SSH/key/schedule/OPERATION change.
 
 The root unrelated tracked diff was reverified unchanged before this pointer edit:
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
+## Latest conversation checkpoint — `56e880f`
+
+Authoritative branch/worktree stays `feat/mana-family-agents-20261020` at
+`/mnt/ssd2/mana-family-agents-20261020`. New detailed acceptance record:
+[conversation checkpoint](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-conversation-checkpoint.md).
+
+Implemented: model text/bool slots with host-only UUID binding; compact JSON with
+unchanged facts/quality dates; pre-generation 128/256-token floors within the 2000
+chat allowance; explicit signal dates for communicated notices; frozen same-family
+RU/UZ/EN hints and neutral/numeric-reply inheritance; no authority from language.
+Private context v2 freezes pending questions and recent explicit answers, filters
+fresh authorized child aliases, and captures a review-only schema for new parent
+reviews. V1/earlier v2 never upgrade; `1bea31c` cannot execute new contexts despite
+SQLite remaining v5. Use **new same-candidate closed profiles**, never downgrade.
+
+New default-disabled role profiles are configurable `MANA_PARENT_TOUCH_MODEL=gpt-5.4`
+and `MANA_CHILD_SAFETY_MODEL=gpt-5.4-mini`, with a mandatory separate safety budget.
+Old OPENAI_MODEL/legacy chat/stateless/audio and actual production settings unchanged.
+All ten protective APIs now have execution-through-SDK-MockTransport coverage, not
+just HTTP admission; existing validation, proposals-only result and metering pass.
+
+Final `make verify`, session **20380**, actual exit **0**:
+`output/family-role-language-acceptance-verify-20261020.log`: **485 backend tests**,
+**1 skipped**, **2 opt-in live excluded**, **26 UI tests /11 suites**, format/lint,
+mypy **243 files**, TypeScript/build, zero npm vulnerabilities. Schema sync/diff
+checks and final secret scan **406 files** pass. Candidate
+`mana-ai-family:role-language-local-20261020` /
+`sha256:73242e2bc08bfc14ecdeefe5f359e8a7c71922e9f798a47d7d6ee4ba76006f01`
+passed the actual packaged-app/SDK smoke without network, writable root filesystem
+or capabilities, preserving new history in closed profiles. Not an old-image rollback.
+
+Thirteen **new** independent paid synthetic parties, 79 generations, all known usage:
+conservative standard uncached estimate **$0.12265415**. Together with preceding
+v5 diagnostics: **91 generations /$0.13360540**. No real family/source reads.
+Each original receipt/ledger is retained in ignored `output/`; the detailed record
+lists every party, including negative semantics/language, quota stops and a local
+harness NameError. None was replayed or relabelled as success.
+
+Qualified real-model evidence: `family-strong-speaker-20261020-ha05QK` completed
+both RU/UZ sequences, two explicitly answered needs per family, three completed
+chat reviews each, stable replay; chat cost **1922/1843 raw tokens**, safety separate.
+`family-explicit-date-20261020-zdI9iy` delivered a dated historical notice within
+1567 chat tokens but had a child-directed recommendation in parent chat. The final
+prompt clarifies the adult recipient; **that final phrasing is not live-model accepted**.
+
+Next full-objective acceptance: specialist-originated real-model new need -> automatic
+Parent-Touch delivery -> exact parent answer -> safety follow-up; handle valid deferral
+instead of requiring every normal response to contain a question. Broader RU/UZ
+urgent notice while another question awaits, adult-parent address and actual source/
+release acceptance remain open. Exact-context pre-generation quota refusals have no
+automatic next-day re-admission policy yet; do not add nonce/retry loops. No quota
+increase, source refresh/listener, contact, production, SSH/key, UI/audio/OPERATION
+change. Keep the original goal active, not complete or silently narrowed.
+
+Root unrelated tracked diff was again preserved exactly:
 `f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
