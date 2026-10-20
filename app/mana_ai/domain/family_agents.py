@@ -12,6 +12,7 @@ from app.mana_ai.domain.chat import (
     ParentChatId,
     ParentChatRequest,
     ParentChatResponse,
+    StoredChatTurn,
 )
 from app.mana_ai.domain.enums import (
     AnalysisStatus,
@@ -89,6 +90,33 @@ class ParentTouchRequest(ParentChatRequest):
     reply_to_question_id: UUID | None = None
 
 
+class ParentTouchMessageRequest(ChatContract):
+    """Review-first parent text; new sensor observations use the protective endpoints."""
+
+    parent_id: ParentChatId
+    request_id: UUID
+    message: str = Field(min_length=1, max_length=2000, pattern=r"\S")
+    reply_to_question_id: UUID | None = None
+
+
+class ParentTouchReviewedTurn(ParentTouchRequest):
+    """Host-captured protocol, never added to an already admitted synchronous turn."""
+
+    protocol: Literal["review-first-v1"] = "review-first-v1"
+
+
+class ParentTouchReviewGuidance(ChatContract):
+    summary: str = Field(min_length=1, max_length=1500)
+    reviewed_at: AwareDatetime
+    parent_message_at: AwareDatetime
+    authorized_child_ids: tuple[int, ...]
+
+
+class ReviewedMessage(ChatContract):
+    turn: StoredChatTurn
+    phase: Literal["awaiting_review", "responding", "completed", "failed", "unknown"]
+
+
 class ParentTouchDeliveryRequest(ChatContract):
     parent_id: ParentChatId
     request_id: UUID
@@ -163,6 +191,15 @@ class ParentTouchResponse(ParentChatResponse):
     speaker: Literal["parent-touch"] = "parent-touch"
     asked_question: ParentTouchQuestion | None
     delivered_notice: ParentTouchNotice | None = None
+
+
+class ParentTouchMessageState(ChatContract):
+    parent_id: ParentChatId
+    request_id: UUID
+    turn_id: int
+    phase: Literal["awaiting_review", "responding", "completed", "failed", "unknown"]
+    error_code: str | None = None
+    response: ParentTouchResponse | None = None
 
 
 class ParentTouchHistory(ParentChatHistory):

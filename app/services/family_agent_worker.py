@@ -41,6 +41,7 @@ class FamilyAgentWorker:
         try:
             while not self._stop.is_set():
                 processed = await self._safety.process_one()
+                await self._touch.process_reviewed_message()
                 delivery = await self._safety.store.next_delivery(self._clock())
                 if delivery is not None and not self._stop.is_set():
                     # State is durable; never retry using a new nonce.

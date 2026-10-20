@@ -73,11 +73,14 @@ class SafetyContextSnapshot(ChatContract):
     saved_assessment_total: int = Field(ge=0, strict=True)
     conversation_needs: list[SafetyConversationNeed] = Field(default_factory=list, max_length=1010)
     typed_parent_review: bool = Field(default=False, strict=True)
+    review_first: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def exact_saved_identities(self) -> "SafetyContextSnapshot":
         if self.version == 1 and (self.conversation_needs or self.typed_parent_review):
             raise ValueError("Historical v1 contexts cannot acquire conversation needs")
+        if self.review_first and (self.version != 2 or not self.typed_parent_review):
+            raise ValueError("Review-first requires the captured typed-review protocol")
         if len(set(self.saved_assessment_ids)) != len(self.saved_assessment_ids):
             raise ValueError("Frozen assessment identities must be unique")
         if self.saved_assessment_total < len(self.saved_assessment_ids):

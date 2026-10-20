@@ -1550,6 +1550,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/parent-touch/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admit one review-first parent message to the single chat
+         * @description Backend-only. SQL admission; Child-Safety reviews this exact message before Parent-Touch communicates its guidance. Reuse the identical UUID/body after HTTP loss. Poll the message status or the same chat history; GET never dispatches. One pending message per parent, 2000 daily chat tokens and a separate specialist budget. Waiting and preparation expire after five minutes without automatic retry. New sensor data uses the typed Child-Safety endpoints, not this conversational request.
+         */
+        post: operations["admit_message_api_v1_mana_ai_parent_touch_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-touch/messages/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observe a same-family review-first message without redispatch */
+        get: operations["read_message_api_v1_mana_ai_parent_touch_messages__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/parent-touch/requests": {
         parameters: {
             query?: never;
@@ -6400,6 +6437,43 @@ export interface components {
              */
             speaker: "parent-touch";
         };
+        /**
+         * ParentTouchMessageRequest
+         * @description Review-first parent text; new sensor observations use the protective endpoints.
+         */
+        ParentTouchMessageRequest: {
+            /** Message */
+            message: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Reply To Question Id */
+            reply_to_question_id?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** ParentTouchMessageState */
+        ParentTouchMessageState: {
+            /** Error Code */
+            error_code?: string | null;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "awaiting_review" | "responding" | "completed" | "failed" | "unknown";
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            response?: components["schemas"]["ParentTouchResponse"] | null;
+            /** Turn Id */
+            turn_id: number;
+        };
         /** ParentTouchNotice */
         ParentTouchNotice: {
             /** Child Id */
@@ -10780,6 +10854,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParentTouchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admit_message_api_v1_mana_ai_parent_touch_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentTouchMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentTouchMessageState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_message_api_v1_mana_ai_parent_touch_messages__request_id__get: {
+        parameters: {
+            query: {
+                parent_id: string;
+            };
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentTouchMessageState"];
                 };
             };
             /** @description Validation Error */

@@ -4,8 +4,8 @@ Local implementation, **not deployed**. The current production parent chat is
 still the independent `f2c023f` service. Do not direct mobile clients at these new
 routes until a separately reviewed release configures their isolated ingress.
 The latest model/language/quality limits are in the
-[specialist checkpoint](mana-family-specialist-checkpoint.md). Its negative
-owning-role review means the full two-agent goal is not ready for release.
+[review-first checkpoint](mana-family-review-first-checkpoint.md). The coordinated
+workflow is implemented locally; broader real-family/release acceptance is separate.
 
 ## Contract
 
@@ -21,6 +21,8 @@ Firebase numeric strings, not Firebase Auth UIDs. One parent always has one chat
 | `GET /agents` | Actual configured support/worker status |
 | `GET /parent-touch/chat?parent_id=123` | History, quota, active question and delivered notice metadata; SQL only |
 | `POST /parent-touch/chat` | Parent text and optional explicit reply binding |
+| `POST /parent-touch/messages` | Recommended new flow: save text, `202`, specialist review before speaking |
+| `GET /parent-touch/messages/{request_id}?parent_id=123` | Private SQL status and final Parent-Touch response |
 | `POST /parent-touch/deliver` | Backend-only admission of a queued assistant communication |
 | `GET, POST /parent-touch/requests` | Internal registered specialist questions; never expose producer access to mobile |
 | `POST /child-safety/{protective-capability}` | Admit new dated child observations, asynchronous `202` |
@@ -34,7 +36,27 @@ The ten endpoint suffixes are `safety-monitor`, `family-digest`,
 `family-agreement`, `behaviour-anomaly`. Each has its **own** typed schema. There
 is no generic `/analyze` endpoint. Existing synchronous capability endpoints and
 legacy `GET,POST /chat` remain compatible; `/chat` shares history/quota but lacks
-question/notice metadata. New mobile integrations should use `/parent-touch/chat`.
+question/notice metadata. New integrations should send to `/parent-touch/messages`
+and read the shared `/parent-touch/chat` history. Synchronous `/parent-touch/chat`
+remains compatible but does not acquire review-first ordering.
+
+## Recommended asynchronous message flow
+
+Send the message JSON below to `POST /parent-touch/messages`; no `chat_id` or
+sender selection is needed. The response is `202` with `phase=awaiting_review`.
+Observe `GET /parent-touch/messages/{request_id}?parent_id=123` (for example once
+per second while the app is waiting) or the same chat history. A completed state
+contains `response.answer`, `response.asked_question` and the normal quota receipt.
+Never render the internal specialist review as another sender. Stop observation
+at `completed`, `failed` or `unknown`; do not create retry nonces automatically.
+
+The backend may repeat the exact original POST after HTTP loss; it only observes
+saved state. While one message waits/responds, another message returns `409`.
+The existing five-minute preparation deadline also bounds review waiting. A failed
+or unavailable specialist review does not fall back to independent Parent-Touch
+analysis. The unchanged 2000 allowance covers the speaker; the specialist has its
+separate server budget. New sensor facts use the protective endpoints, not
+`child_observations` on this new message contract.
 
 ## One chat, one question at a time
 
@@ -133,7 +155,8 @@ locale, evaluation time or equivalent UTC offset changes. A new parent message
 does not repay for old sensor data: it has its own review event. Parent text is
 not a sensor measurement or source/tool authority.
 
-Parent-Touch freezes one minimized validated assessment at chat admission, including
+Parent-Touch freezes one minimized validated assessment at synchronous admission
+(or at the new review-first communication claim), including
 all quality notes and distinct observation/evaluation/processing dates. Its total
 report count and supplied-report limit are explicit. This bounded context is not
 complete/current coverage or all children's history. Saved results never authorize
@@ -186,7 +209,8 @@ way. GET, polling and midnight do not dispatch it.
 ## Activation and compatibility
 
 All new flags default off. A reviewed configuration must enable
-`MANA_PARENT_CHAT_ENABLED`, `MANA_PARENT_TOUCH_ENABLED`, `MANA_CHILD_SAFETY_ENABLED`
+`MANA_PARENT_CHAT_ENABLED`, `MANA_PARENT_TOUCH_ENABLED`, `MANA_CHILD_SAFETY_ENABLED`,
+`MANA_PARENT_TOUCH_REVIEW_FIRST_ENABLED` for the new message workflow,
 and explicitly set `MANA_CHILD_SAFETY_LIMITS` (`server_daily_tokens`,
 `parent_daily_tokens`, `job_tokens`, with `job <= parent <= server`). These are
 token ceilings, not an approved production spend. Use one dedicated private volume,
@@ -198,6 +222,13 @@ chat mode, audio or the old stateless endpoints. Both are configurable; programm
 `None` explicitly inherits `OPENAI_MODEL`, not a provider fallback/retry. There is
 no automatic model escalation. Model changes need their own quality/cost evaluation.
 The explicit Child-Safety server budget is still mandatory before activation.
+
+Review-first uses additive private SQLite v6. Its same-candidate safety-off broker
+retains message observation/exact replay without a safety model/worker; new review
+admissions refuse. Disable both safety and the review-first flag for that profile.
+Old v5/production readers refuse v6, not a working rollback. See the review-first
+checkpoint before any release; the older v5 compatibility description below is
+historical, not permission to downgrade v6.
 
 Technical UUIDs never enter the new model publication schema. The model writes
 one optional question and a `notice_communicated` boolean; the host binds them to

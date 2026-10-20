@@ -28,13 +28,15 @@ def test_public_docs_export_has_only_product_contracts(monkeypatch: MonkeyPatch)
         "/api/v1/mana-ai/chat",
         "/api/v1/mana-ai/agents",
         "/api/v1/mana-ai/parent-touch/chat",
+        "/api/v1/mana-ai/parent-touch/messages",
+        "/api/v1/mana-ai/parent-touch/messages/{request_id}",
         "/api/v1/mana-ai/parent-touch/deliver",
         "/api/v1/mana-ai/parent-touch/requests",
         "/api/v1/mana-ai/child-safety/assessments",
         "/api/v1/mana-ai/child-safety/assessments/{job_id}",
         "/api/v1/mana-ai/child-safety/budget",
     }
-    assert len(schema["paths"]) == 30
+    assert len(schema["paths"]) == 32
     assert schema["servers"] == [{"url": "/", "description": "Same-origin production API"}]
     assert set(schema["components"]["securitySchemes"]) == {"BearerToken", "ParentChatBackendToken"}
     for path, operations in schema["paths"].items():
@@ -72,7 +74,7 @@ def test_export_is_exclusive_and_records_runtime(monkeypatch: MonkeyPatch, tmp_p
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest == {
         "runtime_image": image,
-        "path_count": 30,
+        "path_count": 32,
         "swagger_ui_version": "5.33.2",
         "source_reads": 0,
         "provider_calls": 0,

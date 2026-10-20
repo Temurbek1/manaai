@@ -812,6 +812,7 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                     or row["lease_expires_at"] <= self._utc(now).isoformat()
                 ):
                     raise ParentChatError("safety_job_no_longer_claimed", 409)
+                self._validate_safety_publication(connection, row, self._utc(now))
                 if row["kind"] == "child_data":
                     if (
                         result.analysis is None
@@ -844,6 +845,11 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                 return self._observe(connection, row["parent_id"], row["job_id"])
 
         return await asyncio.to_thread(finish)
+
+    def _validate_safety_publication(
+        self, connection: sqlite3.Connection, row: sqlite3.Row, now: datetime
+    ) -> None:
+        """Newer captured workflows may fence publication, never verified billing."""
 
     async def assessments(self, parent_id: str, *, after: int, limit: int) -> SafetyAssessmentPage:
         if after < 0 or not 1 <= limit <= 100:
@@ -895,7 +901,10 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                     "AND a.status IN ('offered','awaiting_reply','held')) "
                     "AND NOT EXISTS (SELECT 1 FROM family_turn_metadata m "
                     "WHERE m.parent_id=q.parent_id "
-                    "AND m.kind='delivery' AND m.offered_question_id=q.question_id "
+                    "AND (m.kind='delivery' OR (m.kind='review_first' AND EXISTS "
+                    "(SELECT 1 FROM parent_chat_turns f WHERE f.id=m.turn_id "
+                    "AND f.parent_id=m.parent_id AND f.status='failed'))) "
+                    "AND m.offered_question_id=q.question_id "
                     "AND m.language_turn_id=language_turn) "
                     "ORDER BY q.priority DESC,q.position LIMIT 1",
                     (day, self._utc(now).isoformat(), self._limit - 31, self._max_attempts),

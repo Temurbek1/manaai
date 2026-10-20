@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
@@ -16,6 +17,8 @@ from app.mana_ai.domain.family_agents import (
     FamilyAgentDirectory,
     ParentTouchDeliveryRequest,
     ParentTouchHistory,
+    ParentTouchMessageRequest,
+    ParentTouchMessageState,
     ParentTouchRequest,
     ParentTouchResponse,
 )
@@ -93,6 +96,37 @@ async def read_chat(
 )
 async def send_chat(service: ServiceDep, payload: ParentTouchRequest) -> ParentTouchResponse:
     return await controlled(service.send_touch(payload))
+
+
+@router.post(
+    "/parent-touch/messages",
+    response_model=ParentTouchMessageState,
+    status_code=202,
+    summary="Admit one review-first parent message to the single chat",
+    description="Backend-only. SQL admission; Child-Safety reviews this exact message before "
+    "Parent-Touch communicates its guidance. Reuse the identical UUID/body after HTTP loss. "
+    "Poll the message status or the same chat history; GET never dispatches. One pending "
+    "message per parent, 2000 daily chat tokens and a separate specialist budget. Waiting "
+    "and preparation expire after five minutes without automatic retry. New sensor data "
+    "uses the typed Child-Safety endpoints, not this conversational request.",
+)
+async def admit_message(
+    service: ServiceDep, payload: ParentTouchMessageRequest
+) -> ParentTouchMessageState:
+    return await controlled(service.admit_message(payload))
+
+
+@router.get(
+    "/parent-touch/messages/{request_id}",
+    response_model=ParentTouchMessageState,
+    summary="Observe a same-family review-first message without redispatch",
+)
+async def read_message(
+    service: ServiceDep,
+    request_id: UUID,
+    parent_id: Annotated[ParentChatId, Query()],
+) -> ParentTouchMessageState:
+    return await controlled(service.message_state(parent_id, request_id))
 
 
 @router.post(

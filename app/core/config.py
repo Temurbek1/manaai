@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     mana_parent_chat_max_attempts_per_day: int = Field(default=20, ge=1, le=100)
     mana_parent_chat_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
     mana_parent_touch_enabled: bool = False
+    mana_parent_touch_review_first_enabled: bool = False
     mana_parent_touch_model: str | None = Field(default="gpt-5.4", min_length=1, max_length=128)
     mana_parent_touch_question_limit: int = Field(default=100, ge=1, le=1000)
     mana_child_safety_enabled: bool = False
@@ -384,6 +385,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":
+        if self.mana_parent_touch_review_first_enabled and not self.mana_child_safety_enabled:
+            raise ValueError("Review-first messages require the Child-Safety worker")
         if self.mana_child_safety_enabled:
             if not self.mana_parent_touch_enabled or self.mana_child_safety_limits is None:
                 raise ValueError(

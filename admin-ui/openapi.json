@@ -12690,6 +12690,107 @@
         "title": "ParentTouchHistory",
         "type": "object"
       },
+      "ParentTouchMessageRequest": {
+        "additionalProperties": false,
+        "description": "Review-first parent text; new sensor observations use the protective endpoints.",
+        "properties": {
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Message",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "reply_to_question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To Question Id"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id",
+          "message"
+        ],
+        "title": "ParentTouchMessageRequest",
+        "type": "object"
+      },
+      "ParentTouchMessageState": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "awaiting_review",
+              "responding",
+              "completed",
+              "failed",
+              "unknown"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParentTouchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parent_id",
+          "request_id",
+          "turn_id",
+          "phase"
+        ],
+        "title": "ParentTouchMessageState",
+        "type": "object"
+      },
       "ParentTouchNotice": {
         "additionalProperties": false,
         "properties": {
@@ -23361,6 +23462,111 @@
           }
         ],
         "summary": "Deliver one queued specialist communication in the same chat",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/messages": {
+      "post": {
+        "description": "Backend-only. SQL admission; Child-Safety reviews this exact message before Parent-Touch communicates its guidance. Reuse the identical UUID/body after HTTP loss. Poll the message status or the same chat history; GET never dispatches. One pending message per parent, 2000 daily chat tokens and a separate specialist budget. Waiting and preparation expire after five minutes without automatic retry. New sensor data uses the typed Child-Safety endpoints, not this conversational request.",
+        "operationId": "admit_message_api_v1_mana_ai_parent_touch_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParentTouchMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentTouchMessageState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Admit one review-first parent message to the single chat",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/messages/{request_id}": {
+      "get": {
+        "operationId": "read_message_api_v1_mana_ai_parent_touch_messages__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentTouchMessageState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe a same-family review-first message without redispatch",
         "tags": [
           "mana-ai"
         ]

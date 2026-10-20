@@ -1,8 +1,9 @@
 # MANA family agents — implementation in progress, 2026-10-20
 
-Latest: [specialist/continuation checkpoint](mana-family-specialist-checkpoint.md).
+Latest: [review-first message checkpoint](mana-family-review-first-checkpoint.md).
 It supersedes the earlier v5 model/context limitations without rewriting their
-negative receipts. Both APIs are implemented locally; the full goal remains active.
+negative receipts. Both APIs and the coordinated review-first message workflow are
+implemented locally; real-family and production release acceptance remain separate.
 
 This replaces the application-facing agent design, not the four operational
 administrative agents. It does not rename, resume or deploy the earlier broad
@@ -48,6 +49,8 @@ All paths are under `/api/v1/mana-ai`; this remains an independent product API.
 | `GET /agents` | Registered family roles, available contracts and support status | SQL/config observation only |
 | `GET /parent-touch/chat` | Single history, quota, active reply identity and queue status | No source/model call |
 | `POST /parent-touch/chat` | Parent message, optional explicit reply identity | One Parent-Touch generation under existing quota/unknown holds |
+| `POST /parent-touch/messages` | Recommended review-first parent message, `202` | Durable admission -> separate specialist review -> one speaker generation |
+| `GET /parent-touch/messages/{request_id}` | Same-family progress/final response | SQL observation only, never redispatch |
 | `POST /parent-touch/deliver` | Deliberately admit one queued specialist communication | No fabricated parent message; one generation, no delivery retry |
 | `GET /parent-touch/requests` | Backend observation of same-family question state | SQL only; no dispatch |
 | `POST /parent-touch/requests` | A registered specialist's typed communication intent | Internal backend only; fresh ownership and durable dedup |
@@ -85,11 +88,11 @@ correlation fields, not separate specialist chats.
    turns in that page to the exact question/child identity. `active_question` is
    the currently awaiting question, possibly on an older page; load its turn before
    presenting a reply UI. History/quota/question metadata share one SQL snapshot.
-2. Send `POST /parent-touch/chat` with `parent_id`, a UUID `request_id`, `message`
+2. Send `POST /parent-touch/messages` with `parent_id`, a UUID `request_id`, `message`
    and, for an explicit answer, `reply_to_question_id` from that displayed question.
    Missing metadata does not silently attach unrelated prose to a child/question;
    a stale, foreign or already answered question returns `409 question_reply_mismatch`.
-3. `asked_question` in the response describes only the question actually published
+3. Observe its status until `completed`; `response.asked_question` describes only the question published
    by **that turn**. It remains unchanged on replay after the parent answers or
    another question becomes active. Read history for the current active state.
 4. Internal specialists submit their dated `AgentQuestionRequest` to

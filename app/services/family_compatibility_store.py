@@ -51,7 +51,7 @@ class SqliteFamilyCompatibilityStore(SqliteFamilyAgentStore):
         max_attempts: int = 20,
         question_limit: int = 100,
     ) -> None:
-        if version not in {2, 3, 4, 5}:
+        if version not in {2, 3, 4, 5, 6}:
             raise ValueError("Unsupported closed family reader version")
         super().__init__(
             path,
@@ -71,6 +71,7 @@ class SqliteFamilyCompatibilityStore(SqliteFamilyAgentStore):
             super()._allowed_tables()
             | set(SqliteChildSafetyStore.child_tables)
             | set(SqliteTouchEvidenceStore.evidence_tables)
+            | {"family_reviewed_messages"}
         )
 
     def _extra_schema(self) -> str:

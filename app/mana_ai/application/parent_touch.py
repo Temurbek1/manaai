@@ -1,7 +1,9 @@
 import asyncio
 import json
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import datetime, timedelta
+from uuid import UUID
 
 from app.mana_ai.application.chat_ports import (
     ChatPrompt,
@@ -14,6 +16,7 @@ from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
+from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.mana_ai.domain.chat import (
     ParentChatRequest,
     ParentChatResponse,
@@ -30,8 +33,12 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchDeliveryRequest,
     ParentTouchDeliveryTurn,
     ParentTouchHistory,
+    ParentTouchMessageRequest,
+    ParentTouchMessageState,
     ParentTouchRequest,
     ParentTouchResponse,
+    ParentTouchReviewedTurn,
+    ReviewedMessage,
 )
 
 PARENT_TOUCH_INSTRUCTIONS = """You are Parent-Touch, MANA's sole parent-facing conversation manager.
@@ -66,6 +73,7 @@ class ParentTouchService(ParentChatService):
         history_turn_limit: int,
         registry: FamilyAgentRegistry | None = None,
         safety: ChildSafetyService | None = None,
+        reviewed: ReviewedMessageStore | None = None,
     ) -> None:
         super().__init__(
             store=store,
@@ -78,6 +86,46 @@ class ParentTouchService(ParentChatService):
         self._touch_store = store
         self._registry = registry or default_family_agents()
         self.safety = safety
+        self._reviewed = reviewed
+
+    async def admit_message(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState:
+        if self._reviewed is None:
+            raise ParentChatError("review_first_disabled", 503)
+        state = await self._reviewed.admit_reviewed(
+            ParentTouchReviewedTurn(**request.model_dump()),
+            self._clock(),
+            allow_new=bool(self.safety and self.safety.worker_available),
+        )
+        return await self._message_state(state)
+
+    async def message_state(self, parent_id: str, request_id: UUID) -> ParentTouchMessageState:
+        if self._reviewed is None:
+            raise ParentChatError("review_first_disabled", 503)
+        return await self._message_state(
+            await self._reviewed.reviewed_message(parent_id, request_id, self._clock())
+        )
+
+    async def _message_state(self, state: ReviewedMessage) -> ParentTouchMessageState:
+        return ParentTouchMessageState(
+            parent_id=state.turn.parent_id,
+            request_id=state.turn.request_id,
+            turn_id=state.turn.turn_id,
+            phase=state.phase,
+            error_code=state.turn.error_code,
+            response=await self._touch_response(state.turn.result) if state.turn.result else None,
+        )
+
+    async def process_reviewed_message(self) -> bool:
+        if self._reviewed is None:
+            return False
+        claim = await self._reviewed.claim_reviewed_response(self._clock())
+        if claim is None:
+            return False
+        state, request = claim
+        # The durable turn records failure/unknown cost; never retry it.
+        with suppress(ParentChatError):
+            await self._respond_to_admitted(state.turn, request)
+        return True
 
     def directory(self) -> FamilyAgentDirectory:
         return FamilyAgentDirectory(
@@ -239,6 +287,24 @@ class ParentTouchService(ParentChatService):
                 "observed_at": question.observed_at.isoformat(),
             }
         instructions = PARENT_TOUCH_INSTRUCTIONS
+        if isinstance(request, ParentTouchReviewedTurn):
+            if self._reviewed is None:
+                raise ParentChatError("review_first_disabled", 503)
+            guidance = await self._reviewed.review_guidance(
+                request.parent_id,
+                turn.turn_id,
+                tuple(c.child_id for c in context.children if c.connected),
+            )
+            data["specialist_guidance"] = guidance.model_dump(
+                mode="json", exclude={"authorized_child_ids"}
+            ) | {"basis": "parent_report_and_dated_saved_context_not_fresh_sensors"}
+            instructions += (
+                "\nChild-Safety already reviewed this exact parent message. Communicate its "
+                "qualified guidance naturally; do not perform another child assessment or add "
+                "independent condition/normality/risk judgments. Keep its uncertainty, advice "
+                "and observation-date distinctions. A missing sensor fact stays unknown. "
+                "If an admitted clarification exists, ask it without an independent diagnosis."
+            )
         if evidence is not None and evidence.assessments:
             instructions += (
                 "\nOne bounded report/top finding is loaded, not complete coverage. "

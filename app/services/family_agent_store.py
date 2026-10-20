@@ -23,6 +23,7 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchNotice,
     ParentTouchQuestion,
     ParentTouchRequest,
+    ParentTouchReviewedTurn,
 )
 from app.services.parent_chat_store import SqliteParentChatStore
 
@@ -139,6 +140,8 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
 
     @staticmethod
     def _digest(request: ParentChatRequest) -> str:
+        if isinstance(request, ParentTouchReviewedTurn):
+            return SqliteParentChatStore._digest(request)
         if isinstance(request, ParentTouchRequest) and request.reply_to_question_id is None:
             request = ParentChatRequest.model_validate(
                 request.model_dump(exclude={"reply_to_question_id"})
@@ -151,6 +154,13 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         request: ParentChatRequest,
         turn_id: int,
         now: datetime,
+    ) -> None:
+        self._bind_answer(connection, request, turn_id)
+        self._capture_communication(connection, request, turn_id, now)
+
+    @staticmethod
+    def _bind_answer(
+        connection: sqlite3.Connection, request: ParentChatRequest, turn_id: int
     ) -> None:
         if isinstance(request, ParentTouchRequest) and request.reply_to_question_id is not None:
             row = connection.execute(
@@ -165,6 +175,14 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 "WHERE question_id=?",
                 (turn_id, row["question_id"]),
             )
+
+    def _capture_communication(
+        self,
+        connection: sqlite3.Connection,
+        request: ParentChatRequest,
+        turn_id: int,
+        now: datetime,
+    ) -> None:
         selected = self._offer_in_transaction(connection, request.parent_id, turn_id, now)
         anchor = self._admit_extra_context(connection, request, turn_id, selected, now)
         language_turn_id, reference = turn_id, request.message

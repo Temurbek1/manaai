@@ -1,5 +1,8 @@
 # Specialist conversation checkpoint — 2026-10-20
 
+Subsequent implementation: [review-first messages](mana-family-review-first-checkpoint.md).
+The negative parties below remain historical evidence, not retroactive passes.
+
 Local, default-disabled increment after `56e880f`. No production, source refresh,
 real-family access, operational-agent or contact changes. The original two-agent
 objective remains active: the mechanical loop passes, but the owning-role semantic

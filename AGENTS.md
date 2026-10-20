@@ -52,7 +52,18 @@
   Real-model specialist loops pass mechanically but still expose independent
   speaker judgments before the new specialist review. Implement a captured durable
   review-first workflow rather than treating prompt tuning as owning-role quality.
-  No release is authorized here; keep the original objective active.
+  No release is authorized by that historical checkpoint.
+  The subsequent local default-disabled `MANA_PARENT_TOUCH_REVIEW_FIRST_ENABLED`
+  implements `/parent-touch/messages` admission/status and private SQLite v6.
+  New captured messages wait for Child-Safety before one claimed Parent-Touch
+  communication; old synchronous turns/digests never upgrade. Preserve language,
+  exact bounded guidance/dates, fresh reviewed-child ownership and separate budgets.
+  Five-minute preparation expiry must fence queued/late review publication without
+  refunding known/unknown costs. GET/replay, restart and midnight never regenerate
+  a claimed/failed communication. V6 supports current closed broker observation/
+  exact replay and history-only profiles, not old v5/production image rollback.
+  See `docs/mana-family-review-first-checkpoint.md` for actual gates and qualified
+  RU/UZ synthetic evidence; this is not broad real-family or release acceptance.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

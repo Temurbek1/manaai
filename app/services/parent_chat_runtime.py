@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_touch import ParentTouchService
+from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
@@ -22,6 +23,10 @@ from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.parent_chat_children import ManakidsChatChildrenSource
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_chat_store import SqliteParentChatStore
+from app.services.reviewed_message_store import (
+    SqliteClosedReviewedBrokerStore,
+    SqliteReviewedMessageStore,
+)
 
 
 @asynccontextmanager
@@ -36,7 +41,28 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         "max_attempts": settings.mana_parent_chat_max_attempts_per_day,
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
-    if settings.mana_child_safety_enabled:
+    reviewed: ReviewedMessageStore | None = None
+    if settings.mana_parent_touch_review_first_enabled:
+        assert settings.mana_child_safety_limits is not None
+        review_store = SqliteReviewedMessageStore(
+            settings.mana_parent_chat_database_path,
+            limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = review_store, review_store
+    elif version == 6 and settings.mana_child_safety_enabled:
+        raise RuntimeError("V6 safety execution requires the captured review-first runtime")
+    elif version == 6 and settings.mana_parent_touch_enabled:
+        closed_review_store = SqliteClosedReviewedBrokerStore(
+            settings.mana_parent_chat_database_path,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = closed_review_store, closed_review_store
+    elif settings.mana_child_safety_enabled:
         assert settings.mana_child_safety_limits is not None
         store = SqliteChildSafetyStore(
             settings.mana_parent_chat_database_path,
@@ -123,6 +149,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     max_output_tokens=settings.mana_parent_chat_max_output_tokens,
                     history_turn_limit=settings.mana_parent_chat_history_turns,
                     safety=safety,
+                    reviewed=reviewed,
                 )
                 if safety is not None:
                     assert isinstance(service, ParentTouchService)

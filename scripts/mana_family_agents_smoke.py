@@ -16,7 +16,11 @@ from pydantic import SecretStr
 from app import product_ai_main
 from app.core.config import Settings, get_settings
 from app.mana_ai.domain.chat import ChatChild, ParentChildContext
-from app.mana_ai.domain.child_safety import ChildSafetyLimits, SafetyModelDecision
+from app.mana_ai.domain.child_safety import (
+    ChildSafetyLimits,
+    SafetyInformationNeed,
+    SafetyModelDecision,
+)
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
 from app.services import parent_chat_runtime as runtime_module
@@ -84,7 +88,17 @@ class Provider:
                 followup_summary=None
                 if data["kind"] == "child_data"
                 else "The dated parent message was reviewed, not a new sensor measurement.",
-                question=None,
+                question=SafetyInformationNeed(
+                    child_alias="child-1",
+                    information_key="sleep.bedtime",
+                    question="Farzandingiz qachon uxlaydi?",
+                    reason="Bedtime is missing from the parent report.",
+                    priority=1,
+                )
+                if data["kind"] == "parent_message"
+                and "before Parent-Touch responds" in payload["instructions"]
+                and not data["conversation_needs"]
+                else None,
             )
             answer = decision.model_dump_json()
         else:
@@ -280,11 +294,12 @@ async def main() -> None:
                         await deferred_delivery_smoke(app, client, profiles)
                 assert await family_storage_version(database) == 5
             assert provider.safety_clients == 1
+        await reviewed_message_smoke(config, provider, profiles, Path(directory) / "reviewed.db")
     print(
         json.dumps(
             {
                 "result": "passed",
-                "schema": 5,
+                "schema": 6,
                 "synthetic_generations": provider.generations,
                 "mocked_input_counts": provider.counts,
                 "synthetic_profile_reads": profiles.reads,
@@ -352,6 +367,92 @@ async def deferred_delivery_smoke(
         await client.post(PREFIX + "/parent-touch/deliver", json=original, headers=HEADERS)
     ).status_code == 429
     profiles.collected_at = None
+
+
+async def reviewed_message_smoke(
+    baseline: Settings, provider: Provider, profiles: Profiles, database: Path
+) -> None:
+    config = baseline.model_copy(
+        update={
+            "mana_parent_touch_enabled": True,
+            "mana_child_safety_enabled": True,
+            "mana_parent_touch_review_first_enabled": True,
+            "mana_parent_chat_database_path": database,
+        }
+    )
+    with (
+        patch.object(runtime_module, "ManakidsChatChildrenSource", lambda **_: profiles),
+        patch.object(runtime_module, "OpenAIParentChatModel", provider.model),
+        patch.object(
+            runtime_module, "OpenAIChildSafetyModel", lambda s: provider.model(s, safety=True)
+        ),
+        patch.object(product_ai_main, "get_settings", lambda: config),
+    ):
+        app = product_ai_main.create_app()
+        app.dependency_overrides[get_settings] = lambda: config
+        original = {
+            "parent_id": "523",
+            "request_id": str(uuid4()),
+            "message": "Salom, yordam bering",
+        }
+        route = PREFIX + f"/parent-touch/messages/{original['request_id']}?parent_id=523"
+        async with (
+            app.router.lifespan_context(app),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://unit"
+            ) as client,
+        ):
+            before = provider.generations, profiles.reads
+            admitted = await client.post(
+                PREFIX + "/parent-touch/messages", json=original, headers=HEADERS
+            )
+            assert admitted.status_code == 202 and admitted.json()["phase"] == "awaiting_review"
+            assert (provider.generations, profiles.reads) == before
+            for _ in range(150):
+                observed = await client.get(route, headers=HEADERS)
+                if observed.json()["phase"] == "completed":
+                    break
+                await asyncio.sleep(0.01)
+            expected = observed.json()
+            assert expected["phase"] == "completed" and expected["response"]["asked_question"]
+            assert provider.generations == before[0] + 2
+            assert (await client.get(route)).status_code == 401
+            assert (
+                await client.get(route.replace("=523", "=623"), headers=HEADERS)
+            ).status_code == 404
+            counts = provider.generations, provider.counts, profiles.reads
+            assert (
+                await client.post(PREFIX + "/parent-touch/messages", json=original, headers=HEADERS)
+            ).json() == expected
+            assert (provider.generations, provider.counts, profiles.reads) == counts
+        assert await family_storage_version(database) == 6
+        config = config.model_copy(
+            update={
+                "mana_child_safety_enabled": False,
+                "mana_parent_touch_review_first_enabled": False,
+            }
+        )
+        closed = product_ai_main.create_app()
+        closed.dependency_overrides[get_settings] = lambda: config
+        async with (
+            closed.router.lifespan_context(closed),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=closed), base_url="http://unit"
+            ) as client,
+        ):
+            assert (await client.get(route, headers=HEADERS)).json() == expected
+            assert (
+                await client.post(PREFIX + "/parent-touch/messages", json=original, headers=HEADERS)
+            ).json() == expected
+            assert (
+                await client.post(
+                    PREFIX + "/parent-touch/messages",
+                    json=original | {"request_id": str(uuid4())},
+                    headers=HEADERS,
+                )
+            ).status_code == 503
+            assert (provider.generations, provider.counts, profiles.reads) == counts
+        assert await family_storage_version(database) == 6
 
 
 if __name__ == "__main__":
