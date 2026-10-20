@@ -1,12 +1,19 @@
 # Parent-Touch / Child-Safety — active application redesign, 2026-10-20
 
-Current local checkpoint: **`56e880f`**, SQLite v5 /new private safety context v2.
+Current local checkpoint: **`920cc3f`**, SQLite v5 /new private safety context v2.
 The two APIs, event worker, notices and closed profiles now have host-bound text
 slots, conservative language hints, output admission floors and independent role
 models (new roles GPT-5.4 /mini; old production OPENAI_MODEL unchanged).
-Read [the latest conversation checkpoint](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-conversation-checkpoint.md).
-Full fake gates and a qualified real-model RU/UZ seeded-question loop passed;
-**broader model quality and the complete goal remain open**. No production release.
+Read [the latest specialist checkpoint](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-specialist-checkpoint.md).
+Explicit next-day backend continuation now handles only pure pre-generation quota
+refusals, never unknown/paid calls or automatic worker retries. Actual full gate:
+**497 backend /26 UI tests**, lint/types/build, original session **78773**, exit 0;
+isolated network-disabled candidate smoke passed (image `873001e9e071…`).
+Five new synthetic parties: **28 generations /$0.04819550** estimated; combined
+**119 /$0.18180090**, all known receipts. Both automatic specialist loops passed
+mechanically within 2000 chat tokens, but independent speaker judgments remain a
+negative semantic result. Next implement durable **review-first** parent messages,
+not more prompt-only tuning. **The complete goal remains active**, no deployment.
 Older zero-spend/unimplemented statements below describe their historical stages.
 
 The owner requested a new **application-facing** agent environment. Parent-Touch
