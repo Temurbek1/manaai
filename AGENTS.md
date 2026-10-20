@@ -45,8 +45,14 @@
   safety limits remain mandatory. A qualified RU/UZ seeded-question pass is not
   broad safety quality or a real-model specialist-originated-loop pass. Preserve
   negative parties, known costs, deferrals and unknown holds; never replay them.
-  Exact-context quota refusals have no automatic next-day redispatch yet. No release
-  is authorized by this local checkpoint; keep the original objective active.
+  Exact-context quota refusals have no automatic next-day redispatch. The explicit
+  backend continuation in `docs/mana-family-specialist-checkpoint.md` admits only
+  prior-day pre-generation quota refusals with no receipt/hold and unchanged
+  primary choice/language context. Never apply it to unknown or paid calls.
+  Real-model specialist loops pass mechanically but still expose independent
+  speaker judgments before the new specialist review. Implement a captured durable
+  review-first workflow rather than treating prompt tuning as owning-role quality.
+  No release is authorized here; keep the original objective active.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

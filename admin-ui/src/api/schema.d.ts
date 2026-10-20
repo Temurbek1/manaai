@@ -1541,7 +1541,7 @@ export interface paths {
         put?: never;
         /**
          * Deliver one queued specialist communication in the same chat
-         * @description Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/notice context. An urgent notice may interrupt an awaiting question without opening another question. Unknown receipts remain held.
+         * @description Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/notice context. An urgent notice may interrupt an awaiting question without opening another question. Unknown receipts remain held. Optional resume_deferred_request_id explicitly identifies a previous-day delivery refused before inference only for daily_token_budget_exceeded. A new request_id admits the same still-valid choice/language context once per local day, with fresh ownership/quota checks. This is not automatic retry; paid, unknown, changed or expired work cannot resume.
          */
         post: operations["deliver_question_api_v1_mana_ai_parent_touch_deliver_post"];
         delete?: never;
@@ -6365,6 +6365,8 @@ export interface components {
              * Format: uuid
              */
             request_id: string;
+            /** Resume Deferred Request Id */
+            resume_deferred_request_id?: string | null;
         };
         /** ParentTouchHistory */
         ParentTouchHistory: {

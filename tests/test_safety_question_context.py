@@ -71,12 +71,12 @@ async def test_new_snapshot_freezes_pending_needs_and_exact_explicit_parent_answ
     assert payload["conversation_needs"][0]["child_alias"] == "child-1"
     assert job.context.conversation_needs[0].status == "offered"  # No old snapshot upgrade.
     assert prompt.input.safety_parent_review
+    assert "parent message as conversation intent" in prompt.input.instructions
+    assert "direct request to clarify a missing fact" in prompt.input.instructions
     historical = replace(job, context=job.context.model_copy(update={"typed_parent_review": False}))
-    assert (
-        not ChildSafetyPromptBuilder()
-        .build(historical, await children.read("123"), [])
-        .input.safety_parent_review
-    )
+    historical_prompt = ChildSafetyPromptBuilder().build(historical, await children.read("123"), [])
+    assert not historical_prompt.input.safety_parent_review
+    assert "parent message as conversation intent" not in historical_prompt.input.instructions
 
 
 async def test_v1_snapshot_remains_v1_and_revoked_needs_do_not_reach_the_model(
@@ -116,3 +116,15 @@ async def test_review_schema_has_no_sensor_analysis_and_cannot_be_used_by_the_sp
         speaker = OpenAIParentChatModel(settings(), client=client)
         with pytest.raises(ValueError, match="specialist review protocol"):
             speaker._text(prompt)
+
+
+async def test_registered_specialist_maximum_question_is_preserved_in_safety_snapshot(
+    tmp_path: Path,
+) -> None:
+    repository = await store(tmp_path / "full-question.db")
+    question = "A" * 399 + "?"
+    await repository.enqueue(intent().model_copy(update={"question": question}), NOW)
+    await repository.admit(message(), NOW)
+    assert await repository.materialize_parent_event(NOW)
+    job = await repository.claim_next(NOW)
+    assert job and job.context.conversation_needs[0].question == question

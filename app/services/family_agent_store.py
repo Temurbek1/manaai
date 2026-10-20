@@ -16,6 +16,7 @@ from app.mana_ai.domain.family_agents import (
     AgentQuestionReceipt,
     AgentQuestionRequest,
     FamilyQuestion,
+    ParentTouchDeferredTurn,
     ParentTouchDeliveryTurn,
     ParentTouchEvidence,
     ParentTouchHistory,
@@ -179,7 +180,11 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
             if previous is None:
                 raise ParentChatError("parent_language_not_established", 409)
             language_turn_id, reference = previous["id"], previous["reference"]
-            if (
+            if isinstance(request, ParentTouchDeferredTurn):
+                anchor = self._resume_delivery_anchor(
+                    connection, request, anchor, language_turn_id, now
+                )
+            elif (
                 connection.execute(
                     "SELECT 1 FROM family_turn_metadata WHERE parent_id=? "
                     "AND (kind='delivery' OR offered_question_id LIKE 'notice:%') "
@@ -201,6 +206,56 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 reference,
             ),
         )
+
+    def _resume_delivery_anchor(
+        self,
+        connection: sqlite3.Connection,
+        request: ParentTouchDeferredTurn,
+        anchor: str,
+        language_turn_id: int,
+        now: datetime,
+    ) -> str:
+        original = connection.execute(
+            "SELECT t.*,m.offered_question_id,m.language_turn_id,m.kind "
+            "FROM parent_chat_turns t JOIN family_turn_metadata m "
+            "ON m.turn_id=t.id AND m.parent_id=t.parent_id "
+            "WHERE t.parent_id=? AND t.request_id=?",
+            (request.parent_id, str(request.resume_deferred_request_id)),
+        ).fetchone()
+        day, _ = self._period(now)
+
+        def before_generation_budget_refusal(row: sqlite3.Row) -> bool:
+            return bool(
+                row["status"] == "failed"
+                and row["error_code"] == "daily_token_budget_exceeded"
+                and row["input_tokens"] is None
+                and row["output_tokens"] is None
+                and row["reserved"] == 0
+                and row["day"] < day
+            )
+
+        if (
+            original is None
+            or original["kind"] != "delivery"
+            or original["message"] != ""
+            or not before_generation_budget_refusal(original)
+            or original["language_turn_id"] != language_turn_id
+            or not original["offered_question_id"]
+            or original["offered_question_id"].split(":quota:", 1)[0] != anchor
+        ):
+            raise ParentChatError("delivery_resume_not_eligible", 409)
+        attempts = connection.execute(
+            "SELECT t.* FROM family_turn_metadata m JOIN parent_chat_turns t "
+            "ON t.id=m.turn_id AND t.parent_id=m.parent_id WHERE m.parent_id=? "
+            "AND m.language_turn_id=? AND (m.offered_question_id=? "
+            "OR m.offered_question_id LIKE ?)",
+            (request.parent_id, language_turn_id, anchor, anchor + ":quota:%"),
+        ).fetchall()
+        if not attempts or any(not before_generation_budget_refusal(row) for row in attempts):
+            raise ParentChatError("delivery_resume_not_eligible", 409)
+        # The original metadata/result/digest remain immutable. SQL uniqueness of
+        # this new day-specific slot prevents competing nonces from redispatching.
+        return f"{anchor}:quota:{day}"
 
     @staticmethod
     def _previous_language(

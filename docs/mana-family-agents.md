@@ -1,6 +1,6 @@
 # MANA family agents — implementation in progress, 2026-10-20
 
-Latest: [conversation/model checkpoint](mana-family-conversation-checkpoint.md).
+Latest: [specialist/continuation checkpoint](mana-family-specialist-checkpoint.md).
 It supersedes the earlier v5 model/context limitations without rewriting their
 negative receipts. Both APIs are implemented locally; the full goal remains active.
 

@@ -4,7 +4,8 @@ Local implementation, **not deployed**. The current production parent chat is
 still the independent `f2c023f` service. Do not direct mobile clients at these new
 routes until a separately reviewed release configures their isolated ingress.
 The latest model/language/quality limits are in the
-[conversation checkpoint](mana-family-conversation-checkpoint.md).
+[specialist checkpoint](mana-family-specialist-checkpoint.md). Its negative
+owning-role review means the full two-agent goal is not ready for release.
 
 ## Contract
 
@@ -139,6 +140,24 @@ complete/current coverage or all children's history. Saved results never authori
 control changes, provider calls, new recipients or direct specialist speech.
 
 ## Errors, idempotency and budgets
+
+A trusted backend may explicitly continue a previous assistant-only delivery
+after a pure pre-generation quota refusal on an earlier local day:
+
+```json
+{
+  "parent_id": "123",
+  "request_id": "d339e77e-0dc3-45c2-84e2-909919c42475",
+  "resume_deferred_request_id": "e8aa6fc5-0722-44ea-a3d4-91832f658284"
+}
+```
+
+The original request must have no raw receipt or reserved cost; the same current
+primary communication choice and parent-language turn must still qualify. This is
+one explicit new intent per local day, with normal ownership/expiry/quota checks,
+not an automatic worker retry. The original refusal/replay stays unchanged. Paid,
+invalid, unknown, same-day and changed-context requests cannot be continued this
+way. GET, polling and midnight do not dispatch it.
 
 - Reuse the **identical UUID and body** after HTTP loss. Replays return saved state
   without another source read or inference. A conflicting body gives `409`.

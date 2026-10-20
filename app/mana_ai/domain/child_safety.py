@@ -59,7 +59,7 @@ class SafetyChatMessage(ChatContract):
 class SafetyConversationNeed(ChatContract):
     child_id: int = Field(gt=0, strict=True)
     information_key: InformationKey
-    question: str = Field(min_length=1, max_length=300)
+    question: str = Field(min_length=1, max_length=400)
     status: Literal["queued", "offered", "awaiting_reply", "held", "answered"]
     observed_at: AwareDatetime
     answer: SafetyChatMessage | None = None

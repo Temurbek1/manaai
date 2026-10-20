@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
@@ -31,12 +31,13 @@ HEADERS = {"Authorization": f"Bearer {SYNTHETIC_BACKEND}"}
 
 class Profiles:
     reads = 0
+    collected_at: datetime | None = None
 
     async def read(self, parent_id: str) -> ParentChildContext:
         self.reads += 1
         return ParentChildContext(
             parent_id=parent_id,
-            collected_at=datetime.now(UTC),
+            collected_at=self.collected_at or datetime.now(UTC),
             children=[
                 ChatChild(child_id=int(parent_id) + 1, name="Synthetic", age=8, connected=True)
             ],
@@ -91,7 +92,9 @@ class Provider:
             data = json.loads(content)
             reply = {
                 "body": "Tushunarli.",
-                "question": None,
+                "question": "Farzandingiz soat nechada uxlaydi?"
+                if data.get("admitted_question")
+                else None,
                 "notice_communicated": data.get("assessments", {}).get("notice_kind") is not None,
             }
             if reply["notice_communicated"]:
@@ -273,6 +276,8 @@ async def main() -> None:
                         for k, v in initial.json().items()
                         if k not in {"speaker", "asked_question", "delivered_notice"}
                     }
+                    if broker:
+                        await deferred_delivery_smoke(app, client, profiles)
                 assert await family_storage_version(database) == 5
             assert provider.safety_clients == 1
     print(
@@ -289,6 +294,64 @@ async def main() -> None:
             }
         )
     )
+
+
+async def deferred_delivery_smoke(
+    app: Any,
+    client: httpx.AsyncClient,
+    profiles: Profiles,
+) -> None:
+    """A separate fictional family; no SQL worker or automatic replay of a refusal."""
+    service = app.state.parent_chat_service
+    now = datetime.now(UTC)
+    hello = {"parent_id": "323", "request_id": str(uuid4()), "message": "Salom"}
+    assert (
+        await client.post(PREFIX + "/parent-touch/chat", json=hello, headers=HEADERS)
+    ).status_code == 200
+    intent = {
+        "parent_id": "323",
+        "child_id": 324,
+        "agent_id": "child-safety",
+        "request_id": str(uuid4()),
+        "information_key": "sleep.bedtime",
+        "question": "When does the child go to sleep?",
+        "reason": "Missing bedtime.",
+        "source_revision": "synthetic-unmeasured",
+        "observed_at": now.isoformat(),
+        "expires_at": (now + timedelta(days=2)).isoformat(),
+    }
+    queued = await client.post(PREFIX + "/parent-touch/requests", json=intent, headers=HEADERS)
+    assert queued.status_code == 201
+    with service.store._transaction() as connection:
+        connection.execute("UPDATE parent_chat_quota SET used=1750 WHERE parent_id='323'")
+    original = {"parent_id": "323", "request_id": str(uuid4())}
+    refused = await client.post(PREFIX + "/parent-touch/deliver", json=original, headers=HEADERS)
+    assert refused.status_code == 429
+    continuation = {
+        "parent_id": "323",
+        "request_id": str(uuid4()),
+        "resume_deferred_request_id": original["request_id"],
+    }
+    assert (
+        await client.post(PREFIX + "/parent-touch/deliver", json=continuation, headers=HEADERS)
+    ).status_code == 409
+    future = now + timedelta(days=1)
+    service._clock = lambda: future
+    profiles.collected_at = future
+    resumed = await client.post(
+        PREFIX + "/parent-touch/deliver", json=continuation, headers=HEADERS
+    )
+    assert resumed.status_code == 200, resumed.text
+    assert (
+        resumed.json()["asked_question"]["question_id"] == queued.json()["question"]["question_id"]
+    )
+    assert (
+        await client.post(PREFIX + "/parent-touch/deliver", json=continuation, headers=HEADERS)
+    ).json() == resumed.json()
+    assert (
+        await client.post(PREFIX + "/parent-touch/deliver", json=original, headers=HEADERS)
+    ).status_code == 429
+    profiles.collected_at = None
 
 
 if __name__ == "__main__":

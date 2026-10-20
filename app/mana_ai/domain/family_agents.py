@@ -92,12 +92,19 @@ class ParentTouchRequest(ParentChatRequest):
 class ParentTouchDeliveryRequest(ChatContract):
     parent_id: ParentChatId
     request_id: UUID
+    resume_deferred_request_id: UUID | None = None
 
 
 class ParentTouchDeliveryTurn(ParentChatRequest):
     """Host-only assistant turn; never persist a fabricated parent message."""
 
     message: Literal[""] = ""
+
+
+class ParentTouchDeferredTurn(ParentTouchDeliveryTurn):
+    """New backend intent, never replay of the original refused delivery."""
+
+    resume_deferred_request_id: UUID
 
 
 class ParentTouchQuestion(ChatContract):

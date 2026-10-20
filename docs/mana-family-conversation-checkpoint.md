@@ -1,5 +1,9 @@
 # Family conversation checkpoint — 2026-10-20
 
+Subsequent evidence and explicit deferred delivery:
+[specialist checkpoint](mana-family-specialist-checkpoint.md). This historical
+checkpoint's pending acceptance statements are not retroactively rewritten.
+
 Local, default-disabled application-facing increment after `1bea31c`. This is not
 a production deployment, OPERATION-agent change or complete quality acceptance.
 The [integration contract](mana-family-agents-integration.md) remains authoritative

@@ -63,6 +63,7 @@ class OpenAIParentChatModel:
                 )
             if prompt.question is None:
                 schema["properties"]["question"] = {"type": "null"}
+                schema["properties"]["body"]["minLength"] = 1
             schema["properties"]["notice_communicated"] = (
                 {"type": "boolean", "enum": [False]}
                 if prompt.notice is None

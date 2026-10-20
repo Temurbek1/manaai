@@ -70,6 +70,8 @@ async def test_slot_sdk_binds_only_runtime_selected_ids_and_counts_the_same_sche
     count, generation = sent
     assert count == {key: generation[key] for key in count}
     assert "question_id" not in generation["text"]["format"]["schema"]["properties"]
+    properties = generation["text"]["format"]["schema"]["properties"]
+    assert properties["body"].get("minLength", 0) == (0 if question else 1)
     if question:
         assert str(question.question_id) not in json.dumps(generation)
     if context.notice:
