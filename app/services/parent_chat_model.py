@@ -5,6 +5,8 @@ from typing import cast
 
 from openai import APIStatusError, AsyncOpenAI
 from openai.types.responses import ResponseInputParam
+from openai.types.responses.response_text_config_param import ResponseTextConfigParam
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.mana_ai.application.chat_ports import (
@@ -13,6 +15,7 @@ from app.mana_ai.application.chat_ports import (
     ChatPrompt,
 )
 from app.mana_ai.domain.chat import ChatTokens
+from app.mana_ai.domain.family_agents import ParentTouchModelReply
 
 
 class OpenAIParentChatModel:
@@ -34,6 +37,17 @@ class OpenAIParentChatModel:
             [{"role": role, "content": content} for role, content in prompt.messages],
         )
 
+    def _text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
+        text: ResponseTextConfigParam = {"verbosity": self._verbosity}
+        if prompt.structured_reply:
+            text["format"] = {
+                "type": "json_schema",
+                "name": "parent_touch_reply",
+                "strict": True,
+                "schema": ParentTouchModelReply.model_json_schema(),
+            }
+        return text
+
     async def count_input(self, prompt: ChatPrompt) -> int:
         async with asyncio.timeout(self._wall_timeout):
             return await self._count_input(prompt)
@@ -44,7 +58,7 @@ class OpenAIParentChatModel:
             instructions=prompt.instructions,
             input=self._input(prompt),
             reasoning={"effort": self._effort},
-            text={"verbosity": self._verbosity},
+            text=self._text(prompt),
             truncation="disabled",
         )
         payload = raw.http_response.json()
@@ -64,7 +78,7 @@ class OpenAIParentChatModel:
                 instructions=prompt.instructions,
                 input=self._input(prompt),
                 reasoning={"effort": self._effort},
-                text={"verbosity": self._verbosity},
+                text=self._text(prompt),
                 truncation="disabled",
                 max_output_tokens=max_output_tokens,
                 store=False,
@@ -135,11 +149,24 @@ class OpenAIParentChatModel:
             and 0 < len(answer) <= 32_000
             and tokens.output_tokens <= max_output_tokens
         )
+        question_id = None
+        if completed and prompt.structured_reply:
+            try:
+                reply = ParentTouchModelReply.model_validate_json(answer)
+                if reply.question_id is not None and (
+                    prompt.question is None or reply.question_id != prompt.question.question_id
+                ):
+                    raise ValueError("The reply selected an unadmitted question")
+                question_id = reply.question_id
+                answer = "\n\n".join(part for part in (reply.body.strip(), reply.question) if part)
+            except (ValueError, ValidationError):
+                completed = False
         return ChatModelReceipt(
             usage=tokens,
             model=model if isinstance(model, str) and valid_model else self._model,
             answer=answer if completed else None,
             completed=completed,
+            question_id=question_id,
         )
 
     async def close(self) -> None:

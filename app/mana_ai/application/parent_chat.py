@@ -1,6 +1,7 @@
 import asyncio
 import json
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 from app.mana_ai.application.chat_ports import (
@@ -11,7 +12,13 @@ from app.mana_ai.application.chat_ports import (
     ParentChatStore,
     ParentChildrenSource,
 )
-from app.mana_ai.domain.chat import ParentChatHistory, ParentChatRequest, ParentChatResponse
+from app.mana_ai.domain.chat import (
+    ParentChatHistory,
+    ParentChatRequest,
+    ParentChatResponse,
+    ParentChildContext,
+    StoredChatTurn,
+)
 
 PARENT_CHAT_INSTRUCTIONS = """You are the assistant inside MANA, a parental-control app.
 Help a parent understand and support their own children. Answer the actual question;
@@ -108,13 +115,13 @@ class ParentChatService:
                 if previous.answer is not None:
                     messages.append(("assistant", previous.answer))
             messages.append(("user", request.message))
-            prompt = ChatPrompt(PARENT_CHAT_INSTRUCTIONS, tuple(messages))
+            prompt = await self._prepare_prompt(turn, request, context, tuple(messages))
             input_tokens = await self._count_input(prompt)
             if history and input_tokens + 32 > turn.reserved_tokens:
                 # Re-size a different input only after a verified count. Never
                 # retry a failed count/source/generation or shorten current facts.
                 history = []
-                prompt = ChatPrompt(PARENT_CHAT_INSTRUCTIONS, (messages[0], messages[-1]))
+                prompt = replace(prompt, messages=(prompt.messages[0], prompt.messages[-1]))
                 input_tokens = await self._count_input(prompt)
             output_cap = min(self._max_output, turn.reserved_tokens - input_tokens)
             if output_cap < 32:
@@ -161,3 +168,12 @@ class ParentChatService:
         if type(tokens) is not int or tokens < 0:
             raise ParentChatError("token_count_unavailable", 503)
         return tokens
+
+    async def _prepare_prompt(
+        self,
+        turn: StoredChatTurn,
+        request: ParentChatRequest,
+        context: ParentChildContext,
+        messages: tuple[tuple[str, str], ...],
+    ) -> ChatPrompt:
+        return ChatPrompt(PARENT_CHAT_INSTRUCTIONS, messages)

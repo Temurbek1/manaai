@@ -2,6 +2,17 @@
 
 ## Repository expectations
 
+- The owner started a separate application-family agent redesign on 2026-10-20:
+  Parent-Touch is the only parent-facing speaker/communication manager;
+  Child-Safety owns the existing protective analyses and proposes internal questions.
+  Trigger safety work on new child data/parent messages, never unchanged-context
+  periodic inference. Parent-Touch retains 2000 daily tokens; Child-Safety requires
+  a separate explicit server budget. See `docs/mana-family-agents.md` for actual
+  implemented versus unfinished API/runtime/worker scope. This does not replace
+  the four administrative OPERATION agents or authorize deployment/source refresh.
+  The local v2 family queue preserves old chat history/holds but old v1 code refuses
+  it; do not call that refusal a working rollback or downgrade populated tables.
+
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on
   `ai.360rec.uz`, with exact chat ingress and a separately issued backend token.

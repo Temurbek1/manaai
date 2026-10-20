@@ -27,6 +27,47 @@ from app.mana_ai.domain.chat import (
 
 
 class SqliteParentChatStore:
+    _schema_version = 1
+
+    def _allowed_tables(self) -> set[str]:
+        return {"parent_chat_turns", "parent_chat_quota"}
+
+    def _extra_schema(self) -> str:
+        return ""
+
+    def _on_admitted(
+        self,
+        connection: sqlite3.Connection,
+        request: ParentChatRequest,
+        turn_id: int,
+        now: datetime,
+    ) -> None:
+        """Extension work shares the admission transaction; legacy mode is unchanged."""
+
+    def _valid_decision(
+        self,
+        connection: sqlite3.Connection,
+        turn: StoredChatTurn,
+        receipt: ChatModelReceipt,
+        now: datetime,
+    ) -> bool:
+        return receipt.question_id is None
+
+    def _on_settled(
+        self,
+        connection: sqlite3.Connection,
+        turn: StoredChatTurn,
+        receipt: ChatModelReceipt,
+        *,
+        valid: bool,
+    ) -> None:
+        """Extension work shares verified accounting and publication, never a callback."""
+
+    def _on_failed(
+        self, connection: sqlite3.Connection, turn: StoredChatTurn, *, unknown: bool
+    ) -> None:
+        """No queue state exists in the legacy adapter."""
+
     def __init__(
         self, path: Path, *, daily_limit: int, timezone: str, max_attempts: int = 20
     ) -> None:
@@ -56,13 +97,13 @@ class SqliteParentChatStore:
                     "AND name != 'sqlite_sequence'"
                 )
             }
-            if tables - {"parent_chat_turns", "parent_chat_quota"}:
+            if tables - self._allowed_tables():
                 raise RuntimeError("Parent chat requires a dedicated database")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version not in {0, 1}:
+            if version not in {0, 1, self._schema_version}:
                 raise RuntimeError("Unsupported parent chat storage version")
             connection.execute("PRAGMA journal_mode=WAL")
-            connection.executescript("""
+            connection.executescript(f"""
                 BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS parent_chat_turns (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,7 +137,8 @@ class SqliteParentChatStore:
                     attempts INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY(parent_id, day)
                 );
-                PRAGMA user_version=1;
+                {self._extra_schema()}
+                PRAGMA user_version={self._schema_version};
                 COMMIT;
             """)
 
@@ -252,6 +294,8 @@ class SqliteParentChatStore:
                             now.isoformat(),
                         ),
                     )
+                    assert cursor.lastrowid is not None
+                    self._on_admitted(connection, request, cursor.lastrowid, now)
                     connection.execute(
                         "UPDATE parent_chat_quota SET attempts=attempts+1 "
                         "WHERE parent_id=? AND day=?",
@@ -326,7 +370,7 @@ class SqliteParentChatStore:
 
     def _fail(self, turn: StoredChatTurn, code: str, status_code: int, unknown: bool) -> None:
         with self._transaction() as connection:
-            connection.execute(
+            changed = connection.execute(
                 "UPDATE parent_chat_turns SET status=?, reserved=CASE WHEN ? THEN reserved ELSE 0 "
                 "END, error_code=?, error_status=? WHERE id=? AND parent_id=? "
                 "AND status IN ('preparing', 'submitted')",
@@ -338,7 +382,9 @@ class SqliteParentChatStore:
                     turn.turn_id,
                     turn.parent_id,
                 ),
-            )
+            ).rowcount
+            if changed:
+                self._on_failed(connection, turn, unknown=unknown)
 
     async def settle(
         self,
@@ -373,7 +419,12 @@ class SqliteParentChatStore:
                 (receipt.usage.total, turn.parent_id, row["day"]),
             )
             within_reservation = receipt.usage.total <= row["reserved"]
-            valid = receipt.completed and bool(receipt.answer) and within_reservation
+            valid = (
+                receipt.completed
+                and bool(receipt.answer)
+                and within_reservation
+                and self._valid_decision(connection, turn, receipt, now)
+            )
             code = "model_answer_unavailable" if within_reservation else "model_usage_exceeded_hold"
             connection.execute(
                 "UPDATE parent_chat_turns SET status=?, reserved=0, updated_at=?, "
@@ -405,6 +456,7 @@ class SqliteParentChatStore:
                     "UPDATE parent_chat_turns SET answer=?, result=? WHERE id=?",
                     (receipt.answer, result.model_dump_json(), turn.turn_id),
                 )
+            self._on_settled(connection, turn, receipt, valid=bool(valid))
         if result is None:
             raise ParentChatError(code, 502)
         return result

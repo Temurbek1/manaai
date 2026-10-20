@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
+from uuid import UUID
 
 from app.mana_ai.domain.chat import (
     ChatQuota,
@@ -11,6 +12,7 @@ from app.mana_ai.domain.chat import (
     ParentChildContext,
     StoredChatTurn,
 )
+from app.mana_ai.domain.family_agents import FamilyQuestion
 
 
 class ParentChatError(Exception):
@@ -29,6 +31,8 @@ class ChatModelRejected(Exception):
 class ChatPrompt:
     instructions: str
     messages: tuple[tuple[str, str], ...]
+    structured_reply: bool = False
+    question: FamilyQuestion | None = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,7 @@ class ChatModelReceipt:
     model: str
     answer: str | None
     completed: bool
+    question_id: UUID | None = None
 
 
 class ParentChatModel(Protocol):
@@ -77,3 +82,7 @@ class ParentChatStore(Protocol):
     ) -> ParentChatHistory: ...
 
     async def quota(self, parent_id: str, now: datetime) -> ChatQuota: ...
+
+
+class ParentTouchStore(ParentChatStore, Protocol):
+    async def question_for_turn(self, parent_id: str, turn_id: int) -> FamilyQuestion | None: ...
