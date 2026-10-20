@@ -1,5 +1,13 @@
 # Parent-Touch / Child-Safety — active application redesign, 2026-10-20
 
+Current local checkpoint: **`1bea31c`**, private schema v5. Both APIs, the event
+worker, frozen validated report context, ordinary/urgent Parent-Touch notices and
+same-candidate closed profiles are implemented. **Real-model quality remains open**:
+four new synthetic parties revealed format/semantic/quota limits; do not call this
+a production-ready release or complete the goal. Read the latest v5 section below
+and the feature worktree's full checkpoint before continuing. Older zero-spend/
+unimplemented statements below describe their historical stages only.
+
 The owner requested a new **application-facing** agent environment. Parent-Touch
 is the only speaker in the parent's single chat and manages other agents'
 questions. Child-Safety owns child protection/behavior analyses and reads the
@@ -101,7 +109,7 @@ older v1/v2 readers **refuse it**. That is fail-closed evidence,
 not a working rollback. Do not deploy this checkpoint, downgrade its populated
 tables or restore an old database over newer history.
 
-## Latest API/runtime checkpoint
+## Earlier API/runtime checkpoint (`e30fba4`)
 
 `e30fba4` wires all ten Child-Safety POST contracts, SQL job paging/status/budget
 GETs, strict SDK receipts, fresh own-child profile checks, existing deterministic/
@@ -137,7 +145,7 @@ history to bypass it. Broader semantic and actual candidate/rollback checks rema
 open; current results are fakes/SDK MockTransport, not real-model quality,
 production deployment or full goal completion. No external source/model spend.
 
-## Earlier continuation notes (latest checkpoint above is authoritative)
+## Historical continuation notes (latest v5 checkpoint below supersedes these)
 
 1. Wire the implemented outbox, immutable data/chat admissions and separate ledger
    into the actual Child-Safety application service/worker. Read fresh ownership
@@ -174,4 +182,69 @@ Main/audio, existing parent chat/key/history/volume, SSH, operational data,
 providers, schedules and production remain untouched.
 
 Root unrelated tracked diff remains SHA-256
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
+## Latest v5 checkpoint — `1bea31c`
+
+Feature worktree `/mnt/ssd2/mana-family-agents-20261020`, branch
+`feat/mana-family-agents-20261020`; production/root application code untouched.
+New handoff: [backend integration](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-agents-integration.md).
+
+V5 freezes one minimized validated assessment plus at most one highest-severity
+finding, every quality note and separate actual dates at chat admission. New
+inference filters freshly revoked children/choices; replays retain original
+responses and never reread sources. Child-Safety atomically queues typed notices,
+never writes chat. Urgent validated ALERT/BLOCK facts can pass an awaiting question
+through Parent-Touch without creating another question. Routine notices coalesce
+and may defer without immediate paid repetition. GET remains SQL-only.
+
+The model schema permits only admitted IDs/null, disallows questions in ordinary
+body, and the host now rejects transport IDs/UUIDs in visible text. These guards
+do not establish semantic quality. The concise Parent-Touch prompt is separate
+from unchanged legacy-mode instructions. All raw verified usage is charged before
+format validation; unknown calls are not retried or refunded.
+
+Explicit safety-off v5 broker and Parent-Touch-off history/replay-only profiles
+preserve schema/history/unknown holds without constructing a safety provider or
+worker. V1-to-v5 migration does not recapture old turns. Old production/v1–v4 images
+still refuse v5; verified same-candidate deactivation is not an old-image rollback.
+
+Final `make verify`: session **42783**, actual exit **0**, ignored log
+`output/family-agent-v5-notice-acceptance-verify-20261020.log`: **433 backend tests**,
+**1 skipped**, **2 opt-in live excluded**, **26 UI tests /11 suites**, lint/format,
+mypy **237 files**, TypeScript/build, zero npm vulnerabilities. **82** focused
+cases overlap. `make audit-schema`, secret scan **399 files** and diff checks pass.
+The actual candidate image `mana-ai-family:local-v5-notice-20261020` /
+`sha256:a934ed41c4aa6b44b53e69acd399afe50c026ee533ac34152bf4aa40aedf4165`
+passed the packaged-app/SDK MockTransport smoke with production configuration,
+read-only filesystem, no network/capabilities and temporary private SQLite. It
+exercised automatic notice delivery, replay and both closed profiles. This is
+hermetic candidate acceptance, not real sources/model quality or deployment.
+
+Four **new** separate real-model synthetic diagnostics (not tests or old replays)
+used fake families, the currently configured `gpt-5.4-nano`/none effort and local
+ledgers. Twelve generations, all known usage; no unknown holds. Conservative
+uncached standard-rate estimate **$0.01095125** total, not an invoice:
+
+- `output/family-v5-model-20261020-IpyWoS`: first reply failed format, $0.00058915.
+- `output/family-v5-model-fixed-20261020-i3zXiO`: three valid calls; delivery
+  refused before generation by exact daily-token admission, $0.00338140.
+- `output/family-v5-model-compact-20261020-U2at2P`: four calls/delivered notice,
+  but **negative manual review**: visible routing text and unadmitted clarification;
+  not a semantic pass, $0.00348515. The new deterministic guard covers this class.
+- `output/family-v5-model-notice-20261020-YJcnpl`: new guarded/finding-context
+  party, useful analysis; notice withheld as `provider_output_invalid`. Only 144
+  output tokens fit and all were used, consuming the exact 2000 chat allowance;
+  raw terminal metadata was not saved, so the more precise provider cause is not
+  established. No retry/refund, $0.00349555.
+
+Preserve every `receipt.json`, private ledger and negative review; no old party
+may be replayed or relabelled as success. Next work is bounded RU/UZ communication
+quality and output admission under the **unchanged 2000 raw-token** chat allowance,
+or a separately agreed model/budget decision. Do not silently raise quotas or
+drop evidence/quality notes to make a diagnostic pass. Full user-requested loop
+quality remains unaccepted; keep the goal active. No deployment, real customer
+source read/contact, Firebase/GA4 refresh, SSH/key/schedule/OPERATION change.
+
+The root unrelated tracked diff was reverified unchanged before this pointer edit:
 `f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
