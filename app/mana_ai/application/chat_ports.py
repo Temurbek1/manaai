@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 from app.mana_ai.domain.chat import (
@@ -16,10 +16,15 @@ from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
     AgentQuestionReceipt,
     AgentQuestionRequest,
+    FamilyNotice,
     FamilyQuestion,
+    ParentTouchEvidence,
     ParentTouchHistory,
+    ParentTouchNotice,
     ParentTouchQuestion,
 )
+
+ChatDecisionFailure = Literal["provider_output_invalid", "reply_schema_invalid"]
 
 
 class ParentChatError(Exception):
@@ -40,6 +45,8 @@ class ChatPrompt:
     messages: tuple[tuple[str, str], ...]
     structured_reply: bool = False
     question: FamilyQuestion | None = None
+    evidence_reply: bool = False
+    notice: FamilyNotice | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +56,8 @@ class ChatModelReceipt:
     answer: str | None
     completed: bool
     question_id: UUID | None = None
+    notice_id: UUID | None = None
+    failure_code: ChatDecisionFailure | None = None
 
 
 class ParentChatModel(Protocol):
@@ -92,6 +101,12 @@ class ParentChatStore(Protocol):
 
 
 class ParentTouchStore(ParentChatStore, Protocol):
+    async def evidence_for_turn(
+        self, parent_id: str, turn_id: int, connected: tuple[int, ...]
+    ) -> ParentTouchEvidence | None: ...
+    async def delivered_notice(
+        self, parent_id: str, request_id: UUID
+    ) -> ParentTouchNotice | None: ...
     async def question_for_turn(self, parent_id: str, turn_id: int) -> FamilyQuestion | None: ...
 
     async def language_reference(self, parent_id: str, turn_id: int) -> str | None: ...

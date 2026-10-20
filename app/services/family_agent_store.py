@@ -15,7 +15,9 @@ from app.mana_ai.domain.family_agents import (
     AgentQuestionRequest,
     FamilyQuestion,
     ParentTouchDeliveryTurn,
+    ParentTouchEvidence,
     ParentTouchHistory,
+    ParentTouchNotice,
     ParentTouchQuestion,
     ParentTouchRequest,
 )
@@ -161,10 +163,11 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 (turn_id, row["question_id"]),
             )
         selected = self._offer_in_transaction(connection, request.parent_id, turn_id, now)
+        anchor = self._admit_extra_context(connection, request, turn_id, selected, now)
         language_turn_id, reference = turn_id, request.message
         delivery = isinstance(request, ParentTouchDeliveryTurn)
         if delivery:
-            if selected is None:
+            if anchor is None:
                 raise ParentChatError("no_question_ready_for_delivery", 409)
             previous = connection.execute(
                 "SELECT id,message FROM parent_chat_turns WHERE parent_id=? AND id<? "
@@ -176,9 +179,10 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
             language_turn_id, reference = previous["id"], previous["message"]
             if (
                 connection.execute(
-                    "SELECT 1 FROM family_turn_metadata WHERE parent_id=? AND kind='delivery' "
+                    "SELECT 1 FROM family_turn_metadata WHERE parent_id=? "
+                    "AND (kind='delivery' OR offered_question_id LIKE 'notice:%') "
                     "AND offered_question_id=? AND language_turn_id=?",
-                    (request.parent_id, str(selected.question_id), language_turn_id),
+                    (request.parent_id, anchor, language_turn_id),
                 ).fetchone()
                 is not None
             ):
@@ -190,11 +194,31 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 request.parent_id,
                 turn_id,
                 "delivery" if delivery else "message",
-                str(selected.question_id) if selected else None,
+                anchor,
                 language_turn_id,
                 reference,
             ),
         )
+
+    def _admit_extra_context(
+        self,
+        connection: sqlite3.Connection,
+        request: ParentChatRequest,
+        turn_id: int,
+        selected: FamilyQuestion | None,
+        now: datetime,
+    ) -> str | None:
+        return str(selected.question_id) if selected else None
+
+    async def evidence_for_turn(
+        self, parent_id: str, turn_id: int, connected: tuple[int, ...]
+    ) -> "ParentTouchEvidence | None":
+        return None
+
+    async def delivered_notice(
+        self, parent_id: str, request_id: UUID
+    ) -> "ParentTouchNotice | None":
+        return None
 
     def _valid_decision(
         self,
@@ -203,6 +227,8 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         receipt: ChatModelReceipt,
         now: datetime,
     ) -> bool:
+        if receipt.notice_id is not None:
+            return False
         if receipt.question_id is None:
             return True
         return (
@@ -338,13 +364,19 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                     ).fetchone()
                     if row is not None:
                         questions.append(self._public_question(row))
-                return ParentTouchHistory(
+                result = ParentTouchHistory(
                     **history.model_dump(),
                     active_question=self._public_question(active) if active else None,
                     message_questions=questions,
                 )
+                return self._enrich_history(connection, result)
 
         return await asyncio.to_thread(read)
+
+    def _enrich_history(
+        self, connection: sqlite3.Connection, history: ParentTouchHistory
+    ) -> ParentTouchHistory:
+        return history
 
     @staticmethod
     def _question(row: sqlite3.Row) -> FamilyQuestion:

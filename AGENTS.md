@@ -10,28 +10,27 @@
   a separate explicit server budget. See `docs/mana-family-agents.md` for actual
   implemented versus unfinished API/runtime/worker scope. This does not replace
   the four administrative OPERATION agents or authorize deployment/source refresh.
-  Parent-Touch HTTP/runtime, assistant-only delivery and durable producer dedup are
-  local and default disabled. Child-Safety/event execution is still unimplemented;
-  the directory must report that honestly. The local v3 family queue preserves old
-  chat history/holds but old v1/v2 code refuses it; do not call that refusal a
-  working rollback or downgrade populated tables. Standalone docs exporters must
-  resolve this checkout, not an unrelated editable Python installation.
-  The subsequent v4 `SqliteChildSafetyStore` is local/unwired: atomic new-parent
-  outbox, normalized observed-input dedup, frozen bounded chat/assessment references
-  and explicit separate server/parent/job token claims. It records verified usage
-  before future decision validation and never requeues unknown work. Raw inputs
-  clear only on known terminal outcomes; preserve real signal dates separately.
-  Do not mistake its fake ID authorization, manual receipt tests or refusing old
-  readers for actual source/model/worker integration or rollback acceptance.
-  The later local Child-Safety increment wires ten private capability endpoints,
-  SDK-raw receipts, existing analysis validation and a SQL event worker under
-  default-disabled `MANA_CHILD_SAFETY_ENABLED` plus explicit JSON limits. The worker
-  automatically delivers questions through Parent-Touch only; full assessment/
-  urgent-notice delivery and frozen Parent-Touch assessment context remain open.
-  SDK strict-schema conversion uses pinned 2.53.0's private helper; no parse-first
-  billing or transport retry is allowed. Runtime/source SDK mocks are not real
-  model-quality or release acceptance. Disabling safety after v4 currently selects
-  a refusing v3 reader: build a compatible closed reader before any release.
+  Local default-disabled runtime now wires ten private Child-Safety endpoints,
+  SDK-raw metering, existing analysis validation and a SQL event worker. Its v5
+  private adapter adds dated minimized report context and host-owned notices to
+  the earlier v4 outbox, normalized input dedup and separate explicit server/
+  parent/job token claims. Only Parent-Touch publishes questions or notices.
+  Urgent validated ALERT/BLOCK assessments may interrupt an awaiting question,
+  never create a second question or execute controls. Ordinary notices coalesce
+  and can remain deferred without automatic paid repetition. They are not push
+  delivery or an emergency-response guarantee. Freeze context at admission, keep
+  exact signal/evaluation/processing dates and all quality notes, and recheck
+  fresh connected-child ownership before inference. Unknown calls retain holds
+  across restart/day changes; never requeue or erase them. SDK strict-schema
+  conversion uses pinned 2.53.0's private helper; no parse-first billing or retry.
+  V5 safety-off mode uses an explicit broker-only reader; disabling Parent-Touch
+  uses a history/replay-only reader. Neither downgrades schema nor starts a safety
+  worker. Old production images refuse v5: same-candidate closed profiles are
+  distinct from an old-image rollback. No deployment is approved here.
+  See `docs/mana-family-agents-integration.md` for backend wiring and the latest
+  checkpoint for actual gates/candidate/quality limits. Do not mistake synthetic
+  SDK/runtime passes for real-family quality or delivery. Standalone docs exporters
+  must resolve this checkout, not an unrelated editable Python installation.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

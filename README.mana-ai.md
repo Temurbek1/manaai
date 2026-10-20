@@ -12,6 +12,10 @@ document requires it.
 The eleven analysis endpoints return typed results from minimized application evidence.
 The separate opt-in parent chat additionally stores one conversation and a daily token
 allowance per parent. See [the parent chat integration](docs/mana-parent-chat.md).
+The local default-disabled family-agent extension adds Parent-Touch coordination
+and asynchronous Child-Safety analysis, separate from OPERATION agents. See the
+[backend integration contract](docs/mana-family-agents-integration.md) and
+[implementation/acceptance checkpoint](docs/mana-family-agents.md).
 
 - **No operational database.** The 11 request/response capabilities remain stateless. Optional
   audio moderation uses bounded in-process workers while 360REC owns durable state and retry.

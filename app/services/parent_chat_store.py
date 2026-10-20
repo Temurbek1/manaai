@@ -54,7 +54,7 @@ class SqliteParentChatStore:
         receipt: ChatModelReceipt,
         now: datetime,
     ) -> bool:
-        return receipt.question_id is None
+        return receipt.question_id is None and receipt.notice_id is None
 
     def _on_settled(
         self,

@@ -128,7 +128,12 @@ class ChildSafetyService:
             metered = True
             if not eligible:
                 return await self.assessment(job.view.parent_id, job.view.job_id)
-            if not receipt.completed or receipt.answer is None or receipt.question_id is not None:
+            if (
+                not receipt.completed
+                or receipt.answer is None
+                or receipt.question_id is not None
+                or receipt.notice_id is not None
+            ):
                 raise ValueError("Invalid safety decision receipt")
             decision = SafetyModelDecision.model_validate_json(receipt.answer)
             result = await self._validate_result(job, decision, receipt.model)

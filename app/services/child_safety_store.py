@@ -43,11 +43,14 @@ from app.mana_ai.domain.requests import (
     ScamPrivacyShieldRequest,
     SmartContentFilterRequest,
 )
-from app.services.family_agent_store import SqliteFamilyAgentStore
+from app.services.touch_evidence_store import SqliteTouchEvidenceStore
 
 
-class SqliteChildSafetyStore(SqliteFamilyAgentStore):
-    _schema_version = 4
+class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
+    _schema_version = 5
+    child_tables = frozenset(
+        {"child_safety_jobs", "child_safety_requests", "child_safety_parent_events"}
+    )
 
     def __init__(
         self,
@@ -69,14 +72,10 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
         self._safety_limits = limits
 
     def _supported_versions(self) -> set[int]:
-        return super()._supported_versions() | {3}
+        return super()._supported_versions() | {3, 4}
 
     def _allowed_tables(self) -> set[str]:
-        return super()._allowed_tables() | {
-            "child_safety_jobs",
-            "child_safety_requests",
-            "child_safety_parent_events",
-        }
+        return super()._allowed_tables() | set(self.child_tables)
 
     def _extra_schema(self) -> str:
         return (
@@ -807,6 +806,7 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
                     "WHERE job_id=?",
                     (saved.model_dump_json(), self._utc(now).isoformat(), str(job.view.job_id)),
                 )
+                self._notice_from_assessment(connection, str(job.view.job_id), self._utc(now))
                 return self._observe(connection, row["parent_id"], row["job_id"])
 
         return await asyncio.to_thread(finish)
@@ -832,6 +832,10 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
         return await asyncio.to_thread(read)
 
     async def next_delivery(self, now: datetime) -> ParentTouchDeliveryRequest | None:
+        notice = await self.notice_delivery(now)
+        if notice is not None:
+            return notice
+
         def read() -> ParentTouchDeliveryRequest | None:
             day, _ = self._period(now)
             with self._transaction() as connection:

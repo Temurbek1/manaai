@@ -12615,6 +12615,13 @@
             ],
             "title": "Latest Request Status"
           },
+          "message_notices": {
+            "items": {
+              "$ref": "#/components/schemas/ParentTouchNotice"
+            },
+            "title": "Message Notices",
+            "type": "array"
+          },
           "message_questions": {
             "items": {
               "$ref": "#/components/schemas/ParentTouchQuestion"
@@ -12645,6 +12652,11 @@
             "title": "Parent Id",
             "type": "string"
           },
+          "pending_notices": {
+            "default": 0,
+            "title": "Pending Notices",
+            "type": "integer"
+          },
           "quota": {
             "$ref": "#/components/schemas/ChatQuota"
           },
@@ -12664,6 +12676,42 @@
           "message_questions"
         ],
         "title": "ParentTouchHistory",
+        "type": "object"
+      },
+      "ParentTouchNotice": {
+        "additionalProperties": false,
+        "properties": {
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "assessment",
+              "urgent"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "notice_id": {
+            "format": "uuid",
+            "title": "Notice Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "notice_id",
+          "child_id",
+          "turn_id",
+          "kind"
+        ],
+        "title": "ParentTouchNotice",
         "type": "object"
       },
       "ParentTouchQuestion": {
@@ -12763,6 +12811,16 @@
             "format": "date-time",
             "title": "Child Context Collected At",
             "type": "string"
+          },
+          "delivered_notice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParentTouchNotice"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "history_turns_included": {
             "title": "History Turns Included",
@@ -23128,7 +23186,7 @@
     },
     "/api/v1/mana-ai/parent-touch/chat": {
       "get": {
-        "description": "Backend-only. SQL observation: no source read, model call or question delivery. message_questions maps visible assistant turns to their frozen question identities. active_question may be outside the requested page; fetch its turn before showing a reply UI.",
+        "description": "Backend-only. SQL observation: no source read, model call or question delivery. message_questions maps visible assistant turns to their frozen question identities. active_question may be outside the requested page; fetch its turn before showing a reply UI. message_notices maps delivered assessments to assistant turns; pending_notices is not a send confirmation or a guarantee of immediate delivery.",
         "operationId": "read_chat_api_v1_mana_ai_parent_touch_chat_get",
         "parameters": [
           {
@@ -23251,7 +23309,7 @@
     },
     "/api/v1/mana-ai/parent-touch/deliver": {
       "post": {
-        "description": "Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/context. Unknown receipts remain held.",
+        "description": "Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/notice context. An urgent notice may interrupt an awaiting question without opening another question. Unknown receipts remain held.",
         "operationId": "deliver_question_api_v1_mana_ai_parent_touch_deliver_post",
         "requestBody": {
           "content": {
@@ -23290,7 +23348,7 @@
             "ParentChatBackendToken": []
           }
         ],
-        "summary": "Deliver at most one queued specialist question in the same chat",
+        "summary": "Deliver one queued specialist communication in the same chat",
         "tags": [
           "mana-ai"
         ]

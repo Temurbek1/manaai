@@ -1515,7 +1515,7 @@ export interface paths {
         };
         /**
          * Read the parent's one chat and exact reply identities
-         * @description Backend-only. SQL observation: no source read, model call or question delivery. message_questions maps visible assistant turns to their frozen question identities. active_question may be outside the requested page; fetch its turn before showing a reply UI.
+         * @description Backend-only. SQL observation: no source read, model call or question delivery. message_questions maps visible assistant turns to their frozen question identities. active_question may be outside the requested page; fetch its turn before showing a reply UI. message_notices maps delivered assessments to assistant turns; pending_notices is not a send confirmation or a guarantee of immediate delivery.
          */
         get: operations["read_chat_api_v1_mana_ai_parent_touch_chat_get"];
         put?: never;
@@ -1540,8 +1540,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Deliver at most one queued specialist question in the same chat
-         * @description Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/context. Unknown receipts remain held.
+         * Deliver one queued specialist communication in the same chat
+         * @description Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/notice context. An urgent notice may interrupt an awaiting question without opening another question. Unknown receipts remain held.
          */
         post: operations["deliver_question_api_v1_mana_ai_parent_touch_deliver_post"];
         delete?: never;
@@ -6375,6 +6375,8 @@ export interface components {
             latest_request_id?: string | null;
             /** Latest Request Status */
             latest_request_status?: ("preparing" | "submitted" | "completed" | "failed" | "unknown") | null;
+            /** Message Notices */
+            message_notices?: components["schemas"]["ParentTouchNotice"][];
             /** Message Questions */
             message_questions: components["schemas"]["ParentTouchQuestion"][];
             /** Messages */
@@ -6383,6 +6385,11 @@ export interface components {
             next_before_turn_id: number | null;
             /** Parent Id */
             parent_id: string;
+            /**
+             * Pending Notices
+             * @default 0
+             */
+            pending_notices: number;
             quota: components["schemas"]["ChatQuota"];
             /**
              * Speaker
@@ -6390,6 +6397,23 @@ export interface components {
              * @constant
              */
             speaker: "parent-touch";
+        };
+        /** ParentTouchNotice */
+        ParentTouchNotice: {
+            /** Child Id */
+            child_id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "assessment" | "urgent";
+            /**
+             * Notice Id
+             * Format: uuid
+             */
+            notice_id: string;
+            /** Turn Id */
+            turn_id: number;
         };
         /** ParentTouchQuestion */
         ParentTouchQuestion: {
@@ -6429,6 +6453,7 @@ export interface components {
              * Format: date-time
              */
             child_context_collected_at: string;
+            delivered_notice?: components["schemas"]["ParentTouchNotice"] | null;
             /** History Turns Included */
             history_turns_included: number;
             /** Model */

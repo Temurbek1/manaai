@@ -1,5 +1,6 @@
 """Application-family agents, separate from the four operational administrators."""
 
+import re
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -12,7 +13,13 @@ from app.mana_ai.domain.chat import (
     ParentChatRequest,
     ParentChatResponse,
 )
-from app.mana_ai.domain.enums import ManaAICapability
+from app.mana_ai.domain.enums import (
+    AnalysisStatus,
+    AnalysisVerdict,
+    FindingCategory,
+    ManaAICapability,
+    RiskLevel,
+)
 
 FamilyAgentId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{1,63}$", strict=True)]
 InformationKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_.-]{0,99}$", strict=True)]
@@ -99,15 +106,64 @@ class ParentTouchQuestion(ChatContract):
     turn_id: int = Field(gt=0, strict=True)
 
 
+class ParentTouchNotice(ChatContract):
+    notice_id: UUID
+    child_id: int = Field(gt=0, strict=True)
+    turn_id: int = Field(gt=0, strict=True)
+    kind: Literal["assessment", "urgent"]
+
+
+class ParentTouchFinding(ChatContract):
+    category: FindingCategory
+    risk_level: RiskLevel
+    summary: str
+    recommendation: str
+
+
+class ParentTouchAssessment(ChatContract):
+    assessment_id: UUID
+    child_id: int = Field(gt=0, strict=True)
+    capability: ManaAICapability
+    status: AnalysisStatus
+    verdict: AnalysisVerdict
+    summary: str
+    data_quality_notes: list[str]
+    evaluated_at: AwareDatetime | None
+    signal_first_observed_at: AwareDatetime | None
+    signal_last_observed_at: AwareDatetime | None
+    processed_at: AwareDatetime
+    significant_findings: list[ParentTouchFinding] = Field(default_factory=list, max_length=1)
+    available_finding_count: int = Field(default=0, ge=0, strict=True)
+
+
+class FamilyNotice(ChatContract):
+    notice_id: UUID
+    parent_id: ParentChatId
+    agent_id: FamilyAgentId
+    kind: Literal["assessment", "urgent"]
+    assessment: ParentTouchAssessment
+    expires_at: AwareDatetime
+
+
+class ParentTouchEvidence(ChatContract):
+    protocol: Literal["assessment-context-v1"] = "assessment-context-v1"
+    assessments: list[ParentTouchAssessment] = Field(max_length=1)
+    available_assessment_count: int = Field(ge=0, strict=True)
+    notice: FamilyNotice | None = None
+
+
 class ParentTouchResponse(ParentChatResponse):
     speaker: Literal["parent-touch"] = "parent-touch"
     asked_question: ParentTouchQuestion | None
+    delivered_notice: ParentTouchNotice | None = None
 
 
 class ParentTouchHistory(ParentChatHistory):
     speaker: Literal["parent-touch"] = "parent-touch"
     active_question: ParentTouchQuestion | None
     message_questions: list[ParentTouchQuestion]
+    message_notices: list[ParentTouchNotice] = Field(default_factory=list)
+    pending_notices: int = 0
 
 
 class FamilyAgentAvailability(ChatContract):
@@ -120,12 +176,21 @@ class FamilyAgentDirectory(ChatContract):
 
 
 class ParentTouchModelReply(ChatContract):
-    body: str = Field(max_length=2000)
+    body: str = Field(
+        max_length=2000,
+        pattern=r"^[^?؟？]*$",
+        description="Statements only. The single admitted question belongs in question, not body.",
+    )
     question: str | None
     question_id: UUID | None
 
     @model_validator(mode="after")
     def one_question(self) -> "ParentTouchModelReply":
+        for text in (self.body, self.question or ""):
+            if re.search(
+                r"\b(?:question|notice|parent|child)(?:_|[ -]+)id\b", text, re.I
+            ) or re.search(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b", text, re.I):
+                raise ValueError("Internal routing metadata is not parent-facing text")
         if any(marker in self.body for marker in ("?", "؟", "？")):
             raise ValueError("Questions belong only in the single question field")
         if (self.question is None) != (self.question_id is None):
@@ -140,3 +205,7 @@ class ParentTouchModelReply(ChatContract):
         if not self.body.strip() and self.question is None:
             raise ValueError("A parent-facing reply cannot be empty")
         return self
+
+
+class ParentTouchEvidenceReply(ParentTouchModelReply):
+    notice_id: UUID | None

@@ -13,6 +13,11 @@ from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
+from app.services.family_compatibility_store import (
+    SqliteClosedSafetyBrokerStore,
+    SqliteFamilyCompatibilityStore,
+    family_storage_version,
+)
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.parent_chat_children import ManakidsChatChildrenSource
 from app.services.parent_chat_model import OpenAIParentChatModel
@@ -30,11 +35,28 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         "daily_limit": settings.mana_parent_chat_daily_tokens,
         "max_attempts": settings.mana_parent_chat_max_attempts_per_day,
     }
+    version = await family_storage_version(settings.mana_parent_chat_database_path)
     if settings.mana_child_safety_enabled:
         assert settings.mana_child_safety_limits is not None
         store = SqliteChildSafetyStore(
             settings.mana_parent_chat_database_path,
             limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+    elif settings.mana_parent_touch_enabled and version == 5:
+        store = SqliteClosedSafetyBrokerStore(
+            settings.mana_parent_chat_database_path,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+    elif version >= 2 and (not settings.mana_parent_touch_enabled or version >= 4):
+        store = SqliteFamilyCompatibilityStore(
+            settings.mana_parent_chat_database_path,
+            version=version,
+            history_only=not settings.mana_parent_touch_enabled,
             timezone=settings.mana_parent_chat_timezone,
             question_limit=settings.mana_parent_touch_question_limit,
             **store_arguments,
@@ -67,7 +89,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 password=settings.manakids_api_password.get_secret_value(),
                 wall_timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
             )
-            if isinstance(store, SqliteFamilyAgentStore):
+            if isinstance(store, SqliteFamilyAgentStore) and settings.mana_parent_touch_enabled:
                 safety = None
                 if isinstance(store, SqliteChildSafetyStore):
                     assert settings.mana_child_safety_limits is not None

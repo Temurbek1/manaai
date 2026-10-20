@@ -10,12 +10,13 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.mana_ai.application.chat_ports import (
+    ChatDecisionFailure,
     ChatModelReceipt,
     ChatModelRejected,
     ChatPrompt,
 )
 from app.mana_ai.domain.chat import ChatTokens
-from app.mana_ai.domain.family_agents import ParentTouchModelReply
+from app.mana_ai.domain.family_agents import ParentTouchEvidenceReply, ParentTouchModelReply
 
 
 class OpenAIParentChatModel:
@@ -40,11 +41,36 @@ class OpenAIParentChatModel:
     def _text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
         text: ResponseTextConfigParam = {"verbosity": self._verbosity}
         if prompt.structured_reply:
+            schema = (
+                ParentTouchEvidenceReply if prompt.evidence_reply else ParentTouchModelReply
+            ).model_json_schema()
+            properties = schema["properties"]
+            if prompt.question is None:
+                properties["question"] = {"type": "null"}
+                properties["question_id"] = {"type": "null"}
+            else:
+                properties["question_id"] = {
+                    "anyOf": [
+                        {"type": "null"},
+                        {"type": "string", "enum": [str(prompt.question.question_id)]},
+                    ]
+                }
+            if prompt.evidence_reply:
+                permitted = (
+                    {"type": "string", "enum": [str(prompt.notice.notice_id)]}
+                    if prompt.notice
+                    else {"type": "null"}
+                )
+                properties["notice_id"] = (
+                    permitted
+                    if prompt.notice is None or prompt.notice.kind == "urgent"
+                    else {"anyOf": [{"type": "null"}, permitted]}
+                )
             text["format"] = {
                 "type": "json_schema",
                 "name": "parent_touch_reply",
                 "strict": True,
-                "schema": ParentTouchModelReply.model_json_schema(),
+                "schema": schema,
             }
         return text
 
@@ -150,9 +176,21 @@ class OpenAIParentChatModel:
             and tokens.output_tokens <= max_output_tokens
         )
         question_id = None
+        notice_id = None
+        failure_code: ChatDecisionFailure | None = None if completed else "provider_output_invalid"
         if completed and prompt.structured_reply:
             try:
-                reply = ParentTouchModelReply.model_validate_json(answer)
+                reply = (
+                    ParentTouchEvidenceReply if prompt.evidence_reply else ParentTouchModelReply
+                ).model_validate_json(answer)
+                if isinstance(reply, ParentTouchEvidenceReply):
+                    notice_id = reply.notice_id
+                    if notice_id is not None and (
+                        prompt.notice is None or notice_id != prompt.notice.notice_id
+                    ):
+                        raise ValueError("Unadmitted notice identity")
+                    if prompt.notice and prompt.notice.kind == "urgent" and notice_id is None:
+                        raise ValueError("An urgent notice must be communicated")
                 if reply.question_id is not None and (
                     prompt.question is None or reply.question_id != prompt.question.question_id
                 ):
@@ -161,12 +199,15 @@ class OpenAIParentChatModel:
                 answer = "\n\n".join(part for part in (reply.body.strip(), reply.question) if part)
             except (ValueError, ValidationError):
                 completed = False
+                failure_code = "reply_schema_invalid"
         return ChatModelReceipt(
             usage=tokens,
             model=model if isinstance(model, str) and valid_model else self._model,
             answer=answer if completed else None,
             completed=completed,
             question_id=question_id,
+            notice_id=notice_id if completed else None,
+            failure_code=failure_code,
         )
 
     async def close(self) -> None:

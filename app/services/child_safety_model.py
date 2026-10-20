@@ -10,7 +10,12 @@ from app.services.parent_chat_model import OpenAIParentChatModel
 
 class OpenAIChildSafetyModel(OpenAIParentChatModel):
     def _text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
-        if prompt.structured_reply or prompt.question is not None:
+        if (
+            prompt.structured_reply
+            or prompt.question is not None
+            or prompt.evidence_reply
+            or prompt.notice is not None
+        ):
             raise ValueError("A specialist cannot inherit Parent-Touch's publication protocol")
         return {
             "verbosity": self._verbosity,

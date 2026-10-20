@@ -66,7 +66,9 @@ async def read_agents(service: ServiceDep) -> FamilyAgentDirectory:
     summary="Read the parent's one chat and exact reply identities",
     description="Backend-only. SQL observation: no source read, model call or question delivery. "
     "message_questions maps visible assistant turns to their frozen question identities. "
-    "active_question may be outside the requested page; fetch its turn before showing a reply UI.",
+    "active_question may be outside the requested page; fetch its turn before showing a reply UI. "
+    "message_notices maps delivered assessments to assistant turns; pending_notices is not "
+    "a send confirmation or a guarantee of immediate delivery.",
 )
 async def read_chat(
     service: ServiceDep,
@@ -96,11 +98,12 @@ async def send_chat(service: ServiceDep, payload: ParentTouchRequest) -> ParentT
 @router.post(
     "/parent-touch/deliver",
     response_model=ParentTouchResponse,
-    summary="Deliver at most one queued specialist question in the same chat",
+    summary="Deliver one queued specialist communication in the same chat",
     description="Explicit backend dispatch, not a GET side effect or push notification. "
     "No fabricated parent message. Requires prior parent text for its frozen language/script, "
     "fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; "
-    "a new nonce cannot repeat the same question/context. Unknown receipts remain held.",
+    "a new nonce cannot repeat the same question/notice context. An urgent notice may interrupt "
+    "an awaiting question without opening another question. Unknown receipts remain held.",
 )
 async def deliver_question(
     service: ServiceDep,
