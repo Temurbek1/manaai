@@ -175,26 +175,25 @@ class FamilyAgentDirectory(ChatContract):
     agents: list[FamilyAgentAvailability]
 
 
-class ParentTouchModelReply(ChatContract):
+class ParentTouchText(ChatContract):
     body: str = Field(
         max_length=2000,
         pattern=r"^[^?؟？]*$",
         description="Statements only. The single admitted question belongs in question, not body.",
     )
     question: str | None
-    question_id: UUID | None
 
     @model_validator(mode="after")
-    def one_question(self) -> "ParentTouchModelReply":
+    def one_question(self) -> "ParentTouchText":
         for text in (self.body, self.question or ""):
-            if re.search(
-                r"\b(?:question|notice|parent|child)(?:_|[ -]+)id\b", text, re.I
-            ) or re.search(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b", text, re.I):
+            if (
+                re.search(r"\b(?:question|notice|parent|child)(?:_|[ -]+)id\b", text, re.I)
+                or re.search(r"\b(?:reply_to_question_id|notice_communicated)\b", text, re.I)
+                or re.search(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b", text, re.I)
+            ):
                 raise ValueError("Internal routing metadata is not parent-facing text")
         if any(marker in self.body for marker in ("?", "؟", "？")):
             raise ValueError("Questions belong only in the single question field")
-        if (self.question is None) != (self.question_id is None):
-            raise ValueError("A question requires its exact admitted identity")
         if self.question is not None:
             if not 1 <= len(self.question.strip()) <= 400:
                 raise ValueError("The parent-facing question must be bounded")
@@ -207,5 +206,21 @@ class ParentTouchModelReply(ChatContract):
         return self
 
 
+class ParentTouchModelReply(ParentTouchText):
+    question_id: UUID | None
+
+    @model_validator(mode="after")
+    def admitted_identity(self) -> "ParentTouchModelReply":
+        if (self.question is None) != (self.question_id is None):
+            raise ValueError("A question requires its exact admitted identity")
+        return self
+
+
 class ParentTouchEvidenceReply(ParentTouchModelReply):
     notice_id: UUID | None
+
+
+class ParentTouchSlotReply(ParentTouchText):
+    """Language generation cannot choose identities; the host owns the sole admitted slots."""
+
+    notice_communicated: bool = Field(strict=True)

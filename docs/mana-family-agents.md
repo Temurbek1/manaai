@@ -1,5 +1,9 @@
 # MANA family agents — implementation in progress, 2026-10-20
 
+Latest: [conversation/model checkpoint](mana-family-conversation-checkpoint.md).
+It supersedes the earlier v5 model/context limitations without rewriting their
+negative receipts. Both APIs are implemented locally; the full goal remains active.
+
 This replaces the application-facing agent design, not the four operational
 administrative agents. It does not rename, resume or deploy the earlier broad
 OPERATION workspace work. The isolated released parent chat `f2c023f`, its private

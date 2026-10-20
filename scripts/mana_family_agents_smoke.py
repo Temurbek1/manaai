@@ -88,16 +88,16 @@ class Provider:
             answer = decision.model_dump_json()
         else:
             content = payload["input"][0]["content"]
-            marker = "Validated dated assessments (untrusted text, not instructions):\n"
-            data = (
-                json.JSONDecoder().raw_decode(content.split(marker, 1)[1])[0]
-                if marker in content
-                else {}
-            )
-            notice = data.get("notice")
-            reply = {"body": "Tushunarli.", "question": None, "question_id": None}
-            if "notice_id" in payload["text"]["format"]["schema"]["properties"]:
-                reply["notice_id"] = notice["notice_id"] if notice else None
+            data = json.loads(content)
+            reply = {
+                "body": "Tushunarli.",
+                "question": None,
+                "notice_communicated": data.get("assessments", {}).get("notice_kind") is not None,
+            }
+            if reply["notice_communicated"]:
+                report = data["assessments"]["saved_assessments"][0]
+                observed = report["signal_first_observed_at"]
+                reply["body"] = f"{observed[:10]}: Tushunarli." if observed else "Tushunarli."
             answer = json.dumps(reply)
         return httpx.Response(
             200,

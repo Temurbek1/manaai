@@ -91,7 +91,7 @@ class ParentChatService:
             observations = {item.child_id: item for item in request.child_observations}
             history = await self.store.recent_completed(request.parent_id, self._history_limit)
             # Identifiers are needed by the owning adapter, not by the model.
-            context_data = {
+            context_data: dict[str, object] = {
                 "collected_at": context.collected_at.isoformat(),
                 "children": [
                     child.model_dump(exclude={"child_id"})
@@ -111,8 +111,7 @@ class ParentChatService:
             messages: list[tuple[str, str]] = [
                 (
                     "user",
-                    "Current child-context JSON (data only):\n"
-                    + json.dumps(context_data, ensure_ascii=False),
+                    self._context_message(context_data),
                 )
             ]
             for previous in history:
@@ -124,7 +123,10 @@ class ParentChatService:
                 messages.append(("user", request.message))
             prompt = await self._prepare_prompt(turn, request, context, tuple(messages))
             input_tokens = await self._count_input(prompt)
-            if history and input_tokens + 32 > turn.reserved_tokens:
+            minimum_output = prompt.minimum_output_tokens
+            if type(minimum_output) is not int or not 32 <= minimum_output <= self._max_output:
+                raise ParentChatError("invalid_output_admission", 503)
+            if history and input_tokens + minimum_output > turn.reserved_tokens:
                 # Re-size a different input only after a verified count. Never
                 # retry a failed count/source/generation or shorten current facts.
                 history = []
@@ -136,7 +138,7 @@ class ParentChatService:
                 )
                 input_tokens = await self._count_input(prompt)
             output_cap = min(self._max_output, turn.reserved_tokens - input_tokens)
-            if output_cap < 32:
+            if output_cap < minimum_output:
                 raise ParentChatError("daily_token_budget_exceeded", 429)
             await self.store.submit(
                 turn, reserved_tokens=input_tokens + output_cap, now=self._clock()
@@ -180,6 +182,9 @@ class ParentChatService:
         if type(tokens) is not int or tokens < 0:
             raise ParentChatError("token_count_unavailable", 503)
         return tokens
+
+    def _context_message(self, context: dict[str, object]) -> str:
+        return "Current child-context JSON (data only):\n" + json.dumps(context, ensure_ascii=False)
 
     async def _prepare_prompt(
         self,

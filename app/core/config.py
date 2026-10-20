@@ -44,8 +44,12 @@ class Settings(BaseSettings):
     mana_parent_chat_max_attempts_per_day: int = Field(default=20, ge=1, le=100)
     mana_parent_chat_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
     mana_parent_touch_enabled: bool = False
+    mana_parent_touch_model: str | None = Field(default="gpt-5.4", min_length=1, max_length=128)
     mana_parent_touch_question_limit: int = Field(default=100, ge=1, le=1000)
     mana_child_safety_enabled: bool = False
+    mana_child_safety_model: str | None = Field(
+        default="gpt-5.4-mini", min_length=1, max_length=128
+    )
     mana_child_safety_limits: ChildSafetyLimits | None = None
     mana_child_safety_max_output_tokens: int = Field(default=1024, ge=32, le=4096)
     mana_child_safety_poll_seconds: float = Field(default=1, ge=0.05, le=60)

@@ -10,6 +10,7 @@ from app.mana_ai.domain.chat import (
     ParentChatRequest,
     ParentChatResponse,
     ParentChildContext,
+    ResponseLanguage,
     StoredChatTurn,
 )
 from app.mana_ai.domain.family_agents import (
@@ -24,7 +25,9 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchQuestion,
 )
 
-ChatDecisionFailure = Literal["provider_output_invalid", "reply_schema_invalid"]
+ChatDecisionFailure = Literal[
+    "provider_output_invalid", "reply_schema_invalid", "reply_language_mismatch"
+]
 
 
 class ParentChatError(Exception):
@@ -47,6 +50,10 @@ class ChatPrompt:
     question: FamilyQuestion | None = None
     evidence_reply: bool = False
     notice: FamilyNotice | None = None
+    minimum_output_tokens: int = 32
+    slot_reply: bool = False
+    safety_parent_review: bool = False
+    response_language: ResponseLanguage | None = None
 
 
 @dataclass(frozen=True)

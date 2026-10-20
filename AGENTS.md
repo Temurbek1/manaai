@@ -31,6 +31,22 @@
   checkpoint for actual gates/candidate/quality limits. Do not mistake synthetic
   SDK/runtime passes for real-family quality or delivery. Standalone docs exporters
   must resolve this checkout, not an unrelated editable Python installation.
+  The subsequent slot/language increment is recorded in
+  `docs/mana-family-conversation-checkpoint.md`. Parent-Touch's provider schema
+  contains text/bool slots, never runtime UUIDs; bind them only to the frozen SQL
+  choices after metering. Preserve dated evidence/qualifications and known notice
+  UTC observation dates in text. Conservative RU/UZ/EN hints are presentation only;
+  neutral replies inherit one same-family reference, not source/action authority.
+  New private safety context v2 freezes pending needs/recent bound answers and an
+  optional typed review-only bit. V1/earlier v2 never upgrade. Old `1bea31c` workers
+  cannot execute new v2 even though SQL remains v5; use current closed profiles.
+  New default-disabled roles have isolated configurable GPT-5.4 speaker /mini safety
+  defaults, leaving old OPENAI_MODEL/chat/audio/stateless paths unchanged. Separate
+  safety limits remain mandatory. A qualified RU/UZ seeded-question pass is not
+  broad safety quality or a real-model specialist-originated-loop pass. Preserve
+  negative parties, known costs, deferrals and unknown holds; never replay them.
+  Exact-context quota refusals have no automatic next-day redispatch yet. No release
+  is authorized by this local checkpoint; keep the original objective active.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

@@ -78,7 +78,12 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     async with httpx.AsyncClient(
         timeout=15, follow_redirects=False, transport=httpx.AsyncHTTPTransport(retries=0)
     ) as client:
-        model = OpenAIParentChatModel(settings)
+        touch_settings = (
+            settings.model_copy(update={"openai_model": settings.mana_parent_touch_model})
+            if settings.mana_parent_touch_enabled and settings.mana_parent_touch_model
+            else settings
+        )
+        model = OpenAIParentChatModel(touch_settings)
         safety_model: OpenAIChildSafetyModel | None = None
         worker: FamilyAgentWorker | None = None
         try:
@@ -93,7 +98,14 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 safety = None
                 if isinstance(store, SqliteChildSafetyStore):
                     assert settings.mana_child_safety_limits is not None
-                    safety_model = OpenAIChildSafetyModel(settings)
+                    safety_settings = (
+                        settings.model_copy(
+                            update={"openai_model": settings.mana_child_safety_model}
+                        )
+                        if settings.mana_child_safety_model
+                        else settings
+                    )
+                    safety_model = OpenAIChildSafetyModel(safety_settings)
                     safety = ChildSafetyService(
                         store=store,
                         children=children,

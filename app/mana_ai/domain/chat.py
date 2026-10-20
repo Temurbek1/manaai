@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 ParentChatId = Annotated[str, StringConstraints(pattern=r"^[1-9][0-9]{0,18}$", strict=True)]
+ResponseLanguage = Literal["ru", "uz-Latn", "uz-Cyrl", "en"]
 TurnStatus = Literal["preparing", "submitted", "completed", "failed", "unknown"]
 
 

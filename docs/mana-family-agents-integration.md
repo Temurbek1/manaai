@@ -3,6 +3,8 @@
 Local implementation, **not deployed**. The current production parent chat is
 still the independent `f2c023f` service. Do not direct mobile clients at these new
 routes until a separately reviewed release configures their isolated ingress.
+The latest model/language/quality limits are in the
+[conversation checkpoint](mana-family-conversation-checkpoint.md).
 
 ## Contract
 
@@ -148,6 +150,11 @@ control changes, provider calls, new recipients or direct specialist speech.
   output tokens, messages or a guaranteed number of answers. Day boundaries use
   configured `MANA_PARENT_CHAT_TIMEZONE`. A small remaining quota may not fit even
   a short reply's input. `429` is a controlled quota/attempt/pending-cap refusal.
+- New Parent-Touch turns reserve room for structured output (normally at least
+  128 tokens; 256 with a selected question/notice, capped by the configured output
+  ceiling). Older history may be removed after one verified alternate input count,
+  never current facts, dates or quality notes. Insufficient space refuses **before
+  generation**. A floor cannot guarantee semantic quality or that every answer fits.
 - Child-Safety separately enforces explicit server/day, parent/day and per-job
   token ceilings, pending/attempt limits and one active job per family. No shared
   chat allowance, hidden renewal or transport/model retry. Verified invalid model
@@ -166,12 +173,43 @@ and explicitly set `MANA_CHILD_SAFETY_LIMITS` (`server_daily_tokens`,
 token ceilings, not an approved production spend. Use one dedicated private volume,
 the existing isolated backend credential and `APP_ENV=production`.
 
+New-role model defaults are `MANA_PARENT_TOUCH_MODEL=gpt-5.4` and
+`MANA_CHILD_SAFETY_MODEL=gpt-5.4-mini`. They do not change `OPENAI_MODEL`, legacy
+chat mode, audio or the old stateless endpoints. Both are configurable; programmatic
+`None` explicitly inherits `OPENAI_MODEL`, not a provider fallback/retry. There is
+no automatic model escalation. Model changes need their own quality/cost evaluation.
+The explicit Child-Safety server budget is still mandatory before activation.
+
+Technical UUIDs never enter the new model publication schema. The model writes
+one optional question and a `notice_communicated` boolean; the host binds them to
+the frozen SQL choices, revalidates them and publishes atomically. The public
+request/response/reply UUIDs stay unchanged. A notice with known signal dates must
+include those **UTC calendar dates** as `YYYY-MM-DD`; collection time cannot stand
+in for observation time. Invalid output retains verified charges and publishes
+no text, rather than silently correcting/retrying a paid answer.
+
+Language hints conservatively recognize RU, Uzbek Latin/Cyrillic and English; they
+are not a universal detector. A neutral reply (`да`, `Ha`, `7:00`) inherits the
+previous same-family frozen parent reference. New substantive prose does not
+silently inherit another language. Unknown languages stay model-directed using
+the parent's text. Clear recognized output mismatches are withheld after accounting.
+Hints affect presentation only, never ownership, sources, tools or budgets.
+
 V5 is additive: old chat responses/digests/usage/unknown holds stay intact; historical
 turns are never recaptured as new events. Disabling only Child-Safety selects the
 same-candidate broker-only reader without a safety provider/worker. Disabling
 Parent-Touch selects history/exact-replay-only mode, refusing new inference. Neither
 mode downgrades schema or erases data. **Old production/v1–v4 images refuse v5**;
 do not claim they can roll back populated history or restore an old backup over it.
+
+New safety snapshots use private context v2, with pending conversation needs and
+recent explicitly bound answers frozen in the chat-admission transaction. The
+typed parent-review bit is captured only in new snapshots: its schema permits
+`analysis=null`, a historical summary and an optional information need, never a
+fresh sensor analysis. Historical v1 and earlier v2 snapshots retain their original
+protocol; initialization/replay does not recapture or upgrade them. The old `1bea31c`
+reader cannot execute new contexts even though the outer SQLite version stays 5.
+Use the **new same-candidate closed profiles**, not an old worker, for deactivation.
 
 Hermetic local/candidate smoke (synthetic profiles and SDK MockTransport only):
 `python -m scripts.mana_family_agents_smoke`. This is not a live provider or

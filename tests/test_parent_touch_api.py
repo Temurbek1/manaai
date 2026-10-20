@@ -108,8 +108,13 @@ async def test_http_single_chat_question_answer_queue_and_frozen_replay(
         )
         assert delivered.status_code == 200 and delivered.json()["speaker"] == "parent-touch"
         assert delivered.json()["asked_question"]["question_id"] == question_id
-        assert "Frozen parent language reference" in model.prompts[-1].messages[0][1]
-        assert '"Salom"' in model.prompts[-1].messages[0][1]
+        assert model.prompts[-1].response_language == "uz-Latn"
+        assert (
+            await repository.language_reference(
+                "123", delivered.json()["asked_question"]["turn_id"]
+            )
+            == "Salom"
+        )
         assert all(content for role, content in model.prompts[-1].messages if role == "user")
         assert "not a new parent message" in model.prompts[-1].instructions
         counts = children.calls, model.calls

@@ -56,15 +56,28 @@ class SafetyChatMessage(ChatContract):
     created_at: AwareDatetime
 
 
+class SafetyConversationNeed(ChatContract):
+    child_id: int = Field(gt=0, strict=True)
+    information_key: InformationKey
+    question: str = Field(min_length=1, max_length=300)
+    status: Literal["queued", "offered", "awaiting_reply", "held", "answered"]
+    observed_at: AwareDatetime
+    answer: SafetyChatMessage | None = None
+
+
 class SafetyContextSnapshot(ChatContract):
-    version: Literal[1] = 1
+    version: Literal[1, 2] = 1
     chat_turn_cutoff: int = Field(ge=0, strict=True)
     messages: list[SafetyChatMessage] = Field(max_length=20)
     saved_assessment_ids: list[UUID] = Field(max_length=20)
     saved_assessment_total: int = Field(ge=0, strict=True)
+    conversation_needs: list[SafetyConversationNeed] = Field(default_factory=list, max_length=1010)
+    typed_parent_review: bool = Field(default=False, strict=True)
 
     @model_validator(mode="after")
     def exact_saved_identities(self) -> "SafetyContextSnapshot":
+        if self.version == 1 and (self.conversation_needs or self.typed_parent_review):
+            raise ValueError("Historical v1 contexts cannot acquire conversation needs")
         if len(set(self.saved_assessment_ids)) != len(self.saved_assessment_ids):
             raise ValueError("Frozen assessment identities must be unique")
         if self.saved_assessment_total < len(self.saved_assessment_ids):
@@ -146,6 +159,12 @@ class SafetyInformationNeed(ChatContract):
 class SafetyModelDecision(ChatContract):
     analysis: ModelAnalysis | None
     followup_summary: str | None = Field(min_length=1, max_length=1500)
+    question: SafetyInformationNeed | None
+
+
+class SafetyParentReviewDecision(ChatContract):
+    analysis: None
+    followup_summary: str = Field(min_length=1, max_length=1500)
     question: SafetyInformationNeed | None
 
 

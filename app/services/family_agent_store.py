@@ -5,9 +5,11 @@ import hashlib
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import cast
 from uuid import UUID, uuid4
 
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
+from app.mana_ai.application.parent_languages import neutral_parent_reply, parent_language
 from app.mana_ai.domain.chat import ParentChatRequest, StoredChatTurn
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
@@ -166,17 +168,17 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         anchor = self._admit_extra_context(connection, request, turn_id, selected, now)
         language_turn_id, reference = turn_id, request.message
         delivery = isinstance(request, ParentTouchDeliveryTurn)
+        if not delivery and parent_language(reference) is None and neutral_parent_reply(reference):
+            previous = self._previous_language(connection, request.parent_id, turn_id)
+            if previous is not None:
+                reference = previous["reference"]
         if delivery:
             if anchor is None:
                 raise ParentChatError("no_question_ready_for_delivery", 409)
-            previous = connection.execute(
-                "SELECT id,message FROM parent_chat_turns WHERE parent_id=? AND id<? "
-                "AND message!='' ORDER BY id DESC LIMIT 1",
-                (request.parent_id, turn_id),
-            ).fetchone()
+            previous = self._previous_language(connection, request.parent_id, turn_id)
             if previous is None:
                 raise ParentChatError("parent_language_not_established", 409)
-            language_turn_id, reference = previous["id"], previous["message"]
+            language_turn_id, reference = previous["id"], previous["reference"]
             if (
                 connection.execute(
                     "SELECT 1 FROM family_turn_metadata WHERE parent_id=? "
@@ -198,6 +200,21 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 language_turn_id,
                 reference,
             ),
+        )
+
+    @staticmethod
+    def _previous_language(
+        connection: sqlite3.Connection, parent_id: str, turn_id: int
+    ) -> sqlite3.Row | None:
+        return cast(
+            sqlite3.Row | None,
+            connection.execute(
+                "SELECT t.id,COALESCE(m.language_reference,t.message) AS reference "
+                "FROM parent_chat_turns t LEFT JOIN family_turn_metadata m "
+                "ON m.parent_id=t.parent_id AND m.turn_id=t.id "
+                "WHERE t.parent_id=? AND t.id<? AND t.message!='' ORDER BY t.id DESC LIMIT 1",
+                (parent_id, turn_id),
+            ).fetchone(),
         )
 
     def _admit_extra_context(
@@ -311,7 +328,7 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
             with self._connect() as connection:
                 row = connection.execute(
                     "SELECT language_reference FROM family_turn_metadata WHERE parent_id=? "
-                    "AND turn_id=? AND kind='delivery'",
+                    "AND turn_id=?",
                     (parent_id, turn_id),
                 ).fetchone()
                 return row[0] if row else None

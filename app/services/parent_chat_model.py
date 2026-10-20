@@ -1,6 +1,7 @@
 """No transport retries; strict raw terminal usage before text validation."""
 
 import asyncio
+from datetime import UTC
 from typing import cast
 
 from openai import APIStatusError, AsyncOpenAI
@@ -15,8 +16,14 @@ from app.mana_ai.application.chat_ports import (
     ChatModelRejected,
     ChatPrompt,
 )
+from app.mana_ai.application.parent_languages import language_name, parent_language
 from app.mana_ai.domain.chat import ChatTokens
-from app.mana_ai.domain.family_agents import ParentTouchEvidenceReply, ParentTouchModelReply
+from app.mana_ai.domain.family_agents import (
+    ParentTouchEvidenceReply,
+    ParentTouchModelReply,
+    ParentTouchSlotReply,
+    ParentTouchText,
+)
 
 
 class OpenAIParentChatModel:
@@ -39,7 +46,37 @@ class OpenAIParentChatModel:
         )
 
     def _text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
+        if prompt.safety_parent_review:
+            raise ValueError("A parent-chat adapter cannot inherit a specialist review protocol")
         text: ResponseTextConfigParam = {"verbosity": self._verbosity}
+        if prompt.slot_reply:
+            if not prompt.structured_reply:
+                raise ValueError("A publication slot requires a structured reply")
+            schema = ParentTouchSlotReply.model_json_schema()
+            if prompt.response_language:
+                language = language_name(prompt.response_language)
+                schema["properties"]["body"]["description"] = (
+                    f"Statements in {language}, no questions."
+                )
+                schema["properties"]["question"]["description"] = (
+                    f"Translate the admitted need into {language}; do not copy its source language."
+                )
+            if prompt.question is None:
+                schema["properties"]["question"] = {"type": "null"}
+            schema["properties"]["notice_communicated"] = (
+                {"type": "boolean", "enum": [False]}
+                if prompt.notice is None
+                else {"type": "boolean", "enum": [True]}
+                if prompt.notice.kind == "urgent"
+                else {"type": "boolean"}
+            )
+            text["format"] = {
+                "type": "json_schema",
+                "name": "parent_touch_slot_reply",
+                "strict": True,
+                "schema": schema,
+            }
+            return text
         if prompt.structured_reply:
             schema = (
                 ParentTouchEvidenceReply if prompt.evidence_reply else ParentTouchModelReply
@@ -180,9 +217,44 @@ class OpenAIParentChatModel:
         failure_code: ChatDecisionFailure | None = None if completed else "provider_output_invalid"
         if completed and prompt.structured_reply:
             try:
-                reply = (
-                    ParentTouchEvidenceReply if prompt.evidence_reply else ParentTouchModelReply
-                ).model_validate_json(answer)
+                reply: ParentTouchText
+                if prompt.slot_reply:
+                    reply = ParentTouchSlotReply.model_validate_json(answer)
+                    if reply.question is not None:
+                        if prompt.question is None:
+                            raise ValueError("No admitted question slot")
+                        question_id = prompt.question.question_id
+                    if reply.notice_communicated:
+                        if prompt.notice is None:
+                            raise ValueError("No admitted notice slot")
+                        report = prompt.notice.assessment
+                        dates = {
+                            instant.astimezone(UTC).date().isoformat()
+                            for instant in (
+                                report.signal_first_observed_at,
+                                report.signal_last_observed_at,
+                            )
+                            if instant is not None
+                        }
+                        if any(date not in reply.body for date in dates):
+                            raise ValueError("A delivered finding must retain its observation date")
+                        notice_id = prompt.notice.notice_id
+                    elif prompt.notice and prompt.notice.kind == "urgent":
+                        raise ValueError("The urgent notice slot must be communicated")
+                else:
+                    reply = (
+                        ParentTouchEvidenceReply if prompt.evidence_reply else ParentTouchModelReply
+                    ).model_validate_json(answer)
+                    question_id = reply.question_id
+                if prompt.response_language and any(
+                    detected is not None and detected != prompt.response_language
+                    for detected in (
+                        parent_language(reply.body),
+                        parent_language(reply.question or ""),
+                    )
+                ):
+                    failure_code = "reply_language_mismatch"
+                    raise ValueError("The speaker used another presentation language")
                 if isinstance(reply, ParentTouchEvidenceReply):
                     notice_id = reply.notice_id
                     if notice_id is not None and (
@@ -191,21 +263,20 @@ class OpenAIParentChatModel:
                         raise ValueError("Unadmitted notice identity")
                     if prompt.notice and prompt.notice.kind == "urgent" and notice_id is None:
                         raise ValueError("An urgent notice must be communicated")
-                if reply.question_id is not None and (
-                    prompt.question is None or reply.question_id != prompt.question.question_id
+                if question_id is not None and (
+                    prompt.question is None or question_id != prompt.question.question_id
                 ):
                     raise ValueError("The reply selected an unadmitted question")
-                question_id = reply.question_id
                 answer = "\n\n".join(part for part in (reply.body.strip(), reply.question) if part)
             except (ValueError, ValidationError):
                 completed = False
-                failure_code = "reply_schema_invalid"
+                failure_code = failure_code or "reply_schema_invalid"
         return ChatModelReceipt(
             usage=tokens,
             model=model if isinstance(model, str) and valid_model else self._model,
             answer=answer if completed else None,
             completed=completed,
-            question_id=question_id,
+            question_id=question_id if completed else None,
             notice_id=notice_id if completed else None,
             failure_code=failure_code,
         )

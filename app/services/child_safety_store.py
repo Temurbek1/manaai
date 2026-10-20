@@ -23,6 +23,7 @@ from app.mana_ai.domain.child_safety import (
     SafetyBudget,
     SafetyChatMessage,
     SafetyContextSnapshot,
+    SafetyConversationNeed,
     SafetyJob,
     SafetyJobView,
     SafetyStoredResult,
@@ -204,11 +205,44 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
             "GROUP BY child_key,capability_key) ORDER BY position DESC",
             (parent_id, parent_id),
         ).fetchall()
+        turns = {row["id"]: row for row in rows}
+        answer_positions = ",".join("?" for _ in turns) or "NULL"
+        needs = []
+        for question in connection.execute(
+            "SELECT * FROM family_questions WHERE parent_id=? AND "
+            "(status IN ('queued','offered','awaiting_reply','held') "
+            f"OR (status='answered' AND answer_turn_id IN ({answer_positions}))) "
+            "ORDER BY position LIMIT 1011",
+            (parent_id, *turns),
+        ).fetchall():
+            answer = turns.get(question["answer_turn_id"])
+            if question["status"] == "answered" and answer is None:
+                continue
+            value = self._question(question)
+            needs.append(
+                SafetyConversationNeed(
+                    child_id=value.child_id,
+                    information_key=value.information_key,
+                    question=value.question,
+                    status=question["status"],
+                    observed_at=value.observed_at,
+                    answer=SafetyChatMessage(
+                        role="user", content=answer["message"], created_at=answer["created_at"]
+                    )
+                    if answer
+                    else None,
+                )
+            )
+        if len(needs) > 1010:
+            raise ParentChatError("safety_question_context_too_large", 409)
         return SafetyContextSnapshot(
+            version=2,
+            typed_parent_review=True,
             chat_turn_cutoff=cutoff,
             messages=messages,
             saved_assessment_ids=[row[0] for row in saved[:20]],
             saved_assessment_total=len(saved),
+            conversation_needs=needs,
         )
 
     @staticmethod
