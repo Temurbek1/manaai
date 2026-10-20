@@ -44,9 +44,12 @@ and [backend integration](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family
 - Kit: `/opt/manaai-releases/family-f8d095e-20261020/kit/`; backups:
   `/var/backups/mana-ai/family-f8d095e-20261020/`. Compatible deactivation retains
   v6 history with the current image; never restore an old database/image over it.
-- GitHub push remains **403**: account `samanwirst` has pull but no push permission
-  on `Temurbek1/manaai`. Production uses verified tracked source/image artifacts;
-  remote branch publication still requires repository Write access.
+- The initial GitHub push returned **403** for pull-only `samanwirst`. Later on
+  2026-10-20 the owner selected `samango1`, verified with repository Write access;
+  normal push successfully published `feat/mana-family-agents-20261020`, including
+  application `f8d095e` and release documentation `813ad50`. The subsequent access
+  record is docs-only. Production was not redeployed or restarted; no force push,
+  credential bypass, fork or pull request was used.
 
 ## Historical local review-first checkpoint — `f8d095e`
 
