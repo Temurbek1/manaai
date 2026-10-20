@@ -112,7 +112,7 @@ class ParentTouchHistory(ParentChatHistory):
 
 class FamilyAgentAvailability(ChatContract):
     definition: FamilyAgentDefinition
-    status: Literal["available", "not_implemented"]
+    status: Literal["available", "disabled", "unavailable", "not_implemented"]
 
 
 class FamilyAgentDirectory(ChatContract):

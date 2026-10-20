@@ -5,7 +5,14 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import audio_moderation, health, mana_ai, mana_ai_chat, mana_family_agents
+from app.api.routes import (
+    audio_moderation,
+    health,
+    mana_ai,
+    mana_ai_chat,
+    mana_child_safety,
+    mana_family_agents,
+)
 from app.api.security import require_bearer_token
 from app.core.auth_rate_limiter import AuthenticationRateLimiter
 from app.core.config import get_settings
@@ -110,6 +117,7 @@ def create_app() -> FastAPI:
     api_router = APIRouter()
     api_router.include_router(mana_ai_chat.router, prefix="/mana-ai", tags=["mana-ai"])
     api_router.include_router(mana_family_agents.router, prefix="/mana-ai", tags=["mana-ai"])
+    api_router.include_router(mana_child_safety.router, prefix="/mana-ai", tags=["mana-ai"])
     api_router.include_router(health.router, prefix="/health", tags=["health"])
     api_router.include_router(
         audio_moderation.router,

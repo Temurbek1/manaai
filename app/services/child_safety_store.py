@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import cast
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from pydantic import BaseModel
 
@@ -19,6 +19,7 @@ from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.domain.chat import ChatTokens, ParentChatRequest
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
+    SafetyAssessmentPage,
     SafetyBudget,
     SafetyChatMessage,
     SafetyContextSnapshot,
@@ -28,7 +29,7 @@ from app.mana_ai.domain.child_safety import (
     SafetyTarget,
 )
 from app.mana_ai.domain.enums import ManaAICapability
-from app.mana_ai.domain.family_agents import AgentQuestionRequest
+from app.mana_ai.domain.family_agents import AgentQuestionRequest, ParentTouchDeliveryRequest
 from app.mana_ai.domain.requests import (
     AdaptiveScreenTimeRequest,
     AIGamingSafetyRequest,
@@ -214,6 +215,7 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
     @staticmethod
     def _view(row: sqlite3.Row) -> SafetyJobView:
         return SafetyJobView(
+            data_revision=row["data_digest"],
             job_id=row["job_id"],
             parent_id=row["parent_id"],
             child_id=row["child_key"] or None,
@@ -299,6 +301,7 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
         target: SafetyTarget,
         analysis: ManaAIRequest,
         now: datetime,
+        allow_new: bool = True,
     ) -> SafetyJobView:
         return await asyncio.to_thread(
             self._admit_analysis,
@@ -308,6 +311,7 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
             target.source_revision,
             analysis,
             self._utc(now),
+            allow_new,
         )
 
     @classmethod
@@ -331,6 +335,7 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
         source_revision: str,
         analysis: ManaAIRequest,
         now: datetime,
+        allow_new: bool,
     ) -> SafetyJobView:
         if analysis.input.capability == ManaAICapability.PARENT_COPILOT:
             raise ParentChatError("safety_capability_not_owned", 403)
@@ -372,6 +377,8 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
                 (parent_id, child_id, capability, data_digest),
             ).fetchone()
             if row is None:
+                if not allow_new:
+                    raise ParentChatError("child_safety_worker_unavailable", 503)
                 signal_times = self._signal_times(analysis.input)
                 if max([analysis.occurred_at, *signal_times]) > now + timedelta(minutes=5):
                     raise ParentChatError("safety_observation_in_future", 422)
@@ -582,6 +589,12 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
             if self._budget(connection, None, now).server_remaining_tokens < reserve:
                 return None
             day, _ = self._period(now)
+            attempts = connection.execute(
+                "SELECT COUNT(*) FROM child_safety_jobs WHERE day=? AND claim_id IS NOT NULL",
+                (day,),
+            ).fetchone()[0]
+            if attempts >= self._safety_limits.server_daily_attempts:
+                return None
             # Filter eligibility in SQL before the bounded result page. A prefix
             # of exhausted parents must not starve eligible families behind it.
             row = connection.execute(
@@ -797,3 +810,67 @@ class SqliteChildSafetyStore(SqliteFamilyAgentStore):
                 return self._observe(connection, row["parent_id"], row["job_id"])
 
         return await asyncio.to_thread(finish)
+
+    async def assessments(self, parent_id: str, *, after: int, limit: int) -> SafetyAssessmentPage:
+        if after < 0 or not 1 <= limit <= 100:
+            raise ParentChatError("invalid_safety_cursor", 422)
+
+        def read() -> SafetyAssessmentPage:
+            with self._connect() as connection:
+                rows = connection.execute(
+                    "SELECT * FROM child_safety_jobs WHERE parent_id=? AND position>? "
+                    "ORDER BY position LIMIT ?",
+                    (parent_id, after, limit + 1),
+                ).fetchall()
+                selected = rows[:limit]
+                return SafetyAssessmentPage(
+                    parent_id=parent_id,
+                    assessments=[self._view(r) for r in selected],
+                    next_after=selected[-1]["position"] if len(rows) > limit else None,
+                )
+
+        return await asyncio.to_thread(read)
+
+    async def next_delivery(self, now: datetime) -> ParentTouchDeliveryRequest | None:
+        def read() -> ParentTouchDeliveryRequest | None:
+            day, _ = self._period(now)
+            with self._transaction() as connection:
+                stale = connection.execute(
+                    "SELECT DISTINCT parent_id FROM parent_chat_turns WHERE status IN "
+                    "('preparing','submitted') AND updated_at<? LIMIT 100",
+                    ((self._utc(now) - timedelta(minutes=5)).isoformat(),),
+                ).fetchall()
+                for item in stale:
+                    self._recover_pre_dispatch(connection, item[0], self._utc(now))
+                row = connection.execute(
+                    "SELECT q.*, (SELECT MAX(t.id) FROM parent_chat_turns t WHERE "
+                    "t.parent_id=q.parent_id AND t.message!='') AS language_turn "
+                    "FROM family_questions q "
+                    "LEFT JOIN parent_chat_quota b ON b.parent_id=q.parent_id AND b.day=? "
+                    "WHERE q.status='queued' AND q.expires_at>? AND language_turn IS NOT NULL "
+                    "AND COALESCE(b.used,0)<? AND COALESCE(b.attempts,0)<? "
+                    "AND NOT EXISTS (SELECT 1 FROM parent_chat_turns t "
+                    "WHERE t.parent_id=q.parent_id "
+                    "AND t.status IN ('preparing','submitted','unknown')) "
+                    "AND NOT EXISTS (SELECT 1 FROM family_questions a "
+                    "WHERE a.parent_id=q.parent_id "
+                    "AND a.status IN ('offered','awaiting_reply','held')) "
+                    "AND NOT EXISTS (SELECT 1 FROM family_turn_metadata m "
+                    "WHERE m.parent_id=q.parent_id "
+                    "AND m.kind='delivery' AND m.offered_question_id=q.question_id "
+                    "AND m.language_turn_id=language_turn) "
+                    "ORDER BY q.priority DESC,q.position LIMIT 1",
+                    (day, self._utc(now).isoformat(), self._limit - 31, self._max_attempts),
+                ).fetchone()
+                return (
+                    ParentTouchDeliveryRequest(
+                        parent_id=row["parent_id"],
+                        request_id=uuid5(
+                            UUID(row["question_id"]), f"delivery:{row['language_turn']}"
+                        ),
+                    )
+                    if row
+                    else None
+                )
+
+        return await asyncio.to_thread(read)

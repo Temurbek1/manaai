@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.mana_ai.domain.child_safety import ChildSafetyLimits
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -43,6 +45,10 @@ class Settings(BaseSettings):
     mana_parent_chat_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
     mana_parent_touch_enabled: bool = False
     mana_parent_touch_question_limit: int = Field(default=100, ge=1, le=1000)
+    mana_child_safety_enabled: bool = False
+    mana_child_safety_limits: ChildSafetyLimits | None = None
+    mana_child_safety_max_output_tokens: int = Field(default=1024, ge=32, le=4096)
+    mana_child_safety_poll_seconds: float = Field(default=1, ge=0.05, le=60)
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -374,6 +380,21 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":
+        if self.mana_child_safety_enabled:
+            if not self.mana_parent_touch_enabled or self.mana_child_safety_limits is None:
+                raise ValueError(
+                    "Child-Safety requires Parent-Touch and explicit MANA_CHILD_SAFETY_LIMITS"
+                )
+            if self.mana_child_safety_max_output_tokens >= self.mana_child_safety_limits.job_tokens:
+                raise ValueError("Child-Safety output must fit inside its explicit job budget")
+            wall = 2 * (min(self.openai_timeout_seconds, 120) + 10)
+            if (
+                wall + self.mana_parent_chat_source_timeout_seconds + 5
+                >= self.mana_child_safety_limits.lease_seconds
+            ):
+                raise ValueError(
+                    "Child-Safety source/count/model timeouts must fit inside its SQL lease"
+                )
         if self.mana_parent_touch_enabled and not self.mana_parent_chat_enabled:
             raise ValueError("Parent-Touch requires the isolated parent chat runtime")
         try:

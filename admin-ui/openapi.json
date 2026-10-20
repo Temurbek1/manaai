@@ -3951,6 +3951,218 @@
         "title": "ChildChatObservation",
         "type": "object"
       },
+      "ChildSafetyAgreementRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/FamilyAgreementRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyAgreementRequest",
+        "type": "object"
+      },
+      "ChildSafetyAgreementResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FamilyAgreementResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "family_agreement",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyAgreementResponse",
+        "type": "object"
+      },
       "ChildSafetyAssistantActionProposal": {
         "additionalProperties": false,
         "properties": {
@@ -4013,6 +4225,46 @@
           "requires_parent_confirmation"
         ],
         "title": "ChildSafetyAssistantActionProposal",
+        "type": "object"
+      },
+      "ChildSafetyAssistantAdmission": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/ChildSafetyAssistantRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyAssistantAdmission",
         "type": "object"
       },
       "ChildSafetyAssistantDetails": {
@@ -4085,6 +4337,178 @@
           "message"
         ],
         "title": "ChildSafetyAssistantInput",
+        "type": "object"
+      },
+      "ChildSafetyAssistantReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChildSafetyAssistantResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "child_safety_assistant",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyAssistantReceipt",
         "type": "object"
       },
       "ChildSafetyAssistantRequest": {
@@ -4217,6 +4641,1702 @@
           "proposed_actions"
         ],
         "title": "ChildSafetyAssistantResponse",
+        "type": "object"
+      },
+      "ChildSafetyBehaviourRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/BehaviourAnomalyRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyBehaviourRequest",
+        "type": "object"
+      },
+      "ChildSafetyBehaviourResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BehaviourAnomalyResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "behaviour_anomaly",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyBehaviourResponse",
+        "type": "object"
+      },
+      "ChildSafetyContentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/SmartContentFilterRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyContentRequest",
+        "type": "object"
+      },
+      "ChildSafetyContentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmartContentFilterResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "smart_content_filter",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyContentResponse",
+        "type": "object"
+      },
+      "ChildSafetyFamilyDigestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/FamilyDigestRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyFamilyDigestRequest",
+        "type": "object"
+      },
+      "ChildSafetyFamilyDigestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FamilyDigestResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "family_digest",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyFamilyDigestResponse",
+        "type": "object"
+      },
+      "ChildSafetyGamingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AIGamingSafetyRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyGamingRequest",
+        "type": "object"
+      },
+      "ChildSafetyGamingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AIGamingSafetyResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "ai_gaming_safety",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyGamingResponse",
+        "type": "object"
+      },
+      "ChildSafetyLocationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/LocationIntelligenceRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyLocationRequest",
+        "type": "object"
+      },
+      "ChildSafetyLocationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationIntelligenceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "location_intelligence",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyLocationResponse",
+        "type": "object"
+      },
+      "ChildSafetySafetyMonitorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/SafetyMonitorRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetySafetyMonitorRequest",
+        "type": "object"
+      },
+      "ChildSafetySafetyMonitorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafetyMonitorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "safety_monitor",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetySafetyMonitorResponse",
+        "type": "object"
+      },
+      "ChildSafetyScamRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/ScamPrivacyShieldRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyScamRequest",
+        "type": "object"
+      },
+      "ChildSafetyScamResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScamPrivacyShieldResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "scam_privacy_shield",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyScamResponse",
+        "type": "object"
+      },
+      "ChildSafetyScreenTimeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AdaptiveScreenTimeRequest"
+          },
+          "child_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Child Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "request_id",
+          "source_revision",
+          "analysis"
+        ],
+        "title": "ChildSafetyScreenTimeRequest",
+        "type": "object"
+      },
+      "ChildSafetyScreenTimeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdaptiveScreenTimeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capability": {
+            "const": "adaptive_screen_time",
+            "title": "Capability",
+            "type": "string"
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "child_data",
+            "default": "child_data",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visibility": {
+            "const": "internal",
+            "default": "internal",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChildSafetyScreenTimeResponse",
         "type": "object"
       },
       "CompatibilityStatus": {
@@ -4869,6 +6989,8 @@
           "status": {
             "enum": [
               "available",
+              "disabled",
+              "unavailable",
               "not_implemented"
             ],
             "title": "Status",
@@ -6790,6 +8912,232 @@
         ],
         "title": "LocationSource",
         "type": "string"
+      },
+      "ManaAIActionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "contact_parent": "#/components/schemas/ContactParentAction",
+                "generate_family_report": "#/components/schemas/FamilyReportAction",
+                "notify_parent": "#/components/schemas/NotifyParentAction",
+                "propose_agreement_update": "#/components/schemas/AgreementUpdateAction",
+                "propose_app_restriction": "#/components/schemas/AppRestrictionAction",
+                "propose_geofence": "#/components/schemas/GeofenceAction",
+                "propose_limit_change": "#/components/schemas/LimitChangeAction",
+                "propose_resource_block": "#/components/schemas/ResourceBlockAction",
+                "propose_study_mode": "#/components/schemas/StudyModeAction",
+                "propose_temporary_access": "#/components/schemas/TemporaryAccessAction",
+                "request_check_in": "#/components/schemas/RequestCheckInAction",
+                "submit_extra_time_request": "#/components/schemas/SubmitExtraTimeRequestAction",
+                "submit_incident_report": "#/components/schemas/SubmitIncidentReportAction",
+                "warn_child": "#/components/schemas/WarnChildAction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotifyParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/WarnChildAction"
+              },
+              {
+                "$ref": "#/components/schemas/RequestCheckInAction"
+              },
+              {
+                "$ref": "#/components/schemas/LimitChangeAction"
+              },
+              {
+                "$ref": "#/components/schemas/StudyModeAction"
+              },
+              {
+                "$ref": "#/components/schemas/GeofenceAction"
+              },
+              {
+                "$ref": "#/components/schemas/AppRestrictionAction"
+              },
+              {
+                "$ref": "#/components/schemas/TemporaryAccessAction"
+              },
+              {
+                "$ref": "#/components/schemas/FamilyReportAction"
+              },
+              {
+                "$ref": "#/components/schemas/ResourceBlockAction"
+              },
+              {
+                "$ref": "#/components/schemas/ContactParentAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitExtraTimeRequestAction"
+              },
+              {
+                "$ref": "#/components/schemas/SubmitIncidentReportAction"
+              },
+              {
+                "$ref": "#/components/schemas/AgreementUpdateAction"
+              }
+            ],
+            "title": "Action"
+          },
+          "executed": {
+            "const": false,
+            "default": false,
+            "title": "Executed",
+            "type": "boolean"
+          },
+          "execution_policy": {
+            "$ref": "#/components/schemas/ExecutionPolicy"
+          },
+          "proposal_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_only": {
+            "const": true,
+            "default": true,
+            "title": "Proposal Only",
+            "type": "boolean"
+          },
+          "requires_parent_confirmation": {
+            "title": "Requires Parent Confirmation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "action",
+          "execution_policy",
+          "requires_parent_confirmation"
+        ],
+        "title": "ManaAIActionProposal",
+        "type": "object"
+      },
+      "ManaAIAnalysisResult": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "$ref": "#/components/schemas/ManaAICapability"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "data_quality_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Data Quality Notes",
+            "type": "array"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafetyMonitorDetails"
+              },
+              {
+                "$ref": "#/components/schemas/FamilyDigestDetails"
+              },
+              {
+                "$ref": "#/components/schemas/AdaptiveScreenTimeDetails"
+              },
+              {
+                "$ref": "#/components/schemas/LocationIntelligenceDetails"
+              },
+              {
+                "$ref": "#/components/schemas/SmartContentFilterDetails"
+              },
+              {
+                "$ref": "#/components/schemas/ScamPrivacyShieldDetails"
+              },
+              {
+                "$ref": "#/components/schemas/AIGamingSafetyDetails"
+              },
+              {
+                "$ref": "#/components/schemas/ParentCopilotDetails"
+              },
+              {
+                "$ref": "#/components/schemas/ChildSafetyAssistantDetails"
+              },
+              {
+                "$ref": "#/components/schemas/FamilyAgreementDetails"
+              },
+              {
+                "$ref": "#/components/schemas/BehaviourAnomalyDetails"
+              }
+            ],
+            "title": "Details"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyGuarantees"
+          },
+          "processed_at": {
+            "format": "date-time",
+            "title": "Processed At",
+            "type": "string"
+          },
+          "proposed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ManaAIActionProposal"
+            },
+            "title": "Proposed Actions",
+            "type": "array"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/AnalysisVerdict"
+          }
+        },
+        "required": [
+          "request_id",
+          "processed_at",
+          "status",
+          "verdict",
+          "summary",
+          "findings",
+          "checks",
+          "data_quality_notes",
+          "model_name",
+          "capability",
+          "details",
+          "proposed_actions"
+        ],
+        "title": "ManaAIAnalysisResult",
+        "type": "object"
       },
       "ManaAICapabilitiesResponse": {
         "additionalProperties": false,
@@ -12254,6 +14602,105 @@
         "title": "RunNowRequest",
         "type": "object"
       },
+      "SafetyAssessmentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "assessments": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyJobView"
+            },
+            "title": "Assessments",
+            "type": "array"
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "assessments"
+        ],
+        "title": "SafetyAssessmentPage",
+        "type": "object"
+      },
+      "SafetyBudget": {
+        "additionalProperties": false,
+        "properties": {
+          "parent_blocked_by_unknown": {
+            "title": "Parent Blocked By Unknown",
+            "type": "boolean"
+          },
+          "parent_daily_limit": {
+            "title": "Parent Daily Limit",
+            "type": "integer"
+          },
+          "parent_remaining_tokens": {
+            "title": "Parent Remaining Tokens",
+            "type": "integer"
+          },
+          "parent_reserved_tokens": {
+            "title": "Parent Reserved Tokens",
+            "type": "integer"
+          },
+          "parent_used_tokens": {
+            "title": "Parent Used Tokens",
+            "type": "integer"
+          },
+          "resets_at": {
+            "format": "date-time",
+            "title": "Resets At",
+            "type": "string"
+          },
+          "server_daily_limit": {
+            "title": "Server Daily Limit",
+            "type": "integer"
+          },
+          "server_remaining_tokens": {
+            "title": "Server Remaining Tokens",
+            "type": "integer"
+          },
+          "server_reserved_tokens": {
+            "title": "Server Reserved Tokens",
+            "type": "integer"
+          },
+          "server_used_tokens": {
+            "title": "Server Used Tokens",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_daily_limit",
+          "server_used_tokens",
+          "server_reserved_tokens",
+          "server_remaining_tokens",
+          "parent_daily_limit",
+          "parent_used_tokens",
+          "parent_reserved_tokens",
+          "parent_remaining_tokens",
+          "parent_blocked_by_unknown",
+          "resets_at",
+          "timezone"
+        ],
+        "title": "SafetyBudget",
+        "type": "object"
+      },
       "SafetyEventSignal": {
         "additionalProperties": false,
         "properties": {
@@ -12301,6 +14748,168 @@
           "summary"
         ],
         "title": "SafetyEventSignal",
+        "type": "object"
+      },
+      "SafetyJobView": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManaAICapability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "child_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "child_data",
+              "parent_message"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_turn_cutoff": {
+            "title": "Parent Turn Cutoff",
+            "type": "integer"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafetyStoredResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signal_first_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal First Observed At"
+          },
+          "signal_last_observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Last Observed At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "preparing",
+              "submitted",
+              "unknown",
+              "metered",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTokens"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "job_id",
+          "parent_id",
+          "child_id",
+          "kind",
+          "capability",
+          "status",
+          "parent_turn_cutoff",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SafetyJobView",
         "type": "object"
       },
       "SafetyMonitorActionProposal": {
@@ -12601,6 +15210,48 @@
           "proposed_actions"
         ],
         "title": "SafetyMonitorResponse",
+        "type": "object"
+      },
+      "SafetyStoredResult": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ManaAIAnalysisResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "followup_summary": {
+            "anyOf": [
+              {
+                "maxLength": 1500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Followup Summary"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          }
+        },
+        "title": "SafetyStoredResult",
         "type": "object"
       },
       "ScamPrivacyShieldActionProposal": {
@@ -19512,6 +22163,653 @@
           }
         ],
         "summary": "Give child-safe contextual guidance",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/adaptive-screen-time": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "screen_time_api_v1_mana_ai_child_safety_adaptive_screen_time_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyScreenTimeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyScreenTimeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Screen Time",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/ai-gaming-safety": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "gaming_api_v1_mana_ai_child_safety_ai_gaming_safety_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyGamingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyGamingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Gaming",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/assessments": {
+      "get": {
+        "operationId": "read_assessments_api_v1_mana_ai_child_safety_assessments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyAssessmentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Page same-family safety jobs (SQL only)",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/assessments/{job_id}": {
+      "get": {
+        "operationId": "read_assessment_api_v1_mana_ai_child_safety_assessments__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyJobView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe one same-family assessment",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/behaviour-anomaly": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "behaviour_api_v1_mana_ai_child_safety_behaviour_anomaly_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyBehaviourRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyBehaviourResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Behaviour",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/budget": {
+      "get": {
+        "operationId": "read_budget_api_v1_mana_ai_child_safety_budget_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyBudget"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Read safety tokens independently of chat quota",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/child-safety-assistant": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "assistant_api_v1_mana_ai_child_safety_child_safety_assistant_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyAssistantAdmission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyAssistantReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Assistant",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/family-agreement": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "agreement_api_v1_mana_ai_child_safety_family_agreement_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyAgreementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyAgreementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Agreement",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/family-digest": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "family_digest_api_v1_mana_ai_child_safety_family_digest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyFamilyDigestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyFamilyDigestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Family Digest",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/location-intelligence": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "location_api_v1_mana_ai_child_safety_location_intelligence_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyLocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyLocationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Location",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/safety-monitor": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "safety_monitor_api_v1_mana_ai_child_safety_safety_monitor_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetySafetyMonitorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetySafetyMonitorResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Safety Monitor",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/scam-privacy-shield": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "scam_api_v1_mana_ai_child_safety_scam_privacy_shield_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyScamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyScamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Scam",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/child-safety/smart-content-filter": {
+      "post": {
+        "description": "Backend-only. Derive parent_id from the authenticated MANA profile; child_id must equal analysis.subject.subject_id. This admits a durable asynchronous job, not a verified result or a chat send. Ownership is checked freshly before model work under a separate explicit server budget. Reuse request_id and the identical body after transport loss. Unchanged observations coalesce even with a new nonce. Poll assessments; GET/replay never dispatches. Internal results cannot execute controls or speak to the parent; use Parent-Touch.",
+        "operationId": "content_api_v1_mana_ai_child_safety_smart_content_filter_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChildSafetyContentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChildSafetyContentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Content",
         "tags": [
           "mana-ai"
         ]

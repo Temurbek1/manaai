@@ -10,6 +10,7 @@ from app.mana_ai.application.chat_ports import (
     ParentChildrenSource,
     ParentTouchStore,
 )
+from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.parent_chat import PARENT_CHAT_INSTRUCTIONS, ParentChatService
 from app.mana_ai.domain.chat import (
@@ -62,6 +63,7 @@ class ParentTouchService(ParentChatService):
         max_output_tokens: int,
         history_turn_limit: int,
         registry: FamilyAgentRegistry | None = None,
+        safety: ChildSafetyService | None = None,
     ) -> None:
         super().__init__(
             store=store,
@@ -73,13 +75,26 @@ class ParentTouchService(ParentChatService):
         )
         self._touch_store = store
         self._registry = registry or default_family_agents()
+        self.safety = safety
 
     def directory(self) -> FamilyAgentDirectory:
         return FamilyAgentDirectory(
             agents=[
                 FamilyAgentAvailability(
                     definition=definition,
-                    status="available" if definition.speaks_to_parent else "not_implemented",
+                    status=(
+                        "available"
+                        if definition.speaks_to_parent
+                        else (
+                            "available"
+                            if self.safety and self.safety.worker_available
+                            else "unavailable"
+                            if self.safety
+                            else "disabled"
+                        )
+                        if definition.agent_id == "child-safety"
+                        else "not_implemented"
+                    ),
                 )
                 for definition in self._registry.definitions()
             ]

@@ -23,6 +23,15 @@
   clear only on known terminal outcomes; preserve real signal dates separately.
   Do not mistake its fake ID authorization, manual receipt tests or refusing old
   readers for actual source/model/worker integration or rollback acceptance.
+  The later local Child-Safety increment wires ten private capability endpoints,
+  SDK-raw receipts, existing analysis validation and a SQL event worker under
+  default-disabled `MANA_CHILD_SAFETY_ENABLED` plus explicit JSON limits. The worker
+  automatically delivers questions through Parent-Touch only; full assessment/
+  urgent-notice delivery and frozen Parent-Touch assessment context remain open.
+  SDK strict-schema conversion uses pinned 2.53.0's private helper; no parse-first
+  billing or transport retry is allowed. Runtime/source SDK mocks are not real
+  model-quality or release acceptance. Disabling safety after v4 currently selects
+  a refusing v3 reader: build a compatible closed reader before any release.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

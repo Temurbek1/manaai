@@ -20,4 +20,5 @@ def isolate_local_secrets(monkeypatch: MonkeyPatch, request: FixtureRequest) -> 
     monkeypatch.setenv("META_LIVE_READONLY_VERIFY", "0")
     monkeypatch.setenv("AUDIO_MODERATION_ENABLED", "0")
     monkeypatch.setenv("MANA_PARENT_CHAT_ENABLED", "false")
+    monkeypatch.setenv("MANA_CHILD_SAFETY_ENABLED", "false")
     monkeypatch.setenv("AI_AUDIO_MODERATION_AUTH_TOKEN", "")

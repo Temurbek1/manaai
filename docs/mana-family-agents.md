@@ -35,7 +35,7 @@ key/history/quota and main/audio services remain unchanged on production.
   specialist prompt. Data/prompt text cannot change grants, recipient or language
   authority. Raw child signals must not enter operational reports or logs.
 
-## API shape — Parent-Touch implemented locally, Child-Safety still pending
+## API shape — both APIs implemented locally, release acceptance still pending
 
 All paths are under `/api/v1/mana-ai`; this remains an independent product API.
 
@@ -60,11 +60,13 @@ The four Parent-Touch/directory paths above are now implemented behind
 `MANA_PARENT_TOUCH_ENABLED=false` by default. Enabling it requires the existing
 isolated `MANA_PARENT_CHAT_ENABLED` runtime and its strong backend credential.
 `MANA_PARENT_TOUCH_QUESTION_LIMIT` bounds pending questions (default 100).
-No Child-Safety execution endpoint or worker is advertised as implemented.
+The subsequent Child-Safety increment below adds all ten protective admission
+endpoints, SQL assessment paging/status and budget reads, behind a separate
+default-disabled `MANA_CHILD_SAFETY_ENABLED` flag and explicit limits.
 
 `GET /agents` deliberately reports Parent-Touch `available`, Child-Safety
-`not_implemented`; the latter's definition lists its existing protective contracts,
-not a running background agent. Every new route uses `ParentChatBackendToken`,
+`disabled` when its optional runtime is absent, `available` when installed, and
+`unavailable` after an unclassified worker failure. Every new route uses `ParentChatBackendToken`,
 not the general inference security scheme. The existing `/chat` contract is
 unchanged and uses the same runtime/history/quota when Parent-Touch is enabled.
 
@@ -192,9 +194,9 @@ Implemented so far:
   importing `app`. An unrelated editable Python installation must not leak its
   operational working changes into this product's generated contracts.
 
-There is still no event worker, automatic delivery dispatch, urgent-notice delivery
-policy, runtime-wired Child-Safety model adapter or agent deployment. The separate
-budget/outbox core below is implemented but not activated. A queue fixture pass
+The subsequent runtime checkpoint adds an event worker, model adapter and automatic
+question delivery. Full assessment/urgent-notice delivery and release acceptance
+are still pending, and no production runtime was activated. A queue fixture pass
 and punctuation validation are not semantic language/safety acceptance or proof
 of real delivery. Revoked selected children fail closed before question inference;
 automatic cancellation/filtering of obsolete queue items is not implemented.
@@ -222,11 +224,11 @@ None of these tests calls the live model, children, Firebase/GA4 or production.
 This remains an intermediate checkpoint, not completion of the user-requested
 two-agent API or goal.
 
-## Local Child-Safety event/budget core — not yet runtime-wired
+## Earlier Child-Safety event/budget core acceptance
 
 `SqliteChildSafetyStore` is an explicitly constructed, private **v4** adapter over
-the family database; the existing application factory still selects v1/v3 only.
-It has **no provider, SDK, source listener, polling worker or HTTP activation**.
+the family database. At core checkpoint `867d915` the application factory selected
+v1/v3 only; the later increment below wires v4 into an explicitly enabled runtime.
 No real server budget has been assigned or charged. `ChildSafetyLimits` requires
 explicit job, parent/day and server/day raw-token ceilings, with
 `job <= parent <= server`. It cannot inherit Parent-Touch's 2000-token allowance.
@@ -295,23 +297,68 @@ working rollback/candidate-image acceptance. Never downgrade or overwrite new hi
 
 ## Remaining acceptance — preserve the full task
 
-1. Wire the implemented transactional outbox/version jobs and budget core into the
-   actual Child-Safety application service and event worker. Only new parent messages/
-   child facts trigger safety analysis, never assistant replies, GET/replay or
-   unchanged observations. Preserve exact frozen history/dates and producer dedup.
+### Current runtime/API checkpoint
+
+Implemented after the core gate: `ChildSafetyService`, `OpenAIChildSafetyModel`,
+`ChildSafetyPromptBuilder`, `FamilyAgentWorker`, ten endpoint-specific submission/
+receipt pairs, `GET /child-safety/assessments[/{job_id}]` and `/child-safety/budget`.
+POST returns **202** with a durable job identity; it is not proof of verified child
+ownership, completion or a chat send. GET and replay observe SQL only. Successful
+saved results are internal, with proposals still unexecuted.
+
+The enabled runtime reads one freshly ownership-filtered Manakids profile per
+claimed job, checks owner/collection age, freezes connected children, loads only
+captured same-family result references, and preflights exact model input. It makes
+one generation with transport retries disabled, records strict raw terminal usage
+before parsing `SafetyModelDecision`, and runs the captured semantic decision
+through the existing deterministic/evidence/action-proposal validation service.
+There is no second paid analysis call, fabricated sensor freshness or tool access.
+SDK 2.53.0's `to_strict_json_schema` makes nested/default fields required for the
+provider schema; reverify this private helper on SDK upgrades.
+
+New information needs enter the existing Parent-Touch queue atomically with the
+assessment. The SQL-only worker selector automatically admits a stable-ID
+Parent-Touch delivery when no other question/turn is active and quota permits.
+Assistant-only deliveries never trigger safety analysis. New parent replies do;
+the specialist receives their frozen dated text and previous assessment metadata.
+No Firestore/GA4 refresh, source scan/listener or periodic unchanged-data analysis
+is introduced. Unclassified worker/storage failures stop dispatch instead of
+automatically restarting; old-result replay/status remains available.
+
+Configuration: retain the existing isolated backend credentials and enable
+`MANA_PARENT_CHAT_ENABLED`, `MANA_PARENT_TOUCH_ENABLED`, then
+`MANA_CHILD_SAFETY_ENABLED` only with an explicit `MANA_CHILD_SAFETY_LIMITS` JSON
+object (required `server_daily_tokens`, `parent_daily_tokens`, `job_tokens`).
+These are raw-token ceilings, **not a USD forecast**. Server-wide daily attempts
+also bound zero-token source failures. Output cap and source/count/generation
+timeouts must fit the explicit job allowance/SQL lease. No real budget was enabled.
+
+Actual terminal gate: session **74434**, exit **0**, log
+`family-agent-child-runtime-final-verify-20261020.log`: **416 backend tests**,
+**1 skipped**, **2 opt-in live tests excluded**, **26 UI tests /11 suites**,
+Ruff/format/ESLint, mypy **232 files**, TypeScript/build, zero npm vulnerabilities.
+**41 focused tests** overlap that gate. Product docs now expose **30 paths**;
+all old path definitions are unchanged. Schema synchronization and secret scan
+**393 files** pass. An earlier format-only gate failure is retained in
+`family-agent-child-runtime-verify-20261020.log`, not reported as a pass.
+Tests cover actual SDK over MockTransport, all ten HTTP admissions and an actual
+lifespan/background-worker question/answer loop with fake model/source ports.
+This is not real-model semantic/safety quality, actual source acceptance or release.
+
+Remaining work below is still required for the full objective:
+
+1. Feed validated assessments into Parent-Touch's own bounded frozen context and
+   implement result/urgent-notice delivery even when no clarification is needed.
+   Currently automatic delivery carries questions, not every assessment result.
 2. Add automatic communication delivery and a separate typed urgent-notice policy;
    retain Parent-Touch as the only speaker, no fake parent turns and one active
    clarification. A routine question must not masquerade as an urgent safety alert.
-3. Build actual capability-specific Child-Safety routes using the existing
-   deterministic validation/evidence/action-proposal pipeline, dated own-child
-   facts and bounded same-parent chat. No execution of proposed controls.
-4. Connect the now-implemented separate budget ledger to a strict raw SDK receipt
-   adapter with transport retries disabled. Account verified terminal usage before
-   parsing decisions, including invalid output; preserve pending/unknown holds.
-   Reuse the existing deterministic/evidence/action-proposal pipeline through a
-   captured typed gateway, not a second paid inference. Define explicit runtime
-   settings/timeout ceilings; do not use the old generic parse-first/retrying
-   gateway as this ledger's receipt boundary. No Firebase/GA4 scans are implied.
+3. Complete failure/race/semantic acceptance for the new API/runtime and notices.
+   Do not represent internal assessment summaries as direct specialist chat sends.
+4. Verify compatible v4 closed readers and safe feature deactivation before release.
+   Merely disabling Child-Safety currently selects a v3 reader that refuses a populated
+   v4 database: safe refusal, but not acceptable availability/rollback. Never downgrade
+   or replace history to work around it. No production deployment is approved here.
 5. Complete the public API/authentication/configuration/lifespan/docs and backward
    compatibility contracts. Default-disabled migration/runtime until explicit
    activation, no accidental replacement of the deployed private parent-chat key.

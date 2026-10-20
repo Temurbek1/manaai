@@ -18,19 +18,27 @@ def test_public_docs_export_has_only_product_contracts(monkeypatch: MonkeyPatch)
     monkeypatch.setattr(Settings, "__init__", deny_settings)
     schema = export_mana_ai_docs.build_schema()
     expected = {f"/api/v1/mana-ai/{item.value.replace('_', '-')}" for item in ManaAICapability}
-    assert set(schema["paths"]) == expected | {
+    safety = {
+        f"/api/v1/mana-ai/child-safety/{c.value.replace('_', '-')}"
+        for c in ManaAICapability
+        if c != ManaAICapability.PARENT_COPILOT
+    }
+    assert set(schema["paths"]) == expected | safety | {
         "/api/v1/mana-ai/capabilities",
         "/api/v1/mana-ai/chat",
         "/api/v1/mana-ai/agents",
         "/api/v1/mana-ai/parent-touch/chat",
         "/api/v1/mana-ai/parent-touch/deliver",
         "/api/v1/mana-ai/parent-touch/requests",
+        "/api/v1/mana-ai/child-safety/assessments",
+        "/api/v1/mana-ai/child-safety/assessments/{job_id}",
+        "/api/v1/mana-ai/child-safety/budget",
     }
-    assert len(schema["paths"]) == 17
+    assert len(schema["paths"]) == 30
     assert schema["servers"] == [{"url": "/", "description": "Same-origin production API"}]
     assert set(schema["components"]["securitySchemes"]) == {"BearerToken", "ParentChatBackendToken"}
     for path, operations in schema["paths"].items():
-        family = "/parent-touch/" in path or path.endswith("/agents")
+        family = "/parent-touch/" in path or "/child-safety/" in path or path.endswith("/agents")
         scheme = "ParentChatBackendToken" if family or path.endswith("/chat") else "BearerToken"
         for operation in operations.values():
             assert operation["security"] == [{scheme: []}]
@@ -64,7 +72,7 @@ def test_export_is_exclusive_and_records_runtime(monkeypatch: MonkeyPatch, tmp_p
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest == {
         "runtime_image": image,
-        "path_count": 17,
+        "path_count": 30,
         "swagger_ui_version": "5.33.2",
         "source_reads": 0,
         "provider_calls": 0,

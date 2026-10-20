@@ -9,8 +9,9 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ChatTokens, ParentChatId
 from app.mana_ai.domain.enums import ManaAICapability
+from app.mana_ai.domain.family_agents import InformationKey
 from app.mana_ai.domain.requests import ManaAIRequest
-from app.mana_ai.domain.responses import ManaAIAnalysisResult
+from app.mana_ai.domain.responses import ManaAIAnalysisResult, ModelAnalysis
 
 SafetyJobKind = Literal["child_data", "parent_message"]
 SafetyJobStatus = Literal[
@@ -27,6 +28,7 @@ class ChildSafetyLimits(ChatContract):
     max_pending_jobs: int = Field(default=1000, ge=1, le=100_000, strict=True)
     max_parent_pending_jobs: int = Field(default=20, ge=1, le=1000, strict=True)
     parent_daily_attempts: int = Field(default=50, ge=1, le=1000, strict=True)
+    server_daily_attempts: int = Field(default=1000, ge=1, le=100_000, strict=True)
     history_turns: int = Field(default=4, ge=1, le=10, strict=True)
     max_context_bytes: int = Field(default=65_536, ge=4096, le=1_048_576, strict=True)
     max_queue_age_seconds: int = Field(default=3600, ge=60, le=86_400, strict=True)
@@ -43,7 +45,7 @@ class ChildSafetyLimits(ChatContract):
 
 class SafetyTarget(ChatContract):
     parent_id: ParentChatId
-    child_id: int = Field(gt=0, strict=True)
+    child_id: int = Field(gt=0, le=2**63 - 1, strict=True)
     request_id: UUID
     source_revision: str = Field(min_length=1, max_length=128, pattern=r"\S")
 
@@ -82,7 +84,7 @@ class SafetyStoredResult(ChatContract):
         return self
 
 
-class SafetyJobView(ChatContract):
+class SafetyJobState(ChatContract):
     job_id: UUID
     parent_id: ParentChatId
     child_id: int | None
@@ -98,7 +100,11 @@ class SafetyJobView(ChatContract):
     usage: ChatTokens | None = None
     model: str | None = None
     error_code: str | None = None
+
+
+class SafetyJobView(SafetyJobState):
     result: SafetyStoredResult | None = None
+    data_revision: str | None = Field(default=None, exclude=True)
 
 
 @dataclass(frozen=True)
@@ -127,3 +133,23 @@ class SafetyBudget(ChatContract):
     parent_blocked_by_unknown: bool
     resets_at: AwareDatetime
     timezone: str
+
+
+class SafetyInformationNeed(ChatContract):
+    child_alias: str = Field(pattern=r"^child-[1-9][0-9]?$", strict=True)
+    information_key: InformationKey
+    question: str = Field(min_length=1, max_length=300, pattern=r"\S")
+    reason: str = Field(min_length=1, max_length=400, pattern=r"\S")
+    priority: int = Field(ge=0, le=2, strict=True)
+
+
+class SafetyModelDecision(ChatContract):
+    analysis: ModelAnalysis | None
+    followup_summary: str | None = Field(min_length=1, max_length=1500)
+    question: SafetyInformationNeed | None
+
+
+class SafetyAssessmentPage(ChatContract):
+    parent_id: ParentChatId
+    assessments: list[SafetyJobView]
+    next_after: int | None = None

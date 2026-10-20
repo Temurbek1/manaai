@@ -75,7 +75,7 @@ async def test_http_single_chat_question_answer_queue_and_frozen_replay(
         agents = (await client.get(PREFIX + "/agents", headers=HEADERS)).json()["agents"]
         assert [(a["definition"]["agent_id"], a["status"]) for a in agents] == [
             ("parent-touch", "available"),
-            ("child-safety", "not_implemented"),
+            ("child-safety", "disabled"),
         ]
         initial = message(text="Salom").model_dump(mode="json")
         old = await client.post(PREFIX + "/chat", json=initial, headers=HEADERS)
