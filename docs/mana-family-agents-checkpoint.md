@@ -1,6 +1,34 @@
 # Parent-Touch / Child-Safety — active application redesign, 2026-10-20
 
-Current local checkpoint: **`920cc3f`**, SQLite v5 /new private safety context v2.
+Current local implementation: **`f8d095e`**, additive SQLite v6 /captured review-first
+parent messages. Parent-Touch speaks only after the new Child-Safety review supplies
+qualified guidance. New `POST /parent-touch/messages` returns `202`; its GET status
+and the shared single-chat history are observation only. Old synchronous `/chat`
+and `/parent-touch/chat` remain compatible, never silently upgraded.
+
+Read [the current review-first checkpoint](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-review-first-checkpoint.md)
+and [backend integration](/mnt/ssd2/mana-family-agents-20261020/docs/mana-family-agents-integration.md).
+Full gate: **509 backend /26 UI tests**, mypy **247 files**, lint/types/build,
+original session **67339**, terminal exit 0. Network-disabled actual candidate
+**`d4e3af258227…`** passed v5/v6 SDK/HTTP/closed-profile checks: eight mocked
+generations/ten fake profile reads, zero real source/provider calls. Twelve new
+review-first regressions cover concurrency, expiry, late-publication fences,
+unknown holds and no automatic retry across restart/midnight.
+
+Two fresh synthetic RU/UZ parties: **16 known generations /$0.03402875** estimated,
+no unknown holds. Final speaker totals **1691/1741** chat tokens; separately metered
+specialist guidance precedes and supports the answer. Combined retained family
+diagnostics: **135 /$0.21582965**, not an invoice. Limited model-quality qualifications
+remain documented; this is not broad real-family/emergency/business acceptance.
+
+The local two-agent API flow is implemented; production activation, isolated
+ingress/credential checks and app-owned real-family/channel acceptance are separate.
+No deployment, remote push, source refresh, key/SSH, audio, UI or OPERATION changes.
+Actual code remains in the feature worktree below; unrelated root dirt is preserved.
+
+## Previous specialist checkpoint — `920cc3f`
+
+SQLite v5 /new private safety context v2.
 The two APIs, event worker, notices and closed profiles now have host-bound text
 slots, conservative language hints, output admission floors and independent role
 models (new roles GPT-5.4 /mini; old production OPENAI_MODEL unchanged).
