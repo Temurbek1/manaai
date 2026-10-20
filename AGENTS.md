@@ -16,6 +16,13 @@
   chat history/holds but old v1/v2 code refuses it; do not call that refusal a
   working rollback or downgrade populated tables. Standalone docs exporters must
   resolve this checkout, not an unrelated editable Python installation.
+  The subsequent v4 `SqliteChildSafetyStore` is local/unwired: atomic new-parent
+  outbox, normalized observed-input dedup, frozen bounded chat/assessment references
+  and explicit separate server/parent/job token claims. It records verified usage
+  before future decision validation and never requeues unknown work. Raw inputs
+  clear only on known terminal outcomes; preserve real signal dates separately.
+  Do not mistake its fake ID authorization, manual receipt tests or refusing old
+  readers for actual source/model/worker integration or rollback acceptance.
 
 - The parent application chat is separate from the operational-agent workspace.
   The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on

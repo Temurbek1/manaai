@@ -193,7 +193,8 @@ Implemented so far:
   operational working changes into this product's generated contracts.
 
 There is still no event worker, automatic delivery dispatch, urgent-notice delivery
-policy, Child-Safety model-budget ledger or agent deployment. A queue fixture pass
+policy, runtime-wired Child-Safety model adapter or agent deployment. The separate
+budget/outbox core below is implemented but not activated. A queue fixture pass
 and punctuation validation are not semantic language/safety acceptance or proof
 of real delivery. Revoked selected children fail closed before question inference;
 automatic cancellation/filtering of obsolete queue items is not implemented.
@@ -221,21 +222,96 @@ None of these tests calls the live model, children, Firebase/GA4 or production.
 This remains an intermediate checkpoint, not completion of the user-requested
 two-agent API or goal.
 
+## Local Child-Safety event/budget core — not yet runtime-wired
+
+`SqliteChildSafetyStore` is an explicitly constructed, private **v4** adapter over
+the family database; the existing application factory still selects v1/v3 only.
+It has **no provider, SDK, source listener, polling worker or HTTP activation**.
+No real server budget has been assigned or charged. `ChildSafetyLimits` requires
+explicit job, parent/day and server/day raw-token ceilings, with
+`job <= parent <= server`. It cannot inherit Parent-Touch's 2000-token allowance.
+
+Implemented and tested:
+
+- A durable parent-message outbox is inserted in the **same transaction** as a
+  new parent chat admission, only when this v4 adapter is deliberately used.
+  Replay, history GET, failed admission and assistant-only delivery do not create
+  another event. Initializing v4 never recaptures historical parent turns.
+- New child-data jobs have exact nonce/body conflicts and nonce-independent
+  normalized observed-input deduplication. New request/revision labels, display
+  language, evaluation time and equivalent UTC-offset representations cannot pay
+  to reanalyze unchanged observations. A new parent message has its **own** review
+  event; resending old child data after that message still returns the old data job.
+- Each job freezes bounded same-family messages, including assistant-only questions,
+  an explicit chat cutoff, and at most twenty exact saved assessment references.
+  The separate latest-parent cutoff is a trigger identity, not the limit on visible
+  assistant messages. Snapshots report their saved-result total; neither this
+  bounded page nor recent SQL capture time proves complete/current coverage.
+- Provider-independent SQL claims reserve the explicit per-job ceiling against
+  both global and per-parent budgets before any future source/count/model I/O.
+  `BEGIN IMMEDIATE` and a unique active-parent index prevent two workers from
+  over-admitting or analyzing one family concurrently. Separate pending-job and
+  daily-attempt ceilings provide backpressure even when failed work used no tokens.
+  Eligibility is filtered before bounded result selection: exhausted/full parent
+  queues cannot starve an eligible family behind an older queue prefix.
+- Fresh connected-child authorization must be supplied by the future owning
+  application service and frozen before submission. Scope changes, expired claims
+  and model outputs cannot add another child. The real source-to-ledger connection
+  is **not implemented or accepted** by the current ID-only fake authorization tests.
+- Verified input/output usage is recorded **before** future schema/decision
+  validation. Invalid decisions retain their known cost. Unknown submissions never
+  requeue or release a reservation across restart/midnight. Expired pre-submission
+  claims fail without dispatch; a late old worker cannot submit. Late verified
+  receipts reconcile original admitted-day costs but cannot publish a decision.
+  An over-hold receipt is retained and cannot later be overwritten by a cheaper one.
+- Model settlement and final decision publication are separate: after metering,
+  one result and its optional own-child specialist question commit atomically.
+  A failed publication rolls back both without refunding the earlier verified cost.
+  Child-Safety never inserts a parent-visible chat message. Tests demonstrate that
+  the existing Parent-Touch lifecycle remains the only actual speaker.
+- Raw child input is cleared after terminal known failure/completion; hashes and
+  minimized derived results remain. Evaluation time, actual signal timestamp
+  bounds, processing time and SQL capture time remain separate. Timestamp bounds
+  are available signal instants, **not** proof of full observation-period coverage.
+  Unknown in-flight input/holds remain private and durable; no automated cleanup
+  may erase them as a way to retry. Future signal timestamps are refused on new work.
+- Exact capability restoration avoids an unsafe generic-union guess: battery
+  inputs can match both Safety Monitor and Behaviour Anomaly, so the persisted
+  capability selects the original typed request. Parent Copilot is not a safety
+  capability; result request/capability/parent/child identities must still match.
+
+Actual gate: original session **37549**, terminal exit **0**,
+`family-agent-safety-ledger-final-verify-20261020.log`: **398 backend tests**, **1 skipped**,
+**2 opt-in live tests excluded**, **26 UI tests /11 suites**, lint/format, mypy
+**223 files**, TypeScript/build and zero npm vulnerabilities. The **23** new ledger
+cases and **74** focused related cases overlap that full suite. `make audit-schema`
+passes with unchanged public paths/contracts; secret scan passes for **384** files.
+Only fakes and temporary local SQLite databases were used; external source/model
+calls and production spend are **zero**.
+
+V3-to-v4 local migration preserves existing history, replay and unknown Parent-Touch
+holds. Old v1/v2/v3 readers refuse v4; this remains fail-closed evidence, **not** a
+working rollback/candidate-image acceptance. Never downgrade or overwrite new history.
+
 ## Remaining acceptance — preserve the full task
 
-1. Add transactional outbox/version jobs around the now-wired, atomic chat lifecycle:
-   only new parent messages/child facts trigger safety analysis, not assistant replies,
-   GET/replay or unchanged context. Bound same-parent history and avoid recursive
-   self-triggered inference. Preserve the implemented producer dedup/ownership policy.
+1. Wire the implemented transactional outbox/version jobs and budget core into the
+   actual Child-Safety application service and event worker. Only new parent messages/
+   child facts trigger safety analysis, never assistant replies, GET/replay or
+   unchanged observations. Preserve exact frozen history/dates and producer dedup.
 2. Add automatic communication delivery and a separate typed urgent-notice policy;
    retain Parent-Touch as the only speaker, no fake parent turns and one active
    clarification. A routine question must not masquerade as an urgent safety alert.
 3. Build actual capability-specific Child-Safety routes using the existing
    deterministic validation/evidence/action-proposal pipeline, dated own-child
    facts and bounded same-parent chat. No execution of proposed controls.
-4. Add the separately configured Child-Safety budget ledger, strict raw receipts,
-   worker single-flight, immutable input/chat revisions, coalescing and restart
-   recovery. No analysis on unchanged context or automatic Firebase/GA4 scans.
+4. Connect the now-implemented separate budget ledger to a strict raw SDK receipt
+   adapter with transport retries disabled. Account verified terminal usage before
+   parsing decisions, including invalid output; preserve pending/unknown holds.
+   Reuse the existing deterministic/evidence/action-proposal pipeline through a
+   captured typed gateway, not a second paid inference. Define explicit runtime
+   settings/timeout ceilings; do not use the old generic parse-first/retrying
+   gateway as this ledger's receipt boundary. No Firebase/GA4 scans are implied.
 5. Complete the public API/authentication/configuration/lifespan/docs and backward
    compatibility contracts. Default-disabled migration/runtime until explicit
    activation, no accidental replacement of the deployed private parent-chat key.
