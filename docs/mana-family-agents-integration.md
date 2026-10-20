@@ -1,11 +1,18 @@
 # Parent-Touch / Child-Safety: backend integration
 
-Local implementation, **not deployed**. The current production parent chat is
-still the independent `f2c023f` service. Do not direct mobile clients at these new
-routes until a separately reviewed release configures their isolated ingress.
+**Deployed on 2026-10-20**, application `f8d095e`, base `https://ai.360rec.uz/api/v1/mana-ai`.
+Use the existing isolated MANA parent-chat backend token. The scoped
+[release record](mana-family-agents-release.md) documents actual tests, backup and
+deactivation; main/audio and the OPERATION workspace remain separate.
 The latest model/language/quality limits are in the
-[review-first checkpoint](mana-family-review-first-checkpoint.md). The coordinated
-workflow is implemented locally; broader real-family/release acceptance is separate.
+[review-first checkpoint](mana-family-review-first-checkpoint.md). Its synthetic
+quality qualifications remain; deployment is not broad real-family acceptance.
+
+Production Child-Safety has **2000 combined tokens/day globally**, separate from
+2000 chat tokens/day per parent. That small pool normally admits about one short
+review/day and may not fit a large protective analysis; do not promise continuous
+analysis or silently bypass its budget. New child data must be sent by the owning
+application backend; there is no automatic Firebase/GA4 scan.
 
 ## Contract
 
@@ -15,6 +22,9 @@ own authenticated session, and checks that the caller may use that family. Never
 embed this credential in mobile, share it with general inference/360REC, or accept
 an arbitrary parent's ID supplied by the phone. Parent IDs are canonical profile/
 Firebase numeric strings, not Firebase Auth UIDs. One parent always has one chat.
+Set an explicit descriptive `User-Agent`, such as `MANA-Backend/1.0`; the existing
+Cloudflare policy rejected Python urllib's default agent with 403/1010 during release.
+This is separate from API authentication; do not disable origin/TLS/WAF protection.
 
 | Method / path | Use |
 | --- | --- |

@@ -1,5 +1,10 @@
 # MANA family agents — implementation in progress, 2026-10-20
 
+Scoped production activation: [release record](mana-family-agents-release.md),
+application `f8d095e`, with automatic event processing and an explicit 2000-token
+**global** Child-Safety daily allowance. This does not activate bulk source refresh
+or change operational/admin agents. Earlier local checkpoints below remain historical.
+
 Latest: [review-first message checkpoint](mana-family-review-first-checkpoint.md).
 It supersedes the earlier v5 model/context limitations without rewriting their
 negative receipts. Both APIs and the coordinated review-first message workflow are

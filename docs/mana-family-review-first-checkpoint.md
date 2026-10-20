@@ -1,5 +1,8 @@
 # Review-first family messages — 2026-10-20
 
+Subsequent scoped production deployment: [release record](mana-family-agents-release.md).
+This historical local checkpoint and its qualified model evidence are unchanged.
+
 Local, default-disabled implementation after `920cc3f`; no production release.
 This implements the coordinated workflow missing from the
 [specialist checkpoint](mana-family-specialist-checkpoint.md). Old negative

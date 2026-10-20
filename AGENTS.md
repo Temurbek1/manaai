@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- On 2026-10-20 the owner separately authorized the scoped family-agent production
+  release and explicitly set Child-Safety's total server daily budget to 2000 tokens
+  for all parents. `f8d095e` now runs in the existing isolated parent-chat sidecar,
+  with Parent-Touch/safety/review-first enabled, same key/volume and private v6.
+  Chat remains 2000 raw tokens per parent/day. Automatic processing means new
+  messages/submitted observations, not Firebase/GA4 bulk refresh or OPERATION work.
+  See `docs/mana-family-agents-release.md` for actual image/backup/closed-reader
+  boundaries and qualified verification. Old no-release statements below describe
+  their historical local checkpoints, not permission to downgrade new history.
+  GitHub push is still refused for `samanwirst` (pull-only); do not claim the branch
+  was pushed or use another developer's credentials to bypass that boundary.
+
 - The owner started a separate application-family agent redesign on 2026-10-20:
   Parent-Touch is the only parent-facing speaker/communication manager;
   Child-Safety owns the existing protective analyses and proposes internal questions.
@@ -66,7 +78,7 @@
   RU/UZ synthetic evidence; this is not broad real-family or release acceptance.
 
 - The parent application chat is separate from the operational-agent workspace.
-  The authorized isolated production release is `mana-ai-parent-chat:f2c023f` on
+  The original isolated production release was `mana-ai-parent-chat:f2c023f` on
   `ai.360rec.uz`, with exact chat ingress and a separately issued backend token.
   See `docs/mana-parent-chat-release.md` for actual checks/rollback; main/audio,
   operations, UI and scheduler containers are unchanged by that release.
