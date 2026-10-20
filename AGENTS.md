@@ -11,8 +11,10 @@
   See `docs/mana-family-agents-release.md` for actual image/backup/closed-reader
   boundaries and qualified verification. Old no-release statements below describe
   their historical local checkpoints, not permission to downgrade new history.
-  GitHub push is still refused for `samanwirst` (pull-only); do not claim the branch
-  was pushed or use another developer's credentials to bypass that boundary.
+  The initial GitHub push was refused for `samanwirst` (pull-only). The owner then
+  selected `samango1` with verified repository Write access; the feature branch
+  was successfully published on 2026-10-20. No credential bypass, force push or
+  additional production restart was used. Keep the initial failure historical.
 
 - The owner started a separate application-family agent redesign on 2026-10-20:
   Parent-Touch is the only parent-facing speaker/communication manager;

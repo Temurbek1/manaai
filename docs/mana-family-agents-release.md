@@ -21,11 +21,15 @@ refresh or operational schedule.
 - Image archive SHA256: `0f51f6b1848e250702529fea97db3c68c1ed82bb11423dea33bf643ffdd6dbed`.
 - Tracked source archive SHA256: `25c378bd9ceb6f99bbd892239edf5ef7ca8b1f12fa3039974b5a2f53a341d27c`.
 
-GitHub push was attempted and refused with 403: active account `samanwirst` has
-pull=true/push=false on `Temurbek1/manaai`. No alternate developer credentials,
-repository fork or authentication change was used. The release therefore uses
-the verified tracked source/image artifacts, not a claimed remote Git push. The
-feature branch and later release documentation still need repository write access.
+The initial GitHub push was refused with 403: account `samanwirst` had
+pull=true/push=false on `Temurbek1/manaai`. Production therefore used the verified
+tracked source/image artifacts; the initial push failure remains historical.
+Later on 2026-10-20 the owner selected GitHub account `samango1`. Read-only API
+inspection confirmed push=true, and a normal non-force push successfully created
+`origin/feat/mana-family-agents-20261020`, including application `f8d095e` and release
+documentation `813ad50`. This access-resolution record is a subsequent docs-only
+increment on the same branch. No alternate credentials were searched for, no fork
+or pull request was created, and production was not redeployed or restarted.
 
 Only the isolated parent-chat service was recreated. Its existing backend token,
 provider/Manakids credentials, named private volume and loopback `18082` remain.
