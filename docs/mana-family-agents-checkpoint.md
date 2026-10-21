@@ -2,7 +2,36 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Latest commercial model checkpoint — `9b343d3`
+### Latest postfix acceptance / external handoff — `40fa2f9`
+
+Application source is still **9b343d3**; this latest feature commit adds evidence
+and the externally blocked handoff only. A separate post-fix party completed four
+isolated RU/UZ conversations/eight settled generations for standard uncached
+estimate **$0.02096025**, no unknown reserve. Both commercial parties total
+**$0.04131275** (16 generations), excluding all earlier project/Codex work. Paid
+terms and action/financial boundaries passed narrow checks with a Russian-trial
+phrasing caveat; no broad quality/production capacity/business claim is made.
+The original party/qualification and its exact fingerprint remain unchanged.
+
+Current image `mana-ai-family:commercial-wording-9b343d3-local`, ID
+`sha256:756635a71fd8b0f365196b2066e52b07b8548ac4179fdcf7e24756289f1126c1`,
+matches all **188** app files. Actual network-disabled v10/v9 sessions **46673**
+and **67459** passed current-image closure/reconstruction and hold preservation.
+Full **`make verify` session 97861**, exit **0**: **892 backend /26 UI tests**,
+mypy **282 files**, lint/types/build/audit zero. Secret scan **461 files** passed.
+Read [the complete acceptance and blocker audit](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-postfix-checkpoint.md).
+
+The principal was verified as mana-ai; one exact test-parent `4` GET still returns
+200 without is_paid/created_at/agent_trial_used. The alternate dated tariff doc
+is also a free-grant POST only; public schema probes returned 404. Supplied local
+settings contain no real paid catalog/activity/status feed. The same integration
+blocker has recurred over more than three goal turns: deployed field semantics,
+authoritative population/activity/consent events and actual approved offers are
+still needed. The full goal is not complete; no further fake/paid party or source
+poll is scheduled. Await owning-backend inputs, not synthetic substitutes.
+Production, source flags, quotas, private history, SSH, keys and schedules are unchanged.
+
+### Earlier commercial model checkpoint — `9b343d3`
 
 Feature source remains `/mnt/ssd2/mana-conversion-agent-20261021`. One bounded
 real-model party completed four isolated RU/Uzbek Latin review-first cases with
