@@ -2,7 +2,37 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### New account-source contract — `c7c411d`
+### Latest account-source admission — `8532a9f`
+
+Local feature source `/mnt/ssd2/mana-conversion-agent-20261021` now connects the
+strict account adapter to eligible explicit backend events behind default-off
+`MANA_CONVERSION_ACCOUNT_SOURCE_ENABLED`. Private **v10** claims each read in SQL
+before network dispatch; event replay/GET/restart never reread. Default ceilings
+are six hours per parent and 100 globally per rolling 24h. Pending/unknown reads
+retain their holds, including with another nonce/revision or after midnight.
+
+Saved source proof also gates publication, frozen offer availability, trial
+claims and unclaimed marketing push. No source-derived consent/free-start/paid
+conversion or tariff-name inference is added. A newer paid event fences a late
+source result. Same-code closed-v10 retains private history and the 2000-token
+unknown chat hold; old v9/production images cannot read v10. Do not downgrade.
+Read [the actual v10 checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-account-admission-checkpoint.md).
+
+Final **`make verify` session 7192**, terminal exit **0**: **883 backend /26 UI
+tests**, mypy **280 files**, lint/types/build and audit zero. Strict docs-count
+failures are recorded separately; their assertions were corrected, not relaxed.
+Product schema: **42 paths /46 operations**, synchronized; existing paths and
+schemas unchanged. New GET observes one saved source receipt only. Secret scan
+**456 files**, diff check passed. These fictional tests are not packaged-image,
+live-source, all-parent or real paid-conversion acceptance.
+
+One more bounded manual test-parent `4` read still returned 200 without the three
+announced fields. No values were retained; no production, refresh, real push/grant,
+paid model, Firebase/GA4, SSH/key or schedule change occurred. All-parent event
+production, confirmed date/paid precedence, real approved offers, candidate and
+contact release acceptance remain open. The original goal is not complete.
+
+### Earlier account-source contract — `c7c411d`
 
 The owner announced `is_paid`, `created_at` and `agent_trial_used` in Parent List.
 One subsequent bounded login/exact-parent GET for designated test parent `4`
