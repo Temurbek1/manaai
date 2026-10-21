@@ -247,3 +247,19 @@ and their correction are retained in the detailed checkpoint. Secret scan
 **456 files**, diff check passed. One additional bounded manual test-parent `4`
 GET still lacked all three announced fields; no data values, real contact,
 paid model, Firebase/GA4 read, production, SSH/key or schedule change occurred.
+
+## Packaged v10 source verification
+
+The application remains `8532a9f`. Local image **`09abd632f76b…`** matches all
+188 application Python files and passed actual network-disabled v10 source
+verification and previous v9 conversion profiles, with same-image closure and
+reconstruction preserving source receipts, legacy row fingerprints and the
+2000-token unknown hold. No `.env` or customer volume was mounted.
+Read [the exact candidate evidence](mana-conversion-account-candidate-checkpoint.md).
+
+Final **`make verify` session 63416**, exit **0**: **884 backend /26 UI tests**,
+mypy **280 files**, lint/types/build and audit zero. These fake/provider-SDK
+checks do not prove real-model sales quality or production capacity under the
+unchanged global Child-Safety budget. The real-source fields were not re-polled.
+The original population/source/catalog/contact and commercial-dialogue quality
+acceptance remain unfinished; there is no production activation or release.

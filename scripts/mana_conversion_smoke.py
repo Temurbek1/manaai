@@ -5,6 +5,7 @@ image and run with Docker --network=none. The HTTP gateways and pinned SDK still
 execute their actual adapters, using MockTransport only.
 """
 
+import argparse
 import asyncio
 import hashlib
 import json
@@ -37,6 +38,7 @@ from app.mana_ai.domain.conversion import (
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.services import parent_chat_runtime as runtime_module
 from app.services.family_compatibility_store import family_storage_version
+from app.services.manakids_conversion_accounts import ManakidsConversionAccountSource
 from app.services.manakids_parent_push import ManakidsParentPushGateway
 from app.services.manakids_trial_grants import ManakidsTrialGrantGateway
 from app.services.parent_chat_store import SqliteParentChatStore
@@ -112,12 +114,46 @@ class Upstream:
         self.logins = 0
         self.pushes: list[str] = []
         self.grants: list[str] = []
+        self.accounts: dict[str, dict[str, Any]] = {}
+        self.account_reads: list[str] = []
+        self.reject_next_login = False
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         assert request.url.host == "synthetic.invalid"
+        if request.method == "GET":
+            assert request.url.path == "/api/v1/admin-panel-parent/parent-list/"
+            parent = request.url.params["parent_id"]
+            assert dict(request.url.params) == {"parent_id": parent, "limit": "1", "offset": "0"}
+            assert request.headers["authorization"].startswith("Bearer fake-jwt-")
+            self.account_reads.append(parent)
+            if parent == "423":
+                raise httpx.ReadTimeout("synthetic unknown account read, never repeat")
+            event = self.accounts[parent]
+            return httpx.Response(
+                200,
+                json={
+                    "count": 1,
+                    "next": None,
+                    "results": [
+                        {
+                            "id": int(parent),
+                            "is_paid": False,
+                            "agent_trial_used": event["agent_trial_given"],
+                            "created_at": (datetime.now(UTC) - timedelta(days=365)).isoformat(),
+                            "payment_date": event["free_started_at"],
+                            "valid_until": event["free_access_ends_at"],
+                            "phone": "synthetic-not-for-model-context",
+                            "children": [{"id": int(parent) + 1}],
+                        }
+                    ],
+                },
+            )
         body = json.loads(request.content)
         if request.url.path == "/api/v1/admin-panel-auth/login/":
             self.logins += 1
+            if self.reject_next_login:
+                self.reject_next_login = False
+                return httpx.Response(403, json={"detail": "synthetic login refusal"})
             return httpx.Response(200, json={"access": f"fake-jwt-{self.logins}"})
         assert request.headers["authorization"].startswith("Bearer fake-jwt-")
         if request.url.path == "/api/v1/admin-panel-payment/agent-grant-tariff/":
@@ -215,6 +251,14 @@ async def seed_legacy(database: Path, limits: ChildSafetyLimits) -> str:
     return before
 
 
+def source_fingerprint(database: Path) -> str:
+    with sqlite3.connect(database) as connection:
+        rows = connection.execute(
+            "SELECT * FROM conversion_account_reads ORDER BY parent_id,event_id"
+        ).fetchall()
+    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
+
+
 async def poll(
     read: Callable[[], Awaitable[httpx.Response]],
     ready: Callable[[dict[str, Any]], bool],
@@ -251,7 +295,7 @@ def account(parent: str, *, expired: bool = False) -> ConversionSnapshot:
     )
 
 
-async def main() -> dict[str, object]:
+async def main(*, verify_accounts: bool = False) -> dict[str, object]:
     if os.environ.get("MANA_EXPECT_PACKAGED_APP") == "1":
         assert Path(product_ai_main.__file__).resolve() == Path("/app/app/product_ai_main.py")
     provider, profiles, upstream = CommercialProvider(), Profiles(), Upstream()
@@ -305,6 +349,7 @@ async def main() -> dict[str, object]:
             mana_conversion_enabled=True,
             mana_conversion_conversation_enabled=True,
             mana_conversion_trial_grants_enabled=True,
+            mana_conversion_account_source_enabled=verify_accounts,
             mana_conversion_policy=policy,
             mana_conversion_offers=(free, paid),
             mana_parent_touch_proactive_enabled=True,
@@ -317,6 +362,11 @@ async def main() -> dict[str, object]:
             with (
                 patch.object(runtime_module, "ManakidsChatChildrenSource", lambda **_: profiles),
                 patch.object(runtime_module, "OpenAIParentChatModel", provider.model),
+                patch.object(
+                    runtime_module,
+                    "ManakidsConversionAccountSource",
+                    lambda **kw: ManakidsConversionAccountSource(**(kw | {"client": mocked})),
+                ),
                 patch.object(
                     runtime_module,
                     "OpenAIChildSafetyModel",
@@ -338,6 +388,7 @@ async def main() -> dict[str, object]:
                 app.dependency_overrides[get_settings] = lambda: config
                 replays: list[tuple[str, dict[str, object], dict[str, Any]]] = []
                 snapshots: list[dict[str, Any]] = []
+                admissions: list[dict[str, Any]] = []
                 async with (
                     app.router.lifespan_context(app),
                     httpx.AsyncClient(
@@ -370,12 +421,20 @@ async def main() -> dict[str, object]:
                             headers=HEADERS,
                         )
                         assert registered.status_code == 200
-                        event = account(parent, expired=parent == "323").model_dump(mode="json")
+                        event = account(
+                            parent, expired=parent == "323" and not verify_accounts
+                        ).model_dump(mode="json")
+                        if parent == "323" and verify_accounts:
+                            # A current non-paid record, with the lifetime trial
+                            # already used. Do not fake expired Parent List coverage.
+                            event["agent_trial_given"] = True
+                        upstream.accounts[parent] = event
                         snapshots.append(event)
                         result = await client.post(
                             PREFIX + "/conversion-agent/events", json=event, headers=HEADERS
                         )
                         assert result.status_code == 202 and result.json()["proposal"]
+                        admissions.append(result.json())
                         history = await poll(
                             partial(
                                 client.get,
@@ -385,6 +444,7 @@ async def main() -> dict[str, object]:
                             lambda body: bool(body["messages"]),
                         )
                         assert [m["role"] for m in history["messages"]] == ["assistant"]
+                        assert "365" not in history["messages"][0]["content"]
                         notification = await poll(
                             partial(
                                 client.get,
@@ -397,7 +457,9 @@ async def main() -> dict[str, object]:
                         assert notification["pushes"][0]["queued_devices"] == 1
                         assert (profiles.reads, provider.generations) == before_offer
                         if parent == "323":
-                            assert result.json()["decision"] == "free_access_expired"
+                            assert result.json()["decision"] == (
+                                "seven_day_free_use" if verify_accounts else "free_access_expired"
+                            )
                             assert result.json()["proposal"]["offer"]["kind"] == "paid_subscription"
                             assert "15%" in history["messages"][0]["content"]
                             continue
@@ -451,7 +513,41 @@ async def main() -> dict[str, object]:
                             if parent == "123"
                             else "noma'lum" in receipt["content"]
                         )
-                    assert await family_storage_version(database) == 9
+                    schema_version = 10 if verify_accounts else 9
+                    source_events: list[dict[str, Any]] = []
+                    if verify_accounts:
+                        for parent in ("423", "523"):
+                            event = account(parent).model_dump(mode="json")
+                            upstream.accounts[parent] = event
+                            upstream.reject_next_login = parent == "523"
+                            result = await client.post(
+                                PREFIX + "/conversion-agent/events", json=event, headers=HEADERS
+                            )
+                            source_expected = "unknown" if parent == "423" else "refused"
+                            assert result.status_code == 202
+                            assert result.json()["decision"] == "account_read_" + source_expected
+                            assert result.json()["proposal"] is None
+                            observation = await client.get(
+                                PREFIX
+                                + f"/conversion-agent/source-observations/{event['event_id']}"
+                                + f"?parent_id={parent}",
+                                headers=HEADERS,
+                            )
+                            assert observation.json()["status"] == source_expected
+                            assert observation.headers["cache-control"] == "no-store"
+                            source_events.append(event)
+                            changed = event | {"event_id": str(uuid4()), "revision": 2}
+                            denied = await client.post(
+                                PREFIX + "/conversion-agent/events", json=changed, headers=HEADERS
+                            )
+                            assert denied.status_code == (409 if parent == "423" else 429)
+                        for event, original in zip(snapshots, admissions, strict=True):
+                            replay = await client.post(
+                                PREFIX + "/conversion-agent/events", json=event, headers=HEADERS
+                            )
+                            assert replay.json() == original
+                        assert upstream.account_reads == ["123", "223", "323", "423"]
+                    assert await family_storage_version(database) == schema_version
                     counts = provider.generations, provider.counts, profiles.reads, upstream.logins
                     for path, body, expected in replays:
                         assert (await client.get(path, headers=HEADERS)).json() == expected
@@ -471,14 +567,18 @@ async def main() -> dict[str, object]:
                         "223",
                         "323",
                     ]
-                    assert upstream.logins == 5 and provider.commercial_inputs == 2
+                    assert upstream.logins == (10 if verify_accounts else 5)
+                    assert provider.commercial_inputs == 2
                     assert provider.generations == 4
                     assert fingerprint(database) == legacy
+                    source_before = source_fingerprint(database) if verify_accounts else None
+                active_config = config
                 config = config.model_copy(
                     update={
                         "mana_conversion_enabled": False,
                         "mana_conversion_conversation_enabled": False,
                         "mana_conversion_trial_grants_enabled": False,
+                        "mana_conversion_account_source_enabled": False,
                         "mana_parent_touch_proactive_enabled": False,
                         "mana_parent_push_enabled": False,
                         "mana_child_safety_enabled": False,
@@ -518,12 +618,52 @@ async def main() -> dict[str, object]:
                         upstream.logins,
                     ) == counts
                     assert (
-                        await family_storage_version(database) == 9
+                        await family_storage_version(database) == schema_version
                         and fingerprint(database) == legacy
                     )
+                    if verify_accounts:
+                        assert source_fingerprint(database) == source_before
+                if verify_accounts:
+                    config = active_config
+                    reconstructed = product_ai_main.create_app()
+                    reconstructed.dependency_overrides[get_settings] = lambda: config
+                    async with (
+                        reconstructed.router.lifespan_context(reconstructed),
+                        httpx.AsyncClient(
+                            transport=httpx.ASGITransport(app=reconstructed), base_url="http://unit"
+                        ) as client,
+                    ):
+                        for event in source_events:
+                            source_expected = (
+                                "unknown" if event["parent_id"] == "423" else "refused"
+                            )
+                            replay = await client.post(
+                                PREFIX + "/conversion-agent/events", json=event, headers=HEADERS
+                            )
+                            assert replay.json()["decision"] == "account_read_" + source_expected
+                            denied = await client.post(
+                                PREFIX + "/conversion-agent/events",
+                                json=event | {"event_id": str(uuid4()), "revision": 2},
+                                headers=HEADERS,
+                            )
+                            assert denied.status_code == (
+                                409 if event["parent_id"] == "423" else 429
+                            )
+                        assert source_fingerprint(database) == source_before
+                        assert fingerprint(database) == legacy
+                        assert (
+                            provider.generations,
+                            provider.counts,
+                            profiles.reads,
+                            upstream.logins,
+                        ) == counts
+                        assert upstream.account_reads == ["123", "223", "323", "423"]
         summary: dict[str, object] = {
             "result": "passed",
-            "schema": 9,
+            "schema": schema_version,
+            "mocked_account_reads": len(upstream.account_reads),
+            "source_unknown_preserved": verify_accounts,
+            "source_auth_refusal_preserved": verify_accounts,
             "legacy_fingerprint_preserved": True,
             "legacy_unknown_hold": 2000,
             "synthetic_generations": provider.generations,
@@ -541,4 +681,7 @@ async def main() -> dict[str, object]:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--verify-accounts", action="store_true")
+    arguments = parser.parse_args()
+    asyncio.run(main(verify_accounts=arguments.verify_accounts))

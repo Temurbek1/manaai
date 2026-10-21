@@ -110,3 +110,8 @@ strict allowlist and both counts; the comparison was not relaxed. The focused
 docs/source suite then passed 32 cases before the final full gate. Focused counts
 overlap the full suite and are not additional coverage. Tests use no real models,
 pushes, grants or source reads. Production is unchanged.
+
+The subsequent [actual hermetic candidate checkpoint](mana-conversion-account-candidate-checkpoint.md)
+verifies packaged v10 and prior v9 modes, unchanged source/legacy fingerprints
+and current same-image closure/reconstruction. It is not an old-image rollback,
+real source/model/contact acceptance or production activation.

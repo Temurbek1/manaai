@@ -13,6 +13,12 @@
   Only current same-code closed-v10 retains this history; v9/production images
   cannot read it. No production activation, refresh or all-parent producer is
   included. See `docs/mana-conversion-account-admission-checkpoint.md`.
+  The subsequent hermetic `8532a9f` image verifies v10 and the prior v9 mode,
+  including unchanged unknown source/model holds through same-image closure and
+  reconstruction. It is not old-image rollback, real model/source/contact quality
+  or production-budget throughput acceptance. See
+  `docs/mana-conversion-account-candidate-checkpoint.md`; the harness's synthetic
+  20,000 safety ceiling never changes production's shared 2000/day setting.
 
 - The subsequent local account-only Parent List adapter strictly requires the
   newly announced `is_paid`, `created_at` and `agent_trial_used` keys, retaining
