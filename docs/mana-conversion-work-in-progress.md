@@ -118,7 +118,7 @@ review, with the main agent integrating HTTP/runtime/docs and the final gate.
    production contact release. The packaged candidate/closed-v9 diagnostic now
    passes; it is not real model quality, delivery or business measurement. See
    [the actual candidate checkpoint](mana-conversion-candidate-checkpoint.md).
-   Keep the original goal active until authoritative source coverage is integrated.
+   Do not mark the original goal complete without authoritative source coverage.
 3. Verify ordinary conversation quality with the new frozen terms, not merely
    prompt contents. The explicit backend acceptance endpoint remains required;
    there is no automatic free grant triggered by model text. Closed-mode grant
@@ -175,6 +175,29 @@ complete: there is no confirmed real all-parent state feed or real offer catalog
 Final secret scan passed **448 files**, and `git diff --check` passed. The source
 owner was asked for the missing authoritative subscription endpoint/documentation;
 no undocumented endpoint or paid/free inference was invented in its place.
+
+## Revalidated external blocker
+
+After the commercial and candidate checkpoints, the next continuation re-read
+the provided `parent-api.md` and `agent-tariff-api.md`. They still describe current
+tariffs with `is_paid` deliberately unfiltered, and a non-paid grant POST only.
+Neither supplies authoritative paid/free classification, free-period history,
+all-parent activity/permissions or real paid-offer terms. A configuration-name-only
+check of the root `.env` found no conversion or subscription/tariff/activity-source
+entries; no values or credentials were printed by that check. This is not a claim
+that the missing data does not exist elsewhere, or a new production inspection.
+
+Feature source remains `e4aee2c` with only its pre-existing local `.venv` symlink
+untracked. No provider process is left running or awaited. The last goal turn made
+real progress through the packaged checks; this continuation confirms that the
+same missing-source/catalog dependency, already recorded in the last two goal
+turns, still prevents the full requested end state. More fake accounts, repeated
+tests or new synthetic offers cannot install that external backend integration.
+
+The source owner has already been asked for the concrete endpoint/documentation.
+Resume the full objective when that source or a committed backend event producer
+and approved real offer terms are supplied. Do not infer subscriptions from tariff
+names, activate real contacts, invent a 15% discount, or mark the goal complete.
 
 The owner's parallel documentation request is fulfilled in
 `docs/mana-single-chat-integration.ru.md`: the five production examples remain
