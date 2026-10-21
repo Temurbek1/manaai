@@ -95,6 +95,9 @@ The subsequent **`make verify` session `34793` terminated with exit 0**:
   All six guide JSON examples validate against typed contracts. Comparing the
   complete generated admin schema against baseline found no removed or changed
   existing paths; the new API is additive.
+- Staging the new guide exposed an inherited Markdown trailing-space line that
+  the earlier unstaged check had not covered. It was corrected in a docs-only
+  follow-up; no application code or verification policy was changed.
 
 All automated provider tests use fakes/MockTransport. Notable coverage includes
 86 push-adapter cases, 48 proactive-store cases and 16 proactive-service cases;
