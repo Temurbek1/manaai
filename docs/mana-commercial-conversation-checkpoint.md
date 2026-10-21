@@ -77,7 +77,9 @@ actual storage version. Disabling the new flag stops new capture/receipt
 publication; prior contexts remain readable internally and chat history survives.
 The previous `863bc06` v8 image and production `f8d095e` are **not v9 rollback
 readers**. Never downgrade or restore an old DB over new history. Candidate-image
-deactivation and real-device notification acceptance remain separate release work.
+deactivation has since passed on the actual `88193f53d363…` image; see
+[the candidate evidence](mana-conversion-candidate-checkpoint.md). Real-device
+notification acceptance and any production contact release remain separate.
 
 The older HTTP limitation is explicit: conversion/grant GETs still require their
 configured service, so closing those flags returns a controlled 503 rather than

@@ -114,10 +114,11 @@ review, with the main agent integrating HTTP/runtime/docs and the final gate.
    [The owning-backend contract](mana-conversion-backend-events.ru.md) lists exact
    required fields/provenance and current routes. Real approved offer terms remain
    necessary; a synthetic 15% fixture is not a production billing discount.
-2. Perform candidate-image/state-preserving closure checks and an approved
-   designated-device channel acceptance before a separately scoped production
-   contact release. Current fake/SQLite tests are not broad model quality,
-   notification delivery or measured business improvement. Keep the goal active.
+2. Complete approved designated-device channel acceptance and a separately scoped
+   production contact release. The packaged candidate/closed-v9 diagnostic now
+   passes; it is not real model quality, delivery or business measurement. See
+   [the actual candidate checkpoint](mana-conversion-candidate-checkpoint.md).
+   Keep the original goal active until authoritative source coverage is integrated.
 3. Verify ordinary conversation quality with the new frozen terms, not merely
    prompt contents. The explicit backend acceptance endpoint remains required;
    there is no automatic free grant triggered by model text. Closed-mode grant
@@ -153,6 +154,27 @@ No paid model call, real source read, grant, push, production/SSH/key/schedule
 change occurred in this increment. The prior bounded Parent List diagnostic is
 historical and was not repeated. English single-chat documentation is also kept
 in this feature source, alongside the preserved Russian version.
+
+## Packaged candidate and English backend handoff
+
+The actual `efc9645` application image **`88193f53d363…`** passed the new network-
+disabled conversion SDK/HTTP/worker lifecycle and the existing family diagnostic.
+All 184 packaged Python source hashes match; `/app/.env` is absent. Exact legacy
+row fingerprints and the 2000-token unknown hold survive migration and closed-v9.
+No host/customer data, source refresh or real external call was used.
+
+Subsequent **`make verify` session `10748`**, terminal exit **0**: **781 backend /
+26 UI tests**, mypy **274 files**, lint/types/build and audit zero. The added
+diagnostic uses fake provider decisions; it does not establish real sales quality.
+See [the complete candidate evidence](mana-conversion-candidate-checkpoint.md).
+
+[English backend event integration](mana-conversion-backend-events.en.md) now
+specifies the actual missing input and owning-backend producer boundary. Its JSON
+example validates against the typed snapshot. The full objective is still not
+complete: there is no confirmed real all-parent state feed or real offer catalog.
+Final secret scan passed **448 files**, and `git diff --check` passed. The source
+owner was asked for the missing authoritative subscription endpoint/documentation;
+no undocumented endpoint or paid/free inference was invented in its place.
 
 The owner's parallel documentation request is fulfilled in
 `docs/mana-single-chat-integration.ru.md`: the five production examples remain
