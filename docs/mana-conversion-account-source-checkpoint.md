@@ -5,6 +5,10 @@ The owner reported that the Parent List response now includes `is_paid`,
 This increment prepares a typed source boundary; it does not activate a producer,
 connect every parent or deploy a conversion/contact feature.
 
+This describes the historical `c7c411d` adapter-only increment. Subsequent local
+[v10 admission wiring](mana-conversion-account-admission-checkpoint.md) adds
+durable explicit-event verification; it is not production activation or a scan.
+
 ## Actual source evidence
 
 After the announcement, one bounded login and one filtered production GET for the

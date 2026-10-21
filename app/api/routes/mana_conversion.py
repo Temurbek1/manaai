@@ -16,6 +16,7 @@ from app.mana_ai.domain.conversion import (
     ConversionProposalPage,
     ConversionSnapshot,
 )
+from app.mana_ai.domain.conversion_accounts import ConversionAccountRead
 from app.mana_ai.domain.conversion_grants import TrialAcceptance, TrialGrantState
 
 router = APIRouter(
@@ -48,6 +49,22 @@ async def observe_account(
     service: ConversionDep, payload: ConversionSnapshot
 ) -> ConversionAdmission:
     return await controlled(service.observe(payload))
+
+
+@router.get(
+    "/source-observations/{event_id}",
+    response_model=ConversionAccountRead,
+    summary="Observe one durable account-source read without dispatch",
+    description="Backend-only same-parent SQL receipt. GET, reconnect and replay never read "
+    "Manakids, call a model, send push or retry a pending/unknown source request. "
+    "A verified selected record is not contact consent or proof of paid conversion.",
+)
+async def source_observation(
+    service: ConversionDep, event_id: UUID, parent_id: Annotated[ParentChatId, Query()]
+) -> ConversionAccountRead:
+    if service.accounts is None:
+        raise HTTPException(status_code=503, detail={"code": "conversion_account_source_disabled"})
+    return await controlled(service.accounts.observation(parent_id, event_id))
 
 
 @router.get(

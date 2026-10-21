@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.mana_ai.domain.child_safety import ChildSafetyLimits
 from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
+from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 
 
 class Settings(BaseSettings):
@@ -63,6 +64,10 @@ class Settings(BaseSettings):
     mana_conversion_enabled: bool = False
     mana_conversion_conversation_enabled: bool = False
     mana_conversion_trial_grants_enabled: bool = False
+    mana_conversion_account_source_enabled: bool = False
+    mana_conversion_account_read_limits: ConversionAccountReadLimits = Field(
+        default_factory=ConversionAccountReadLimits
+    )
     mana_conversion_policy: ConversionPolicy = Field(default_factory=ConversionPolicy)
     mana_conversion_offers: tuple[ConversionOffer, ...] = ()
 
@@ -396,6 +401,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":
+        if self.mana_conversion_account_source_enabled and not (
+            self.mana_conversion_enabled and self.mana_conversion_conversation_enabled
+        ):
+            raise ValueError("Account source requires the captured commercial runtime")
         if self.mana_conversion_conversation_enabled and not self.mana_conversion_enabled:
             raise ValueError("Commercial conversation requires the owning conversion runtime")
         if (

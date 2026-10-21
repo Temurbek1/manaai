@@ -74,6 +74,15 @@ revision and a non-decreasing observation time.
 
 ## Cover every parent without repeated database scans
 
+The subsequent local opt-in account-verification lane can check eligible events
+against the newly announced Parent List fields, under durable exact-event claims,
+a six-hour parent cooldown and a rolling 100-claim/day global default ceiling.
+It does not replace your authoritative full snapshot/producer, use `created_at`
+as free start or treat a selected non-paid record as proof of paid precedence.
+It is default disabled and unreleased. Read [the v10 checkpoint](mana-conversion-account-admission-checkpoint.md)
+before enabling it. Its `GET /conversion-agent/source-observations/<event_id>?parent_id=123`
+observes saved SQL only, never a provider refresh or retry.
+
 1. Agree a bounded initial export of all MANA parent accounts, with expected and
    processed counts plus explicit missing/unknown records. No export is enabled
    by this document or by starting the AI service.

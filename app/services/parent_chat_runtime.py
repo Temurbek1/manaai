@@ -7,6 +7,7 @@ import httpx
 from app.core.config import Settings
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.conversion import ConversionService
+from app.mana_ai.application.conversion_accounts import ConversionAccountVerifier
 from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_touch import ParentTouchService
@@ -19,6 +20,10 @@ from app.services.commercial_conversation_store import (
     SqliteClosedCommercialConversationStore,
     SqliteCommercialConversationStore,
 )
+from app.services.conversion_account_store import (
+    SqliteClosedConversionAccountStore,
+    SqliteConversionAccountStore,
+)
 from app.services.conversion_store import SqliteClosedConversionStore, SqliteConversionStore
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
@@ -28,6 +33,7 @@ from app.services.family_compatibility_store import (
     family_storage_version,
 )
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
+from app.services.manakids_conversion_accounts import ManakidsConversionAccountSource
 from app.services.manakids_parent_push import ManakidsParentPushGateway
 from app.services.manakids_trial_grants import ManakidsTrialGrantGateway
 from app.services.parent_chat_children import ManakidsChatChildrenSource
@@ -56,7 +62,40 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     reviewed: ReviewedMessageStore | None = None
-    if settings.mana_conversion_conversation_enabled or (
+    if settings.mana_conversion_account_source_enabled or (
+        version == 10 and settings.mana_parent_touch_review_first_enabled
+    ):
+        assert settings.mana_child_safety_limits is not None
+        account_store = SqliteConversionAccountStore(
+            settings.mana_parent_chat_database_path,
+            conversion_policy=settings.mana_conversion_policy,
+            conversion_offers=settings.mana_conversion_offers,
+            limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            push_queue_limit=settings.mana_parent_push_queue_limit,
+            push_max_age_seconds=settings.mana_parent_push_max_age_seconds,
+            push_daily_attempt_limit=settings.mana_parent_push_daily_attempt_limit,
+            proactive_enabled=settings.mana_parent_touch_proactive_enabled,
+            push_enabled=settings.mana_parent_push_enabled,
+            conversation_enabled=settings.mana_conversion_conversation_enabled,
+            account_source_enabled=settings.mana_conversion_account_source_enabled,
+            account_read_limits=settings.mana_conversion_account_read_limits,
+            **store_arguments,
+        )
+        store, reviewed = account_store, account_store
+    elif version == 10:
+        if settings.mana_child_safety_enabled:
+            raise RuntimeError("V10 safety execution requires the captured review-first runtime")
+        closed_account_store = SqliteClosedConversionAccountStore(
+            settings.mana_parent_chat_database_path,
+            history_only=not settings.mana_parent_touch_enabled,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = closed_account_store, closed_account_store
+    elif settings.mana_conversion_conversation_enabled or (
         version == 9 and settings.mana_parent_touch_review_first_enabled
     ):
         assert settings.mana_child_safety_limits is not None
@@ -277,6 +316,27 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         ConversionService(
                             store,
                             clock=lambda: datetime.now(UTC),
+                            accounts=(
+                                ConversionAccountVerifier(
+                                    store,
+                                    (
+                                        ManakidsConversionAccountSource(
+                                            client=client,
+                                            base_url=settings.manakids_api_base_url,
+                                            username=settings.manakids_api_username,
+                                            password=settings.manakids_api_password.get_secret_value(),
+                                            wall_timeout_seconds=(
+                                                settings.mana_parent_chat_source_timeout_seconds
+                                            ),
+                                        )
+                                        if settings.mana_conversion_account_source_enabled
+                                        else None
+                                    ),
+                                    clock=lambda: datetime.now(UTC),
+                                )
+                                if isinstance(store, SqliteConversionAccountStore)
+                                else None
+                            ),
                             grants=(
                                 TrialGrantService(
                                     store,

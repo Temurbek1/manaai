@@ -216,6 +216,7 @@ class SqliteCommercialConversationStore(SqliteProactiveParentStore):
             and account
             and not account["opted_out"]
             and not account["converted"]
+            and not self._account_verification_block(connection, snapshot, now)
             and proposal.status in {"published", "interested"}
             and self._conversion_offers.get(proposal.offer.offer_id) == proposal.offer
             and proposal.offer.valid_from <= now < proposal.offer.valid_until

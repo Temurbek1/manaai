@@ -1454,6 +1454,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/conversion-agent/source-observations/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Observe one durable account-source read without dispatch
+         * @description Backend-only same-parent SQL receipt. GET, reconnect and replay never read Manakids, call a model, send push or retry a pending/unknown source request. A verified selected record is not contact consent or proof of paid conversion.
+         */
+        get: operations["source_observation_api_v1_mana_ai_conversion_agent_source_observations__event_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/conversion-agent/trial-acceptances": {
         parameters: {
             query?: never;
@@ -4461,6 +4481,66 @@ export interface components {
             kind: "contact_parent";
             /** Reason */
             reason: string;
+        };
+        /**
+         * ConversionAccountFacts
+         * @description A selected tariff record does not prove absence of other paid entitlements.
+         *
+         *     In particular, created_at has not been confirmed as the free-period start.
+         *     These facts grant neither contact permission nor free days or payment authority.
+         */
+        ConversionAccountFacts: {
+            /** Agent Trial Used */
+            agent_trial_used: boolean | null;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Created At */
+            created_at: string | null;
+            /** Is Paid */
+            is_paid: boolean | null;
+            /** Parent Id */
+            parent_id: string;
+            /** Payment Date */
+            payment_date: string | null;
+            /**
+             * Source
+             * @default manakids_parent_list
+             * @constant
+             */
+            source: "manakids_parent_list";
+            /** Valid Until */
+            valid_until: string | null;
+        };
+        /**
+         * ConversionAccountRead
+         * @description Private backend observation; pending/unknown never authorize another read.
+         */
+        ConversionAccountRead: {
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            facts?: components["schemas"]["ConversionAccountFacts"] | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Parent Id */
+            parent_id: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "verified" | "refused" | "unknown";
         };
         /** ConversionAdmission */
         ConversionAdmission: {
@@ -11230,6 +11310,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversionProposal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_observation_api_v1_mana_ai_conversion_agent_source_observations__event_id__get: {
+        parameters: {
+            query: {
+                parent_id: string;
+            };
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionAccountRead"];
                 };
             };
             /** @description Validation Error */

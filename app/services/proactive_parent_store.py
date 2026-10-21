@@ -619,6 +619,8 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
         if account["opted_out"] or account["converted"]:
             return "parent_push_marketing_account_closed"
         snapshot = ConversionSnapshot.model_validate_json(account["snapshot"])
+        if self._account_verification_block(connection, snapshot, now):
+            return "parent_push_marketing_source_not_verified"
         reason = self._conversion_reason(snapshot, now)
         if snapshot.parent_id != parent_id or not self._reason_eligible(reason):
             return "parent_push_marketing_account_not_eligible"

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from app.mana_ai.application.conversion_accounts import ConversionAccountVerifier
 from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.domain.chat import ParentChatRequest, ResponseLanguage
 from app.mana_ai.domain.conversion import (
@@ -49,11 +50,15 @@ class ConversionService:
         *,
         clock: Callable[[], datetime],
         grants: TrialGrantService | None = None,
+        accounts: ConversionAccountVerifier | None = None,
     ) -> None:
         self._store, self._clock = store, clock
         self.grants = grants
+        self.accounts = accounts
 
     async def observe(self, snapshot: ConversionSnapshot) -> ConversionAdmission:
+        if self.accounts is not None:
+            return await self.accounts.observe(snapshot)
         return await self._store.ingest_conversion(snapshot, self._clock())
 
     async def opt_out(self, parent_id: str) -> None:

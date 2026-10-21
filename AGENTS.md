@@ -2,10 +2,23 @@
 
 ## Repository expectations
 
+- The subsequent local `MANA_CONVERSION_ACCOUNT_SOURCE_ENABLED` lane defaults
+  off and adds private v10. Eligible explicit backend events claim SQL before
+  one bounded exact-parent read; replay/GET/restart never reread. Six-hour parent
+  cooldown and rolling 24h global ceiling (100 by default) include failed claims;
+  pending/unknown reads never auto-retry or clear at midnight. Source facts only
+  veto the full backend snapshot; they do not classify overlapping entitlements,
+  invent free-period starts, consent/activity or paid conversions. Gate offer
+  publication, frozen availability, trial claims and unclaimed marketing push.
+  Only current same-code closed-v10 retains this history; v9/production images
+  cannot read it. No production activation, refresh or all-parent producer is
+  included. See `docs/mana-conversion-account-admission-checkpoint.md`.
+
 - The subsequent local account-only Parent List adapter strictly requires the
   newly announced `is_paid`, `created_at` and `agent_trial_used` keys, retaining
-  explicit null as unknown and rejecting coercions. It is not runtime-wired,
-  scheduled, an all-parent producer, contact authority or a release. A bounded
+  explicit null as unknown and rejecting coercions. Its original `c7c411d`
+  checkpoint was not runtime-wired; see the later local v10 lane above. Neither
+  increment is scheduled, an all-parent producer, contact authority or a release. A bounded
   post-announcement production check still lacked all three keys. Do not turn
   `created_at` into a free-period start without confirmed semantics, or one
   selected non-paid record into proof that no overlapping paid entitlement exists.

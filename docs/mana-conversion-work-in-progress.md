@@ -227,3 +227,23 @@ failure is retained in the detailed checkpoint; the successful run used only an
 explicit dummy key. Final secret scan **453 files** and diff check passed.
 All new provider tests are fictional. This is source-boundary acceptance only,
 not live-source, full-population, contact or production acceptance.
+
+## Subsequent local source-admission wiring
+
+[Private v10](mana-conversion-account-admission-checkpoint.md) now optionally
+connects the strict source to eligible explicit backend events. SQL claims precede
+each bounded read; replay/restart never reread. Default limits are six hours per
+parent and 100 globally per rolling 24 hours, with no scan/schedule or default
+activation. Pending/unknown claims survive restart/day changes and never auto-retry.
+Vetoes also gate publication, frozen availability, trial claims and unclaimed
+marketing push; dates/consent/activity remain owned by the full backend snapshot.
+Current same-code closed-v10 retains history/holds; v9 images cannot read it.
+This is not the missing all-parent producer, real catalog or production release.
+
+Final **`make verify` session 7192**, exit **0**: **883 backend /26 UI tests**,
+mypy **280 files**, lint/types/build/audit zero. OpenAPI/TypeScript sync and
+42-product-path/46-operation export passed. Earlier strict docs-count failures
+and their correction are retained in the detailed checkpoint. Secret scan
+**456 files**, diff check passed. One additional bounded manual test-parent `4`
+GET still lacked all three announced fields; no data values, real contact,
+paid model, Firebase/GA4 read, production, SSH/key or schedule change occurred.

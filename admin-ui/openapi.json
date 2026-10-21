@@ -6393,6 +6393,164 @@
         "title": "ContactParentAction",
         "type": "object"
       },
+      "ConversionAccountFacts": {
+        "additionalProperties": false,
+        "description": "A selected tariff record does not prove absence of other paid entitlements.\n\nIn particular, created_at has not been confirmed as the free-period start.\nThese facts grant neither contact permission nor free days or payment authority.",
+        "properties": {
+          "agent_trial_used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Trial Used"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "is_paid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Paid"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "payment_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Date"
+          },
+          "source": {
+            "const": "manakids_parent_list",
+            "default": "manakids_parent_list",
+            "title": "Source",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": [
+          "parent_id",
+          "collected_at",
+          "is_paid",
+          "agent_trial_used",
+          "created_at",
+          "payment_date",
+          "valid_until"
+        ],
+        "title": "ConversionAccountFacts",
+        "type": "object"
+      },
+      "ConversionAccountRead": {
+        "additionalProperties": false,
+        "description": "Private backend observation; pending/unknown never authorize another read.",
+        "properties": {
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "facts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionAccountFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "verified",
+              "refused",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "event_id",
+          "revision",
+          "status",
+          "started_at"
+        ],
+        "title": "ConversionAccountRead",
+        "type": "object"
+      },
       "ConversionAdmission": {
         "additionalProperties": false,
         "properties": {
@@ -24127,6 +24285,65 @@
           }
         ],
         "summary": "Observe one same-family offer",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/conversion-agent/source-observations/{event_id}": {
+      "get": {
+        "description": "Backend-only same-parent SQL receipt. GET, reconnect and replay never read Manakids, call a model, send push or retry a pending/unknown source request. A verified selected record is not contact consent or proof of paid conversion.",
+        "operationId": "source_observation_api_v1_mana_ai_conversion_agent_source_observations__event_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionAccountRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe one durable account-source read without dispatch",
         "tags": [
           "mana-ai"
         ]

@@ -79,6 +79,12 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
     def _conversion_reason(self, snapshot: ConversionSnapshot, now: datetime) -> str:
         return conversion_reason(snapshot, self._conversion_policy, now)
 
+    def _account_verification_block(
+        self, connection: sqlite3.Connection, snapshot: ConversionSnapshot, now: datetime
+    ) -> str | None:
+        """Captured source protocols may veto, never invent eligibility or grants."""
+        return None
+
     def _reason_eligible(self, reason: str) -> bool:
         return reason in {"seven_day_free_use", "hot_free_account"}
 
@@ -283,7 +289,14 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                 reason = "parent_opted_out"
             if previous and previous["converted"]:
                 reason = "already_converted"
-            reason = self._frequency_block(connection, snapshot.parent_id, now) or reason
+            source_block = (
+                self._account_verification_block(connection, snapshot, now)
+                if self._reason_eligible(reason)
+                else None
+            )
+            reason = (
+                source_block or self._frequency_block(connection, snapshot.parent_id, now) or reason
+            )
             proposal = None
             offers = sorted(
                 (
@@ -526,7 +539,8 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     or not proposal.offer.valid_from <= now < proposal.offer.valid_until
                     or proposal.offer.kind == "free_premium_days"
                     and snapshot.agent_trial_given is not False
-                    else self._frequency_block(connection, proposal.parent_id, now)
+                    else self._account_verification_block(connection, snapshot, now)
+                    or self._frequency_block(connection, proposal.parent_id, now)
                 )
                 if invalid:
                     self._save_proposal(
@@ -658,6 +672,8 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     not in {"seven_day_free_use", "hot_free_account"}
                 ):
                     raise ParentChatError("trial_account_no_longer_eligible", 409)
+                if self._account_verification_block(connection, snapshot, current):
+                    raise ParentChatError("trial_account_source_not_verified", 409)
                 if connection.execute(
                     "SELECT 1 FROM conversion_opt_outs WHERE parent_id=?", (acceptance.parent_id,)
                 ).fetchone():
