@@ -2,6 +2,19 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+Latest verification commit: **`e4aee2c`**; application source remains **`efc9645`**.
+Actual local image **`88193f53d363…`** passed network-disabled packaged conversion
+and existing family SDK/HTTP/worker diagnostics, including v6 -> v9 fingerprints,
+the legacy 2000-token unknown hold and same-image closed-v9. All 184 packaged
+application Python hashes match source. This is no production update, real-device
+delivery or real-model sales-quality result. Full gate session **10748** ended
+**0**: **781 backend /26 UI tests**, mypy **274 files**, lint/types/build/audit.
+Read [the candidate evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-candidate-checkpoint.md).
+The [English backend data contract](mana-conversion-backend-events.en.md) lists
+the actual missing status/activity/offer inputs. Its JSON example was validated.
+The source owner was asked for the authoritative subscription endpoint; current
+Parent List remains insufficient. The original conversion goal remains unfinished.
+
 Latest local increment: **`efc9645`** on the same conversion branch. Its new
 default-disabled commercial-conversation lane uses private **v9**, freezing only
 new parent turns' exact approved offers and known grant receipts. Explicit backend
