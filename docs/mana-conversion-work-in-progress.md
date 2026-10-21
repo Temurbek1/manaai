@@ -11,9 +11,9 @@ This is a locally verified implementation checkpoint, not a finished goal.
 Root operational application dirt was not edited; only its owned handoff documents
 were updated to point here.
 Production remains family `f8d095e`; no conversion release, real contact, paid model,
-Firebase/GA4 read, tariff grant, SSH/key or schedule change was performed. One
-bounded Parent List contract read for previously designated test parent `4` was
-performed separately, as described below.
+Firebase/GA4 read, tariff grant, SSH/key or schedule change was performed. Bounded
+Parent List contract reads for previously designated test parent `4` were
+performed separately, as described below and in the subsequent source checkpoint.
 
 ## Owner clarifications
 
@@ -205,3 +205,25 @@ unchanged, and a clearly unreleased supplement documents first contact/push.
 The last production OpenAPI read showed 32 paths and no conversion/proactive
 routes. Production remains `f8d095e`; no new production recheck is implied by the
 local 41-path export.
+
+## Newly announced Parent List fields
+
+The owner subsequently reported `is_paid`, `created_at` and `agent_trial_used`.
+One post-announcement exact-parent production check returned 200 but still
+omitted these keys. The deployment and date semantics were requested, not guessed.
+
+[The new source contract checkpoint](mana-conversion-account-source-checkpoint.md)
+adds an account-only application port, minimized typed facts and a strict bounded
+HTTP adapter. It does not add a runtime read, population producer, migration or
+contact release. Missing fields fail closed; explicit null stays unknown.
+`created_at` is not yet mapped to free-period start, and a selected non-paid
+record does not establish paid-entitlement precedence. Durable source admission
+must be implemented before runtime wiring; an idempotent event replay must never
+perform a new source read. Existing event/offer/permission requirements remain.
+
+Final **`make verify` session 92804**, exit **0**: **856 backend /26 UI tests**,
+mypy **278 files**, lint/types/build and audit zero. The earlier no-key collection
+failure is retained in the detailed checkpoint; the successful run used only an
+explicit dummy key. Final secret scan **453 files** and diff check passed.
+All new provider tests are fictional. This is source-boundary acceptance only,
+not live-source, full-population, contact or production acceptance.

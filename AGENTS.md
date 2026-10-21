@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- The subsequent local account-only Parent List adapter strictly requires the
+  newly announced `is_paid`, `created_at` and `agent_trial_used` keys, retaining
+  explicit null as unknown and rejecting coercions. It is not runtime-wired,
+  scheduled, an all-parent producer, contact authority or a release. A bounded
+  post-announcement production check still lacked all three keys. Do not turn
+  `created_at` into a free-period start without confirmed semantics, or one
+  selected non-paid record into proof that no overlapping paid entitlement exists.
+  See `docs/mana-conversion-account-source-checkpoint.md` before wiring it: durable
+  exact-event admission must precede any live read so replay/restart cannot reread.
+
 - The subsequent local `MANA_CONVERSION_CONVERSATION_ENABLED` lane defaults off
   and adds private v9. Freeze only new parent turns' exact last-published offer/
   availability and known grant receipt. Model text never activates days or pays.
