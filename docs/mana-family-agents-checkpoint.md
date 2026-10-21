@@ -2,7 +2,30 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Latest account-source admission — `8532a9f`
+### Latest account candidate verification — `e88dd5f`
+
+Feature source remains `/mnt/ssd2/mana-conversion-agent-20261021`. Application
+code is still `8532a9f`; `e88dd5f` adds only harness/acceptance documentation.
+Local image `mana-ai-family:conversion-account-8532a9f-local`, ID
+`sha256:09abd632f76bdbd6a0d0411f37c3b346a466f952ba413db57418afcd2953892c`,
+matches all **188** application Python files, runs as `app`, and has no `.env`.
+
+Actual network-disabled/read-only container sessions **46588** (new v10) and
+**7452** (prior v9) passed. V10 adds four mocked account GETs, including a lost
+response, plus a separate login `403` with no account GET. Exact event replay,
+same-image closure and runtime reconstruction preserve source receipts, legacy
+fingerprints and the 2000-token unknown model hold without relogin/source retry.
+This is not old-image rollback, live-source/model/contact quality, production
+activation or throughput proof under production's unchanged safety budget.
+
+Full **`make verify` session 63416**, actual exit **0**: **884 backend /26 UI
+tests**, mypy **280 files**, lint/types/build and audit zero. Secret scan
+**457 files**, diff check passed. No real provider/source request occurred here.
+Read [the exact candidate checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-account-candidate-checkpoint.md).
+The full objective still needs actual source/population/offer integration and
+commercial-dialogue quality acceptance; it is not complete. Production is unchanged.
+
+### Earlier account-source admission — `8532a9f`
 
 Local feature source `/mnt/ssd2/mana-conversion-agent-20261021` now connects the
 strict account adapter to eligible explicit backend events behind default-off
