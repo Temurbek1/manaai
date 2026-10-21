@@ -16,24 +16,28 @@ def render_parent_offer(offer: ConversionOffer, free_days: int, language: Respon
         if language == "ru":
             return (
                 f"Могу предложить бесплатный тариф Maxsus на {offer.grant_days} дн., "
-                "один раз для вашего аккаунта. Без платежа и автосписания. "
+                "один раз для вашего аккаунта. "
+                "Выдача этих дней не создаёт платёж или транзакцию. "
                 "Если хотите, напишите «активировать бесплатные дни»."
             )
         if language == "uz-Latn":
             return (
                 f"Sizga Maxsus tarifini {offer.grant_days} kunga bepul taklif qila olaman, "
-                "hisobingiz uchun faqat bir marta. To'lov va avtomatik yechishsiz. "
+                "hisobingiz uchun faqat bir marta. "
+                "Bu kunlarni berish to'lov yoki tranzaksiya yaratmaydi. "
                 "Xohlasangiz, «bepul kunlarni faollashtiring» deb yozing."
             )
         if language == "uz-Cyrl":
             return (
                 f"Сизга Maxsus тарифини {offer.grant_days} кунга бепул таклиф қила оламан, "
-                "ҳисобингиз учун фақат бир марта. Тўлов ва автоматик ечишсиз. "
+                "ҳисобингиз учун фақат бир марта. "
+                "Бу кунларни бериш тўлов ёки транзакция яратмайди. "
                 "Хоҳласангиз, «бепул кунларни фаоллаштиринг» деб ёзинг."
             )
         return (
             f"I can offer the Maxsus plan free for {offer.grant_days} days, once per account. "
-            "No payment or automatic charge. Reply 'activate free days' if you want it."
+            "This free-day grant creates no payment or transaction. "
+            "Reply 'activate free days' if you want it."
         )
     price = f"{offer.price_minor // 100}.{offer.price_minor % 100:02d} {offer.currency}"
     discount = offer.discount_percent

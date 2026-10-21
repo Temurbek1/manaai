@@ -263,3 +263,20 @@ checks do not prove real-model sales quality or production capacity under the
 unchanged global Child-Safety budget. The real-source fields were not re-polled.
 The original population/source/catalog/contact and commercial-dialogue quality
 acceptance remain unfinished; there is no production activation or release.
+
+## Bounded real-model commercial quality
+
+[The actual model checkpoint](mana-commercial-model-quality-checkpoint.md)
+records four isolated RU/Uzbek Latin conversations, eight settled generations,
+8523 input/767 output tokens and a standard uncached estimate **$0.02035250**.
+Paid terms passed narrow manual checks; free-day explanations are qualified for
+billing-scope wording. There were no real source/contact/grant/push calls.
+The original private party and its separate review are retained without replay.
+
+The subsequent template/guidance correction scopes the free-grant statement to
+creating no payment/transaction; it promises no unknown future renewal terms.
+Full **`make verify` session 23636**, exit **0**: **892 backend /26 UI tests**,
+mypy **282 files**, lint/types/build/audit zero. This correction still needs its
+own bounded live-model acceptance and updated candidate; the earlier image/party
+is not relabelled. Population/source/catalog/contact and shared-budget capacity
+remain open. Production, budgets, keys, SSH and schedules are unchanged.

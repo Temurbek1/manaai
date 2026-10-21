@@ -2,6 +2,17 @@
 
 ## Repository expectations
 
+- The bounded local commercial real-model party completed four isolated RU/UZ
+  cases with eight settled generations, standard-uncached estimate $0.02035250.
+  Paid terms passed narrow manual checks; free-day billing wording is qualified,
+  not an all-four semantic pass. Preserve every original private artifact and
+  unknown/cost boundary. The subsequent four-language template/guidance correction
+  scopes no-payment/no-transaction to the grant itself and invents no future
+  renewal fact. It has no paid-model or updated-image acceptance yet. Read
+  `docs/mana-commercial-model-quality-checkpoint.md`; separate 2000-token case
+  ledgers do not prove production shared-budget capacity. Never replay old paid
+  parties or treat a fake pass as business/source/contact release acceptance.
+
 - The subsequent local `MANA_CONVERSION_ACCOUNT_SOURCE_ENABLED` lane defaults
   off and adds private v10. Eligible explicit backend events claim SQL before
   one bounded exact-parent read; replay/GET/restart never reread. Six-hour parent

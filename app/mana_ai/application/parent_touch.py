@@ -341,6 +341,10 @@ class ParentTouchService(ParentChatService):
                 "not be retried. Rejected means not confirmed. Free days are never a paid "
                 "subscription/conversion. Expired/withdrawn terms are historical, not a "
                 "current promise. Checkout stays in the application's subscription section. "
+                "For free_premium_days, this grant creates no payment or transaction. "
+                "That does not establish renewal terms for a separate or future subscription; "
+                "those stay unknown unless explicitly supplied. Explain the grant fact "
+                "directly, without suggesting that this free grant itself might charge. "
                 "Do not use child safety facts to pressure a purchase; safety takes priority."
             )
         if isinstance(request, ParentTouchReviewedTurn):

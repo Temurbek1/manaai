@@ -220,6 +220,8 @@ async def test_parent_touch_receives_terms_but_no_write_authority_or_success_cla
     assert context["free_days_action"] is None
     assert "not proof of success" in prompt.instructions
     assert "never a paid" in prompt.instructions
+    assert "separate or future subscription" in prompt.instructions
+    assert "this free grant itself might charge" in prompt.instructions
     assert await service.send(request) == response
     assert model.calls == children.calls == 1
     with pytest.raises(ParentChatError, match="trial_grant_not_found"):
