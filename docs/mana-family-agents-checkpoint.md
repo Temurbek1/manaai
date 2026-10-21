@@ -2,7 +2,32 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Latest account candidate verification — `e88dd5f`
+### Latest commercial model checkpoint — `9b343d3`
+
+Feature source remains `/mnt/ssd2/mana-conversion-agent-20261021`. One bounded
+real-model party completed four isolated RU/Uzbek Latin review-first cases with
+eight settled generations (8523 input/767 output tokens), standard uncached cost
+estimate **$0.02035250**, no unknown reserve or retry. Parent-Touch used GPT-5.4;
+Child-Safety used mini. No real family/source/grant/push or production request ran.
+
+Paid terms passed narrow manual checks. Free-day answers honestly left activation
+unconfirmed but exposed ambiguous billing scope: the grant API confirms no
+payment/transaction for the grant, not blanket future subscription renewal terms.
+The subsequent four-language template/shared-guidance correction scopes that fact
+without inventing no-renewal metadata. The original private receipts/transcripts
+and separate review remain unchanged. It is not an all-four semantic or post-fix
+live-model pass; **no second paid party or updated candidate ran after the fix**.
+Read [the detailed quality checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-commercial-model-quality-checkpoint.md).
+
+Final **`make verify` session 23636**, actual exit **0**: **892 backend /26 UI
+tests**, mypy **282 files**, lint/types/build/audit zero; secret scan **460 files**,
+diff check passed. No schema, model defaults, quotas, keys, SSH or schedules changed.
+The prior `09abd632f76b…` image contains pre-fix wording. Each live case used its
+own 2000-token server/day ledger; this is not shared production capacity evidence.
+The full source/population/catalog/contact goal remains unfinished and production
+is unchanged. Continue separate bounded post-fix acceptance, never replay old calls.
+
+### Earlier account candidate verification — `e88dd5f`
 
 Feature source remains `/mnt/ssd2/mana-conversion-agent-20261021`. Application
 code is still `8532a9f`; `e88dd5f` adds only harness/acceptance documentation.
