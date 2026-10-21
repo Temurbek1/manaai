@@ -1,5 +1,20 @@
 # Parent-Touch / Child-Safety — production handoff, 2026-10-20
 
+## Subsequent conversion goal — local WIP, not deployed
+
+The owner's conversion-agent goal is active in separate worktree
+`/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, based on published `8683f20`.
+Read [the unfinished conversion checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-work-in-progress.md)
+before continuing. Uncommitted conversion code and focused fake checks do not
+constitute a completed goal or production release. The documented agent-tariff
+endpoint grants 1–30 free Maxsus days once per parent, never a payment/transaction;
+the original objective still includes actual free-to-paid conversion.
+
+[The current one-chat integration guide](mana-single-chat-integration.ru.md)
+describes only the deployed API. Production OpenAPI was re-read without source/
+model work and still exposes 32 paths, no `/conversion-agent/` routes.
+
 ## Active production release
 
 The owner authorized deployment and explicitly set **2000 Child-Safety tokens/day
