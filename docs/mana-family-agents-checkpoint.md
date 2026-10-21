@@ -2,6 +2,38 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### New account-source contract — `c7c411d`
+
+The owner announced `is_paid`, `created_at` and `agent_trial_used` in Parent List.
+One subsequent bounded login/exact-parent GET for designated test parent `4`
+returned 200 but still omitted all three fields. Only field names/types and ISO
+date parse facts were retained. Deployment and `created_at` semantics were asked
+about; neither a new scan nor automatic source refresh was started.
+
+Source remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. Local commit **`c7c411d`** adds a separate
+typed account source and strict bounded HTTP adapter, not runtime wiring or a
+population producer. Null remains unknown; missing fields, coercions, another
+parent, pagination, oversized/ambiguous JSON and malformed dates fail closed.
+Names, phones, children and display tariff names are excluded. Read
+[the actual contract and evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-account-source-checkpoint.md).
+
+Final **`make verify` session 92804**, terminal exit **0**: **856 backend /26 UI
+tests**, mypy **278 files**, lint/types/build and zero audit vulnerabilities.
+The adapter's 75 fictional provider cases are included, not additional tests.
+Secret scan **453 files**, diff check passed. The initial no-key collection
+failure is recorded separately; the passing run used an explicit dummy key.
+
+This is not a full-source/contact/candidate release: durable exact-event dispatch
+admission is required before runtime wiring. `created_at` is not automatically
+the free-period start; a selected non-paid record does not prove absence of an
+overlapping paid entitlement. All-parent activity/permissions and approved real
+offers remain needed. No new model, Firebase/GA4, grant, push, production, key,
+SSH or schedule changes occurred. The original objective remains unfinished.
+The earlier `efc9645` candidate does not contain this new source adapter.
+
+### Historical blocker and candidate records
+
 The subsequent blocker audit re-read the provided subscription documents and
 configuration names without live reads: paid/free status, authoritative all-parent
 activity/permissions and a real approved paid-offer catalog are still not supplied.
@@ -11,7 +43,7 @@ owner was already asked for the exact source contract. The full objective is not
 complete; retain the verified implementation/history and wait for that input.
 No production, key, source, schedule or customer-contact mutation was performed.
 
-Latest verification commit: **`e4aee2c`**; application source remains **`efc9645`**.
+Earlier candidate verification commit: **`e4aee2c`**, application **`efc9645`**.
 Actual local image **`88193f53d363…`** passed network-disabled packaged conversion
 and existing family SDK/HTTP/worker diagnostics, including v6 -> v9 fingerprints,
 the legacy 2000-token unknown hold and same-image closed-v9. All 184 packaged
@@ -24,7 +56,7 @@ the actual missing status/activity/offer inputs. Its JSON example was validated.
 The source owner was asked for the authoritative subscription endpoint; current
 Parent List remains insufficient. The original conversion goal remains unfinished.
 
-Latest local increment: **`efc9645`** on the same conversion branch. Its new
+Earlier commercial increment: **`efc9645`** on the same conversion branch. Its new
 default-disabled commercial-conversation lane uses private **v9**, freezing only
 new parent turns' exact approved offers and known grant receipts. Explicit backend
 acceptance must match that frozen/latest offer; terminal free-day results reach
