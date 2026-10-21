@@ -2,13 +2,23 @@
 
 ## Repository expectations
 
+- The subsequent `9b343d3` postfix has a separate settled eight-generation RU/UZ
+  party (standard-uncached estimate $0.02096025) and actual current-image v9/v10
+  hermetic checks. Narrow financial/action checks retain a Russian-trial phrasing
+  caveat; no broad quality or production capacity is implied. Original party1
+  remains unchanged/qualified. The full goal is externally blocked on deployed
+  source fields, authoritative population/activity/consent events and real offers.
+  Read `docs/mana-conversion-postfix-checkpoint.md`; do not activate a source,
+  contact or release, repeat paid cohorts, or replace missing real integration
+  with more synthetic milestones. Wait for the missing owning-backend inputs.
+
 - The bounded local commercial real-model party completed four isolated RU/UZ
   cases with eight settled generations, standard-uncached estimate $0.02035250.
   Paid terms passed narrow manual checks; free-day billing wording is qualified,
   not an all-four semantic pass. Preserve every original private artifact and
   unknown/cost boundary. The subsequent four-language template/guidance correction
   scopes no-payment/no-transaction to the grant itself and invents no future
-  renewal fact. It has no paid-model or updated-image acceptance yet. Read
+  renewal fact. Its original checkpoint had no postfix acceptance; see above. Read
   `docs/mana-commercial-model-quality-checkpoint.md`; separate 2000-token case
   ledgers do not prove production shared-budget capacity. Never replay old paid
   parties or treat a fake pass as business/source/contact release acceptance.

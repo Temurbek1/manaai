@@ -1,6 +1,6 @@
 # Conversion goal — unfinished local work
 
-The original goal remains active: track each MANA free account, identify timely
+The original goal remains unfinished: track each MANA free account, identify timely
 upgrade opportunities, communicate approved offers through Parent-Touch, and measure
 verified paid conversion. This checkpoint does not narrow that goal to free grants
 or claim the full implementation is complete.
@@ -280,3 +280,28 @@ mypy **282 files**, lint/types/build/audit zero. This correction still needs its
 own bounded live-model acceptance and updated candidate; the earlier image/party
 is not relabelled. Population/source/catalog/contact and shared-budget capacity
 remain open. Production, budgets, keys, SSH and schedules are unchanged.
+
+## Postfix acceptance and external handoff
+
+Application **9b343d3** now has a separate post-correction eight-generation
+real-model party and current container **756635a71fd8…** passing v9/v10 hermetic
+lifecycle/reconstruction checks. New-party standard uncached estimate:
+**$0.02096025**, unknown reserve zero. Both commercial parties: **$0.04131275**
+(16 settled generations); old qualification/fingerprints remain unchanged.
+Narrow action/financial checks retain a Russian free-day phrasing caveat, not a
+broad quality claim. No additional paid cohort is scheduled or needed to replace
+the missing external integration. Read [the full boundary](mana-conversion-postfix-checkpoint.md).
+
+Full **`make verify` session 97861**, exit **0**: **892 backend /26 UI tests**,
+mypy **282 files**, lint/types/build/audit zero. All 188 packaged app files match;
+no key/data/application-source mount was used. The principal was confirmed as
+mana-ai, yet one exact-parent `4` live read still lacked all three announced
+fields. The dated alternate tariff document supplies the same free-grant POST
+only; public schema probes returned 404. No real catalog/feed configuration was
+found in the supplied local settings; this does not claim none exists elsewhere.
+
+The same genuine source/population/catalog blocker has recurred over more than
+three goal turns and now prevents the full real requested end state. Await the
+owning backend's deployed contract/events and approved offers rather than create
+more fake work, auto-contact users or mark the goal complete. Production, SSH,
+keys, private history, source defaults, quotas and schedules remain unchanged.

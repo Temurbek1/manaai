@@ -76,7 +76,7 @@ rewritten. No schema/migration, role model, quota, source/action authority or SD
 transport changed. Only new rendering and the shared explanation guidance changed.
 The source boundary is narrower, not an invented no-renewal flag.
 
-**The correction has not received a new paid-model acceptance party.** Do not
+**At this original checkpoint, the correction had no new paid-model party.** Do not
 reuse the original $0.02035250 party as post-fix evidence or replay its requests.
 The previous `09abd632f76b…` image likewise contains the pre-fix wording.
 
@@ -100,3 +100,7 @@ The full objective still requires real source fields/semantics, an authoritative
 all-parent subscription/activity/consent producer with coverage accounting, actual
 approved billing offers and separately scoped production/channel acceptance.
 Neither this small synthetic party nor the offline correction establishes those.
+
+The subsequent [postfix checkpoint](mana-conversion-postfix-checkpoint.md)
+records a separate post-correction party and current candidate. The original
+party/qualification above remains unchanged, not retroactively upgraded.
