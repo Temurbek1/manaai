@@ -2,6 +2,15 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+The subsequent blocker audit re-read the provided subscription documents and
+configuration names without live reads: paid/free status, authoritative all-parent
+activity/permissions and a real approved paid-offer catalog are still not supplied.
+This is the same external dependency recorded across the last three goal turns,
+not a failing test or an invitation to create more synthetic substitutes. The
+owner was already asked for the exact source contract. The full objective is not
+complete; retain the verified implementation/history and wait for that input.
+No production, key, source, schedule or customer-contact mutation was performed.
+
 Latest verification commit: **`e4aee2c`**; application source remains **`efc9645`**.
 Actual local image **`88193f53d363…`** passed network-disabled packaged conversion
 and existing family SDK/HTTP/worker diagnostics, including v6 -> v9 fingerprints,
