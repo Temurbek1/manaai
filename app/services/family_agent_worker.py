@@ -47,6 +47,9 @@ class FamilyAgentWorker:
                     # State is durable; never retry using a new nonce.
                     with suppress(ParentChatError):
                         await self._touch.deliver(delivery)
+                if not self._stop.is_set():
+                    await self._touch.process_conversion()
+                    await self._touch.process_push()
                 if processed is None:
                     with suppress(TimeoutError):
                         await asyncio.wait_for(self._stop.wait(), timeout=self._interval)

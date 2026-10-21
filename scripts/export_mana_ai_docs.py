@@ -15,7 +15,9 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from app.api.routes.mana_ai import router
 from app.api.routes.mana_ai_chat import router as parent_chat_router
 from app.api.routes.mana_child_safety import router as child_safety_router
+from app.api.routes.mana_conversion import router as conversion_router
 from app.api.routes.mana_family_agents import router as family_agents_router
+from app.api.routes.mana_parent_proactive import router as proactive_router
 from app.api.security import require_bearer_token
 from app.core.openapi import SWAGGER_UI_PARAMETERS
 
@@ -47,6 +49,8 @@ def build_schema() -> dict[str, Any]:
     app.include_router(parent_chat_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
     app.include_router(family_agents_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
     app.include_router(child_safety_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
+    app.include_router(conversion_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
+    app.include_router(proactive_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
     schema = app.openapi()
     schema["servers"] = [{"url": "/", "description": "Same-origin production API"}]
     return schema

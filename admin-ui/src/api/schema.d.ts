@@ -1380,6 +1380,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/conversion-agent/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Observe verified adult-account subscription and activity facts
+         * @description Backend-only MANA profile ID. Requires confirmed subscription state, dated parent activity and marketing consent, never raw child data. An identical event replays its original admission without reads or sends. Increasing revision and observation date are mandatory; GET/status never dispatch. A queued proposal is not a delivered offer. Only Parent-Touch may publish, after fresh eligibility and conversation priority checks.
+         */
+        post: operations["observe_account_api_v1_mana_ai_conversion_agent_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/conversion-agent/outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an explicit parent reaction or verified payment receipt
+         * @description Interest is not a purchase. Payment needs the exact billed offer/amount/currency and a unique billing receipt, after actual publication and within the offer's validity. Opt-out suppresses future offers permanently; snapshots cannot silently re-enable it. Never infer a payment or consent from chat text, current tariff, click or model output. This endpoint neither charges, grants a subscription, creates a discount nor sends push.
+         */
+        post: operations["outcome_api_v1_mana_ai_conversion_agent_outcomes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/conversion-agent/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observe a parent's conversion history */
+        get: operations["proposals_api_v1_mana_ai_conversion_agent_proposals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/conversion-agent/proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observe one same-family offer */
+        get: operations["proposal_api_v1_mana_ai_conversion_agent_proposals__proposal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/conversion-agent/trial-acceptances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept one non-paid Maxsus tariff offer after explicit parent consent
+         * @description Backend-only. Requires the parent's actual same-chat activation message and frozen offer. Days come from the approved catalog, never client/model fields. No payment, transaction or paid subscription is created. Exact replay observes the durable action and never repeats a provider call, including unknown outcomes.
+         */
+        post: operations["accept_trial_api_v1_mana_ai_conversion_agent_trial_acceptances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/conversion-agent/trial-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Observe a parent's non-paid grant without provider calls or retry */
+        get: operations["read_grant_api_v1_mana_ai_conversion_agent_trial_grants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/family-agreement": {
         parameters: {
             query?: never;
@@ -1530,6 +1641,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mana-ai/parent-touch/contact-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Contact */
+        get: operations["read_contact_api_v1_mana_ai_parent_touch_contact_context_get"];
+        put?: never;
+        /**
+         * Register verified recipient language and separate contact permissions
+         * @description Trusted backend only; derive parent_id from the authorized family. Can be registered before the parent's first chat message. Language/timezone are presentation, never source/write authority. Supply verified current preferences and an explicit expiry; no invented default locale or inferred marketing consent. Exact event replay never changes the original context or sends a notification.
+         */
+        post: operations["register_contact_api_v1_mana_ai_parent_touch_contact_context_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mana-ai/parent-touch/deliver": {
         parameters: {
             query?: never;
@@ -1579,6 +1711,43 @@ export interface paths {
         };
         /** Observe a same-family review-first message without redispatch */
         get: operations["read_message_api_v1_mana_ai_parent_touch_messages__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-touch/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Observe same-parent pushes attached to already saved chat messages
+         * @description SQL only. No push/model/source dispatch. Provider queueing, including zero devices, does not prove device delivery or opening. Unknown attempts never auto-retry.
+         */
+        get: operations["read_notifications_api_v1_mana_ai_parent_touch_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mana-ai/parent-touch/notifications/{push_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Notification */
+        get: operations["read_notification_api_v1_mana_ai_parent_touch_notifications__push_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4293,6 +4462,155 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** ConversionAdmission */
+        ConversionAdmission: {
+            /** Decision */
+            decision: string;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Parent Id */
+            parent_id: string;
+            proposal: components["schemas"]["ConversionProposal"] | null;
+        };
+        /** ConversionOutcome */
+        ConversionOutcome: {
+            /** Amount Minor */
+            amount_minor?: number | null;
+            /** Billing Offer Id */
+            billing_offer_id?: string | null;
+            /** Currency */
+            currency?: ("UZS" | "USD") | null;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "interested" | "declined" | "opted_out" | "payment_confirmed";
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Payment Id */
+            payment_id?: string | null;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+        };
+        /** ConversionProposal */
+        ConversionProposal: {
+            /** Closed Reason */
+            closed_reason?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Offer */
+            offer: components["schemas"]["PaidConversionOffer"] | components["schemas"]["TrialConversionOffer"];
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /** Published At */
+            published_at?: string | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "seven_day_free_use" | "hot_free_account";
+            /** Snapshot Revision */
+            snapshot_revision: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "published" | "interested" | "declined" | "opted_out" | "converted" | "cancelled";
+            /** Turn Id */
+            turn_id?: number | null;
+        };
+        /** ConversionProposalPage */
+        ConversionProposalPage: {
+            /** Next After */
+            next_after?: number | null;
+            /** Parent Id */
+            parent_id: string;
+            /** Proposals */
+            proposals: components["schemas"]["ConversionProposal"][];
+        };
+        /**
+         * ConversionSnapshot
+         * @description Authoritative, minimized backend facts about an adult parent's account only.
+         */
+        ConversionSnapshot: {
+            /** Active Days 7D */
+            active_days_7d: number;
+            /** Agent Trial Given */
+            agent_trial_given?: boolean | null;
+            /**
+             * Consent Observed At
+             * Format: date-time
+             */
+            consent_observed_at: string;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Free Access Ends At */
+            free_access_ends_at?: string | null;
+            /** Free Started At */
+            free_started_at: string | null;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ru" | "uz-Latn" | "uz-Cyrl" | "en";
+            /** Last Active At */
+            last_active_at: string | null;
+            /** Marketing Consent */
+            marketing_consent: boolean;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Paywall Views 7D */
+            paywall_views_7d: number;
+            /**
+             * Product
+             * @default mana
+             * @constant
+             */
+            product: "mana";
+            /** Revision */
+            revision: number;
+            /** Sessions 7D */
+            sessions_7d: number;
+            /**
+             * Subscription
+             * @enum {string}
+             */
+            subscription: "free" | "paid" | "expired" | "unknown";
+            /** Timezone */
+            timezone: string;
+        };
         /** CreateAdminUserRequest */
         CreateAdminUserRequest: {
             /** Display Name */
@@ -6209,6 +6527,60 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * PaidConversionOffer
+         * @description An owner-configured offer already supported by the application's checkout.
+         */
+        PaidConversionOffer: {
+            /** Approval Reference */
+            approval_reference: string;
+            /** Auto Renew */
+            auto_renew: boolean;
+            /** Billing Offer Id */
+            billing_offer_id: string;
+            /** Checkout Path */
+            checkout_path: string;
+            /**
+             * Currency
+             * @enum {string}
+             */
+            currency: "UZS" | "USD";
+            /**
+             * Discount Percent
+             * @default 0
+             */
+            discount_percent: number;
+            /** Duration Days */
+            duration_days: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "paid_subscription";
+            /** List Price Minor */
+            list_price_minor: number;
+            /** Offer Id */
+            offer_id: string;
+            /** Price Minor */
+            price_minor: number;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /** Renewal Price Minor */
+            renewal_price_minor?: number | null;
+            /**
+             * Valid From
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
+        };
         /** ParentChatHistory */
         ParentChatHistory: {
             /** Latest Error Code */
@@ -6288,6 +6660,44 @@ export interface components {
              */
             request_id: string;
             usage: components["schemas"]["ChatTokens"];
+        };
+        /**
+         * ParentContactContext
+         * @description Backend-verified presentation and independently granted contact permissions.
+         */
+        ParentContactContext: {
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ru" | "uz-Latn" | "uz-Cyrl" | "en";
+            /** Marketing Push Consent */
+            marketing_push_consent: boolean;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Revision */
+            revision: number;
+            /** Safety Chat Consent */
+            safety_chat_consent: boolean;
+            /** Safety Push Consent */
+            safety_push_consent: boolean;
+            /** Timezone */
+            timezone: string;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
         };
         /** ParentCopilotActionProposal */
         ParentCopilotActionProposal: {
@@ -6392,6 +6802,54 @@ export interface components {
             /** Summary */
             summary: string;
             verdict: components["schemas"]["AnalysisVerdict"];
+        };
+        /** ParentPushPage */
+        ParentPushPage: {
+            /** Next After */
+            next_after?: number | null;
+            /** Parent Id */
+            parent_id: string;
+            /** Pushes */
+            pushes: components["schemas"]["ParentPushState"][];
+        };
+        /**
+         * ParentPushState
+         * @description Provider queueing is not evidence of delivery, opening or parent awareness.
+         */
+        ParentPushState: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "safety" | "marketing";
+            /**
+             * Push Id
+             * Format: uuid
+             */
+            push_id: string;
+            /** Queued Devices */
+            queued_devices?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "submitting" | "queued_by_provider" | "not_queued" | "unknown" | "suppressed";
+            /** Turn Id */
+            turn_id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** ParentTouchDeliveryRequest */
         ParentTouchDeliveryRequest: {
@@ -7825,6 +8283,99 @@ export interface components {
             kind: "propose_test";
             /** Test Type */
             test_type: string;
+        };
+        /** TrialAcceptance */
+        TrialAcceptance: {
+            /**
+             * Confirmed By Parent
+             * @constant
+             */
+            confirmed_by_parent: true;
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            /** Reply Turn Id */
+            reply_turn_id: number;
+        };
+        /**
+         * TrialConversionOffer
+         * @description One non-paid Maxsus grant; never a discount or payment transaction.
+         */
+        TrialConversionOffer: {
+            /** Approval Reference */
+            approval_reference: string;
+            /** Grant Days */
+            grant_days: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "free_premium_days";
+            /** Offer Id */
+            offer_id: string;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+            /**
+             * Valid From
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
+        };
+        /** TrialGrantResult */
+        TrialGrantResult: {
+            /** Parent Id */
+            parent_id: string;
+            /** Purchase Id */
+            purchase_id: number;
+            /** Tariff */
+            tariff: string;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
+        };
+        /** TrialGrantState */
+        TrialGrantState: {
+            /**
+             * Action Id
+             * Format: uuid
+             */
+            action_id: string;
+            /** Days */
+            days: number;
+            /** Error Code */
+            error_code?: string | null;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Proposal Id
+             * Format: uuid
+             */
+            proposal_id: string;
+            result?: components["schemas"]["TrialGrantResult"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "submitting" | "granted" | "rejected" | "unknown";
         };
         /**
          * TriggerType
@@ -10560,6 +11111,202 @@ export interface operations {
             };
         };
     };
+    observe_account_api_v1_mana_ai_conversion_agent_events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversionSnapshot"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionAdmission"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outcome_api_v1_mana_ai_conversion_agent_outcomes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversionOutcome"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionProposal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proposals_api_v1_mana_ai_conversion_agent_proposals_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionProposalPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proposal_api_v1_mana_ai_conversion_agent_proposals__proposal_id__get: {
+        parameters: {
+            query: {
+                parent_id: string;
+            };
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionProposal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_trial_api_v1_mana_ai_conversion_agent_trial_acceptances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrialAcceptance"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialGrantState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_grant_api_v1_mana_ai_conversion_agent_trial_grants_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialGrantState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     generate_family_agreement: {
         parameters: {
             query?: never;
@@ -10834,6 +11581,70 @@ export interface operations {
             };
         };
     };
+    read_contact_api_v1_mana_ai_parent_touch_contact_context_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentContactContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_contact_api_v1_mana_ai_parent_touch_contact_context_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentContactContext"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentContactContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     deliver_question_api_v1_mana_ai_parent_touch_deliver_post: {
         parameters: {
             query?: never;
@@ -10920,6 +11731,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParentTouchMessageState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_notifications_api_v1_mana_ai_parent_touch_notifications_get: {
+        parameters: {
+            query: {
+                parent_id: string;
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentPushPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_notification_api_v1_mana_ai_parent_touch_notifications__push_id__get: {
+        parameters: {
+            query: {
+                parent_id: string;
+            };
+            header?: never;
+            path: {
+                push_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParentPushState"];
                 };
             };
             /** @description Validation Error */

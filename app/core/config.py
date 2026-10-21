@@ -9,6 +9,7 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator, model_vali
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.mana_ai.domain.child_safety import ChildSafetyLimits
+from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 
 
 class Settings(BaseSettings):
@@ -47,6 +48,11 @@ class Settings(BaseSettings):
     mana_parent_touch_review_first_enabled: bool = False
     mana_parent_touch_model: str | None = Field(default="gpt-5.4", min_length=1, max_length=128)
     mana_parent_touch_question_limit: int = Field(default=100, ge=1, le=1000)
+    mana_parent_touch_proactive_enabled: bool = False
+    mana_parent_push_enabled: bool = False
+    mana_parent_push_queue_limit: int = Field(default=1000, ge=1, le=10000)
+    mana_parent_push_max_age_seconds: int = Field(default=3600, ge=60, le=86400)
+    mana_parent_push_daily_attempt_limit: int = Field(default=100, ge=1, le=10000)
     mana_child_safety_enabled: bool = False
     mana_child_safety_model: str | None = Field(
         default="gpt-5.4-mini", min_length=1, max_length=128
@@ -54,6 +60,10 @@ class Settings(BaseSettings):
     mana_child_safety_limits: ChildSafetyLimits | None = None
     mana_child_safety_max_output_tokens: int = Field(default=1024, ge=32, le=4096)
     mana_child_safety_poll_seconds: float = Field(default=1, ge=0.05, le=60)
+    mana_conversion_enabled: bool = False
+    mana_conversion_trial_grants_enabled: bool = False
+    mana_conversion_policy: ConversionPolicy = Field(default_factory=ConversionPolicy)
+    mana_conversion_offers: tuple[ConversionOffer, ...] = ()
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -385,6 +395,24 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":
+        if (
+            self.mana_parent_touch_proactive_enabled
+            and not self.mana_parent_touch_review_first_enabled
+        ):
+            raise ValueError("Proactive parent contact requires the captured family runtime")
+        if self.mana_parent_push_enabled and not self.mana_parent_touch_proactive_enabled:
+            raise ValueError("Parent push requires the isolated proactive Parent-Touch runtime")
+        if self.mana_conversion_trial_grants_enabled and not self.mana_conversion_enabled:
+            raise ValueError("Trial grants require the owning Conversion/Parent-Touch runtime")
+        if self.mana_conversion_enabled:
+            if not self.mana_parent_touch_review_first_enabled:
+                raise ValueError("Conversion requires the captured Parent-Touch family runtime")
+            if not self.mana_conversion_offers:
+                raise ValueError("Conversion requires an owner-approved billing offer catalog")
+            if len({offer.offer_id for offer in self.mana_conversion_offers}) != len(
+                self.mana_conversion_offers
+            ):
+                raise ValueError("Conversion offer identities must be unique")
         if self.mana_parent_touch_review_first_enabled and not self.mana_child_safety_enabled:
             raise ValueError("Review-first messages require the Child-Safety worker")
         if self.mana_child_safety_enabled:

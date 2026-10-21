@@ -2,6 +2,24 @@
 
 ## Repository expectations
 
+- The 2026-10-21 conversion/proactive increment is local, default disabled and
+  not a production contact release. Parent-Touch remains the only speaker and
+  may initiate before the first parent text only with fresh backend-verified
+  language and separate safety-chat/push permissions. Never invent a parent
+  message, locale or consent. Private SQLite v8 atomically commits assistant
+  history and a privacy-minimized push outbox; freeze a one-shot SQL claim before
+  the documented Manakids send. Provider queueing is not delivery, zero devices
+  is not success, and unknown/submitting attempts never auto-retry after restart.
+  Revalidate current marketing consent/paid state/offer before a commercial push.
+  Current closed v8 readers preserve history/holds; old production `f8d095e`
+  cannot be used as a v8 rollback reader. Keep the old production and all source
+  refresh settings unchanged. See `docs/mana-parent-proactive.md`.
+  Agent tariff grants are explicit parent-accepted, non-paid free days, never
+  payment/transaction creation or proof of paid conversion. Current Parent List
+  does not expose authoritative paid/free status, activity or contact settings;
+  do not infer them from tariff names or claim all real parents are tracked.
+  Read `docs/mana-conversion-work-in-progress.md` for unfinished goal obligations.
+
 - On 2026-10-20 the owner separately authorized the scoped family-agent production
   release and explicitly set Child-Safety's total server daily budget to 2000 tokens
   for all parents. `f8d095e` now runs in the existing isolated parent-chat sidecar,

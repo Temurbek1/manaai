@@ -35,12 +35,23 @@ def test_public_docs_export_has_only_product_contracts(monkeypatch: MonkeyPatch)
         "/api/v1/mana-ai/child-safety/assessments",
         "/api/v1/mana-ai/child-safety/assessments/{job_id}",
         "/api/v1/mana-ai/child-safety/budget",
+        "/api/v1/mana-ai/conversion-agent/events",
+        "/api/v1/mana-ai/conversion-agent/proposals",
+        "/api/v1/mana-ai/conversion-agent/proposals/{proposal_id}",
+        "/api/v1/mana-ai/conversion-agent/outcomes",
+        "/api/v1/mana-ai/conversion-agent/trial-acceptances",
+        "/api/v1/mana-ai/conversion-agent/trial-grants",
+        "/api/v1/mana-ai/parent-touch/contact-context",
+        "/api/v1/mana-ai/parent-touch/notifications",
+        "/api/v1/mana-ai/parent-touch/notifications/{push_id}",
     }
-    assert len(schema["paths"]) == 32
+    assert len(schema["paths"]) == 41
     assert schema["servers"] == [{"url": "/", "description": "Same-origin production API"}]
     assert set(schema["components"]["securitySchemes"]) == {"BearerToken", "ParentChatBackendToken"}
     for path, operations in schema["paths"].items():
-        family = "/parent-touch/" in path or "/child-safety/" in path or path.endswith("/agents")
+        family = any(
+            part in path for part in ("/parent-touch/", "/child-safety/", "/conversion-agent/")
+        ) or path.endswith("/agents")
         scheme = "ParentChatBackendToken" if family or path.endswith("/chat") else "BearerToken"
         for operation in operations.values():
             assert operation["security"] == [{scheme: []}]
@@ -74,7 +85,7 @@ def test_export_is_exclusive_and_records_runtime(monkeypatch: MonkeyPatch, tmp_p
     manifest = json.loads((output / "manifest.json").read_text())
     assert manifest == {
         "runtime_image": image,
-        "path_count": 32,
+        "path_count": 41,
         "swagger_ui_version": "5.33.2",
         "source_reads": 0,
         "provider_calls": 0,

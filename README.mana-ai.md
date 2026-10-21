@@ -23,6 +23,13 @@ The scoped [family-agent production release](docs/mana-family-agents-release.md)
 enables the workflow with 2000 Child-Safety tokens/day globally, independently of
 the per-parent chat allowance. It does not install bulk Firebase/GA4 refresh.
 
+The separate [proactive Parent-Touch increment](docs/mana-parent-proactive.md) is
+local and default disabled, not part of that production release. It adds a verified
+recipient context before first contact and a durable push outbox attached to the
+same saved chat. [Conversion work](docs/mana-conversion-work-in-progress.md) is
+unfinished: free days never create payments, and actual paid/free/activity feeds
+must be supplied by the owning backend before claiming population-wide tracking.
+
 - **No operational database.** The 11 request/response capabilities remain stateless. Optional
   audio moderation uses bounded in-process workers while 360REC owns durable state and retry.
   The opt-in MANA parent chat uses its own private SQLite history/quota database and one

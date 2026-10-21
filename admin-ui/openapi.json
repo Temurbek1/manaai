@@ -6393,6 +6393,430 @@
         "title": "ContactParentAction",
         "type": "object"
       },
+      "ConversionAdmission": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversionProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "parent_id",
+          "event_id",
+          "decision",
+          "proposal"
+        ],
+        "title": "ConversionAdmission",
+        "type": "object"
+      },
+      "ConversionOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_minor": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Minor"
+          },
+          "billing_offer_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Offer Id"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "UZS",
+                  "USD"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "interested",
+              "declined",
+              "opted_out",
+              "payment_confirmed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Id"
+          },
+          "proposal_id": {
+            "format": "uuid",
+            "title": "Proposal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "event_id",
+          "proposal_id",
+          "observed_at",
+          "kind"
+        ],
+        "title": "ConversionOutcome",
+        "type": "object"
+      },
+      "ConversionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "closed_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed Reason"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "offer": {
+            "discriminator": {
+              "mapping": {
+                "free_premium_days": "#/components/schemas/TrialConversionOffer",
+                "paid_subscription": "#/components/schemas/PaidConversionOffer"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PaidConversionOffer"
+              },
+              {
+                "$ref": "#/components/schemas/TrialConversionOffer"
+              }
+            ],
+            "title": "Offer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "format": "uuid",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reason": {
+            "enum": [
+              "seven_day_free_use",
+              "hot_free_account"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "snapshot_revision": {
+            "title": "Snapshot Revision",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "published",
+              "interested",
+              "declined",
+              "opted_out",
+              "converted",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "parent_id",
+          "snapshot_revision",
+          "reason",
+          "status",
+          "offer",
+          "created_at"
+        ],
+        "title": "ConversionProposal",
+        "type": "object"
+      },
+      "ConversionProposalPage": {
+        "additionalProperties": false,
+        "properties": {
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/ConversionProposal"
+            },
+            "title": "Proposals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parent_id",
+          "proposals"
+        ],
+        "title": "ConversionProposalPage",
+        "type": "object"
+      },
+      "ConversionSnapshot": {
+        "additionalProperties": false,
+        "description": "Authoritative, minimized backend facts about an adult parent's account only.",
+        "properties": {
+          "active_days_7d": {
+            "maximum": 7.0,
+            "minimum": 0.0,
+            "title": "Active Days 7D",
+            "type": "integer"
+          },
+          "agent_trial_given": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Trial Given"
+          },
+          "consent_observed_at": {
+            "format": "date-time",
+            "title": "Consent Observed At",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "free_access_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Access Ends At"
+          },
+          "free_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Started At"
+          },
+          "language": {
+            "enum": [
+              "ru",
+              "uz-Latn",
+              "uz-Cyrl",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "last_active_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Active At"
+          },
+          "marketing_consent": {
+            "title": "Marketing Consent",
+            "type": "boolean"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "paywall_views_7d": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Paywall Views 7D",
+            "type": "integer"
+          },
+          "product": {
+            "const": "mana",
+            "default": "mana",
+            "title": "Product",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sessions_7d": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Sessions 7D",
+            "type": "integer"
+          },
+          "subscription": {
+            "enum": [
+              "free",
+              "paid",
+              "expired",
+              "unknown"
+            ],
+            "title": "Subscription",
+            "type": "string"
+          },
+          "timezone": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "event_id",
+          "revision",
+          "observed_at",
+          "subscription",
+          "free_started_at",
+          "marketing_consent",
+          "consent_observed_at",
+          "language",
+          "timezone",
+          "last_active_at",
+          "active_days_7d",
+          "sessions_7d",
+          "paywall_views_7d"
+        ],
+        "title": "ConversionSnapshot",
+        "type": "object"
+      },
       "CreateAdminUserRequest": {
         "additionalProperties": false,
         "properties": {
@@ -12029,6 +12453,118 @@
         "title": "Page[Recommendation]",
         "type": "object"
       },
+      "PaidConversionOffer": {
+        "additionalProperties": false,
+        "description": "An owner-configured offer already supported by the application's checkout.",
+        "properties": {
+          "approval_reference": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Approval Reference",
+            "type": "string"
+          },
+          "auto_renew": {
+            "title": "Auto Renew",
+            "type": "boolean"
+          },
+          "billing_offer_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$",
+            "title": "Billing Offer Id",
+            "type": "string"
+          },
+          "checkout_path": {
+            "pattern": "^/subscriptions/[a-z0-9_-]{1,80}$",
+            "title": "Checkout Path",
+            "type": "string"
+          },
+          "currency": {
+            "enum": [
+              "UZS",
+              "USD"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "discount_percent": {
+            "default": 0,
+            "maximum": 50.0,
+            "minimum": 0.0,
+            "title": "Discount Percent",
+            "type": "integer"
+          },
+          "duration_days": {
+            "maximum": 366.0,
+            "minimum": 1.0,
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "paid_subscription",
+            "default": "paid_subscription",
+            "title": "Kind",
+            "type": "string"
+          },
+          "list_price_minor": {
+            "exclusiveMinimum": 0.0,
+            "title": "List Price Minor",
+            "type": "integer"
+          },
+          "offer_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "price_minor": {
+            "exclusiveMinimum": 0.0,
+            "title": "Price Minor",
+            "type": "integer"
+          },
+          "priority": {
+            "default": 0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "renewal_price_minor": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renewal Price Minor"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "offer_id",
+          "billing_offer_id",
+          "approval_reference",
+          "valid_from",
+          "valid_until",
+          "currency",
+          "list_price_minor",
+          "price_minor",
+          "duration_days",
+          "auto_renew",
+          "checkout_path"
+        ],
+        "title": "PaidConversionOffer",
+        "type": "object"
+      },
       "ParentChatHistory": {
         "additionalProperties": false,
         "properties": {
@@ -12246,6 +12782,79 @@
           "child_context_collected_at"
         ],
         "title": "ParentChatResponse",
+        "type": "object"
+      },
+      "ParentContactContext": {
+        "additionalProperties": false,
+        "description": "Backend-verified presentation and independently granted contact permissions.",
+        "properties": {
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "ru",
+              "uz-Latn",
+              "uz-Cyrl",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "marketing_push_consent": {
+            "title": "Marketing Push Consent",
+            "type": "boolean"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "safety_chat_consent": {
+            "title": "Safety Chat Consent",
+            "type": "boolean"
+          },
+          "safety_push_consent": {
+            "title": "Safety Push Consent",
+            "type": "boolean"
+          },
+          "timezone": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent_id",
+          "event_id",
+          "revision",
+          "observed_at",
+          "valid_until",
+          "language",
+          "timezone",
+          "safety_chat_consent",
+          "safety_push_consent",
+          "marketing_push_consent"
+        ],
+        "title": "ParentContactContext",
         "type": "object"
       },
       "ParentCopilotActionProposal": {
@@ -12538,6 +13147,125 @@
           "proposed_actions"
         ],
         "title": "ParentCopilotResponse",
+        "type": "object"
+      },
+      "ParentPushPage": {
+        "additionalProperties": false,
+        "properties": {
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "pushes": {
+            "items": {
+              "$ref": "#/components/schemas/ParentPushState"
+            },
+            "title": "Pushes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parent_id",
+          "pushes"
+        ],
+        "title": "ParentPushPage",
+        "type": "object"
+      },
+      "ParentPushState": {
+        "additionalProperties": false,
+        "description": "Provider queueing is not evidence of delivery, opening or parent awareness.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "safety",
+              "marketing"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "push_id": {
+            "format": "uuid",
+            "title": "Push Id",
+            "type": "string"
+          },
+          "queued_devices": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued Devices"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "submitting",
+              "queued_by_provider",
+              "not_queued",
+              "unknown",
+              "suppressed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Turn Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "push_id",
+          "parent_id",
+          "turn_id",
+          "purpose",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ParentPushState",
         "type": "object"
       },
       "ParentTouchDeliveryRequest": {
@@ -16466,6 +17194,200 @@
           "test_type"
         ],
         "title": "TestProposalParameters",
+        "type": "object"
+      },
+      "TrialAcceptance": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed_by_parent": {
+            "const": true,
+            "title": "Confirmed By Parent",
+            "type": "boolean"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "format": "uuid",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "reply_turn_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Reply Turn Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parent_id",
+          "event_id",
+          "proposal_id",
+          "reply_turn_id",
+          "confirmed_by_parent"
+        ],
+        "title": "TrialAcceptance",
+        "type": "object"
+      },
+      "TrialConversionOffer": {
+        "additionalProperties": false,
+        "description": "One non-paid Maxsus grant; never a discount or payment transaction.",
+        "properties": {
+          "approval_reference": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Approval Reference",
+            "type": "string"
+          },
+          "grant_days": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Grant Days",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "free_premium_days",
+            "default": "free_premium_days",
+            "title": "Kind",
+            "type": "string"
+          },
+          "offer_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$",
+            "title": "Offer Id",
+            "type": "string"
+          },
+          "priority": {
+            "default": 0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "offer_id",
+          "approval_reference",
+          "valid_from",
+          "valid_until",
+          "grant_days"
+        ],
+        "title": "TrialConversionOffer",
+        "type": "object"
+      },
+      "TrialGrantResult": {
+        "additionalProperties": false,
+        "properties": {
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "purchase_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Purchase Id",
+            "type": "integer"
+          },
+          "tariff": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Tariff",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_id",
+          "parent_id",
+          "tariff",
+          "valid_until"
+        ],
+        "title": "TrialGrantResult",
+        "type": "object"
+      },
+      "TrialGrantState": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "format": "uuid",
+            "title": "Action Id",
+            "type": "string"
+          },
+          "days": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "proposal_id": {
+            "format": "uuid",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrialGrantResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "submitting",
+              "granted",
+              "rejected",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "parent_id",
+          "proposal_id",
+          "days",
+          "status"
+        ],
+        "title": "TrialGrantState",
         "type": "object"
       },
       "TriggerType": {
@@ -22986,6 +23908,324 @@
         ]
       }
     },
+    "/api/v1/mana-ai/conversion-agent/events": {
+      "post": {
+        "description": "Backend-only MANA profile ID. Requires confirmed subscription state, dated parent activity and marketing consent, never raw child data. An identical event replays its original admission without reads or sends. Increasing revision and observation date are mandatory; GET/status never dispatch. A queued proposal is not a delivered offer. Only Parent-Touch may publish, after fresh eligibility and conversation priority checks.",
+        "operationId": "observe_account_api_v1_mana_ai_conversion_agent_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionSnapshot"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionAdmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe verified adult-account subscription and activity facts",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/conversion-agent/outcomes": {
+      "post": {
+        "description": "Interest is not a purchase. Payment needs the exact billed offer/amount/currency and a unique billing receipt, after actual publication and within the offer's validity. Opt-out suppresses future offers permanently; snapshots cannot silently re-enable it. Never infer a payment or consent from chat text, current tariff, click or model output. This endpoint neither charges, grants a subscription, creates a discount nor sends push.",
+        "operationId": "outcome_api_v1_mana_ai_conversion_agent_outcomes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionOutcome"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Record an explicit parent reaction or verified payment receipt",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/conversion-agent/proposals": {
+      "get": {
+        "operationId": "proposals_api_v1_mana_ai_conversion_agent_proposals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionProposalPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe a parent's conversion history",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/conversion-agent/proposals/{proposal_id}": {
+      "get": {
+        "operationId": "proposal_api_v1_mana_ai_conversion_agent_proposals__proposal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe one same-family offer",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/conversion-agent/trial-acceptances": {
+      "post": {
+        "description": "Backend-only. Requires the parent's actual same-chat activation message and frozen offer. Days come from the approved catalog, never client/model fields. No payment, transaction or paid subscription is created. Exact replay observes the durable action and never repeats a provider call, including unknown outcomes.",
+        "operationId": "accept_trial_api_v1_mana_ai_conversion_agent_trial_acceptances_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialAcceptance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialGrantState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Accept one non-paid Maxsus tariff offer after explicit parent consent",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/conversion-agent/trial-grants": {
+      "get": {
+        "operationId": "read_grant_api_v1_mana_ai_conversion_agent_trial_grants_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialGrantState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe a parent's non-paid grant without provider calls or retry",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
     "/api/v1/mana-ai/family-agreement": {
       "post": {
         "description": "**Rules, drafted or reviewed.** Produces transparent family rules that balance privacy against safety and relax gradually with age, or turns a child's request into a clear proposal for a parent.\n\n**Send** the required `mode` (`draft`, `review`, or `child_request`) and `preferences`, plus `current_rules`. `child_request` is required when that mode is selected.\n\n**Returns** `details.draft_rules` and `request_context`.\n\nOutput is a proposal for humans to accept — the API never activates a rule.\n\n---\n\nAccepts application-supplied, minimized evidence and returns a typed read-only analysis. This endpoint does not read or mutate application databases and never executes a proposed action. Reuse `request_id` when retrying the same logical analysis.\n\n**Always check `status` before trusting the content.** `completed` means the full analysis ran; `degraded` means a signal was missing or a model claim failed validation — the response is still usable but reduced, and `data_quality_notes` explains why. Findings that cite evidence you did not send are dropped, and a summary that contradicts the validated verdict is replaced.",
@@ -23420,6 +24660,99 @@
         ]
       }
     },
+    "/api/v1/mana-ai/parent-touch/contact-context": {
+      "get": {
+        "operationId": "read_contact_api_v1_mana_ai_parent_touch_contact_context_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentContactContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Read Contact",
+        "tags": [
+          "mana-ai"
+        ]
+      },
+      "post": {
+        "description": "Trusted backend only; derive parent_id from the authorized family. Can be registered before the parent's first chat message. Language/timezone are presentation, never source/write authority. Supply verified current preferences and an explicit expiry; no invented default locale or inferred marketing consent. Exact event replay never changes the original context or sends a notification.",
+        "operationId": "register_contact_api_v1_mana_ai_parent_touch_contact_context_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParentContactContext"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentContactContext"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Register verified recipient language and separate contact permissions",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
     "/api/v1/mana-ai/parent-touch/deliver": {
       "post": {
         "description": "Explicit backend dispatch, not a GET side effect or push notification. No fabricated parent message. Requires prior parent text for its frozen language/script, fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; a new nonce cannot repeat the same question/notice context. An urgent notice may interrupt an awaiting question without opening another question. Unknown receipts remain held. Optional resume_deferred_request_id explicitly identifies a previous-day delivery refused before inference only for daily_token_budget_exceeded. A new request_id admits the same still-valid choice/language context once per local day, with fresh ownership/quota checks. This is not automatic retry; paid, unknown, changed or expired work cannot resume.",
@@ -23567,6 +24900,136 @@
           }
         ],
         "summary": "Observe a same-family review-first message without redispatch",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/notifications": {
+      "get": {
+        "description": "SQL only. No push/model/source dispatch. Provider queueing, including zero devices, does not prove device delivery or opening. Unknown attempts never auto-retry.",
+        "operationId": "read_notifications_api_v1_mana_ai_parent_touch_notifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentPushPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Observe same-parent pushes attached to already saved chat messages",
+        "tags": [
+          "mana-ai"
+        ]
+      }
+    },
+    "/api/v1/mana-ai/parent-touch/notifications/{push_id}": {
+      "get": {
+        "operationId": "read_notification_api_v1_mana_ai_parent_touch_notifications__push_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "push_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Push Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParentPushState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ParentChatBackendToken": []
+          }
+        ],
+        "summary": "Read Notification",
         "tags": [
           "mana-ai"
         ]

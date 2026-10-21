@@ -108,6 +108,7 @@ class ParentChatStore(Protocol):
 
 
 class ParentTouchStore(ParentChatStore, Protocol):
+    async def language_hint(self, parent_id: str, turn_id: int) -> ResponseLanguage | None: ...
     async def evidence_for_turn(
         self, parent_id: str, turn_id: int, connected: tuple[int, ...]
     ) -> ParentTouchEvidence | None: ...

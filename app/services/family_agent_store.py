@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
 from app.mana_ai.application.parent_languages import neutral_parent_reply, parent_language
-from app.mana_ai.domain.chat import ParentChatRequest, StoredChatTurn
+from app.mana_ai.domain.chat import ParentChatRequest, ResponseLanguage, StoredChatTurn
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
     AgentQuestionReceipt,
@@ -194,10 +194,9 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         if delivery:
             if anchor is None:
                 raise ParentChatError("no_question_ready_for_delivery", 409)
-            previous = self._previous_language(connection, request.parent_id, turn_id)
-            if previous is None:
-                raise ParentChatError("parent_language_not_established", 409)
-            language_turn_id, reference = previous["id"], previous["reference"]
+            language_turn_id, reference = self._delivery_language(
+                connection, request.parent_id, turn_id, now
+            )
             if isinstance(request, ParentTouchDeferredTurn):
                 anchor = self._resume_delivery_anchor(
                     connection, request, anchor, language_turn_id, now
@@ -224,6 +223,18 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 reference,
             ),
         )
+
+    def _delivery_language(
+        self, connection: sqlite3.Connection, parent_id: str, turn_id: int, now: datetime
+    ) -> tuple[int, str]:
+        """Legacy delivery requires real prior text; scoped adapters may bind preferences."""
+        previous = self._previous_language(connection, parent_id, turn_id)
+        if previous is None:
+            raise ParentChatError("parent_language_not_established", 409)
+        return previous["id"], previous["reference"]
+
+    async def language_hint(self, parent_id: str, turn_id: int) -> ResponseLanguage | None:
+        return None
 
     def _resume_delivery_anchor(
         self,

@@ -11,7 +11,9 @@ from app.api.routes import (
     mana_ai,
     mana_ai_chat,
     mana_child_safety,
+    mana_conversion,
     mana_family_agents,
+    mana_parent_proactive,
 )
 from app.api.security import require_bearer_token
 from app.core.auth_rate_limiter import AuthenticationRateLimiter
@@ -118,6 +120,8 @@ def create_app() -> FastAPI:
     api_router.include_router(mana_ai_chat.router, prefix="/mana-ai", tags=["mana-ai"])
     api_router.include_router(mana_family_agents.router, prefix="/mana-ai", tags=["mana-ai"])
     api_router.include_router(mana_child_safety.router, prefix="/mana-ai", tags=["mana-ai"])
+    api_router.include_router(mana_conversion.router, prefix="/mana-ai", tags=["mana-ai"])
+    api_router.include_router(mana_parent_proactive.router, prefix="/mana-ai", tags=["mana-ai"])
     api_router.include_router(health.router, prefix="/health", tags=["health"])
     api_router.include_router(
         audio_moderation.router,

@@ -13,9 +13,12 @@ from app.mana_ai.application.chat_ports import (
     ParentTouchStore,
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
+from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
+from app.mana_ai.application.parent_touch_offers import render_parent_offer
+from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.mana_ai.domain.chat import (
     ParentChatRequest,
@@ -28,6 +31,7 @@ from app.mana_ai.domain.family_agents import (
     AgentQuestionReceipt,
     AgentQuestionRequest,
     FamilyAgentAvailability,
+    FamilyAgentDefinition,
     FamilyAgentDirectory,
     ParentTouchDeferredTurn,
     ParentTouchDeliveryRequest,
@@ -74,6 +78,8 @@ class ParentTouchService(ParentChatService):
         registry: FamilyAgentRegistry | None = None,
         safety: ChildSafetyService | None = None,
         reviewed: ReviewedMessageStore | None = None,
+        conversion: ConversionService | None = None,
+        proactive: ProactiveParentService | None = None,
     ) -> None:
         super().__init__(
             store=store,
@@ -87,16 +93,37 @@ class ParentTouchService(ParentChatService):
         self._registry = registry or default_family_agents()
         self.safety = safety
         self._reviewed = reviewed
+        self.conversion = conversion
+        self.proactive = proactive
+
+    async def process_push(self) -> bool:
+        if self.proactive is None:
+            return False
+        return await self.proactive.process_one() is not None
+
+    async def process_conversion(self) -> bool:
+        """Only Parent-Touch may publish an approved, account-scoped promotion."""
+        if self.conversion is None:
+            return False
+        return await self.conversion.communicate(render_parent_offer)
 
     async def admit_message(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState:
+        reviewed_request = ParentTouchReviewedTurn(**request.model_dump())
+        if self.conversion is not None:
+            await self.conversion.observe_parent_message(reviewed_request)
         if self._reviewed is None:
             raise ParentChatError("review_first_disabled", 503)
         state = await self._reviewed.admit_reviewed(
-            ParentTouchReviewedTurn(**request.model_dump()),
+            reviewed_request,
             self._clock(),
             allow_new=bool(self.safety and self.safety.worker_available),
         )
         return await self._message_state(state)
+
+    async def send(self, request: ParentChatRequest) -> ParentChatResponse:
+        if self.conversion is not None:
+            await self.conversion.observe_parent_message(request)
+        return await super().send(request)
 
     async def message_state(self, parent_id: str, request_id: UUID) -> ParentTouchMessageState:
         if self._reviewed is None:
@@ -128,7 +155,7 @@ class ParentTouchService(ParentChatService):
         return True
 
     def directory(self) -> FamilyAgentDirectory:
-        return FamilyAgentDirectory(
+        directory = FamilyAgentDirectory(
             agents=[
                 FamilyAgentAvailability(
                     definition=definition,
@@ -149,6 +176,18 @@ class ParentTouchService(ParentChatService):
                 for definition in self._registry.definitions()
             ]
         )
+        if self.conversion is not None:
+            directory.agents.append(
+                FamilyAgentAvailability(
+                    definition=FamilyAgentDefinition(
+                        agent_id="conversion-agent", title="Conversion", speaks_to_parent=False
+                    ),
+                    status="available"
+                    if self.safety and self.safety.worker_available
+                    else "unavailable",
+                )
+            )
+        return directory
 
     async def read_touch_history(
         self,
@@ -260,7 +299,9 @@ class ParentTouchService(ParentChatService):
             if evidence.notice:
                 data["assessments"]["notice_kind"] = evidence.notice.kind
         reference = await self._touch_store.language_reference(request.parent_id, turn.turn_id)
-        response_language = parent_language(reference) if reference else None
+        response_language = await self._touch_store.language_hint(request.parent_id, turn.turn_id)
+        if response_language is None:
+            response_language = parent_language(reference) if reference else None
         if isinstance(request, ParentTouchDeliveryTurn):
             if not reference:
                 raise ParentChatError("parent_language_not_established", 409)

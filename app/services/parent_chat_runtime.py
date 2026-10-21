@@ -6,12 +6,16 @@ import httpx
 
 from app.core.config import Settings
 from app.mana_ai.application.child_safety import ChildSafetyService
+from app.mana_ai.application.conversion import ConversionService
+from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_touch import ParentTouchService
+from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
+from app.services.conversion_store import SqliteClosedConversionStore, SqliteConversionStore
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.family_compatibility_store import (
@@ -20,9 +24,15 @@ from app.services.family_compatibility_store import (
     family_storage_version,
 )
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
+from app.services.manakids_parent_push import ManakidsParentPushGateway
+from app.services.manakids_trial_grants import ManakidsTrialGrantGateway
 from app.services.parent_chat_children import ManakidsChatChildrenSource
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_chat_store import SqliteParentChatStore
+from app.services.proactive_parent_store import (
+    SqliteClosedProactiveParentStore,
+    SqliteProactiveParentStore,
+)
 from app.services.reviewed_message_store import (
     SqliteClosedReviewedBrokerStore,
     SqliteReviewedMessageStore,
@@ -42,7 +52,66 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     reviewed: ReviewedMessageStore | None = None
-    if settings.mana_parent_touch_review_first_enabled:
+    if (
+        settings.mana_parent_touch_proactive_enabled
+        or version == 8
+        and settings.mana_parent_touch_review_first_enabled
+    ):
+        assert settings.mana_child_safety_limits is not None
+        proactive_store = SqliteProactiveParentStore(
+            settings.mana_parent_chat_database_path,
+            conversion_policy=settings.mana_conversion_policy,
+            conversion_offers=settings.mana_conversion_offers,
+            limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            push_queue_limit=settings.mana_parent_push_queue_limit,
+            push_max_age_seconds=settings.mana_parent_push_max_age_seconds,
+            push_daily_attempt_limit=settings.mana_parent_push_daily_attempt_limit,
+            proactive_enabled=settings.mana_parent_touch_proactive_enabled,
+            push_enabled=settings.mana_parent_push_enabled,
+            **store_arguments,
+        )
+        store, reviewed = proactive_store, proactive_store
+    elif version == 8:
+        if settings.mana_child_safety_enabled:
+            raise RuntimeError("V8 safety execution requires the captured review-first runtime")
+        closed_proactive_store = SqliteClosedProactiveParentStore(
+            settings.mana_parent_chat_database_path,
+            history_only=not settings.mana_parent_touch_enabled,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = closed_proactive_store, closed_proactive_store
+    elif (
+        settings.mana_conversion_enabled
+        or version == 7
+        and settings.mana_parent_touch_review_first_enabled
+    ):
+        assert settings.mana_child_safety_limits is not None
+        conversion_store = SqliteConversionStore(
+            settings.mana_parent_chat_database_path,
+            conversion_policy=settings.mana_conversion_policy,
+            conversion_offers=settings.mana_conversion_offers,
+            limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = conversion_store, conversion_store
+    elif version == 7:
+        if settings.mana_child_safety_enabled:
+            raise RuntimeError("V7 safety execution requires the captured review-first runtime")
+        closed_conversion_store = SqliteClosedConversionStore(
+            settings.mana_parent_chat_database_path,
+            history_only=not settings.mana_parent_touch_enabled,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = closed_conversion_store, closed_conversion_store
+    elif settings.mana_parent_touch_review_first_enabled:
         assert settings.mana_child_safety_limits is not None
         review_store = SqliteReviewedMessageStore(
             settings.mana_parent_chat_database_path,
@@ -150,6 +219,48 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     history_turn_limit=settings.mana_parent_chat_history_turns,
                     safety=safety,
                     reviewed=reviewed,
+                    proactive=(
+                        ProactiveParentService(
+                            store,
+                            clock=lambda: datetime.now(UTC),
+                            gateway=(
+                                ManakidsParentPushGateway(
+                                    client=client,
+                                    base_url=settings.manakids_api_base_url,
+                                    username=settings.manakids_api_username,
+                                    password=settings.manakids_api_password.get_secret_value(),
+                                )
+                                if settings.mana_parent_push_enabled
+                                else None
+                            ),
+                        )
+                        if settings.mana_parent_touch_proactive_enabled
+                        and isinstance(store, SqliteProactiveParentStore)
+                        else None
+                    ),
+                    conversion=(
+                        ConversionService(
+                            store,
+                            clock=lambda: datetime.now(UTC),
+                            grants=(
+                                TrialGrantService(
+                                    store,
+                                    ManakidsTrialGrantGateway(
+                                        client=client,
+                                        base_url=settings.manakids_api_base_url,
+                                        username=settings.manakids_api_username,
+                                        password=settings.manakids_api_password.get_secret_value(),
+                                    ),
+                                    clock=lambda: datetime.now(UTC),
+                                )
+                                if settings.mana_conversion_trial_grants_enabled
+                                else None
+                            ),
+                        )
+                        if settings.mana_conversion_enabled
+                        and isinstance(store, SqliteConversionStore)
+                        else None
+                    ),
                 )
                 if safety is not None:
                     assert isinstance(service, ParentTouchService)
