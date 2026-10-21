@@ -1,19 +1,42 @@
 # Parent-Touch / Child-Safety — production handoff, 2026-10-20
 
-## Subsequent conversion goal — local WIP, not deployed
+## Subsequent conversion / proactive increment — local, not deployed
 
 The owner's conversion-agent goal is active in separate worktree
 `/mnt/ssd2/mana-conversion-agent-20261021`, branch
 `feat/mana-conversion-agent-20261021`, based on published `8683f20`.
-Read [the unfinished conversion checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-work-in-progress.md)
-before continuing. Uncommitted conversion code and focused fake checks do not
-constitute a completed goal or production release. The documented agent-tariff
+Application checkpoint **`d86e8d8`**, docs follow-up **`863bc06`**, is committed
+locally on that separate branch; it has not been pushed or deployed. Read
+[the unfinished conversion checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-work-in-progress.md)
+before continuing. This verified increment does not constitute a completed goal
+or production release. The documented agent-tariff
 endpoint grants 1–30 free Maxsus days once per parent, never a payment/transaction;
 the original objective still includes actual free-to-paid conversion.
 
 [The current one-chat integration guide](mana-single-chat-integration.ru.md)
-describes only the deployed API. Production OpenAPI was re-read without source/
-model work and still exposes 32 paths, no `/conversion-agent/` routes.
+keeps the deployed API and adds a clearly unreleased first-contact/push supplement.
+The last production OpenAPI read exposed 32 paths, no `/conversion-agent/` routes;
+the new local export has 41 paths /45 operations. No production update is implied.
+
+The owner explicitly requested parallel implementation. Three additional agents
+covered the push gateway, private proactive store and conversion/service review.
+Parent-Touch can now locally initiate an assistant-only turn before parent text
+using explicit backend-verified language and separate contact permissions. Saved
+chat plus generic push outbox are atomic; push is one claimed external attempt,
+not a delivery guarantee. Unknown/submitting calls never auto-retry. See
+[the proactive contract](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-proactive.md).
+New flags default disabled. Private SQLite v8 has a current closed reader;
+production `f8d095e` is not a compatible v8 rollback image.
+
+Full `make verify` session **34793**, exit **0**: **707 backend tests** (one skipped,
+two excluded), **26 UI tests**, mypy **268 files**, lint/types/build and audit zero.
+Provider tests use fakes/MockTransport, not real contacts. A separately scoped
+Parent List GET for designated test parent `4` returned 200 but exposed no paid/
+free classification, trial history, language/consent or activity. Only field
+names/types were retained, no personal values. No real push, free grant, paid
+model call, Firebase/GA4 read, production/SSH/key or schedule change occurred.
+Actual source event production, complete paid-upgrade/acceptance communication,
+candidate-image closure and measured business outcomes remain unfinished.
 
 ## Active production release
 
