@@ -1,5 +1,7 @@
 # Подключение агентов MANA к одному чату
 
+[English version](mana-single-chat-integration.en.md)
+
 Инструкция для backend и мобильного разработчика. Описывает выпущенные Parent-Touch
 и Child-Safety, приложение `f8d095e`. Разрабатываемый агент конверсии пока не входит
 в этот production-контракт.

@@ -2,6 +2,25 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+Latest local increment: **`efc9645`** on the same conversion branch. Its new
+default-disabled commercial-conversation lane uses private **v9**, freezing only
+new parent turns' exact approved offers and known grant receipts. Explicit backend
+acceptance must match that frozen/latest offer; terminal free-day results reach
+the same chat once without a model or payment. Confirmed dated free-access expiry
+admits paid offers only, never clock-only reclassification or another free grant.
+Current closed-v9 preserves history; `863bc06`/production `f8d095e` are not v9 readers.
+Read [the current commercial checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-commercial-conversation-checkpoint.md)
+and [required backend events](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-backend-events.ru.md).
+Full `make verify` session **33729**, exit **0**: **780 backend /26 UI tests**,
+mypy **272 files**, lint/types/build and audit zero; secret scan **444 files**.
+Checks use fictional/fake providers, not real grants, push or business measurement.
+No production/source/schedule/key changes. All-parent source feed, real billing
+offer catalog and candidate/channel release acceptance remain open.
+
+[English single-chat integration](mana-single-chat-integration.en.md) is available;
+its six typed examples and unchanged HTTP/curl examples were verified locally.
+The older v8 record below remains historical, not a v9 rollback instruction.
+
 The owner's conversion-agent goal is active in separate worktree
 `/mnt/ssd2/mana-conversion-agent-20261021`, branch
 `feat/mana-conversion-agent-20261021`, based on published `8683f20`.
