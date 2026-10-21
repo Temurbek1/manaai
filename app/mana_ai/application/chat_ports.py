@@ -13,6 +13,7 @@ from app.mana_ai.domain.chat import (
     ResponseLanguage,
     StoredChatTurn,
 )
+from app.mana_ai.domain.commercial_conversation import CommercialConversationContext
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
     AgentQuestionReceipt,
@@ -108,6 +109,10 @@ class ParentChatStore(Protocol):
 
 
 class ParentTouchStore(ParentChatStore, Protocol):
+    async def commercial_context(
+        self, parent_id: str, turn_id: int
+    ) -> CommercialConversationContext | None: ...
+
     async def language_hint(self, parent_id: str, turn_id: int) -> ResponseLanguage | None: ...
     async def evidence_for_turn(
         self, parent_id: str, turn_id: int, connected: tuple[int, ...]

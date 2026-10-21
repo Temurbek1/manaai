@@ -6587,7 +6587,8 @@
           "reason": {
             "enum": [
               "seven_day_free_use",
-              "hot_free_account"
+              "hot_free_account",
+              "free_access_expired"
             ],
             "title": "Reason",
             "type": "string"

@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.application.parent_touch_offers import render_parent_offer
-from app.mana_ai.domain.conversion_grants import TrialAcceptance
+from app.mana_ai.domain.conversion_grants import TrialAcceptance, TrialGrantResult
 from app.services.manakids_trial_grants import ManakidsTrialGrantGateway
 from tests.test_conversion_agent import repository, snapshot
 from tests.test_parent_chat import NOW, message
@@ -70,6 +70,9 @@ def payload(**changes: Any) -> dict[str, Any]:
         (403, {"error": "private upstream details"}, "rejected"),
         (500, {"error": "private upstream details"}, "unknown"),
         (201, payload(parent_id=456), "unknown"),
+        (201, payload(tariff="Different plan"), "unknown"),
+        (201, payload(tariff="maxsus"), "unknown"),
+        (201, payload(tariff="Maxsus "), "unknown"),
         (201, payload(valid_until=(NOW + timedelta(days=30)).isoformat()), "unknown"),
         (201, {"success": True}, "unknown"),
         (302, {}, "unknown"),
@@ -236,3 +239,41 @@ async def test_forged_or_other_family_acceptance_never_reaches_provider(tmp_path
         TrialAcceptance.model_validate(acceptance.model_dump() | {"days": 30})
     with pytest.raises(ValidationError):
         TrialAcceptance.model_validate(acceptance.model_dump() | {"confirmed_by_parent": 1})
+
+
+@pytest.mark.parametrize("malformed", ["invalid_purchase_id", "missing_receipt", "extra_field"])
+async def test_typed_port_bypass_never_becomes_a_verified_grant_or_automatic_retry(
+    tmp_path: Path, malformed: str
+) -> None:
+    store, acceptance = await prepare(tmp_path)
+
+    class MalformedGateway:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def grant(self, parent_id: str, days: int) -> TrialGrantResult:
+            self.calls += 1
+            if malformed == "missing_receipt":
+                # An incorrectly implemented adapter may violate its annotation.
+                return None  # type: ignore[return-value]
+            original = TrialGrantResult(
+                purchase_id=1,
+                parent_id=parent_id,
+                tariff="Maxsus",
+                valid_until=NOW + timedelta(days=days),
+            )
+            if malformed == "invalid_purchase_id":
+                return original.model_copy(update={"purchase_id": -1})
+            return original.model_copy(update={"unexpected_provider_payload": "not trusted"})
+
+    gateway = MalformedGateway()
+    service = TrialGrantService(store, gateway, clock=lambda: NOW)
+    result = await service.accept(acceptance)
+    assert result.status == "unknown" and result.result is None
+    assert result.error_code == "trial_grant_outcome_unknown"
+    assert await service.accept(acceptance) == result
+    restarted = await repository(tmp_path / "grant.db", trial=True)
+    assert (
+        await TrialGrantService(restarted, gateway, clock=lambda: NOW).accept(acceptance) == result
+    )
+    assert gateway.calls == 1

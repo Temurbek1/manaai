@@ -39,6 +39,7 @@ class ConversionStore(Protocol):
     ) -> ConversionProposal: ...
 
     async def publish_conversion(self, now: datetime, renderer: OfferRenderer) -> bool: ...
+    async def publish_trial_result(self, now: datetime) -> bool: ...
 
 
 class ConversionService:
@@ -92,4 +93,6 @@ class ConversionService:
 
     async def communicate(self, renderer: OfferRenderer) -> bool:
         # Called only by the host's Parent-Touch communication loop, never GET.
+        if await self._store.publish_trial_result(self._clock()):
+            return True
         return await self._store.publish_conversion(self._clock(), renderer)

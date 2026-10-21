@@ -1,6 +1,6 @@
 """MANA adult-account conversion contracts; no child facts or billing authority."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -70,6 +70,7 @@ class ConversionPolicy(ChatContract):
     snapshot_max_age_seconds: int = Field(default=900, ge=60, le=3600, strict=True)
     minimum_free_days: int = Field(default=7, ge=1, le=365, strict=True)
     hot_minimum_free_days: int = Field(default=1, ge=1, le=365, strict=True)
+    expired_free_access_window_days: int = Field(default=7, ge=1, le=30, strict=True)
     cooldown_days: int = Field(default=7, ge=1, le=90, strict=True)
     monthly_contact_limit: int = Field(default=2, ge=1, le=10, strict=True)
     global_daily_contact_limit: int = Field(default=100, ge=1, le=100_000, strict=True)
@@ -146,7 +147,7 @@ class ConversionSnapshot(ChatContract):
         return self
 
 
-ConversionReason = Literal["seven_day_free_use", "hot_free_account"]
+ConversionReason = Literal["seven_day_free_use", "hot_free_account", "free_access_expired"]
 ProposalStatus = Literal[
     "queued", "published", "interested", "declined", "opted_out", "converted", "cancelled"
 ]
@@ -201,13 +202,29 @@ class ConversionProposalPage(ChatContract):
 
 
 def conversion_reason(
-    snapshot: ConversionSnapshot, policy: ConversionPolicy, now: datetime
+    snapshot: ConversionSnapshot,
+    policy: ConversionPolicy,
+    now: datetime,
+    *,
+    include_expired: bool = False,
 ) -> ConversionReason | str:
-    """Deterministic admission, not a payment prediction or a model's permission."""
+    """Deterministic admission, not a payment prediction or a model's permission.
+
+    Expiry admission belongs only to a captured compatible runtime. Old callers
+    preserve their original reasons and do not acquire the new proposal contract.
+    An expiry invitation requires a paid offer; it does not authorize another
+    trial grant, claim a charge or attest to paid subscription status.
+    """
     age = (now - snapshot.observed_at).total_seconds()
     if age < -120 or age > policy.snapshot_max_age_seconds:
         return "snapshot_not_current"
-    if snapshot.subscription != "free":
+    expiry_candidate = (
+        include_expired
+        and snapshot.subscription in {"free", "expired"}
+        and snapshot.free_started_at is not None
+        and snapshot.free_access_ends_at is not None
+    )
+    if snapshot.subscription != "free" and not expiry_candidate:
         return "not_confirmed_free"
     if not snapshot.marketing_consent:
         return "no_marketing_consent"
@@ -217,6 +234,22 @@ def conversion_reason(
         or (now - snapshot.last_active_at).total_seconds() > 2 * 86400
     ):
         return "inactive_account"
+    if expiry_candidate:
+        assert snapshot.free_access_ends_at is not None
+        ended_at = snapshot.free_access_ends_at
+        if ended_at <= snapshot.observed_at:
+            if ended_at > now:
+                return "free_access_expiry_not_confirmed"
+            elapsed = (now.astimezone(UTC) - ended_at.astimezone(UTC)).total_seconds()
+            if elapsed > policy.expired_free_access_window_days * 86400:
+                return "free_access_expiry_window_elapsed"
+            return "free_access_expired"
+        if ended_at <= now:
+            # A timer cannot turn an older pre-expiry account observation into
+            # proof that access actually ended without payment or extension.
+            return "free_access_expiry_not_confirmed"
+    if snapshot.subscription != "free":
+        return "not_confirmed_free"
     assert snapshot.free_started_at is not None
     free_days = (now - snapshot.free_started_at).total_seconds() // 86400
     if free_days >= policy.minimum_free_days:
@@ -229,3 +262,21 @@ def conversion_reason(
     ):
         return "hot_free_account"
     return "not_yet_eligible"
+
+
+def elapsed_free_days(snapshot: ConversionSnapshot, now: datetime) -> int:
+    """Whole elapsed free-access days, capped at its confirmed end when supplied.
+
+    This is presentation data, not an eligibility decision, active-day measurement
+    or evidence of a payment. Callers must independently validate current facts,
+    recipient policy and the chosen offer before publishing a message.
+    """
+    if now.utcoffset() is None:
+        raise ValueError("An aware observation clock is required")
+    if snapshot.free_started_at is None:
+        raise ValueError("Elapsed free access needs its confirmed start date")
+    end = now.astimezone(UTC)
+    if snapshot.free_access_ends_at is not None:
+        end = min(end, snapshot.free_access_ends_at.astimezone(UTC))
+    seconds = (end - snapshot.free_started_at.astimezone(UTC)).total_seconds()
+    return max(0, int(seconds // 86400))

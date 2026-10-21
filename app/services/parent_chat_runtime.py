@@ -15,6 +15,10 @@ from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
+from app.services.commercial_conversation_store import (
+    SqliteClosedCommercialConversationStore,
+    SqliteCommercialConversationStore,
+)
 from app.services.conversion_store import SqliteClosedConversionStore, SqliteConversionStore
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
@@ -52,7 +56,38 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     reviewed: ReviewedMessageStore | None = None
-    if (
+    if settings.mana_conversion_conversation_enabled or (
+        version == 9 and settings.mana_parent_touch_review_first_enabled
+    ):
+        assert settings.mana_child_safety_limits is not None
+        commercial_store = SqliteCommercialConversationStore(
+            settings.mana_parent_chat_database_path,
+            conversion_policy=settings.mana_conversion_policy,
+            conversion_offers=settings.mana_conversion_offers,
+            limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            push_queue_limit=settings.mana_parent_push_queue_limit,
+            push_max_age_seconds=settings.mana_parent_push_max_age_seconds,
+            push_daily_attempt_limit=settings.mana_parent_push_daily_attempt_limit,
+            proactive_enabled=settings.mana_parent_touch_proactive_enabled,
+            push_enabled=settings.mana_parent_push_enabled,
+            conversation_enabled=settings.mana_conversion_conversation_enabled,
+            **store_arguments,
+        )
+        store, reviewed = commercial_store, commercial_store
+    elif version == 9:
+        if settings.mana_child_safety_enabled:
+            raise RuntimeError("V9 safety execution requires the captured review-first runtime")
+        closed_commercial_store = SqliteClosedCommercialConversationStore(
+            settings.mana_parent_chat_database_path,
+            history_only=not settings.mana_parent_touch_enabled,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = closed_commercial_store, closed_commercial_store
+    elif (
         settings.mana_parent_touch_proactive_enabled
         or version == 8
         and settings.mana_parent_touch_review_first_enabled

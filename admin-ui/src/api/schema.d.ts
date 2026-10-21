@@ -4532,7 +4532,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "seven_day_free_use" | "hot_free_account";
+            reason: "seven_day_free_use" | "hot_free_account" | "free_access_expired";
             /** Snapshot Revision */
             snapshot_revision: number;
             /**

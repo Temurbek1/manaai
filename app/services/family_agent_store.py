@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
 from app.mana_ai.application.parent_languages import neutral_parent_reply, parent_language
 from app.mana_ai.domain.chat import ParentChatRequest, ResponseLanguage, StoredChatTurn
+from app.mana_ai.domain.commercial_conversation import CommercialConversationContext
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
     AgentQuestionReceipt,
@@ -234,6 +235,11 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         return previous["id"], previous["reference"]
 
     async def language_hint(self, parent_id: str, turn_id: int) -> ResponseLanguage | None:
+        return None
+
+    async def commercial_context(
+        self, parent_id: str, turn_id: int
+    ) -> CommercialConversationContext | None:
         return None
 
     def _resume_delivery_anchor(

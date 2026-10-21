@@ -22,7 +22,6 @@ from app.mana_ai.domain.conversion import (
     ConversionPolicy,
     ConversionProposal,
     ConversionSnapshot,
-    conversion_reason,
 )
 from app.mana_ai.domain.family_agents import ParentTouchDeliveryRequest
 from app.mana_ai.domain.proactive_parent import (
@@ -620,9 +619,8 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
         if account["opted_out"] or account["converted"]:
             return "parent_push_marketing_account_closed"
         snapshot = ConversionSnapshot.model_validate_json(account["snapshot"])
-        if snapshot.parent_id != parent_id or conversion_reason(
-            snapshot, self._conversion_policy, now
-        ) not in {"seven_day_free_use", "hot_free_account"}:
+        reason = self._conversion_reason(snapshot, now)
+        if snapshot.parent_id != parent_id or not self._reason_eligible(reason):
             return "parent_push_marketing_account_not_eligible"
         row = connection.execute(
             "SELECT payload,status FROM conversion_proposals WHERE parent_id=? AND turn_id=?",
@@ -642,6 +640,7 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
             return "parent_push_marketing_offer_closed"
         if (
             self._conversion_offers.get(proposal.offer.offer_id) != proposal.offer
+            or not self._offer_eligible(proposal.offer, reason)
             or not proposal.offer.valid_from <= now < proposal.offer.valid_until
             or proposal.offer.kind == "free_premium_days"
             and (

@@ -76,6 +76,29 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
     def _allowed_tables(self) -> set[str]:
         return super()._allowed_tables() | CONVERSION_TABLES
 
+    def _conversion_reason(self, snapshot: ConversionSnapshot, now: datetime) -> str:
+        return conversion_reason(snapshot, self._conversion_policy, now)
+
+    def _reason_eligible(self, reason: str) -> bool:
+        return reason in {"seven_day_free_use", "hot_free_account"}
+
+    def _offer_eligible(self, offer: ConversionOffer, reason: str) -> bool:
+        return True
+
+    def _proposal_reason_matches(self, proposal: ConversionProposal, reason: str) -> bool:
+        return True
+
+    def _render_offer(
+        self,
+        proposal: ConversionProposal,
+        snapshot: ConversionSnapshot,
+        now: datetime,
+        renderer: OfferRenderer,
+    ) -> str:
+        assert snapshot.free_started_at is not None
+        days = int((now - snapshot.free_started_at).total_seconds() // 86400)
+        return renderer(proposal.offer, days, snapshot.language)
+
     def _extra_schema(self) -> str:
         return (
             super()._extra_schema()
@@ -251,7 +274,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                 ),
             )
             self._close_queued(connection, snapshot.parent_id, "superseded_account_snapshot")
-            reason = conversion_reason(snapshot, self._conversion_policy, now)
+            reason = self._conversion_reason(snapshot, now)
             if previous and previous["opted_out"]:
                 reason = "parent_opted_out"
             if connection.execute(
@@ -267,6 +290,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     offer
                     for offer in self._conversion_offers.values()
                     if offer.valid_from <= now < offer.valid_until
+                    and self._offer_eligible(offer, reason)
                     and (offer.kind != "free_premium_days" or snapshot.agent_trial_given is False)
                     and (
                         offer.kind != "free_premium_days"
@@ -278,7 +302,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                 ),
                 key=lambda offer: (-offer.priority, offer.offer_id),
             )
-            if reason in {"seven_day_free_use", "hot_free_account"}:
+            if self._reason_eligible(reason):
                 if not offers:
                     reason = "no_approved_offer"
                 else:
@@ -454,6 +478,9 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
     async def publish_conversion(self, now: datetime, renderer: OfferRenderer) -> bool:
         return await asyncio.to_thread(self._publish_conversion, self._utc(now), renderer)
 
+    async def publish_trial_result(self, now: datetime) -> bool:
+        return False
+
     def _publish_conversion(self, now: datetime, renderer: OfferRenderer) -> bool:
         with self._transaction() as connection:
             day, _ = self._period(now)
@@ -480,7 +507,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     "UPDATE conversion_proposals SET checked_at=? WHERE proposal_id=?",
                     (now.isoformat(), str(proposal.proposal_id)),
                 )
-                reason = conversion_reason(snapshot, self._conversion_policy, now)
+                reason = self._conversion_reason(snapshot, now)
                 catalog = self._conversion_offers.get(proposal.offer.offer_id)
                 invalid = (
                     "parent_opted_out"
@@ -491,9 +518,11 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     else "already_converted"
                     if row["converted"]
                     else "account_no_longer_eligible"
-                    if reason not in {"seven_day_free_use", "hot_free_account"}
+                    if not self._reason_eligible(reason)
+                    or not self._proposal_reason_matches(proposal, reason)
                     else "approved_offer_changed_or_expired"
                     if catalog != proposal.offer
+                    or not self._offer_eligible(proposal.offer, reason)
                     or not proposal.offer.valid_from <= now < proposal.offer.valid_until
                     or proposal.offer.kind == "free_premium_days"
                     and snapshot.agent_trial_given is not False
@@ -519,9 +548,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                 )
                 if quiet or self._chat_busy(connection, proposal.parent_id, now):
                     continue
-                assert snapshot.free_started_at is not None
-                free_days = int((now - snapshot.free_started_at).total_seconds() // 86400)
-                answer = renderer(proposal.offer, free_days, snapshot.language)
+                answer = self._render_offer(proposal, snapshot, now, renderer)
                 request_id = uuid5(proposal.proposal_id, "parent-touch-commercial-template-v1")
                 cursor = connection.execute(
                     "INSERT INTO parent_chat_turns(parent_id,request_id,message,request_digest,"
@@ -656,6 +683,14 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     "activate free days",
                 }:
                     raise ParentChatError("trial_parent_acceptance_not_explicit", 409)
+                latest = connection.execute(
+                    "SELECT proposal_id FROM conversion_proposals WHERE parent_id=? "
+                    "AND turn_id<? AND published_at IS NOT NULL ORDER BY turn_id DESC LIMIT 1",
+                    (acceptance.parent_id, acceptance.reply_turn_id),
+                ).fetchone()
+                if latest is None or latest["proposal_id"] != str(acceptance.proposal_id):
+                    raise ParentChatError("trial_parent_reply_offer_mismatch", 409)
+                self._validate_trial_reply(connection, acceptance, proposal, current)
                 state = TrialGrantState(
                     action_id=uuid5(proposal.proposal_id, "one-time-non-paid-agent-tariff-v1"),
                     parent_id=acceptance.parent_id,
@@ -678,6 +713,15 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
 
         return await asyncio.to_thread(claim)
 
+    def _validate_trial_reply(
+        self,
+        connection: sqlite3.Connection,
+        acceptance: TrialAcceptance,
+        proposal: ConversionProposal,
+        now: datetime,
+    ) -> None:
+        """New private protocols can require a frozen offer, never infer it from prose."""
+
     async def finish_trial_grant(self, state: TrialGrantState, now: datetime) -> TrialGrantState:
         def finish() -> TrialGrantState:
             with self._transaction() as connection:
@@ -698,9 +742,18 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     "UPDATE conversion_trial_grants SET payload=? WHERE parent_id=?",
                     (state.model_dump_json(), state.parent_id),
                 )
+                self._on_trial_grant_finished(connection, state, self._utc(now))
                 return state
 
         return await asyncio.to_thread(finish)
+
+    def _on_trial_grant_finished(
+        self,
+        connection: sqlite3.Connection,
+        state: TrialGrantState,
+        now: datetime,
+    ) -> None:
+        """Scoped adapters may queue a host-owned receipt notice atomically."""
 
     async def trial_grant(self, parent_id: str) -> TrialGrantState:
         def read() -> TrialGrantState:

@@ -328,6 +328,21 @@ class ParentTouchService(ParentChatService):
                 "observed_at": question.observed_at.isoformat(),
             }
         instructions = PARENT_TOUCH_INSTRUCTIONS
+        commercial = await self._touch_store.commercial_context(request.parent_id, turn.turn_id)
+        if commercial is not None:
+            data["commercial_context"] = commercial.presentation()
+            instructions += (
+                "\nCommercial context is a dated host observation, not a tool or permission. "
+                "When the parent asks about an offer, explain only these exact terms, even "
+                "without an admitted specialist question. Never invent a discount, change "
+                "days/prices, activate access, charge, create a payment or claim to do so. "
+                "An activation phrase is a request, not proof of success; only a granted "
+                "host receipt proves free days. Unknown/submitting is unverified and must "
+                "not be retried. Rejected means not confirmed. Free days are never a paid "
+                "subscription/conversion. Expired/withdrawn terms are historical, not a "
+                "current promise. Checkout stays in the application's subscription section. "
+                "Do not use child safety facts to pressure a purchase; safety takes priority."
+            )
         if isinstance(request, ParentTouchReviewedTurn):
             if self._reviewed is None:
                 raise ParentChatError("review_first_disabled", 503)

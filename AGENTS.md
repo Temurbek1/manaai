@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- The subsequent local `MANA_CONVERSION_CONVERSATION_ENABLED` lane defaults off
+  and adds private v9. Freeze only new parent turns' exact last-published offer/
+  availability and known grant receipt. Model text never activates days or pays.
+  Backend acceptance must match both the latest offer and the reply's frozen
+  binding; old turns never recapture. Only confirmed dates and fresh explicit
+  account facts allow the new expiry reason, with paid offers only. Terminal
+  non-paid result messages have their own recorded time and assistant-only SQL
+  publication, never a fake child notice, model receipt or implicit push consent.
+  Current closed-v9 preserves all history/holds; v8/`f8d095e` images cannot read it.
+  See `docs/mana-commercial-conversation-checkpoint.md`; source population feed,
+  candidate release and measured paid conversion remain unproven.
+
 - The 2026-10-21 conversion/proactive increment is local, default disabled and
   not a production contact release. Parent-Touch remains the only speaker and
   may initiate before the first parent text only with fresh backend-verified

@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     mana_child_safety_max_output_tokens: int = Field(default=1024, ge=32, le=4096)
     mana_child_safety_poll_seconds: float = Field(default=1, ge=0.05, le=60)
     mana_conversion_enabled: bool = False
+    mana_conversion_conversation_enabled: bool = False
     mana_conversion_trial_grants_enabled: bool = False
     mana_conversion_policy: ConversionPolicy = Field(default_factory=ConversionPolicy)
     mana_conversion_offers: tuple[ConversionOffer, ...] = ()
@@ -395,6 +396,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":
+        if self.mana_conversion_conversation_enabled and not self.mana_conversion_enabled:
+            raise ValueError("Commercial conversation requires the owning conversion runtime")
         if (
             self.mana_parent_touch_proactive_enabled
             and not self.mana_parent_touch_review_first_enabled

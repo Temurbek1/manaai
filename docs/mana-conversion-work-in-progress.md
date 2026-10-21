@@ -108,21 +108,51 @@ review, with the main agent integrating HTTP/runtime/docs and the final gate.
 
 ## Next work — preserve the complete goal
 
-1. Finish Parent-Touch's typed commercial context/recipient acceptance flow and
-   non-paid grant result communication. Currently the backend acceptance route
-   exists; ordinary chat must not falsely claim a grant has already succeeded.
-2. Add an actual subscription-state/activity source or agree an owning-backend
+1. Add an actual subscription-state/activity source or agree an owning-backend
    event producer. Current input contract is a backend observation; a production
    event feed is not installed. No full-population scans are authorized by this WIP.
-3. Verify the trial-expiry -> honest paid-upgrade invitation path; do not promise
-   a discount without billing-confirmed support. A free grant must never become a
-   recorded paid conversion. Keep real purchase measurement separate from interest.
-4. Perform candidate-image/state-preserving closure checks and an approved
+   [The owning-backend contract](mana-conversion-backend-events.ru.md) lists exact
+   required fields/provenance and current routes. Real approved offer terms remain
+   necessary; a synthetic 15% fixture is not a production billing discount.
+2. Perform candidate-image/state-preserving closure checks and an approved
    designated-device channel acceptance before a separately scoped production
    contact release. Current fake/SQLite tests are not broad model quality,
    notification delivery or measured business improvement. Keep the goal active.
-5. Preserve the verified local increment and exact unknown holds. `.venv` is a
+3. Verify ordinary conversation quality with the new frozen terms, not merely
+   prompt contents. The explicit backend acceptance endpoint remains required;
+   there is no automatic free grant triggered by model text. Closed-mode grant
+   HTTP observation still returns controlled 503 when its service is disabled;
+   the durable SQL receipt and chat remain retained.
+4. Preserve the verified local increment and exact unknown holds. `.venv` is a
    local symlink and must not be committed. No sweep of the unrelated root tree.
+
+## Subsequent commercial-context / expiry increment
+
+See [the detailed checkpoint](mana-commercial-conversation-checkpoint.md).
+Default-disabled `MANA_CONVERSION_CONVERSATION_ENABLED` adds private v9 for new
+parent turns only. It freezes exact published offer terms and known receipt status,
+binds actual acceptance to that offer, and atomically queues one same-chat terminal
+grant-result message. Wrong/malformed `Maxsus` receipts become durable unknown.
+The opt-in expiry decision requires fresh confirmed end dates and chooses paid
+offers only; elapsed days stop at the actual end. Existing histories never upgrade.
+Only current same-code closed-v9 readers are verified, not old v8/production images.
+
+Full **`make verify` session `33729`, terminal exit 0**:
+
+- **780 backend tests passed**, one skipped, two excluded; 39.60 seconds.
+- **26 UI tests /11 suites**, Next production build passed.
+- Ruff format/check, UI formatting/ESLint (34 compatibility cases), TypeScript
+  and mypy **272 files** passed; dependency audit zero vulnerabilities.
+- Secret scan before the final docs update passed **443 files**; after the
+  checkpoint was included, the final scan passed **444 files**. Diff check passed.
+- 43 new expiry domain cases and 24 commercial SQL/HTTP/review/runtime cases are
+  included in the total, not additional tests. Provider receipt tests include the
+  tariff/malformed-instance regression. All use fake providers and fictional adults.
+
+No paid model call, real source read, grant, push, production/SSH/key/schedule
+change occurred in this increment. The prior bounded Parent List diagnostic is
+historical and was not repeated. English single-chat documentation is also kept
+in this feature source, alongside the preserved Russian version.
 
 The owner's parallel documentation request is fulfilled in
 `docs/mana-single-chat-integration.ru.md`: the five production examples remain
