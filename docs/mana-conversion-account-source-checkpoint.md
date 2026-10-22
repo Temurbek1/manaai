@@ -1,5 +1,9 @@
 # Conversion account source — local contract checkpoint
 
+Current-state update: the [2026-10-22 bounded GET](mana-conversion-live-account-checkpoint.md)
+now contains all three keys and passes this adapter. The missing-key evidence
+below describes the original checkpoint; it must not be reported as current.
+
 The owner reported that the Parent List response now includes `is_paid`,
 `created_at` and `agent_trial_used`. The full conversion goal remains unfinished.
 This increment prepares a typed source boundary; it does not activate a producer,

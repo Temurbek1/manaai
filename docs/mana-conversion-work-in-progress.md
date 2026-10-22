@@ -5,6 +5,23 @@ upgrade opportunities, communicate approved offers through Parent-Touch, and mea
 verified paid conversion. This checkpoint does not narrow that goal to free grants
 or claim the full implementation is complete.
 
+## Current live account evidence — 2026-10-22
+
+The previously missing `is_paid`, `created_at` and `agent_trial_used` now appear
+in the exact-parent GET and pass the existing strict account adapter. See
+[the bounded live check](mana-conversion-live-account-checkpoint.md).
+Earlier missing-field results below remain historical; do not present them as
+the current response or repeat network calls to recreate them. No parser change
+was required. The owner had clarified that the fields were initially added to
+the grant POST response, which never made that write a safe status probe.
+
+The full objective still needs authoritative date/entitlement semantics,
+all-parent event coverage, dated adult activity/contact preferences and real
+approved paid offers. A single paid test account does not prove those requirements.
+No source flag, production configuration, schedule or contact was activated.
+
+## Historical implementation checkpoints
+
 Source: `/mnt/ssd2/mana-conversion-agent-20261021`, branch
 `feat/mana-conversion-agent-20261021`, based on published family `8683f20`.
 This is a locally verified implementation checkpoint, not a finished goal.

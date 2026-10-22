@@ -1,5 +1,10 @@
 # Conversion account verification — local v10 checkpoint
 
+Current-state update: the [2026-10-22 bounded GET](mana-conversion-live-account-checkpoint.md)
+passes the existing adapter with all three account keys present. Earlier refused
+reads below remain historical. This does not enable the optional runtime or
+prove all-parent coverage, free-start semantics, consent, offers or release readiness.
+
 This follows [the strict source adapter](mana-conversion-account-source-checkpoint.md).
 The original goal remains track every MANA free account, select timely approved
 offers and measure actual paid conversion through the sole speaker Parent-Touch.

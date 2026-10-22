@@ -2,6 +2,15 @@
 
 ## Repository expectations
 
+- On 2026-10-22 one explicitly requested test-parent `4` login/GET returned all
+  three account fields and passed the existing strict adapter. Missing-field
+  evidence below is historical, not the current live contract. The owner first
+  clarified that these fields were added to grant POST responses; their later
+  presence in Parent List is now independently observed. Read
+  `docs/mana-conversion-live-account-checkpoint.md`. Do not repeat the read or
+  issue a grant to reproduce it. Field presence does not establish free-start
+  semantics, all-parent coverage, activity/consent, real offers or release authority.
+
 - The subsequent `9b343d3` postfix has a separate settled eight-generation RU/UZ
   party (standard-uncached estimate $0.02096025) and actual current-image v9/v10
   hermetic checks. Narrow financial/action checks retain a Russian-trial phrasing

@@ -1,5 +1,10 @@
 # Conversion postfix — local acceptance and external integration boundary
 
+Subsequent source update: the [2026-10-22 bounded GET](mana-conversion-live-account-checkpoint.md)
+now returns the three previously missing fields and validates successfully.
+The negative source checks and blocked audit below remain historical, not the
+current API result. Other producer/semantic/catalog/contact requirements remain.
+
 The full original goal is unfinished: track every MANA free parent account,
 identify hot/timely upgrades, communicate approved offers through Parent-Touch
 and measure verified paid conversion. This is not a production/contact release.

@@ -6,10 +6,20 @@ The agent never creates a payment or transaction.
 
 ## Required data
 
-The existing Parent List API returns a current tariff name, expiry and payment
-date, including non-paid tariff records. It cannot reliably distinguish paid and
-free access. It also omits the activity, consent and trial-history fields below.
-Do not infer them from a tariff name or invent missing values.
+On 2026-10-22 an exact-parent Parent List GET returned `is_paid`, `created_at`
+and `agent_trial_used`, alongside `payment_date` and `valid_until`, and passed the
+existing strict account adapter. This supersedes the earlier missing-key checks;
+see [the bounded live evidence](mana-conversion-live-account-checkpoint.md).
+The owner originally clarified these fields were added to the grant POST response;
+their later presence in GET is now separately verified. Never issue that grant
+POST merely to inspect status.
+
+Parent List still describes a selected current tariff record. A paid record
+suppresses conversion; a non-paid record alone does not establish absence of an
+overlapping paid entitlement. Confirm what `created_at` dates and whether
+`agent_trial_used` includes expired grants before mapping them to free-start or
+lifetime-history assertions. Adult activity and contact preferences are still
+required separately. Do not infer missing facts from a tariff name or timestamps.
 
 The MANA backend needs to supply verified account events, or document an existing
 read-only source from which an event producer can obtain:
@@ -75,7 +85,7 @@ revision and a non-decreasing observation time.
 ## Cover every parent without repeated database scans
 
 The subsequent local opt-in account-verification lane can check eligible events
-against the newly announced Parent List fields, under durable exact-event claims,
+against the now-observed Parent List fields, under durable exact-event claims,
 a six-hour parent cooldown and a rolling 100-claim/day global default ceiling.
 It does not replace your authoritative full snapshot/producer, use `created_at`
 as free start or treat a selected non-paid record as proof of paid precedence.
