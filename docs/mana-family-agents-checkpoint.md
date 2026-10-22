@@ -2,7 +2,29 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Latest postfix acceptance / external handoff — `40fa2f9`
+### Live account fields accepted — 2026-10-22, `e2f0db4`
+
+The owner-requested bounded check now returns **200** for both login and the
+exact-parent `4` Parent List GET. `is_paid=true`, timezone-aware `created_at` and
+`agent_trial_used=false` are present; the existing strict adapter validates them.
+The earlier missing-field receipts below remain historical, not current failures.
+The owner had initially clarified these keys were in grant POST responses;
+their later presence in GET is now independently confirmed. No grant POST was
+used as a status probe, and no real tariff, push or conversion event was created.
+
+Application code remains **9b343d3**; the feature commit updates only handoff
+documentation and AGENTS context. Full feature-worktree **`make verify` session
+32859**, exit **0**: **892 backend /26 UI tests**, mypy **282 files**, lint,
+types, production UI build and audit zero. Secret scan **462 files** passed.
+Read [the exact live scope and remaining requirements](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-live-account-checkpoint.md).
+
+The missing-key blocker is removed. Free-start/overlapping-entitlement semantics,
+complete parent activity/consent events and real approved paid offers remain
+unconfirmed. No new paid model party, source refresh, contact/release activation,
+production, SSH, key, quota or schedule change is included. Do not mark the full
+goal complete or treat this single paid-account check as population acceptance.
+
+### Earlier postfix acceptance / external handoff — `40fa2f9`
 
 Application source is still **9b343d3**; this latest feature commit adds evidence
 and the externally blocked handoff only. A separate post-fix party completed four
