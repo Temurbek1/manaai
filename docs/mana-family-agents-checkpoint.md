@@ -2,6 +2,34 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Verified manual test grant / strict receipt adapter — 2026-10-23, `c1a0c99`
+
+The owner-confirmed reset parent `4` received exactly **one non-paid Maxsus day**,
+purchase `74311`, expiring **2026-10-24 16:13:17 Asia/Samarkand**. POST returned
+201; subsequent GET matched expiry/creation, `is_paid=false`, `agent_trial_used=true`.
+The lifetime test opportunity is consumed: do not repeat the write. Beforehand,
+the empty tariff returned null paid/date fields; these remain unknown for automatic
+policy. The test used explicit owner authority, not a fabricated parent-chat turn.
+There were six bounded HTTP calls total, one grant, no push/model/direct Firebase call.
+
+Feature source `/mnt/ssd2/mana-conversion-agent-20261021` now validates complete
+optional grant metadata and refuses duplicate/contradictory/coerced receipts while
+preserving legacy stored JSON. Full **`make verify` session 3470**, exit **0**:
+**915 backend /26 UI tests**, mypy **282 files**, lint/types/build/audit zero;
+secret scan **463 files** passed. The first 55300 gate failed the Next advisory
+audit and remains a failed run. Next/ESLint config **16.4.2** is fixed only in this
+feature checkout, not the root UI or production. No advisory suppression was used.
+
+Backend image `mana-ai-family:grant-metadata-20261023-local`, **730e23d65196…**,
+matches all 188 application files; hermetic actual-image v10/v9 sessions 81741/56396
+passed same-image closure and unknown-hold preservation. No old-image rollback,
+real paid-model/contact quality or complete sales goal is implied. Read
+[the exact acceptance and remaining scope](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-grant-live-checkpoint.md).
+The missing population/activity/contact-preference producer and real paid offers
+remain external requirements. Nothing was pushed/deployed; existing production
+services, source refresh, budgets, SSH and keys are unchanged. The sole external
+mutation was the authorized one-day test grant in MANA's backend.
+
 ### Live account fields accepted — 2026-10-22, `e2f0db4`
 
 The owner-requested bounded check now returns **200** for both login and the
