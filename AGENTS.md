@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- The owner clarified the testing restriction on 2026-10-23: free tariffs may be
+  granted only to explicitly designated test accounts, never ordinary customers.
+  Keep `MANA_CONVERSION_TRIAL_GRANTS_ENABLED=false` by default; enabling conversion
+  alone does not authorize its write lane or a production rollout. Automated
+  tests remain fake/MockTransport-only. Any scoped live test requires a fresh
+  exact-account preflight, durable one-shot dispatch claim and no repeat of a
+  known/unknown grant. Do not reset paid/trial state or pick arbitrary customers
+  to make a test pass. Parent `4`'s already consumed grant must not be repeated.
+  The test exception does not authorize shared production changes or restarts.
+
 - A completed 2026-10-23 read of `/api/v1/tariffs/` returned five real paid plans,
   including tariff `3`, 60,000 UZS /30 days. Missing-catalog claims below are
   historical. The new catalog port/adapter and ordinary-price comparison are

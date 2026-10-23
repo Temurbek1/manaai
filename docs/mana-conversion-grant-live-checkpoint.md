@@ -1,5 +1,13 @@
 # One non-paid grant — designated reset-account acceptance, 2026-10-23
 
+**Subsequent owner restriction, clarified:** no grants to ordinary customers
+during testing. Explicitly designated test accounts may receive a scoped test
+grant after fresh preflight and a durable one-shot claim; known/unknown actions
+never retry. This historical consumed grant does not authorize another grant to
+parent `4`. Keep `MANA_CONVERSION_TRIAL_GRANTS_ENABLED=false` by default; automated
+checks remain fake-only. No old grant is undone, and the test exception does not
+authorize shared production configuration changes or service restarts.
+
 The owner requested practical tests, designated parent `4`, and then confirmed
 that its paid access had been reset. The completed test created exactly one
 non-paid **one-day Maxsus** grant, purchase **74311**. This consumed the parent's

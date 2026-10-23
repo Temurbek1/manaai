@@ -5,6 +5,28 @@ upgrade opportunities, communicate approved offers through Parent-Touch, and mea
 verified paid conversion. This checkpoint does not narrow that goal to free grants
 or claim the full implementation is complete.
 
+## Current owner restriction — no ordinary-customer grants during testing
+
+On 2026-10-23 the owner clarified that free-tariff tests may affect explicitly
+designated test accounts only, never ordinary customers. Keep the separate
+`MANA_CONVERSION_TRIAL_GRANTS_ENABLED=false` default. Automated grant checks use
+fake providers only. A necessary scoped live test must first verify the exact
+designated account and durably claim one dispatch; known or unknown grants never
+retry. Do not reset an account or choose an arbitrary customer to obtain a passing
+test. Do not delete/undo historical receipts or repeat parent `4`'s consumed grant.
+The test exception is not authority to enable autonomous grants, change shared
+production configuration or restart existing services.
+
+The two new fake-only runtime/HTTP cases verify that conversion enabled with
+the independent grant flag left at its default cannot even construct the real
+grant adapter. Both captured v7/v9 configurations return controlled
+`503 trial_grants_disabled` for POST and GET across two fictional accounts,
+new nonces and runtime reconstruction, without SQL grant claims or provider/
+model calls. This checks the default lane, not a production configuration change.
+Full **`make verify` session `87077`**, exit **0**: **999 backend /26 UI tests**,
+mypy **286 files**, formatting/lint/types/build and npm audit zero. Secret scan
+passed **468 files**, and diff check passed. No live test grant was needed.
+
 ## Current catalog evidence — 2026-10-23
 
 The real `GET /api/v1/tariffs/?limit=25&offset=0` now returned five ordinary paid

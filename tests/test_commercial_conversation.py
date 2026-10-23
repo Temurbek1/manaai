@@ -539,6 +539,79 @@ async def test_http_grant_and_same_chat_receipt_without_repeat_or_payment(
         assert gateway.calls == model.calls == children.calls == 1
 
 
+@pytest.mark.parametrize("conversation", [False, True])
+async def test_conversion_testing_default_cannot_construct_or_dispatch_a_real_grant(
+    monkeypatch: MonkeyPatch, tmp_path: Path, conversation: bool
+) -> None:
+    class UnusedModel(Model):
+        async def close(self) -> None:
+            pass
+
+    def forbidden_gateway(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Testing must not construct the real free-tariff gateway")
+
+    speaker, specialist, children = UnusedModel(), UnusedModel(), Children()
+    monkeypatch.delenv("MANA_CONVERSION_TRIAL_GRANTS_ENABLED", raising=False)
+    monkeypatch.setattr(runtime_module, "OpenAIParentChatModel", lambda config: speaker)
+    monkeypatch.setattr(runtime_module, "OpenAIChildSafetyModel", lambda config: specialist)
+    monkeypatch.setattr(runtime_module, "ManakidsChatChildrenSource", lambda **kwargs: children)
+    monkeypatch.setattr(runtime_module, "ManakidsTrialGrantGateway", forbidden_gateway)
+    config = Settings(
+        _env_file=None,
+        openai_api_key=SecretStr("fake-only"),
+        app_api_key=SecretStr(BACKEND_TOKEN),
+        mana_parent_chat_enabled=True,
+        mana_parent_touch_enabled=True,
+        mana_parent_chat_database_path=tmp_path / "no-grants.db",
+        mana_parent_touch_review_first_enabled=True,
+        mana_child_safety_enabled=True,
+        mana_child_safety_limits=limits(),
+        mana_child_safety_max_output_tokens=256,
+        mana_conversion_enabled=True,
+        mana_conversion_conversation_enabled=conversation,
+        mana_conversion_offers=(trial_offer(),),
+        manakids_api_username="fake-user",
+        manakids_api_password=SecretStr("fake-password"),
+    )
+    assert not config.mana_conversion_trial_grants_enabled
+    monkeypatch.setattr(product_ai_main, "get_settings", lambda: config)
+    prefix = "/api/v1/mana-ai/conversion-agent"
+    # Reconstruct the real local runtime twice; neither a different account,
+    # a new acceptance nonce nor a restart can implicitly enable its write lane.
+    for _ in range(2):
+        async with runtime_module.parent_chat_runtime(config) as touch:
+            assert isinstance(touch, ParentTouchService) and touch.conversion
+            assert touch.conversion.grants is None
+            app = product_ai_main.create_app()
+            app.dependency_overrides[get_settings] = lambda: config
+            app.state.parent_chat_service = touch
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                for parent_id in ("123", "456"):
+                    acceptance = TrialAcceptance(
+                        parent_id=parent_id,
+                        event_id=uuid4(),
+                        proposal_id=uuid4(),
+                        reply_turn_id=1,
+                        confirmed_by_parent=True,
+                    ).model_dump(mode="json")
+                    denied = await client.post(
+                        prefix + "/trial-acceptances", headers=HEADERS, json=acceptance
+                    )
+                    assert denied.status_code == 503
+                    assert denied.json() == {"detail": {"code": "trial_grants_disabled"}}
+                    observed = await client.get(
+                        prefix + f"/trial-grants?parent_id={parent_id}", headers=HEADERS
+                    )
+                    assert observed.status_code == 503
+                    assert observed.json() == {"detail": {"code": "trial_grants_disabled"}}
+    assert speaker.calls == specialist.calls == children.calls == 0
+    with sqlite3.connect(config.mana_parent_chat_database_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM conversion_trial_grants").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM parent_chat_turns").fetchone()[0] == 0
+
+
 async def test_payment_before_acceptance_fences_frozen_old_terms(tmp_path: Path) -> None:
     store, acceptance = await prepare(tmp_path / "family.db")
     await store.ingest_conversion(snapshot(revision=2, subscription="paid"), NOW)
