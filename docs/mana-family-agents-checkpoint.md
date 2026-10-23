@@ -2,6 +2,30 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Real paid catalog / bounded source adapter — 2026-10-23, `df4669b`
+
+The completed MANA API catalog read returned five real paid plans, including
+tariff `3`, **60,000 UZS /30 days**. Missing-catalog statements below are historical.
+Renewal policy, checkout mapping, recipient applicability and campaign approval
+are still unverified; `old_price` and monthly flags do not establish a 15% discount
+or no-renewal fact. The lost follow-up metadata response was not reused or retried.
+
+Feature source `/mnt/ssd2/mana-conversion-agent-20261021` now adds a typed minimal
+catalog port, bounded one-login/one-GET adapter and ordinary-price mismatch check.
+It is not runtime-wired: no startup/event/chat read, source tool, schedule, public
+route, migration, offer activation or production change. Future wiring requires
+durable read admission and replay/unknown safeguards before HTTP. No extra live
+read, Firebase/GA4 call, model party, grant or push was made for this increment.
+
+Full **`make verify` session 53205**, terminal exit **0**: **997 backend /26 UI
+tests**, mypy **286 files**, lint/types/build and dependency audit zero. Secret
+scan passed **468 files**; diff check passed. The 82 new catalog cases use fake
+transport, including an explicitly offline transcription of observed prices;
+these are not live-adapter/candidate-image or real conversion acceptance.
+Read [the exact source scope and outstanding requirements](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-conversion-catalog-source-checkpoint.md).
+The full-parent activity/consent/event producer, approved checkout terms and real
+channel/release/outcome acceptance remain open. The goal is not complete.
+
 ### Verified manual test grant / strict receipt adapter — 2026-10-23, `c1a0c99`
 
 The owner-confirmed reset parent `4` received exactly **one non-paid Maxsus day**,
