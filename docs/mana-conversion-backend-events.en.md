@@ -119,9 +119,18 @@ everyone: consent, safety priority, cooldown, quiet hours and caps still apply.
 
 ## Offers and payment outcomes
 
-The owner must supply a real approved `MANA_CONVERSION_OFFERS` catalog whose
-prices, discounts, duration, renewal terms and checkout path already work in
-application billing. A synthetic 15% test offer is not a real available discount.
+The real read-only `GET /api/v1/tariffs/?limit=25&offset=0` returned five plans on
+2026-10-23, including tariff `3` at **60,000 UZS for 30 days**, `8` at 162,000 UZS
+for 90 days, `9` at 299,000 UZS for 180 days, `7` (VIP) at 500,000 UZS for 30 days
+and `4` at 599,000 UZS for 365 days. These are observed prices, not a full approved
+campaign or checkout contract. The catalog adapter is local and not runtime-wired;
+see [the source checkpoint](mana-conversion-catalog-source-checkpoint.md).
+
+The owner must still approve `MANA_CONVERSION_OFFERS` and confirm renewal terms,
+in-app checkout mapping and recipient applicability. A synthetic 15% test offer,
+`old_price` or monthly flag is not a real available discount or renewal policy.
+Do not set `auto_renew=false` or invent a checkout path merely because those fields
+are absent. The existing full paid-offer schema remains unchanged.
 
 Hot and seven-day free-use rules are deterministic. The new opt-in v9 lane can
 also offer a paid plan after a freshly confirmed free-access end, within the

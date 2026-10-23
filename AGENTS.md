@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- A completed 2026-10-23 read of `/api/v1/tariffs/` returned five real paid plans,
+  including tariff `3`, 60,000 UZS /30 days. Missing-catalog claims below are
+  historical. The new catalog port/adapter and ordinary-price comparison are
+  local only, not runtime-wired, a durable read-admission layer or an approved
+  campaign. Never infer renewal, checkout or discount terms from monthly flags,
+  `old_price` or provider descriptions. Future wiring must durably claim before
+  HTTP and preserve unknown/replay boundaries. Read
+  `docs/mana-conversion-catalog-source-checkpoint.md`. No new live read, offer
+  activation, model party, contact or release is authorized by these local tests.
+
 - One owner-authorized live manual test on reset parent `4` granted one non-paid
   Maxsus day on 2026-10-23, purchase `74311`; GET confirmed the receipt and consumed
   trial. Never repeat that write or invent a parent-chat acceptance. The original

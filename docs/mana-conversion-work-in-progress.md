@@ -5,6 +5,20 @@ upgrade opportunities, communicate approved offers through Parent-Touch, and mea
 verified paid conversion. This checkpoint does not narrow that goal to free grants
 or claim the full implementation is complete.
 
+## Current catalog evidence — 2026-10-23
+
+The real `GET /api/v1/tariffs/?limit=25&offset=0` now returned five ordinary paid
+plans, including **60,000 UZS for 30 days**. A local bounded catalog port/adapter
+and price-only comparison are implemented without runtime activation. Earlier
+missing-catalog statements below describe their historical checkpoints, not the
+current source evidence. Renewal terms, in-app checkout mapping, campaign approval
+and recipient eligibility are not supplied by this price list; no 15% promotion
+or no-renewal fact is invented. Read [the catalog evidence and integration boundary](mana-conversion-catalog-source-checkpoint.md).
+Full-parent event/activity/contact-preference integration remains required.
+Full `make verify` session `53205` exited **0**: **997 backend /26 UI tests**,
+mypy **286 files**, lint/types/build and dependency audit zero. The new adapter
+was tested only with fake transport; no extra live read or deployment occurred.
+
 ## Current live account evidence — 2026-10-22
 
 The previously missing `is_paid`, `created_at` and `agent_trial_used` now appear
@@ -26,7 +40,7 @@ metadata is tied to that grant, not generic historical free-use duration. The
 gateway now validates the optional strict group without changing legacy SQL;
 the local Next dependency advisory is also fixed. Full gate: **915 backend /26
 UI tests**, audit zero. See [the exact scope and side effect](mana-conversion-grant-live-checkpoint.md).
-This is still not the missing population/activity/consent/catalog integration or
+This is still not the missing population/activity/consent/approved-offer integration or
 a production contact rollout. The once-per-parent test grant must not be repeated.
 
 ## Historical implementation checkpoints
