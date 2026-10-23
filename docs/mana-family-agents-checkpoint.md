@@ -2,6 +2,24 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Testing authority clarification — 2026-10-23, `4e6084c`
+
+The owner clarified that scoped free-tariff tests may affect explicitly designated
+test accounts only, never ordinary customers. Keep the separate grant flag false
+by default; conversion activation is not grant/production rollout authority.
+Any necessary live test still needs fresh exact-account preflight and a durable
+one-shot claim. Never repeat a known/unknown action, reset an account to pass a
+test or repeat parent `4`'s consumed grant. This is not permission to modify shared
+production settings or restart services. The feature AGENTS/WIP record this rule.
+
+Two fake-only runtime/HTTP regressions verify default-disabled real-adapter
+construction, controlled `503 trial_grants_disabled`, no SQL claims or provider/
+model calls across fictional accounts, new nonces and reconstruction in v7/v9.
+Full **`make verify` session 87077**, exit **0**: **999 backend /26 UI tests**,
+mypy **286 files**, lint/types/build and audit zero; secret scan **468 files**.
+No new live activation or source call occurred. Production is unchanged, and the
+full conversion goal retains the integration/offer/release requirements below.
+
 ### Real paid catalog / bounded source adapter — 2026-10-23, `df4669b`
 
 The completed MANA API catalog read returned five real paid plans, including
