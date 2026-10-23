@@ -1,8 +1,10 @@
 """Documented non-paid agent tariff endpoint; no payment/transaction API calls."""
 
 import json
+from datetime import datetime, timedelta
 
 import httpx
+from pydantic import AwareDatetime, BaseModel, ConfigDict, StrictBool, field_validator
 
 from app.mana_ai.application.conversion_grants import TrialGrantRejected
 from app.mana_ai.domain.conversion_grants import TrialGrantResult
@@ -18,6 +20,44 @@ KNOWN_REFUSALS = frozenset(
         "agent_tariff_limit_missing",
     }
 )
+_METADATA_FIELDS = frozenset({"is_paid", "created_at", "agent_trial_used"})
+
+
+class _GrantMetadata(BaseModel):
+    model_config = ConfigDict(extra="ignore", hide_input_in_errors=True)
+
+    is_paid: StrictBool
+    created_at: AwareDatetime
+    agent_trial_used: StrictBool
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def explicit_created_date(cls, value: object) -> datetime:
+        if not isinstance(value, str):
+            raise ValueError("Grant creation must be an ISO datetime string")
+        return datetime.fromisoformat(value)
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Ambiguous grant response")
+        result[key] = value
+    return result
+
+
+def _verify_metadata(data: dict[str, object], result: TrialGrantResult, days: int) -> None:
+    # Keep the documented legacy receipt readable. Once the provider supplies
+    # any new metadata, require the whole strict group; never coerce unknowns.
+    if not _METADATA_FIELDS.intersection(data):
+        return
+    metadata = _GrantMetadata.model_validate(data)
+    if metadata.is_paid or not metadata.agent_trial_used:
+        raise ValueError("Receipt does not verify a consumed non-paid grant")
+    expected_start = result.valid_until - timedelta(days=days)
+    if abs((metadata.created_at - expected_start).total_seconds()) > 300:
+        raise ValueError("Grant creation does not match its requested period")
 
 
 class ManakidsTrialGrantGateway:
@@ -33,7 +73,7 @@ class ManakidsTrialGrantGateway:
             data.extend(chunk)
             if len(data) > 16384:
                 raise ValueError("Bounded provider receipt exceeded")
-        return json.loads(data)
+        return json.loads(data, object_pairs_hook=_unique_object)
 
     async def _access(self) -> str:
         # Each distinct durable action obtains fresh credentials before its one
@@ -98,7 +138,7 @@ class ManakidsTrialGrantGateway:
             data = payload.get("data")
             if not isinstance(data, dict) or type(data.get("parent_id")) is not int:
                 raise ValueError("Unverified parent receipt")
-            return TrialGrantResult.model_validate(
+            result = TrialGrantResult.model_validate(
                 {
                     "purchase_id": data.get("purchase_id"),
                     "parent_id": str(data["parent_id"]),
@@ -106,3 +146,7 @@ class ManakidsTrialGrantGateway:
                     "valid_until": data.get("valid_until"),
                 }
             )
+            _verify_metadata(data, result, days)
+            # Metadata verifies this response only; do not change legacy SQL
+            # receipt JSON or make it a fresh subscription/contact permission.
+            return result

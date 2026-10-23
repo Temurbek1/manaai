@@ -16,7 +16,7 @@
     "generate:api": "(cd .. && .venv/bin/python scripts/export_openapi.py) && openapi-typescript openapi.json -o src/api/schema.d.ts"
   },
   "dependencies": {
-    "next": "16.3.8",
+    "next": "16.4.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "swr": "2.4.2"
@@ -32,7 +32,7 @@
     "braces": "file:vendor/bounded-braces",
     "cross-fetch": "4.1.0",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.2",
     "jest": "30.5.2",
     "jest-environment-jsdom": "30.5.2",
     "jsdom": "29.1.1",

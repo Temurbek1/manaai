@@ -21,6 +21,14 @@ overlapping paid entitlement. Confirm what `created_at` dates and whether
 lifetime-history assertions. Adult activity and contact preferences are still
 required separately. Do not infer missing facts from a tariff name or timestamps.
 
+The subsequent [owner-authorized reset-account test](mana-conversion-grant-live-checkpoint.md)
+confirmed that one new agent grant returns strict non-paid/used flags and a
+creation date matching the subsequent Parent List record. This establishes a
+dated new grant, not uninterrupted free usage or lifetime/overlap semantics for
+arbitrary existing records. A reset account returned explicit `is_paid=null`;
+automatic policy still treats that as unknown. The grant adapter validates new
+metadata but retains the unchanged minimized legacy receipt in SQL.
+
 The MANA backend needs to supply verified account events, or document an existing
 read-only source from which an event producer can obtain:
 

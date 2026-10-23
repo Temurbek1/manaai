@@ -2,6 +2,15 @@
 
 ## Repository expectations
 
+- One owner-authorized live manual test on reset parent `4` granted one non-paid
+  Maxsus day on 2026-10-23, purchase `74311`; GET confirmed the receipt and consumed
+  trial. Never repeat that write or invent a parent-chat acceptance. The original
+  empty tariff had `is_paid=null`, which remains unknown for automatic policy;
+  the manual test relied only on the owner's explicit reset/test authority.
+  New optional grant metadata is validated without adding it to legacy SQL JSON.
+  Read `docs/mana-conversion-grant-live-checkpoint.md`. This is not live Parent-Touch
+  publication, real paid conversion, all-parent coverage or a deployment approval.
+
 - On 2026-10-22 one explicitly requested test-parent `4` login/GET returned all
   three account fields and passed the existing strict adapter. Missing-field
   evidence below is historical, not the current live contract. The owner first

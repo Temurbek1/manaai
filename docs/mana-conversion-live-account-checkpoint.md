@@ -1,5 +1,9 @@
 # Conversion account fields — bounded live acceptance, 2026-10-22
 
+Subsequent evidence: the [2026-10-23 reset-account grant test](mana-conversion-grant-live-checkpoint.md)
+confirmed the new POST metadata and matching GET creation/expiry for one actual
+non-paid grant. The earlier observations and verification below remain unchanged.
+
 The owner requested another check after the backend update. One login and one
 exact-parent read now pass the existing `ManakidsConversionAccountSource`.
 This removes the previously observed missing-field blocker, not the entire

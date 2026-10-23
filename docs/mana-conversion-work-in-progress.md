@@ -20,6 +20,15 @@ all-parent event coverage, dated adult activity/contact preferences and real
 approved paid offers. A single paid test account does not prove those requirements.
 No source flag, production configuration, schedule or contact was activated.
 
+On 2026-10-23 the owner-confirmed reset test parent `4` received exactly one
+non-paid day, verified by POST 201 and a matching subsequent GET. New creation
+metadata is tied to that grant, not generic historical free-use duration. The
+gateway now validates the optional strict group without changing legacy SQL;
+the local Next dependency advisory is also fixed. Full gate: **915 backend /26
+UI tests**, audit zero. See [the exact scope and side effect](mana-conversion-grant-live-checkpoint.md).
+This is still not the missing population/activity/consent/catalog integration or
+a production contact rollout. The once-per-parent test grant must not be repeated.
+
 ## Historical implementation checkpoints
 
 Source: `/mnt/ssd2/mana-conversion-agent-20261021`, branch

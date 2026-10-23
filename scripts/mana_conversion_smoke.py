@@ -163,6 +163,7 @@ class Upstream:
             if parent == "223":
                 raise httpx.ReadTimeout("synthetic unknown write, never repeat")
             assert parent == "123"
+            created_at = datetime.now(UTC)
             return httpx.Response(
                 201,
                 json={
@@ -172,7 +173,10 @@ class Upstream:
                         "purchase_id": 73668,
                         "parent_id": 123,
                         "tariff": "Maxsus",
-                        "valid_until": (datetime.now(UTC) + timedelta(days=3)).isoformat(),
+                        "valid_until": (created_at + timedelta(days=3)).isoformat(),
+                        "is_paid": False,
+                        "created_at": created_at.isoformat(),
+                        "agent_trial_used": True,
                     },
                 },
             )

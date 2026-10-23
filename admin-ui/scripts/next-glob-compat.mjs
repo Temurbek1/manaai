@@ -41,7 +41,7 @@ writeFileSync(
 );
 
 test("the pinned Next lint chain resolves the guarded local fork", () => {
-  assert.equal(pluginRequire("./package.json").version, "16.3.8");
+  assert.equal(pluginRequire("./package.json").version, "16.4.2");
   assert.equal(globRequire("./package.json").version, "3.3.1");
   assert.equal(matchRequire("./package.json").version, "4.0.8");
   assert.equal(

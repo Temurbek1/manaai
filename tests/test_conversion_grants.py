@@ -50,10 +50,42 @@ def payload(**changes: Any) -> dict[str, Any]:
     }
 
 
+def enriched_payload(**changes: Any) -> dict[str, Any]:
+    return payload(
+        **{
+            "is_paid": False,
+            "created_at": NOW.isoformat(),
+            "agent_trial_used": True,
+        }
+        | changes
+    )
+
+
 @pytest.mark.parametrize(
     ("response_status", "body", "expected"),
     [
         (201, payload(), "granted"),
+        (201, enriched_payload(), "granted"),
+        (201, enriched_payload(created_at=(NOW - timedelta(seconds=300)).isoformat()), "granted"),
+        (201, enriched_payload(created_at=(NOW + timedelta(seconds=300)).isoformat()), "granted"),
+        (201, enriched_payload(created_at=(NOW - timedelta(seconds=301)).isoformat()), "unknown"),
+        (201, enriched_payload(created_at=(NOW + timedelta(seconds=301)).isoformat()), "unknown"),
+        (201, enriched_payload(is_paid=True), "unknown"),
+        (201, enriched_payload(is_paid=None), "unknown"),
+        (201, enriched_payload(is_paid=0), "unknown"),
+        (201, enriched_payload(is_paid="false"), "unknown"),
+        (201, enriched_payload(agent_trial_used=False), "unknown"),
+        (201, enriched_payload(agent_trial_used=None), "unknown"),
+        (201, enriched_payload(agent_trial_used=1), "unknown"),
+        (201, enriched_payload(agent_trial_used="true"), "unknown"),
+        (201, enriched_payload(created_at=None), "unknown"),
+        (201, enriched_payload(created_at=123), "unknown"),
+        (201, enriched_payload(created_at="invalid-date"), "unknown"),
+        (201, enriched_payload(created_at=NOW.replace(tzinfo=None).isoformat()), "unknown"),
+        (201, enriched_payload(created_at=(NOW - timedelta(days=30)).isoformat()), "unknown"),
+        (201, enriched_payload(created_at=(NOW + timedelta(days=1)).isoformat()), "unknown"),
+        (201, payload(is_paid=False), "unknown"),
+        (201, payload(agent_trial_used=True, created_at=NOW.isoformat()), "unknown"),
         (
             409,
             {
@@ -107,6 +139,13 @@ async def test_documented_non_paid_grant_receipt_and_exact_replay_never_retries(
         assert len(calls) == 2
         assert "private upstream" not in result.model_dump_json()
         assert "raw provider" not in result.model_dump_json()
+        if result.result is not None:
+            assert set(result.result.model_dump()) == {
+                "purchase_id",
+                "parent_id",
+                "tariff",
+                "valid_until",
+            }
         assert (
             await store.conversion_proposal("123", acceptance.proposal_id)
         ).status == "published"
@@ -119,6 +158,44 @@ async def test_documented_non_paid_grant_receipt_and_exact_replay_never_retries(
             == result
         )
         assert len(calls) == 2
+
+
+@pytest.mark.parametrize("phase", ["auth", "grant"])
+async def test_duplicate_receipt_keys_never_verify_or_redispatch(
+    tmp_path: Path, phase: str
+) -> None:
+    store, acceptance = await prepare(tmp_path)
+    calls = 0
+
+    def dispatch(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if request.url.path.endswith("/login/"):
+            if phase == "auth":
+                return httpx.Response(
+                    200, content='{"access":"fake-jwt","access":"fake-other-jwt"}'
+                )
+            return httpx.Response(200, json={"access": "fake-jwt"})
+        body = json.dumps(enriched_payload()).replace(
+            '"is_paid": false', '"is_paid": false, "is_paid": true'
+        )
+        return httpx.Response(201, content=body)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(dispatch)) as client:
+        gateway = ManakidsTrialGrantGateway(
+            client=client,
+            base_url="https://synthetic.invalid",
+            username="fake-user",
+            password="fake-password",
+        )
+        result = await TrialGrantService(store, gateway, clock=lambda: NOW).accept(acceptance)
+        assert result.status == ("rejected" if phase == "auth" else "unknown")
+        assert result.result is None
+        expected_calls = 1 if phase == "auth" else 2
+        assert calls == expected_calls
+        restarted = await repository(tmp_path / "grant.db", trial=True)
+        replayed = await TrialGrantService(restarted, gateway, clock=lambda: NOW).accept(acceptance)
+        assert replayed == result and calls == expected_calls
 
 
 @pytest.mark.parametrize("first_status", [201, 401, 403])
