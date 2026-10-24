@@ -2,6 +2,37 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Autonomous single-chat goal / initial source lane — 2026-10-24, `25c563c`
+
+The owner assigned the new full objective in attachment
+`9823ea08-1a39-4b22-8b13-54a36a885e77/goal-objective.md`: all PDF scenarios,
+single Parent-Touch speaker, independent source reads/change detection, proactive
+communication and permission for agents to read user chats. New backend webhooks
+are not a prerequisite for already available facts. The old missing-producer
+blocker is historical, not permission to stop other implementable work. Missing
+semantics/offers/consent/provider actions still must not be invented.
+
+Feature source remains `/mnt/ssd2/mana-conversion-agent-20261021`. Read the full
+[requirement inventory and next steps](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-autonomous-agents-plan.md).
+It now implements an exact-child, read-only Firestore battery adapter, fresh-own-
+child application gate and separate private SQLite source cache/change journal.
+Durable admission, cache reuse, rolling request/document ceilings, six-hour
+cooldown, source circuit and retained unknown/cancelled holds prevent replay.
+Snapshots/changes are family-scoped and preserve actual/unknown measurement dates.
+
+Full **`make verify` session 67753**, terminal exit **0**: **1042 backend /26 admin
+/5 lab controller tests**, mypy **294 files**, lint/types/build and audit zero.
+The 28 new source cases use fake HTTP; focused 33 includes five architecture checks.
+Secret scan passed **487 files**; diff check passed. No real source/model/contact
+call, dependency/configuration/public API change or family-history migration.
+
+This source lane is **not runtime-wired yet**. Model-selected tools, consumer
+dispatch into Child-Safety/Parent-Touch, real credentials/source acceptance,
+remaining commercial/reminder/admin capabilities, scheduled collection, lab
+extensions and scoped release remain required. The goal is active and incomplete,
+not a local-foundation substitute for the full objective. Root code, production,
+sources/refresh, existing histories, keys, SSH and grants are unchanged.
+
 ### Isolated test chat / clarified API groups — 2026-10-24, `b81eec7`
 
 Feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now has
