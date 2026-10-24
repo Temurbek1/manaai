@@ -2,6 +2,52 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Native app-counter source — 2026-10-25, `5b9a6d4`
+
+Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. New
+[source checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-child-app-usage-source.md)
+and English integration section 13 document actual implementation and limits.
+Child-Safety can select own-child battery or app counters and pass the qualified
+result to Parent-Touch through the unchanged single-chat API. The new default-off
+`MANA_FAMILY_APP_USAGE_ENABLED` captures family v12/observation-v2 only on new turns;
+queued v11 keeps its exact battery-only prompt/scope/digest. Shared source-cache
+v3 retains the old battery history and adds separate usage heads/circuit under
+the existing combined 100-request/24h ceiling; app API reads reserve zero Firebase
+document units, without claiming zero backend resource cost.
+
+Three one-shot test-parent source diagnostics made nine MANA HTTP attempts total
+(three login/Parent List/usage groups), zero Firebase/model/contact/action calls.
+Actual new adapter/cache acceptance returned ten of 24 apps and exact replay used
+zero HTTP. Counter dates are naive and their period is unverified; overlapping
+durations must not be summed into daily screen time. The date-filter probe does
+not establish filter semantics. GPS fields exist in the saved audit, but a safe
+document-to-child ownership mapping is still unverified; do not guess it.
+
+One real RU fictional model/tool loop completed with **1794 safety /1119 speaker
+tokens**, one fake usage read, correct partial/unknown-period qualifications;
+standard uncached generation estimate **$0.00589050**, not an invoice or broad
+quality/capacity pass. Original party remains unchanged. The first browser found
+a shared-event consumer bug that stopped the worker after an app event; preserve
+that failure. Source-kind SQL filtering/index and a two-message regression fix it.
+Post-fix browser resumed the same fictional history, manually admitted the next
+UZ message without replaying the pre-read refusal, and retained one query/one
+cache hit/four native receipts through reload. Owned browser/server are closed.
+
+Final `make verify` **91229**, terminal **0**: **1185 backend /26 admin /7 lab
+controller tests**, mypy **333 files**, lint/types/build, zero npm vulnerabilities;
+secret scan **690 files**, quality-marker and diff checks passed. Frozen image
+`c2bc5654cb9d` passed networkless populated v12/v3 closure/reconstruction, unchanged
+all-table fingerprints and retained 150 known/1850 unknown model hold plus an
+independent unknown source claim. Actual old `0d2c5034e15a` v11/v2 readers refuse
+these schemas with bytes unchanged; this is not a working old-image rollback.
+
+The full goal stays active: common 09:00/15:00 collection, further telemetry/GA4,
+analysis coalescing, reminders, remaining specialists, broader live E2E and scoped
+release remain open. Production, SSH, keys, schedules and unrelated root code are
+unchanged. Root tracked-diff fingerprint excluding owned handoffs remains exactly
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
 ### Native source SQL/worker/chat workflow — 2026-10-24, `903ac84`
 
 Authoritative feature checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`,
