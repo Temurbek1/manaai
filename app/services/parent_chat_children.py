@@ -1,6 +1,7 @@
 """One filtered ownership read; never enumerate families or follow pagination."""
 
 import asyncio
+import base64
 import json
 import time
 from datetime import UTC, datetime
@@ -20,7 +21,7 @@ class _Child(BaseModel):
     is_connected: StrictBool
 
 
-class _Parent(BaseModel):
+class ManakidsParentProfile(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: int = Field(gt=0, strict=True)
     children: list[_Child] = Field(max_length=20)
@@ -30,7 +31,7 @@ class _Parent(BaseModel):
 class _Page(BaseModel):
     model_config = ConfigDict(extra="ignore")
     count: int = Field(ge=0, le=1, strict=True)
-    results: list[_Parent] = Field(max_length=1)
+    results: list[ManakidsParentProfile] = Field(max_length=1)
     next: str | None = None
 
 
@@ -49,6 +50,7 @@ class ManakidsChatChildrenSource:
         self._username = username
         self._password = password
         self._token: str | None = None
+        self._token_expires_at = 0.0
         self._auth_lock = asyncio.Lock()
         self._auth_retry_at = 0.0
         self._wall_timeout = wall_timeout_seconds
@@ -70,8 +72,9 @@ class ManakidsChatChildrenSource:
 
     async def _access_token(self) -> str:
         async with self._auth_lock:
-            if self._token is not None:
+            if self._token is not None and time.monotonic() < self._token_expires_at:
                 return self._token
+            self._token = None
             if time.monotonic() < self._auth_retry_at:
                 raise ParentChatError("child_source_auth_cooling_down", 503)
             self._auth_retry_at = time.monotonic() + 60
@@ -90,7 +93,22 @@ class ManakidsChatChildrenSource:
             token = payload.get("access") or payload.get("access_token") or payload.get("token")
             if not isinstance(token, str) or not token or len(token) > 8192:
                 raise ParentChatError("child_context_invalid", 503)
+            # Unverified exp is only a bounded cache hint, never authorization.
+            # The backend still verifies the bearer; no failed GET is retried.
+            lifetime = 300.0
+            if token.count(".") == 2:
+                try:
+                    part = token.split(".")[1]
+                    claims = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
+                    expiry = claims.get("exp") if isinstance(claims, dict) else None
+                    if type(expiry) is int:
+                        lifetime = min(3600.0, float(expiry) - time.time() - 30)
+                except (ValueError, UnicodeError, OverflowError):
+                    pass  # An opaque token still has the short server cache bound.
+            if lifetime <= 0:
+                raise ParentChatError("child_context_invalid", 503)
             self._token = token
+            self._token_expires_at = time.monotonic() + lifetime
             return token
 
     async def access_token(self) -> str:

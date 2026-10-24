@@ -30,6 +30,7 @@ from app.services.conversion_account_store import (
 from app.services.conversion_store import SqliteClosedConversionStore, SqliteConversionStore
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
+from app.services.family_collection_worker import FamilyCollectionWorker
 from app.services.family_compatibility_store import (
     SqliteClosedSafetyBrokerStore,
     SqliteFamilyCompatibilityStore,
@@ -314,6 +315,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         model = OpenAIParentChatModel(touch_settings)
         safety_model: OpenAIChildSafetyModel | None = None
         worker: FamilyAgentWorker | None = None
+        collection_worker: FamilyCollectionWorker | None = None
         try:
             children = ManakidsChatChildrenSource(
                 client=client,
@@ -322,7 +324,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 password=settings.manakids_api_password.get_secret_value(),
                 wall_timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
             )
-            if settings.mana_family_app_usage_enabled:
+            if settings.mana_family_app_usage_enabled or settings.mana_family_collection_enabled:
                 sources = await family_source_runtime(
                     settings,
                     client,
@@ -385,6 +387,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     safety=safety,
                     reviewed=reviewed,
                     sources=sources.reads if sources else None,
+                    collection=sources.collection if sources else None,
                     proactive=(
                         ProactiveParentService(
                             store,
@@ -478,8 +481,15 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     max_output_tokens=settings.mana_parent_chat_max_output_tokens,
                     history_turn_limit=settings.mana_parent_chat_history_turns,
                 )
+            if sources and sources.collection is not None:
+                collection_worker = FamilyCollectionWorker(
+                    sources.collection, interval=settings.mana_family_collection_poll_seconds
+                )
+                collection_worker.start()
             yield service
         finally:
+            if collection_worker is not None:
+                await collection_worker.close()
             if worker is not None:
                 await worker.close()
             if safety_model is not None:

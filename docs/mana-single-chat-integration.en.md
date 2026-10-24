@@ -540,3 +540,19 @@ It remains fictional, loopback-only and unable to push/grant/read live sources.
 See [actual API/model/browser/image evidence and limits](mana-child-app-usage-source.md).
 This increment is not production activation, complete GPS/GA4 collection or the
 entire multi-agent objective.
+
+## 14. Shared scheduled family collection (local, default disabled)
+
+The server can discover MANA parents with connected children even before their
+first chat. `MANA_FAMILY_COLLECTION_ENABLED` separately wires bounded collection
+at 09:00/15:00 Asia/Tashkent through the existing ownership/cache/source meters.
+No new mobile request or backend webhook is required for already supported facts.
+The same three chat operations receive eventual Parent-Touch messages; collection
+is not consent, a push request or an inference-budget increase.
+
+See [the collection checkpoint](mana-family-collection.md) for configuration,
+durable unknown/no-retry behavior, manifest dates, illustrative daily/monthly/
+annual costs and the demonstrated fleet-capacity gap. Defaults do not provide
+whole-population refresh. GA4/shared administrative aggregates and broader source
+consumers remain unfinished. For fictional first-contact testing, run
+`make chat-lab-collection`; it cannot use paid models or real family data.

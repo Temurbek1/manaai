@@ -257,8 +257,9 @@ async function start() {
     bootstrap.mode === "simulation"
       ? "● Бесплатная симуляция"
       : "● Реальная модель";
-  $("mode-notice").textContent =
-    bootstrap.mode === "simulation"
+  $("mode-notice").textContent = bootstrap.scheduled_collection
+    ? "Фиктивные данные и модель · 25.10.2026 · окна 09:00 и 15:00 по Ташкенту"
+    : bootstrap.mode === "simulation"
       ? "Ответы симулируются · реальные API агентов и локальное хранилище"
       : "Модель платная · все данные и офферы тестовые · лимиты 2000 + 2000 токенов в день";
   $("mode-notice").classList.toggle("paid", bootstrap.mode !== "simulation");
@@ -284,6 +285,12 @@ async function start() {
             body: JSON.stringify(fresh.body),
           },
         );
+        if (fresh.path === "/lab/collection") {
+          $("status").textContent =
+            `Сбор: ${receipt.status} · ${receipt.targets} целей. Повтор кнопки читает только сохранённый результат.`;
+          await refresh();
+          return;
+        }
         if (fresh.local && receipt.status !== "completed") {
           throw new Error(
             receipt.error_code || "Чтение источника не подтверждено.",

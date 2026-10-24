@@ -15,6 +15,7 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
+from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
@@ -83,7 +84,9 @@ class ParentTouchService(ParentChatService):
         conversion: ConversionService | None = None,
         proactive: ProactiveParentService | None = None,
         sources: FamilySourceService | None = None,
+        collection: FamilyCollectionService | None = None,
     ) -> None:
+        self.collection = collection
         super().__init__(
             store=store,
             children=children,

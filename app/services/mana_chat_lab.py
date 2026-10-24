@@ -42,6 +42,7 @@ from app.mana_ai.domain.conversion import (
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
 from app.mana_ai.domain.family_agents import AgentQuestionRequest, ParentTouchHistory
+from app.mana_ai.domain.family_collection import FamilyCollectionWindow
 from app.mana_ai.domain.family_sources import (
     AppUsageCounter,
     ChildAppUsageFacts,
@@ -57,6 +58,7 @@ from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.family_agent_worker import FamilyAgentWorker
+from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
@@ -341,6 +343,7 @@ class LabBootstrap(BaseModel):
     parent_id: str
     child_id: int
     scenarios: list[LabScenario]
+    scheduled_collection: bool = False
 
 
 class LabState(BaseModel):
@@ -351,6 +354,7 @@ class LabState(BaseModel):
     conversions: ConversionProposalPage
     source_changes: list[FamilySourceChange]
     source_dispatches: list[SourceSafetyReceipt]
+    collection_windows: list[FamilyCollectionWindow] = []
 
 
 @dataclass(frozen=True)
@@ -361,12 +365,19 @@ class LabOptions:
     worker_enabled: bool = True
     native_sources: bool = False
     native_observations: bool = False
+    scheduled_collection: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
         if options.native_observations and not options.native_sources:
             raise ValueError("Observation lab requires the native workflow")
+        if options.scheduled_collection and (
+            options.real_model
+            or not options.native_observations
+            or not isinstance(options.clock, LabCollectionClock)
+        ):
+            raise ValueError("Collection lab requires fictional time, sources and model")
         self.options = options
         self.mode: Literal["simulation", "real-model"] = (
             "real-model" if options.real_model else "simulation"
@@ -380,6 +391,7 @@ class ChatLab:
         self.sources: FamilySourceService
         self.source_safety: SourceSafetyService
         self.battery: LabBatterySource
+        self.collection: LabCollection | None = None
 
     def _directory(self) -> Path:
         directory = self.options.directory
@@ -393,6 +405,8 @@ class ChatLab:
             expected["native_sources"] = True
         if self.options.native_observations:
             expected["native_observations"] = True
+        if self.options.scheduled_collection:
+            expected["scheduled_collection"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -414,7 +428,12 @@ class ChatLab:
         return directory
 
     async def start(self) -> None:
-        directory, now = self._directory(), self.options.clock.now()
+        directory = self._directory()
+        collection_store = None
+        if self.options.scheduled_collection:
+            assert isinstance(self.options.clock, LabCollectionClock)
+            collection_store = await lab_collection_store(directory, self.options.clock)
+        now = self.options.clock.now()
         limits = ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -558,6 +577,18 @@ class ChatLab:
         self.source_safety = SourceSafetyService(
             self.source_store, self.safety, profiles, policy=policy, clock=self.options.clock.now
         )
+        if collection_store is not None:
+            assert isinstance(self.options.clock, LabCollectionClock)
+            assert isinstance(self.source_store, SqliteMultiFamilySourceStore)
+            self.collection = LabCollection(
+                collection_store,
+                self.options.clock,
+                self.sources,
+                self.source_store,
+                parent_id=LAB_PARENT,
+                child_id=LAB_CHILD,
+            )
+            self.touch.collection = self.collection.service
         if await self.store.contact_context(LAB_PARENT, now) is None:
             await proactive.register(
                 ParentContactContext(
@@ -591,14 +622,24 @@ class ChatLab:
 
     async def state(self) -> LabState:
         assert self.touch.conversion is not None
+        # These are separate SQL observations. Read publication statuses before
+        # history so a newly published proposal cannot refer to an older empty
+        # history captured before the worker committed its message.
+        conversions = await self.touch.conversion.proposals(LAB_PARENT, after=0, limit=100)
+        assessments = await self.safety.assessments(LAB_PARENT, after=0, limit=100)
+        safety_budget = await self.safety.budget(LAB_PARENT)
+        changes = [event for _, event in await self.source_store.changes(LAB_PARENT)]
+        dispatches = await self.source_store.dispatch_receipts(LAB_PARENT)
+        windows = list(await self.collection.service.windows()) if self.collection else []
         return LabState(
             mode=self.mode,
             history=await self.touch.read_touch_history(LAB_PARENT, before=None, limit=100),
-            assessments=await self.safety.assessments(LAB_PARENT, after=0, limit=100),
-            safety_budget=await self.safety.budget(LAB_PARENT),
-            conversions=await self.touch.conversion.proposals(LAB_PARENT, after=0, limit=100),
-            source_changes=[event for _, event in await self.source_store.changes(LAB_PARENT)],
-            source_dispatches=await self.source_store.dispatch_receipts(LAB_PARENT),
+            assessments=assessments,
+            safety_budget=safety_budget,
+            conversions=conversions,
+            source_changes=changes,
+            source_dispatches=dispatches,
+            collection_windows=windows,
         )
 
     def bootstrap(self) -> LabBootstrap:
@@ -637,7 +678,22 @@ class ChatLab:
             mode=self.mode,
             parent_id=LAB_PARENT,
             child_id=LAB_CHILD,
+            scheduled_collection=self.options.scheduled_collection,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key=f"collection-{hour}",
+                            title=f"Сбор {hour:02}:00 (симуляция)",
+                            path="/lab/collection",
+                            local=True,
+                            body={"parent_id": LAB_PARENT, "hour": hour},
+                        )
+                        for hour in (9, 15)
+                    ]
+                    if self.collection
+                    else []
+                ),
                 LabScenario(
                     key="battery",
                     title="Низкий заряд (тестовый источник)",

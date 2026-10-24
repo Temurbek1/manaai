@@ -499,3 +499,30 @@ async def test_app_usage_runtime_uses_existing_auth_without_google_requests(
         assert receipt.status == "completed" and receipt.source == "manakids.child_app_usage.v1"
         assert len(requests) == 3
         assert await runtime.reads.read_child_app_usage(req) == receipt and len(requests) == 3
+
+
+async def test_collection_runtime_arms_storage_without_provider_calls_or_inherited_chat_authority(
+    tmp_path: Path, credential_file: Path
+) -> None:
+    provider = Google()
+    settings = config(
+        tmp_path,
+        credential_file,
+        mana_family_collection_enabled=True,
+        mana_family_collection_database_path=tmp_path / "collection.sqlite3",
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
+        profiles = ManakidsChatChildrenSource(
+            client=client,
+            base_url="https://api.manakids.uz",
+            username="fake-user",
+            password="fake-password",
+        )
+        runtime = await family_source_runtime(
+            settings, client, profiles, clock=lambda: NOW, account_auth=profiles
+        )
+        assert runtime and runtime.collection and runtime.collection_store
+        assert not provider.requests and await runtime.collection.windows() == ()
+        assert await runtime.collection.process_one() is None and not provider.requests
+    assert not settings.mana_family_source_safety_enabled
+    assert not Settings(openai_api_key="fake", _env_file=None).mana_family_collection_enabled

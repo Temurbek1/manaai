@@ -11,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.mana_ai.domain.child_safety import ChildSafetyLimits
 from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
+from app.mana_ai.domain.family_collection import FamilyCollectionPolicy
 from app.mana_ai.domain.family_sources import FamilySourceLimits
 
 
@@ -80,6 +81,12 @@ class Settings(BaseSettings):
     mana_family_source_limits: FamilySourceLimits = Field(default_factory=FamilySourceLimits)
     mana_family_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
     mana_family_source_maximum_age_seconds: int = Field(default=21600, ge=60, le=86400)
+    mana_family_collection_enabled: bool = False
+    mana_family_collection_database_path: Path = Path("data/mana-family-collection.sqlite3")
+    mana_family_collection_policy: FamilyCollectionPolicy = Field(
+        default_factory=FamilyCollectionPolicy
+    )
+    mana_family_collection_poll_seconds: float = Field(default=30, ge=0.05, le=60)
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -411,6 +418,32 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_collection_enabled:
+            if not self.mana_family_sources_enabled:
+                raise ValueError("Collection requires the governed family source runtime")
+            if self.mana_family_collection_policy.claim_seconds <= (
+                self.mana_parent_chat_source_timeout_seconds
+                + self.mana_family_source_timeout_seconds
+                + 30
+            ):
+                raise ValueError("Collection request timeouts must fit inside its durable claim")
+            collection_path = self.mana_family_collection_database_path
+            if collection_path == Path(":memory:") or collection_path.resolve() in {
+                self.mana_parent_chat_database_path.resolve(),
+                self.mana_family_source_database_path.resolve(),
+                self.marketing_database_path.resolve(),
+                self.firebase_service_account_file.resolve()
+                if self.firebase_service_account_file
+                else None,
+            }:
+                raise ValueError("Collection requires a separate durable database")
+            if self.effective_operation_database_url in {
+                f"sqlite+aiosqlite:///{collection_path}",
+                f"sqlite:///{collection_path}",
+                f"sqlite+aiosqlite:///{collection_path.resolve()}",
+                f"sqlite:///{collection_path.resolve()}",
+            }:
+                raise ValueError("Collection cannot share the operation database")
         if self.mana_family_app_usage_enabled and not self.mana_child_safety_source_tools_enabled:
             raise ValueError("App usage requires the captured native source runtime")
         if self.mana_child_safety_source_tools_enabled:

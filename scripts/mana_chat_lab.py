@@ -15,6 +15,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from pydantic import BaseModel, ConfigDict
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
@@ -24,7 +25,9 @@ from app.api.security import require_backend_bearer_token
 from app.core.openapi import OPENAPI_TAGS
 from app.core.request_body_limit import RequestBodyLimitMiddleware
 from app.core.validation_errors import sanitized_request_validation_handler
+from app.mana_ai.domain.family_collection import FamilyCollectionWindow
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
+from app.services.lab_collection import LabCollectionClock
 from app.services.mana_chat_lab import (
     LAB_CHILD,
     LAB_PARENT,
@@ -33,6 +36,12 @@ from app.services.mana_chat_lab import (
     LabOptions,
     LabState,
 )
+
+
+class LabCollectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    parent_id: Literal["900001"]
+    hour: Literal[9, 15]
 
 
 def create_app(*, options: LabOptions | None = None) -> FastAPI:
@@ -144,6 +153,16 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     async def child_battery(payload: FamilySourceTarget) -> FamilySourceReceipt:
         return await mana_family_agents.controlled(lab.sources.read_child_battery(payload))
 
+    @app.post(
+        "/lab/collection",
+        response_model=FamilyCollectionWindow,
+        dependencies=[Depends(local_session)],
+    )
+    async def collect(payload: LabCollectionRequest) -> FamilyCollectionWindow:
+        if lab.collection is None:
+            raise HTTPException(409, detail={"code": "lab_collection_disabled"})
+        return await mana_family_agents.controlled(lab.collection.collect(payload.hour))
+
     for router in (mana_family_agents.router, mana_child_safety.router, mana_conversion.router):
         app.include_router(router, prefix="/api/v1/mana-ai")
     return app
@@ -190,5 +209,18 @@ def create_observation_live_app() -> FastAPI:
             real_model=True,
             native_sources=True,
             native_observations=True,
+        )
+    )
+
+
+def create_collection_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/collection-simulation",
+            native_sources=True,
+            native_observations=True,
+            scheduled_collection=True,
+            clock=LabCollectionClock(),
         )
     )

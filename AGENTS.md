@@ -2,6 +2,20 @@
 
 ## Repository expectations
 
+- The subsequent local collector discovers canonical MANA families and acquires
+  registered battery/app-counter facts at 09:00/15:00 Asia/Tashkent through the
+  existing shared source meters/cache. `MANA_FAMILY_COLLECTION_ENABLED` stays
+  default off; no production schedule is activated. Its separate schema-1 ledger
+  persists occurrence/page/target claims, backlog, unknown holds and immutable
+  minimized terminal manifests. Do not backfill missed windows, retry unknown
+  reads, raise the existing 100-source-admission/day ceiling or equate partial
+  acquisition with population coverage. One real two-HTTP inventory diagnostic
+  reported 219,873 parents, not a verified connected-child count or consent.
+  The fictional fixed-clock collection lab cannot use paid models/live sources.
+  Read `docs/mana-family-collection.md` for costs, limits and actual acceptance.
+  GA4/shared administrative aggregate wiring, general app-change analysis,
+  specialist analysis coalescing and the rest of the full goal remain open.
+
 - The subsequent local app-counter increment adds private family v12/source-cache
   v3 and a captured observation-v2 tool for new turns only. Queued v11 keeps its
   exact battery-only scope/prompt/digest. `MANA_FAMILY_APP_USAGE_ENABLED` defaults

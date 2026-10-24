@@ -14,7 +14,10 @@ install:
 	$(PYTHON) -m pip install -e ".[operation,dev]"
 	cd admin-ui && npm ci
 
-.PHONY: chat-lab chat-lab-live chat-lab-native chat-lab-native-live chat-lab-observations chat-lab-observations-live chat-lab-check
+.PHONY: chat-lab chat-lab-live chat-lab-native chat-lab-native-live chat-lab-observations chat-lab-observations-live chat-lab-collection chat-lab-check
+chat-lab-collection:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_collection_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 chat-lab-observations:
 	PYTHONPATH=. .venv/bin/uvicorn scripts.mana_chat_lab:create_observation_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 
