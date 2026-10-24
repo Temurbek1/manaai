@@ -2,6 +2,38 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Isolated test chat / clarified API groups — 2026-10-24, `b81eec7`
+
+Feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now has
+`make chat-lab` at `http://127.0.0.1:8092`: a minimalist browser chat backed by
+the actual Parent-Touch/Child-Safety/conversion application services and private
+SQLite, with one fictional family and free simulated answers by default.
+Optional `chat-lab-live` uses configured paid models, but still no real family
+data, push or grant adapters. No paid model call was made for this increment.
+The owned QA browser/server were closed after verification; start the command
+from that feature checkout to use it. Durable simulated history remains local.
+
+Swagger now separates the three recommended chat operations from backend
+ingestion/coordination and compatibility routes. No public path, schema or auth
+was removed; old synchronous calls remain compatible and are only marked deprecated.
+The lab is not mounted on production factories or proxied to production.
+Read [the guide](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-chat-lab.md)
+and [acceptance checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-chat-lab-checkpoint.md).
+
+Full **`make verify` session 34669**, terminal exit **0**: **1014 backend /26
+admin /5 lab controller tests**, mypy **289 files**, lint/types/build and audit
+zero. Secret scan passed **481 files**; diff check passed. Compatible undici/zod
+transitive patches fixed the earlier failed audit, without primary-version
+changes. Earlier failed gates remain documented, not reclassified as passes.
+Actual isolated Chromium verified desktop/mobile, question/answer, child alert,
+fictional offer and reload. Lost acknowledgement made exactly one simulated POST
+and recovered by original-ID observation, without a replacement generation.
+
+Root implementation changes, production, shared source settings/refresh, SSH,
+keys, real customers and grants are unchanged. This is not real-model quality,
+all-parent coverage, paid conversion or production release acceptance. The broad
+conversion goal retains its existing external blockers and is not complete.
+
 ### Testing authority clarification — 2026-10-23, `4e6084c`
 
 The owner clarified that scoped free-tariff tests may affect explicitly designated
