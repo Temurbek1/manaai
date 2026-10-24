@@ -2,6 +2,70 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Coalesced source reviews — 2026-10-25, `dc5f434`
+
+Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. Read the new
+[source-review checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-source-reviews.md)
+and English integration section 15. New admitted battery/app changes coalesce into
+one frozen own-child snapshot bundle, one existing Child-Safety job and an optional
+ordinary Parent-Touch notice or managed question. Source facts remain qualified:
+app periods/timezone/coverage are unknown or partial; collection is not measurement.
+
+`MANA_FAMILY_SOURCE_REVIEWS_ENABLED` remains default false. Private family v13 and
+source-cache v4 are local, not an operational migration or deployment. New source
+native attribution suppresses a second background analysis, including an exact
+queued cache snapshot, without granting another tool/scope or rewriting old SDK
+inputs. Source review is a single tool-free model call in the existing **2000
+global safety tokens/day**; speaker remains **2000 tokens/parent/day**. Invalid
+decisions retain verified charges; unknown calls retain durable holds. A lost
+preparation expires to unknown after 180 seconds and never retries its lookup.
+Ordinary review pushes respect configured quiet hours before a send claim. Passive
+chat storage and push permission remain separate; no real contact/grant occurred.
+
+One new independent actual-model party used ten of 24 fictional app counters,
+unknown period and an instruction-like app name, plus a dated fictional battery.
+Four OpenAI HTTP calls settled **1276 safety /1472 speaker tokens**, zero holds:
+safety `gpt-5.4-mini-2026-03-17`, speaker `gpt-5.4-2026-03-05`. It preserved the
+qualifications and did not obey the app-name instruction, but one RU phrase was
+awkward. The initial harness priced both roles at mini rates; original evidence
+is retained and the **offline corrected uncached generation estimate is
+$0.0062295**, not an invoice/counting charge. No paid diagnostic was rerun.
+
+Final `make verify` **12329**, terminal **0**: **1222 backend /26 admin /7 lab
+controller tests**, mypy **362 files**, lint/types/build and zero npm vulnerabilities.
+The ten dedicated source-review regressions cover coalescing, unchanged/native
+reads, revoked ownership, raw invalid/unknown usage, restart/midnight, lost SQL
+acknowledgement, quiet push and lost preparation. The actual production factory
+was also exercised with fake providers/SDK, zero external requests. A composite
+lab-state SQL race was fixed using bounded `data_version` observation; its negative
+log and the initial lambda/class test-harness failure remain distinct from passes.
+Secret scan passed **861 tracked/unignored files**; final diff/static checks passed.
+
+Final image `fbe6b567300e` passed networkless copied v12/v3 → v13/v4 initialization
+and closed/reconstructed reads, preserving every old table fingerprint, **150
+known /1850 unknown model tokens**, an unknown source reserving two units, and the
+completed new source-review history. No old source event was recaptured. Actual
+old `4f0f92c52c60` refuses both new schemas with bytes unchanged; this is not a
+working old-image rollback. Full old queued-native execution through the upgrade
+and a separately approved production fallback/release still need acceptance.
+
+Owned loopback browser combined two fictional sources into one assistant-first
+overview. A cached reread added no overview; a later Uzbek question used the cache.
+Final fake totals: one review, four source admissions, two provider reads/two cache
+hits, two conservative Firestore units, 450 safety /300 speaker tokens. Restart
+and fresh navigation retained exact history/review ID/costs/source counters; no new
+source read occurred. Desktop/390px screenshots were inspected. Owned browser and
+server are closed. This increment made no real Firebase/GA4/MANA read.
+
+The full goal remains active: GA4/shared administrative aggregates, remaining
+telemetry, reminders and specialists/owning actions, broader model/source/consent/
+channel acceptance, fleet capacity and approved rollout remain unfinished. No
+new webhook blocker is introduced for already available facts. Production, SSH,
+keys and unrelated root code remain unchanged; the tracked-diff fingerprint
+excluding owned handoffs remains
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
 ### Shared 09:00 / 15:00 family collection — 2026-10-25, `53e30be`
 
 Authoritative implementation remains `/mnt/ssd2/mana-conversion-agent-20261021`,
