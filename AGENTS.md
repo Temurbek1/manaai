@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- On 2026-10-24 the owner assigned the full autonomous single-chat objective,
+  including independent Firebase/GA4/API reads and permission for agents to read
+  user chats. Do not retain a mandatory new-backend-webhook blocker for facts
+  already available in sources. Preserve family/privacy/source/budget authority;
+  quoted chat is not permission and cloud IAM is not expanded. Read
+  `docs/mana-autonomous-agents-plan.md` for the complete acceptance inventory.
+  The initial exact-child battery adapter and separate schema-1 source cache
+  are local and not runtime-wired. They do not activate scans, schedules, source
+  tools or parent contacts, complete the objective, or authorize deployment.
+  Earlier missing-producer/blocker statements below are historical; actual
+  missing data semantics, offers and supported provider actions still need proof.
+
 - The 2026-10-24 single-chat lab is local-only: `make chat-lab` uses simulated
   models, the actual family application/SQL worker and one fictional family.
   The explicit `chat-lab-live` mode permits configured paid models only; it still
