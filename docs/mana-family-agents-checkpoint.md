@@ -2,6 +2,45 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Native source SDK protocol — 2026-10-24, `bb30b7b`
+
+The feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now has private
+alias-only native source contracts and `OpenAIChildSourceModel`, extending the
+existing pinned specialist transport. This is **not** installed in runtime or
+dispatched: no source, model, SQL migration, contact or production feature was
+activated. Read
+[the checkpoint and required SQL integration](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-native-source-transport.md).
+The full objective remains active; this SDK increment does not complete it.
+
+One strict `read_child_battery` call may select only an advertised own-child alias.
+Private scope/invocation, original input/model/schema digest and exact call-bound
+source request UUID prevent result substitution. Continuation preserves original
+call/argument bytes and ordered encrypted reasoning only; assistant prose, raw/
+summary reasoning and provider-forged tool results are not retained. Verified
+raw usage survives invalid choices. The final call forbids another tool; its
+answer still requires owning validation and Parent-Touch publication. Ordinary
+specialist methods remain tool-free. Shared terminal usage validation was
+extracted without changing the original strict numeric/terminal checks.
+
+Next implement captured new-turn eligibility, per-call SQL metering before tool
+dispatch, partial known costs plus unknown remaining holds, exact source claims,
+fresh ownership and the same review/broker continuation. Preserve the shared
+**2000 global safety tokens/day**; two real calls need a compact captured host
+prompt and exact count acceptance while retaining all admitted parent words and
+dated facts. No budget enlargement or silent historical protocol upgrade. The
+existing one-call `record_usage` method is insufficient. Source-event consumer
+dedup, closed-reader/candidate checks and real source/model quality remain open.
+
+Full **`make verify` session 7988**, terminal exit **0**: **1138 backend /26 admin
+/7 lab controller tests**, mypy **308 files**, lint/types/build and npm audit zero.
+Focused native-SDK/chat-adapter/source-cache suite **12440** passed **105 cases**;
+counts overlap. Initial static narrowing errors were fixed before final gates.
+Secret scan passed **535 files**; diff checks passed. Every SDK request used
+MockTransport; no paid model or Firebase/GA4 call, old-party replay, browser or
+new image test occurred. Root dirty code, production, keys, schedules and SSH
+remain preserved. The future SQL/worker workflow must not be claimed implemented
+on the strength of this transport-only test evidence.
+
 ### Server source runtime / real bounded read — 2026-10-24, `6fe9db3`
 
 The feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now wires explicit
