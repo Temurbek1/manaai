@@ -17,13 +17,13 @@ from app.mana_ai.application.chat_ports import (
     ChatPrompt,
 )
 from app.mana_ai.application.parent_languages import language_name, parent_language
-from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.family_agents import (
     ParentTouchEvidenceReply,
     ParentTouchModelReply,
     ParentTouchSlotReply,
     ParentTouchText,
 )
+from app.services.chat_usage_receipt import terminal_chat_usage
 
 
 class OpenAIParentChatModel:
@@ -153,26 +153,8 @@ class OpenAIParentChatModel:
                 raise ChatModelRejected from None
             raise
         payload = raw.http_response.json()
-        if not isinstance(payload, dict) or payload.get("status") not in {
-            "completed",
-            "incomplete",
-            "failed",
-            "cancelled",
-        }:
-            raise ValueError("Missing terminal parent chat receipt")
-        usage = payload.get("usage")
-        if (
-            not isinstance(usage, dict)
-            or any(
-                type(usage.get(key)) is not int or not 0 <= usage[key] <= 2**31 - 1
-                for key in ("input_tokens", "output_tokens", "total_tokens")
-            )
-            or usage["input_tokens"] + usage["output_tokens"] != usage["total_tokens"]
-        ):
-            raise ValueError("Invalid parent chat usage receipt")
-        tokens = ChatTokens(
-            input_tokens=usage["input_tokens"], output_tokens=usage["output_tokens"]
-        )
+        tokens = terminal_chat_usage(payload)
+        assert isinstance(payload, dict)
         model = payload.get("model")
         valid_model = isinstance(model, str) and 0 < len(model) <= 128
         # From this point invalid text/schema still returns the verified usage.

@@ -2,6 +2,15 @@
 
 ## Repository expectations
 
+- The subsequent native source transport is SDK-only and not runtime-wired.
+  New private family scopes/aliases and exact encrypted call pairing preserve
+  raw terminal usage on invalid choices; ordinary specialist calls stay tool-free.
+  Do not dispatch its returned call before durable per-call SQL metering/claims
+  or treat its digest as permission. Shared 2000-token safety continuation holds,
+  new-turn capture, compact prompt/real budget acceptance and current-code closed
+  reader remain required. Read `docs/mana-native-source-transport.md` before
+  implementing that owning workflow. No native source feature is activated.
+
 - The subsequent local server source runtime explicitly binds the confirmed MANA
   project/key to the existing source-cache v2 and optional safety consumer. Its
   factory performs no HTTP at startup; no model-selected source tool or bulk

@@ -63,6 +63,12 @@ its measurement date remained unknown and it generated no message/model call.
 Native model-selected reads and bulk-window collection remain unimplemented;
 the factory is lazy and default disabled outside a separately scoped release.
 
+The following [native SDK transport](mana-native-source-transport.md) implements
+strict alias-only source selection and exact encrypted result continuation,
+retaining raw usage on invalid outputs. It is not dispatched or runtime-wired;
+the per-call SQL ledger/new-turn capture and actual budget/quality acceptance
+are still required before an agent can use it autonomously.
+
 The [source safety checkpoint](mana-source-safety-checkpoint.md) extends the
 initial lane with captured consumer admissions, immutable specialist intents,
 SQL-only lost-ack reconciliation and an opt-in worker connection. The lab now
