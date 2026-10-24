@@ -97,11 +97,18 @@ class FamilySourceService:
             )
             raise
         except ParentChatError as exc:
-            permanent = exc.code in {"family_source_auth_denied", "family_source_query_invalid"}
+            code = (
+                "family_source_auth_denied" if exc.code == "child_source_auth_denied" else exc.code
+            )
+            permanent = code in {
+                "family_source_auth_denied",
+                "family_source_query_invalid",
+                "family_source_invalid",
+            }
             return await self._store.fail(
                 target,
                 self._clock(),
-                code=exc.code if permanent else "family_source_unavailable",
+                code=code if permanent else "family_source_unavailable",
                 unknown=submitted and not permanent,
                 close_source=permanent,
             )

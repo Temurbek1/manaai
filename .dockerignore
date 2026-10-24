@@ -9,6 +9,7 @@ __pycache__
 .env.*
 *.pdf
 data
+output
 tests
 AGENTS.md
 admin-ui/node_modules

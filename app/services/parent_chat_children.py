@@ -54,6 +54,8 @@ class ManakidsChatChildrenSource:
         self._wall_timeout = wall_timeout_seconds
 
     async def _read_json(self, response: httpx.Response) -> object:
+        if response.status_code in {401, 403}:
+            raise ParentChatError("child_source_auth_denied", 503)
         if response.status_code != 200:
             raise ParentChatError("child_context_unavailable", 503)
         data = bytearray()

@@ -15,6 +15,7 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
+from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.application.parent_touch_offers import render_parent_offer
@@ -80,6 +81,7 @@ class ParentTouchService(ParentChatService):
         reviewed: ReviewedMessageStore | None = None,
         conversion: ConversionService | None = None,
         proactive: ProactiveParentService | None = None,
+        sources: FamilySourceService | None = None,
     ) -> None:
         super().__init__(
             store=store,
@@ -95,6 +97,7 @@ class ParentTouchService(ParentChatService):
         self._reviewed = reviewed
         self.conversion = conversion
         self.proactive = proactive
+        self.sources = sources
 
     async def process_push(self) -> bool:
         if self.proactive is None:

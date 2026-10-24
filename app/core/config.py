@@ -11,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.mana_ai.domain.child_safety import ChildSafetyLimits
 from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
+from app.mana_ai.domain.family_sources import FamilySourceLimits
 
 
 class Settings(BaseSettings):
@@ -70,6 +71,13 @@ class Settings(BaseSettings):
     )
     mana_conversion_policy: ConversionPolicy = Field(default_factory=ConversionPolicy)
     mana_conversion_offers: tuple[ConversionOffer, ...] = ()
+    mana_family_sources_enabled: bool = False
+    mana_family_source_safety_enabled: bool = False
+    mana_family_firebase_mana_confirmed: bool = False
+    mana_family_source_database_path: Path = Path("data/mana-family-sources.sqlite3")
+    mana_family_source_limits: FamilySourceLimits = Field(default_factory=FamilySourceLimits)
+    mana_family_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
+    mana_family_source_maximum_age_seconds: int = Field(default=21600, ge=60, le=86400)
 
     mana_telegram_auth_enabled: bool = True
     mana_telegram_bot_token: SecretStr | None = Field(
@@ -398,6 +406,36 @@ class Settings(BaseSettings):
     meta_action_attribution_windows: list[str] = Field(
         default_factory=lambda: ["1d_click", "7d_click"],
     )
+
+    @model_validator(mode="after")
+    def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_source_safety_enabled and not (
+            self.mana_family_sources_enabled and self.mana_child_safety_enabled
+        ):
+            raise ValueError("Source-driven analysis requires family sources and Child-Safety")
+        if not self.mana_family_sources_enabled:
+            return self
+        if not self.mana_parent_touch_enabled or not self.mana_family_firebase_mana_confirmed:
+            raise ValueError("Family sources require Parent-Touch and confirmed MANA ownership")
+        if not self.firebase_project_id or self.firebase_service_account_file is None:
+            raise ValueError("Family sources require an explicit Firebase project and credentials")
+        if not self.firebase_service_account_file.is_file():
+            raise ValueError("Family sources require a readable service credential file")
+        path = self.mana_family_source_database_path
+        if path == Path(":memory:") or path.resolve() in {
+            self.mana_parent_chat_database_path.resolve(),
+            self.marketing_database_path.resolve(),
+            self.firebase_service_account_file.resolve(),
+        }:
+            raise ValueError("Family sources require a separate durable database")
+        if self.effective_operation_database_url in {
+            f"sqlite+aiosqlite:///{path}",
+            f"sqlite:///{path}",
+            f"sqlite+aiosqlite:///{path.resolve()}",
+            f"sqlite:///{path.resolve()}",
+        }:
+            raise ValueError("Family sources cannot share the operation database")
+        return self
 
     @model_validator(mode="after")
     def validate_parent_chat_configuration(self) -> "Settings":

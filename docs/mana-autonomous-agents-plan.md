@@ -17,7 +17,8 @@ read user chats. This never lets quoted chat text confer tool authority, expose
 another family to a parent, manufacture consent or enlarge cloud IAM permissions.
 
 Keep the existing Parent-Touch/Child-Safety/commercial implementation and lab,
-currently based on `b81eec7`, in `/mnt/ssd2/mana-conversion-agent-20261021`.
+now including `4aee2c4` and the subsequent source runtime, in
+`/mnt/ssd2/mana-conversion-agent-20261021`.
 Do not sweep the dirty `/mnt/ssd2/Projects/manaai` operational/old-chat work into
 this increment. The existing production family release and all shared services,
 keys, SSH settings and source schedules remain outside local changes.
@@ -29,9 +30,9 @@ keys, SSH settings and source schedules remain outside local changes.
 | One canonical parent, one durable chat, Parent-Touch is the sole speaker | Existing family service/SQL and `mana-chat` three-operation contract; reverify with new specialists and sources, not just the earlier fake lab |
 | Exact sequential question/answer binding; filtering/coalescing; urgent safety priority | Existing broker and reviewed-message workflow; add multi-specialist and autonomous-source E2E acceptance |
 | Agent starts before first parent text; durable message before independent push | Existing local proactive lifecycle; real source-derived language/contact preferences and channel acceptance still required |
-| Independent data access, no mandatory backend producer | New typed battery source/cache is an initial implementation, not runtime tools or complete source coverage; wire actual tools, credentials and observations |
-| One shared collection, consumers reuse snapshots; changes create internal events | New dedicated SQLite snapshot/change journal is local; consumer claims, analysis dispatch and cross-context aggregate publication remain to implement |
-| New child data/new parent text triggers Child-Safety without unchanged-context inference | Existing manual/new-message workflow; connect admitted source changes, preserve dedup/unknown holds and dated evidence |
+| Independent data access, no mandatory backend producer | Exact-child battery source/cache, server credentials and lazy runtime wiring exist; one real test-family query passed. Native model-selected tools and remaining source coverage still required |
+| One shared collection, consumers reuse snapshots; changes create internal events | Dedicated SQLite snapshot/change journal, immutable consumer claims and analysis dispatch exist locally; shared bulk collection and cross-context aggregate publication remain to implement |
+| New child data/new parent text triggers Child-Safety without unchanged-context inference | Source-to-safety-to-Parent-Touch fake path and existing message workflow pass; independent real-model/source loop and remaining automatic feeds still required, with retained dedup/unknown/date limits |
 | Behavioral changes, screen time, routes, reports and clarifications | Existing ten analysis contracts, not complete automatic feeds; map actual available sources and implement missing date/ownership-safe ingestion and reports |
 | Timely paid conversion | Local commercial lifecycle/account/catalog adapters exist; replace missing-webhook dependency with source-derived observations without inventing free-start/consent/offer terms |
 | Churn detection, retention, win-back | Implement authoritative account/activity observations, eligibility, communication and supported actions |
@@ -54,6 +55,13 @@ zero, a fabricated offer, a smaller replacement objective or an excuse to stop
 other implementable work.
 
 ## Subsequent local source-to-chat increment
+
+The next [server source runtime increment](mana-family-source-runtime.md) wires
+real Google signing, the existing shared cache and optional source consumer into
+the actual Parent-Touch runtime. One bounded test-family Firestore read passed;
+its measurement date remained unknown and it generated no message/model call.
+Native model-selected reads and bulk-window collection remain unimplemented;
+the factory is lazy and default disabled outside a separately scoped release.
 
 The [source safety checkpoint](mana-source-safety-checkpoint.md) extends the
 initial lane with captured consumer admissions, immutable specialist intents,
@@ -110,11 +118,13 @@ activating a real collector. Fewer requests alone do not establish lower billing
 
 ## Next implementation sequence
 
-1. Wire server credentials and the source registry to actual runtime tools;
-   retain original-invocation pairing, fresh ownership and raw usage accounting.
-2. Connect immutable change receipts to existing specialist admission and
-   Parent-Touch delivery, with durable consumer claims and no model/source replay.
-   Do not invent online status from a battery write or use undated data as current.
+1. Add model-selected typed source calls on the wired server runtime, with a
+   captured new-turn protocol, original-invocation pairing, raw terminal usage
+   before tool dispatch, separate durable model/source holds and exact replay.
+   No arbitrary query/collection/URL or model-supplied family ownership.
+2. Extend the implemented source-change/specialist/Parent-Touch path with actual
+   model/source acceptance and further supported facts. Preserve consumer claims
+   and no replay; never invent online status or use undated data as current.
 3. Extend actual source coverage and shared window collection; independently
    implement reminders and commercial capabilities while documenting unsupported
    provider functions. Do not wait for webhooks for available source facts.

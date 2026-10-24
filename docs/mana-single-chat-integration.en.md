@@ -466,6 +466,15 @@ The lab uses the real application/store/worker but fake family/source data in
 both modes; actual models are separately opt-in. See [the lab guide](mana-chat-lab.md)
 and [the implementation checkpoint](mana-source-safety-checkpoint.md).
 
-This increment does **not** activate live credentials, model-selected reads, bulk
-collection, new push/grant channels or production. Those, remaining specialists
-and bounded real-model/source acceptance are still required by the full objective.
+The subsequent [server runtime increment](mana-family-source-runtime.md) adds
+explicit server credential wiring and `ParentTouchService.sources` for internal
+typed reads. Its factory performs no HTTP at startup. An optional independently
+enabled source consumer connects new captured changes to the existing safety
+worker. One actual bounded test-family read passed; its undated measurement
+cannot be used as a current alert, and no model/message/push/grant was launched.
+Keys remain server-only. A source authorization failure closes its durable lane;
+exact replays and unknown outcomes do not repeat reads.
+
+Native model-selected read invocation, bulk-window collection, remaining
+specialists and broader real-model/source/channel acceptance are still required
+by the full objective. None of these local increments updates production.

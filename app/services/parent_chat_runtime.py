@@ -13,6 +13,7 @@ from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
+from app.mana_ai.application.source_safety import SourceSafetyService
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
@@ -32,6 +33,7 @@ from app.services.family_compatibility_store import (
     SqliteFamilyCompatibilityStore,
     family_storage_version,
 )
+from app.services.family_source_runtime import family_source_runtime
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.manakids_conversion_accounts import ManakidsConversionAccountSource
 from app.services.manakids_parent_push import ManakidsParentPushGateway
@@ -263,6 +265,9 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 password=settings.manakids_api_password.get_secret_value(),
                 wall_timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
             )
+            sources = await family_source_runtime(
+                settings, client, children, clock=lambda: datetime.now(UTC)
+            )
             if isinstance(store, SqliteFamilyAgentStore) and settings.mana_parent_touch_enabled:
                 safety = None
                 if isinstance(store, SqliteChildSafetyStore):
@@ -293,6 +298,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     history_turn_limit=settings.mana_parent_chat_history_turns,
                     safety=safety,
                     reviewed=reviewed,
+                    sources=sources.reads if sources else None,
                     proactive=(
                         ProactiveParentService(
                             store,
@@ -364,6 +370,17 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         service,
                         clock=lambda: datetime.now(UTC),
                         interval=settings.mana_child_safety_poll_seconds,
+                        source_safety=(
+                            SourceSafetyService(
+                                sources.store,
+                                safety,
+                                children,
+                                policy=sources.safety_policy,
+                                clock=lambda: datetime.now(UTC),
+                            )
+                            if sources and settings.mana_family_source_safety_enabled
+                            else None
+                        ),
                     )
                     worker.start()
             else:

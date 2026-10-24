@@ -2,6 +2,15 @@
 
 ## Repository expectations
 
+- The subsequent local server source runtime explicitly binds the confirmed MANA
+  project/key to the existing source-cache v2 and optional safety consumer. Its
+  factory performs no HTTP at startup; no model-selected source tool or bulk
+  collector is implemented by exposing `ParentTouchService.sources`. One bounded
+  test-parent read passed with unknown measurement time and zero inference/contact.
+  Preserve its original receipts, default-disabled runtime, durable auth circuit
+  and unknown holds. Do not repeat that source test or activate production as a
+  consequence. Read `docs/mana-family-source-runtime.md` before extending it.
+
 - The subsequent local source-to-safety increment uses source-cache v2, not a
   family-history migration. Only changes captured with an enabled consumer and
   exact policy may prepare an immutable specialist request; old/disabled events
