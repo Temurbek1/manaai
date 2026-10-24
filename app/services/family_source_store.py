@@ -26,6 +26,18 @@ _APPLICATION = 1296125507
 class SqliteFamilySourceStore:
     """No family chat/schema migration and no source, model or send side effects."""
 
+    _schema_version = 1
+    _extra_tables: frozenset[str] = frozenset()
+
+    def _extra_schema(self) -> tuple[str, ...]:
+        return ()
+
+    def _initialize_additional(self, connection: sqlite3.Connection) -> None:
+        """Optional consumers initialize atomically with their private schema."""
+
+    def _source_changed(self, connection: sqlite3.Connection, event: FamilySourceChange) -> None:
+        """Capture optional consumer admission in the same source transaction."""
+
     def __init__(self, path: Path, *, binding: str, limits: FamilySourceLimits) -> None:
         if not binding or len(binding) > 256 or binding == "unverified":
             raise ValueError("A confirmed source binding is required")
@@ -68,9 +80,17 @@ class SqliteFamilySourceStore:
             }
             application = connection.execute("PRAGMA application_id").fetchone()[0]
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if tables - _TABLES or application not in {0, _APPLICATION} or version not in {0, 1}:
+            expected = _TABLES | self._extra_tables
+            if (
+                tables - expected
+                or application not in {0, _APPLICATION}
+                or version not in {0, 1, self._schema_version}
+            ):
                 raise ValueError("Source cache requires its dedicated database")
-            if tables and (application != _APPLICATION or tables != _TABLES or version != 1):
+            original_tables = expected if version == self._schema_version else _TABLES
+            if tables and (
+                application != _APPLICATION or tables != original_tables or version == 0
+            ):
                 raise ValueError("Incomplete or unrelated source schema")
             statements = (
                 "CREATE TABLE IF NOT EXISTS source_policy ("
@@ -96,7 +116,7 @@ class SqliteFamilySourceStore:
                 "id INTEGER PRIMARY KEY, event_id TEXT NOT NULL UNIQUE, parent_id TEXT NOT NULL, "
                 "payload TEXT NOT NULL)",
             )
-            for statement in statements:
+            for statement in statements + self._extra_schema():
                 connection.execute(statement)
             known = connection.execute(
                 "SELECT binding,limits FROM source_policy WHERE id=1"
@@ -110,8 +130,9 @@ class SqliteFamilySourceStore:
                 "INSERT OR IGNORE INTO source_policy(id,binding,limits) VALUES(1,?,?)",
                 (self._binding, self._limits.model_dump_json()),
             )
+            self._initialize_additional(connection)
             connection.execute(f"PRAGMA application_id={_APPLICATION}")
-            connection.execute("PRAGMA user_version=1")
+            connection.execute(f"PRAGMA user_version={self._schema_version}")
 
     @staticmethod
     def _time(now: datetime) -> datetime:
@@ -284,6 +305,7 @@ class SqliteFamilySourceStore:
                         "INSERT INTO source_changes(event_id,parent_id,payload) VALUES(?,?,?)",
                         (str(event.event_id), target.parent_id, event.model_dump_json()),
                     )
+                    self._source_changed(connection, event)
                 connection.execute(
                     "INSERT INTO source_heads VALUES(?,?,?,?) ON CONFLICT(parent_id,child_id) "
                     "DO UPDATE SET snapshot_id=excluded.snapshot_id,checked_at=excluded.checked_at",

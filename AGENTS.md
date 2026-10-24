@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- The subsequent local source-to-safety increment uses source-cache v2, not a
+  family-history migration. Only changes captured with an enabled consumer and
+  exact policy may prepare an immutable specialist request; old/disabled events
+  never upgrade. Reconcile lost local admission by the original SQL request,
+  never retry source/preparation/admission after an unknown outcome. Current
+  closed readers retain unknown model/source holds; old source v1 rejects v2.
+  Battery connectivity may be explicit null, never inferred from a stored write.
+  The lab wires this flow with fictional data only; the production runtime and
+  model source tools are not activated. Read `docs/mana-source-safety-checkpoint.md`.
+
 - On 2026-10-24 the owner assigned the full autonomous single-chat objective,
   including independent Firebase/GA4/API reads and permission for agents to read
   user chats. Do not retain a mandatory new-backend-webhook blocker for facts

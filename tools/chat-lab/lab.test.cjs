@@ -40,6 +40,8 @@ async function environment({
   failure,
   resume = false,
   phase = "completed",
+  scenarios = [],
+  sourceStatus = "completed",
 } = {}) {
   const elements = new Map();
   const element = (id) => {
@@ -87,10 +89,12 @@ async function environment({
         return response(200, {
           mode: "simulation",
           parent_id: "900001",
-          scenarios: [],
+          scenarios,
         });
       if (url === "/lab/state") return response(200, state);
       if (options.method === "POST") {
+        if (url === "/lab/child-battery")
+          return response(200, { status: sourceStatus, cache_hit: true });
         if (failure === "network")
           throw new TypeError("Synthetic lost response after admission");
         if (typeof failure === "number")
@@ -114,6 +118,47 @@ async function environment({
   };
   return { element, saved, requests, timers, submit };
 }
+
+test("local source scenario uses the isolated lab route, not a product endpoint", async () => {
+  const env = await environment({
+    scenarios: [
+      {
+        key: "battery",
+        title: "Source",
+        path: "/lab/child-battery",
+        local: true,
+        body: {},
+      },
+    ],
+  });
+  await env.element("scenarios").children[0].listeners.click();
+  const posts = env.requests.filter((item) => item.options.method === "POST");
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, "/lab/child-battery");
+  assert.match(env.element("status").textContent, /сохранённый снимок/);
+});
+
+test("unknown source receipt is an error, not a promise of an incoming message", async () => {
+  const env = await environment({
+    sourceStatus: "unknown",
+    scenarios: [
+      {
+        key: "battery",
+        title: "Source",
+        path: "/lab/child-battery",
+        local: true,
+        body: {},
+      },
+    ],
+  });
+  await env.element("scenarios").children[0].listeners.click();
+  assert.equal(env.element("error").hidden, false);
+  assert.equal(
+    env.requests.filter((item) => item.options.method === "POST").length,
+    1,
+  );
+  assert.equal(env.element("send").disabled, false);
+});
 
 test("one admitted message completes without a replacement request", async () => {
   const env = await environment();

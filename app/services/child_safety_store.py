@@ -347,6 +347,33 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
             allow_new,
         )
 
+    async def observe_analysis_request(
+        self, target: SafetyTarget, analysis: ManaAIRequest
+    ) -> SafetyJobView | None:
+        """Reconcile one exact local admission; never dispatch or read a provider."""
+        digest = self._hash(
+            {
+                "child_id": target.child_id,
+                "source_revision": target.source_revision,
+                "analysis": analysis.model_dump(mode="json"),
+            }
+        )
+
+        def observe() -> SafetyJobView | None:
+            with self._transaction() as connection:
+                row = connection.execute(
+                    "SELECT digest,job_id FROM child_safety_requests "
+                    "WHERE parent_id=? AND request_id=?",
+                    (target.parent_id, str(target.request_id)),
+                ).fetchone()
+                if row is None:
+                    return None
+                if row["digest"] != digest:
+                    raise ParentChatError("request_id_conflict", 409)
+                return self._observe(connection, target.parent_id, row["job_id"])
+
+        return await asyncio.to_thread(observe)
+
     @classmethod
     def _signal_times(cls, value: object) -> list[datetime]:
         if isinstance(value, BaseModel):

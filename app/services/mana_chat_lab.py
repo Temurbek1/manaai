@@ -19,9 +19,11 @@ from app.mana_ai.application.chat_ports import (
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.conversion import ConversionService
+from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.proactive_parent import ProactiveParentService
+from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
@@ -38,14 +40,21 @@ from app.mana_ai.domain.conversion import (
 )
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
 from app.mana_ai.domain.family_agents import AgentQuestionRequest, ParentTouchHistory
+from app.mana_ai.domain.family_sources import (
+    ChildBatteryFacts,
+    FamilySourceChange,
+    FamilySourceLimits,
+)
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
+from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.parent_chat_model import OpenAIParentChatModel
+from app.services.source_safety_store import SqliteSourceSafetyStore
 
 LAB_PARENT = "900001"
 LAB_CHILD = 900002
@@ -69,6 +78,45 @@ class LabProfiles:
             ],
             collected_at=self._clock.now(),
             limitations=["Fictional lab family; no Manakids, Firebase or GA4 data."],
+        )
+
+
+class LabBatterySource:
+    """One durable fictional observation; restart does not invent new device data."""
+
+    def __init__(self, directory: Path, clock: Clock) -> None:
+        self._clock, self.calls = clock, 0
+        path = directory / "source-fixture.json"
+        if path.is_symlink():
+            raise ValueError("Lab fixtures cannot use symlinks")
+        observed = clock.now() - timedelta(seconds=30)
+        if not path.exists():
+            fixture = ChildBatteryFacts(
+                child_id=LAB_CHILD,
+                status="available",
+                percent=12,
+                observed_at=observed,
+                source_updated_at=observed,
+                collected_at=clock.now(),
+                quality="dated",
+            )
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(descriptor, "w") as stream:
+                stream.write(fixture.model_dump_json())
+                stream.flush()
+                os.fsync(stream.fileno())
+        if path.stat().st_size > 1024:
+            raise ValueError("Invalid lab fixture")
+        self._fixture = ChildBatteryFacts.model_validate_json(path.read_text())
+        if self._fixture.child_id != LAB_CHILD or self._fixture.percent != 12:
+            raise ValueError("Unexpected lab fixture")
+
+    async def read(self, child_id: int) -> ChildBatteryFacts:
+        if child_id != LAB_CHILD:
+            raise ParentChatError("lab_child_not_allowed", 403)
+        self.calls += 1
+        return ChildBatteryFacts.model_validate(
+            self._fixture.model_dump() | {"collected_at": self._clock.now()}
         )
 
 
@@ -104,6 +152,33 @@ class SimulatedModel:
                     )
                     if wants_sleep and not data.get("conversation_needs")
                     else None,
+                )
+            elif data["new_observation"]["capability_input"].get("battery"):
+                battery = data["new_observation"]["capability_input"]["battery"][0]
+                decision = SafetyModelDecision(
+                    analysis=ModelAnalysis(
+                        verdict=AnalysisVerdict.WARN,
+                        summary=(
+                            f"Симуляция: по датированному измерению заряд {battery['percent']}%."
+                        ),
+                        details=SafetyMonitorDetails(
+                            parent_context="Fictional battery only; connectivity is unknown.",
+                            significant_event_count=1,
+                        ),
+                        findings=[
+                            FindingDraft(
+                                category=FindingCategory.BATTERY_ANOMALY,
+                                risk_level=RiskLevel.MEDIUM,
+                                confidence=95,
+                                title="Низкий заряд в тестовом измерении",
+                                summary=(f"Заряд {battery['percent']}%; подключение неизвестно."),
+                                recommendation="При возможности зарядите телефон.",
+                                evidence_ids=[battery["evidence_id"]],
+                            )
+                        ],
+                    ),
+                    followup_summary=None,
+                    question=None,
                 )
             else:
                 decision = SafetyModelDecision(
@@ -142,12 +217,30 @@ class SimulatedModel:
             elif prompt.notice is not None:
                 observed = prompt.notice.assessment.signal_first_observed_at
                 date = observed.isoformat() if observed else "unknown"
+                battery_notice = any(
+                    finding.category == FindingCategory.BATTERY_ANOMALY
+                    for finding in prompt.notice.assessment.significant_findings
+                )
                 answer = (
-                    f"Sinov bildirishnomasida tahdid bor ({date}). "
-                    "Bolangiz xavfsizligini xotirjam tekshiring."
-                    if uzbek
-                    else f"В тестовом уведомлении от {date} есть угроза. "
-                    "Спокойно проверьте, в безопасности ли ребёнок."
+                    (
+                        (
+                            f"{date} o‘lchovida quvvat 12%. Imkon bo‘lsa, telefonni quvvatlang. "
+                            "Hozirgi ulanish holati noma’lum."
+                        )
+                        if uzbek
+                        else (
+                            f"В измерении от {date} заряд 12%. При возможности зарядите телефон. "
+                            "Текущее подключение неизвестно."
+                        )
+                    )
+                    if battery_notice
+                    else (
+                        f"Sinov bildirishnomasida tahdid bor ({date}). "
+                        "Bolangiz xavfsizligini xotirjam tekshiring."
+                        if uzbek
+                        else f"В тестовом уведомлении от {date} есть угроза. "
+                        "Спокойно проверьте, в безопасности ли ребёнок."
+                    )
                 )
                 notice_id = prompt.notice.notice_id
             else:
@@ -176,6 +269,7 @@ class LabScenario(BaseModel):
     title: str
     path: str
     body: dict[str, object]
+    local: bool = False
 
 
 class LabBootstrap(BaseModel):
@@ -191,6 +285,8 @@ class LabState(BaseModel):
     assessments: SafetyAssessmentPage
     safety_budget: SafetyBudget
     conversions: ConversionProposalPage
+    source_changes: list[FamilySourceChange]
+    source_dispatches: list[SourceSafetyReceipt]
 
 
 @dataclass(frozen=True)
@@ -198,6 +294,7 @@ class LabOptions:
     directory: Path
     real_model: bool = False
     clock: Clock = field(default_factory=SystemManaAIClock)
+    worker_enabled: bool = True
 
 
 class ChatLab:
@@ -211,6 +308,10 @@ class ChatLab:
         self.store: SqliteCommercialConversationStore
         self._models: list[ClosableModel] = []
         self._worker: FamilyAgentWorker | None = None
+        self.source_store: SqliteSourceSafetyStore
+        self.sources: FamilySourceService
+        self.source_safety: SourceSafetyService
+        self.battery: LabBatterySource
 
     def _directory(self) -> Path:
         directory = self.options.directory
@@ -286,6 +387,19 @@ class ChatLab:
             speaker, specialist = SimulatedModel("speaker"), SimulatedModel("safety")
         self._models = [speaker, specialist]
         profiles = LabProfiles(self.options.clock)
+        policy = SourceSafetyPolicy(timezone="Asia/Samarkand")
+        self.source_store = SqliteSourceSafetyStore(
+            directory / "sources.sqlite3",
+            binding="fake-lab-mana-battery-v1",
+            limits=FamilySourceLimits(),
+            policy=policy,
+            enabled=True,
+        )
+        await self.source_store.initialize()
+        self.battery = LabBatterySource(directory, self.options.clock)
+        self.sources = FamilySourceService(
+            self.source_store, profiles, self.battery, clock=self.options.clock.now
+        )
         self.safety = ChildSafetyService(
             store=self.store,
             children=profiles,
@@ -308,6 +422,9 @@ class ChatLab:
             conversion=ConversionService(self.store, clock=self.options.clock.now),
             proactive=proactive,
         )
+        self.source_safety = SourceSafetyService(
+            self.source_store, self.safety, profiles, policy=policy, clock=self.options.clock.now
+        )
         if await self.store.contact_context(LAB_PARENT, now) is None:
             await proactive.register(
                 ParentContactContext(
@@ -324,9 +441,14 @@ class ChatLab:
                 )
             )
         self._worker = FamilyAgentWorker(
-            self.safety, self.touch, clock=self.options.clock.now, interval=0.25
+            self.safety,
+            self.touch,
+            clock=self.options.clock.now,
+            interval=0.25,
+            source_safety=self.source_safety,
         )
-        self._worker.start()
+        if self.options.worker_enabled:
+            self._worker.start()
 
     async def close(self) -> None:
         if self._worker is not None:
@@ -342,6 +464,8 @@ class ChatLab:
             assessments=await self.safety.assessments(LAB_PARENT, after=0, limit=100),
             safety_budget=await self.safety.budget(LAB_PARENT),
             conversions=await self.touch.conversion.proposals(LAB_PARENT, after=0, limit=100),
+            source_changes=[event for _, event in await self.source_store.changes(LAB_PARENT)],
+            source_dispatches=await self.source_store.dispatch_receipts(LAB_PARENT),
         )
 
     def bootstrap(self) -> LabBootstrap:
@@ -381,6 +505,17 @@ class ChatLab:
             parent_id=LAB_PARENT,
             child_id=LAB_CHILD,
             scenarios=[
+                LabScenario(
+                    key="battery",
+                    title="Низкий заряд (тестовый источник)",
+                    path="/lab/child-battery",
+                    local=True,
+                    body={
+                        "parent_id": LAB_PARENT,
+                        "child_id": LAB_CHILD,
+                        "request_id": str(uuid4()),
+                    },
+                ),
                 LabScenario(
                     key="question",
                     title="Вопрос от Child-Safety",

@@ -3338,7 +3338,7 @@ export interface components {
              * Online
              * @default true
              */
-            online: boolean;
+            online: boolean | null;
             /** Percent */
             percent: number;
             /**

@@ -114,6 +114,34 @@ async def test_default_lab_uses_no_deployment_settings_provider_or_live_write(
         assert state["history"]["quota"]["used_tokens"] == 0
 
 
+async def test_source_scenario_traverses_worker_to_first_assistant_message(tmp_path: Path) -> None:
+    app = create_app(options=LabOptions(tmp_path / "lab", clock=Clock()))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=BASE) as client,
+    ):
+        headers = await session(client)
+        fixtures = (await client.get("/lab/bootstrap")).json()["scenarios"]
+        scenario = next(item for item in fixtures if item["key"] == "battery")
+        assert scenario["local"] is True
+        result = await client.post(scenario["path"], headers=headers, json=scenario["body"])
+        assert result.status_code == 200 and result.json()["status"] == "completed"
+        for _ in range(150):
+            state = (await client.get("/lab/state")).json()
+            if state["history"]["message_notices"]:
+                break
+            await asyncio.sleep(0.02)
+        assert len(state["history"]["messages"]) == 1, state
+        assert state["history"]["messages"][0]["role"] == "assistant"
+        assert "12%" in state["history"]["messages"][0]["content"]
+        assert len(state["source_changes"]) == 1
+        before = state
+        replay = await client.post(scenario["path"], headers=headers, json=scenario["body"])
+        assert replay.json() == result.json()
+        assert (await client.get("/lab/state")).json() == before
+        assert app.state.chat_lab.battery.calls == 1
+
+
 async def test_message_question_answer_and_reload_use_one_durable_chat(tmp_path: Path) -> None:
     directory, clock = tmp_path / "lab", Clock()
     app = create_app(options=LabOptions(directory, clock=clock))

@@ -53,6 +53,16 @@ checkpoint cannot close the goal. Unsupported/missing facts remain explicit, not
 zero, a fabricated offer, a smaller replacement objective or an excuse to stop
 other implementable work.
 
+## Subsequent local source-to-chat increment
+
+The [source safety checkpoint](mana-source-safety-checkpoint.md) extends the
+initial lane with captured consumer admissions, immutable specialist intents,
+SQL-only lost-ack reconciliation and an opt-in worker connection. The lab now
+exercises an own-child battery change through Child-Safety and Parent-Touch,
+including an assistant-only first contact. Production/native model tools and
+live credentials remain unwired. This is progress on the same full objective,
+not completion of its other source/commercial/reminder/administrative requirements.
+
 ## Initial source lane
 
 `app/mana_ai/domain/family_sources.py` defines own-child battery facts, targets,
@@ -111,8 +121,8 @@ activating a real collector. Fewer requests alone do not establish lower billing
 4. Extend the lab and limited real acceptance, complete administrative owning
    capabilities in the required order, then prepare the separately scoped release.
 
-No source lane is mounted in the current runtime yet. This checkpoint starts no
-listener, refresh, model, push, grant, source write or production process.
+At initial `25c563c`, no source lane was mounted in a runtime. The subsequent
+lab-only source-to-chat connection above does not activate production collection.
 
 ## Initial implementation acceptance — 2026-10-24
 

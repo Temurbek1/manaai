@@ -3199,9 +3199,16 @@
             "type": "string"
           },
           "online": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": true,
-            "title": "Online",
-            "type": "boolean"
+            "title": "Online"
           },
           "percent": {
             "maximum": 100.0,

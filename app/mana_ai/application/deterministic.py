@@ -494,7 +494,7 @@ def _add_battery_findings(
     battery: list[BatterySignal],
 ) -> None:
     for signal in battery:
-        if not signal.online:
+        if signal.online is False:
             result.findings.append(
                 _finding(
                     FindingCategory.DEVICE_OFFLINE,
@@ -505,6 +505,10 @@ def _add_battery_findings(
                     signal.evidence_id,
                     "Check signal freshness and connectivity before escalating.",
                 )
+            )
+        elif signal.online is None:
+            result.data_quality_notes.append(
+                f"Battery observation {signal.evidence_id} does not establish connectivity."
             )
         if signal.drain_percent_per_hour is not None and signal.drain_percent_per_hour >= 30:
             result.findings.append(

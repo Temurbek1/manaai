@@ -105,7 +105,7 @@ class BatterySignal(EvidenceSignal):
     percent: int = Field(ge=0, le=100)
     charging: bool | None = None
     drain_percent_per_hour: float | None = Field(default=None, ge=0, le=100)
-    online: bool = True
+    online: bool | None = True
 
 
 class ProtectionStateSignal(EvidenceSignal):

@@ -91,7 +91,7 @@ function draw() {
       row.append(body);
       $("messages").append(row);
     });
-    if (atBottom || pending)
+    if (atBottom || pending || rendered === "")
       $("messages").scrollTop = $("messages").scrollHeight;
   }
   rendered = fingerprint;
@@ -113,6 +113,15 @@ function draw() {
       ),
     );
   $("offers").replaceChildren();
+  $("source-jobs").replaceChildren();
+  (state.source_dispatches || [])
+    .slice(-6)
+    .forEach((item) =>
+      paragraph(
+        $("source-jobs"),
+        `Источник → Child-Safety · ${item.phase}${item.reason ? " · " + item.reason : ""}`,
+      ),
+    );
   state.conversions.proposals
     .slice(-4)
     .forEach((offer) =>
@@ -268,12 +277,23 @@ async function start() {
         const fresh = bootstrap.scenarios.find(
           (item) => item.key === scenario.key,
         );
-        const receipt = await api(prefix + fresh.path, {
-          method: "POST",
-          body: JSON.stringify(fresh.body),
-        });
-        $("status").textContent =
-          fresh.key === "paid"
+        const receipt = await api(
+          fresh.local ? fresh.path : prefix + fresh.path,
+          {
+            method: "POST",
+            body: JSON.stringify(fresh.body),
+          },
+        );
+        if (fresh.local && receipt.status !== "completed") {
+          throw new Error(
+            receipt.error_code || "Чтение источника не подтверждено.",
+          );
+        }
+        $("status").textContent = fresh.local
+          ? receipt.cache_hit
+            ? "Использован сохранённый снимок."
+            : "Данные получены."
+          : fresh.key === "paid"
             ? "Платный статус записан как тестовый факт; платежа не создавали."
             : receipt.decision
               ? `Конверсия: ${receipt.decision}. Соблюдаются тихие часы и приоритет безопасности.`

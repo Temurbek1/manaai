@@ -24,6 +24,7 @@ from app.api.security import require_backend_bearer_token
 from app.core.openapi import OPENAPI_TAGS
 from app.core.request_body_limit import RequestBodyLimitMiddleware
 from app.core.validation_errors import sanitized_request_validation_handler
+from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 from app.services.mana_chat_lab import (
     LAB_CHILD,
     LAB_PARENT,
@@ -134,6 +135,14 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     @app.get("/lab/state", response_model=LabState, dependencies=[Depends(local_session)])
     async def state() -> LabState:
         return await lab.state()
+
+    @app.post(
+        "/lab/child-battery",
+        response_model=FamilySourceReceipt,
+        dependencies=[Depends(local_session)],
+    )
+    async def child_battery(payload: FamilySourceTarget) -> FamilySourceReceipt:
+        return await mana_family_agents.controlled(lab.sources.read_child_battery(payload))
 
     for router in (mana_family_agents.router, mana_child_safety.router, mana_conversion.router):
         app.include_router(router, prefix="/api/v1/mana-ai")

@@ -423,3 +423,49 @@ attempt: the external API has no idempotency key. Chat history is preserved.
 Existing token limits have not increased. First-contact and push flags are disabled
 by default. This flow does not enable bulk Firebase/GA4 reads, payments,
 transactions, unrestricted messaging, or new operational agents.
+
+## 11. Autonomous source-to-chat processing — local, not released
+
+The October 24 objective removes a mandatory new-backend-webhook dependency for
+facts already available through authorized Firebase/GA4/application sources.
+Existing section 6 submissions remain compatible. Sources must eventually be
+registered as bounded server tools; the model/browser never receives credentials
+or arbitrary query/collection access.
+
+The initial **local** battery path now runs:
+
+```text
+authorized source read -> shared private snapshot -> admitted change receipt
+  -> frozen Child-Safety request -> separately budgeted specialist assessment
+  -> existing Parent-Touch notice -> the same durable chat -> optional permitted push
+```
+
+Source-change admission is captured atomically with the saved change. An event
+collected while the consumer is disabled, or before its activation epoch, cannot
+be upgraded into automatic inference later. Snapshot identity, facts, policy and
+the exact specialist request survive restart. A lost admission acknowledgement
+is reconciled through the existing exact SQL request, never another source read
+or blind redispatch. An absent unknown result remains unresolved.
+
+Fresh connected-child ownership is checked before preparation and again by the
+existing safety workflow before inference. Undated/ambiguous/stale observations
+do not become current alerts. Battery writes do not prove connectivity:
+`BatterySignal.online` now explicitly accepts `null` for unknown. Existing boolean
+values and the old default remain compatible; unknown does not mean offline.
+The additional source-cache schema v2 is separate from family-chat schema v9.
+Old v1 source readers refuse it; no historical source or model hold is erased.
+
+**Mobile integration is unchanged:** continue the three recommended operations
+in sections 3–4 and merge assistant messages from the single history. Do not send
+fake parent text, create a second chat, insert an extra copy of the agent answer,
+or let the phone choose another family's identity.
+
+The isolated lab's `/lab/child-battery` is fictional, session/CSRF-protected and
+not mounted on the product API. It is not a production integration endpoint.
+The lab uses the real application/store/worker but fake family/source data in
+both modes; actual models are separately opt-in. See [the lab guide](mana-chat-lab.md)
+and [the implementation checkpoint](mana-source-safety-checkpoint.md).
+
+This increment does **not** activate live credentials, model-selected reads, bulk
+collection, new push/grant channels or production. Those, remaining specialists
+and bounded real-model/source acceptance are still required by the full objective.

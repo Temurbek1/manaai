@@ -40,6 +40,10 @@ class ChildSafetyPrompts(Protocol):
 
 
 class ChildSafetyStore(Protocol):
+    async def observe_analysis_request(
+        self, target: SafetyTarget, analysis: ManaAIRequest
+    ) -> SafetyJobView | None: ...
+
     async def admit_analysis(
         self,
         *,
