@@ -2,6 +2,41 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Source change to single-chat message — 2026-10-24, `4aee2c4`
+
+The feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now connects a
+captured source change through the existing Child-Safety admission/assessment
+and Parent-Touch notice/message. This is locally wired in the fictional lab,
+not in the released production runtime or native model source tools. Read
+[the exact checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-source-safety-checkpoint.md).
+
+Private source-cache v2 captures enabled consumer policy on new changes and
+freezes exact specialist intents. Old v1/disabled events cannot acquire inference
+authority retroactively. Lost local admission acknowledgements reconcile by the
+original SQL request without replay; pending/unknown preparation/model/source
+holds remain. Unknown connectivity is explicit null, not offline. Stale/undated
+data does not become a current alert. Family history remains v9; old active
+workers must not execute new nullable inputs. Current-code closed readers pass
+hold/history preservation, but no old-image/candidate/production rollback is proven.
+
+Full **`make verify` session 9237**, terminal exit **0**: **1064 backend /26 admin
+/7 lab controller tests**, mypy **298 files**, lint/types/build and audit zero.
+The 21 new fake-only source-safety cases include assistant-only first contact,
+lost/cancelled/absent acknowledgements, restart, revocation, migration, disabled
+admissions, dedup, corruption, atomic failure and closed-mode unknown holds.
+Secret scan passed **495 files**; diff check passed. Earlier narrower full 93529
+and static failures remain qualified in the checkpoint.
+
+Actual isolated Chromium checked desktop/mobile and the local API/SQL/worker/
+chat path with existing history. The battery message has its original date and
+unknown-connectivity qualification; repeated presses/reload retain one source
+change/job and **750 simulated tokens per ledger**, without resetting the prior
+600. Both the owned browser and local server were closed after checks. English
+integration docs/lab guidance are updated. No real source/model call, push/grant,
+production/config/SSH/key/schedule change or deletion occurred. The full goal
+remains active: real credentials/native tools, remaining agents and actual
+source/model/channel/release acceptance are not completed by this fake loop.
+
 ### Autonomous single-chat goal / initial source lane — 2026-10-24, `25c563c`
 
 The owner assigned the new full objective in attachment
