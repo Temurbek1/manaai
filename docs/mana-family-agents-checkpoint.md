@@ -2,6 +2,52 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Native source SQL/worker/chat workflow — 2026-10-24, `903ac84`
+
+Authoritative feature checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`. Read
+[the workflow checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-native-source-workflow.md)
+and [English integration section 12](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-single-chat-integration.en.md).
+The SDK-only state below is historical: captured native battery selection is now
+wired into the actual Child-Safety SQL/worker and sole-speaker Parent-Touch path.
+The default-disabled feature does not activate production or bulk refresh.
+
+Private family v11 freezes only new review turns' input/model/serving/limit profile.
+At most two model generations and one exact own-child source read share the
+original global 2000-token safety budget. Raw usage is durably recorded before
+source dispatch; first-call known cost and unknown second-call reserve survive
+restart/midnight. Old tasks never upgrade or repeat. Source facts preserve dates/
+unknowns through Parent-Touch; child ownership is checked afresh. No new mobile
+endpoint, second chat, payment, tariff grant or push authority is introduced.
+
+Final `make verify` **35281**, actual terminal **0**: **1164 backend /26 admin
+/7 lab controller tests**, mypy **321 files**, lint/types/build and zero npm
+vulnerabilities. Secret scan **597 files** and diff/quality-marker checks pass.
+RU/Uzbek Latin browser requests used the ordinary composer and same native
+SQL/SDK loop with fictional providers: one provider query plus one cache hit,
+four saved native receipts; reload retained history/costs. Owned browser/server
+are closed. Current Docker image `0d2c5034e15a` passed networkless populated
+v11 closed/reconstruction with all table fingerprints unchanged, 150 known
+tokens and an 1850 unknown hold retained across midnight. This is same-code
+closure, **not an old-production-image rollback**.
+
+One count-only preflight and one actual RU three-generation model scenario used
+fictional family/source data, no Firebase/Manakids/contact/push/grant. The model
+selected the source and delivered the correct 12%/date in the same chat. Settled
+safety **1798** and speaker **1035** raw tokens; standard uncached generation
+estimate **$0.00601725**, not an invoice. The response repeated the date and
+included child-directed/unrequested advice: **qualified negative presentation
+evidence**, not broad quality acceptance. Final prompt corrections have no new
+real-model pass. Preserve original artifacts; never replay/reset that party.
+The 202 safety tokens left do not establish multi-parent production capacity.
+
+The full objective remains active. Cross-consumer analysis coalescing, further
+telemetry/GA4 tools, 09:00/15:00 collection, reminders, remaining specialists,
+combined real-source/model/channel E2E and scoped release remain open. Production,
+SSH, keys, schedules and unrelated root code were not changed. Root tracked-diff
+fingerprint excluding the two owned handoff documents remains exactly
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
 ### Native source SDK protocol — 2026-10-24, `bb30b7b`
 
 The feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now has private
