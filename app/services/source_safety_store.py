@@ -64,6 +64,8 @@ class SqliteSourceSafetyStore(SqliteFamilySourceStore):
         )
 
     def _source_changed(self, connection: sqlite3.Connection, event: FamilySourceChange) -> None:
+        if event.source != "firebase.child_battery.v1":
+            return  # Usage counters do not supply a current protective measurement.
         connection.execute(
             "INSERT INTO source_safety_admissions VALUES(?,?,?)",
             (str(event.event_id), int(self._dispatch_enabled), self._policy.model_dump_json()),
@@ -183,7 +185,10 @@ class SqliteSourceSafetyStore(SqliteFamilySourceStore):
                 "SELECT after_event FROM source_safety_policy WHERE id=1"
             ).fetchone()[0]
             row = connection.execute(
-                "SELECT id,payload FROM source_changes WHERE id>? ORDER BY id LIMIT 1", (cursor,)
+                "SELECT id,payload FROM source_changes WHERE id>? "
+                "AND COALESCE(json_extract(payload,'$.source'),'firebase.child_battery.v1')="
+                "'firebase.child_battery.v1' ORDER BY id LIMIT 1",
+                (cursor,),
             ).fetchone()
             if row is None:
                 return None

@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from app.mana_ai.application.child_safety import ChildSafetyService
-from app.mana_ai.application.family_sources import FamilySourceService
+from app.mana_ai.application.family_sources import ChildAppUsageSource, FamilySourceService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.domain.chat import ParentChildContext
@@ -24,11 +24,13 @@ from app.mana_ai.domain.family_sources import ChildBatteryFacts, FamilySourceLim
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_source_model import OpenAIChildSourceModel
+from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.reviewed_message_store import SqliteReviewedMessageStore
 from app.services.source_safety_store import SqliteSourceSafetyStore
 from app.services.source_tool_prompts import SourceToolPromptBuilder
 from app.services.source_tool_safety_store import (
     SqliteClosedSourceToolSafetyStore,
+    SqliteObservationToolSafetyStore,
     SqliteSourceToolSafetyStore,
 )
 from tests.test_child_source_model import NOW, Provider, message, model
@@ -144,12 +146,17 @@ async def setup(
     effort: Literal["none", "low", "medium", "high", "xhigh"] = "none",
     output: int = 512,
     job_tokens: int = 2000,
+    observation: bool = False,
+    provider: NativeProvider | None = None,
+    app_usage: ChildAppUsageSource | None = None,
 ) -> Runtime:
-    clock, profiles, provider, battery = Clock(), Profiles(), NativeProvider(), Battery()
+    clock, profiles, battery = Clock(), Profiles(), Battery()
+    provider = provider or NativeProvider()
     limits = ChildSafetyLimits(
         server_daily_tokens=2000, parent_daily_tokens=2000, job_tokens=job_tokens
     )
-    store = SqliteSourceToolSafetyStore(
+    store_class = SqliteObservationToolSafetyStore if observation else SqliteSourceToolSafetyStore
+    store = store_class(
         path / "family.sqlite3",
         native_model=native_model,
         native_reasoning_effort=effort,
@@ -162,7 +169,8 @@ async def setup(
         account_read_limits=ConversionAccountReadLimits(),
     )
     await store.initialize()
-    sources = SqliteSourceSafetyStore(
+    sources_class = SqliteMultiFamilySourceStore if observation else SqliteSourceSafetyStore
+    sources = sources_class(
         path / "sources.sqlite3",
         binding="fake-native-source",
         limits=FamilySourceLimits(),
@@ -178,7 +186,9 @@ async def setup(
         children=profiles,
         model=adapter,
         prompts=SourceToolPromptBuilder(),
-        sources=FamilySourceService(sources, profiles, battery, clock=clock.now),
+        sources=FamilySourceService(
+            sources, profiles, battery, clock=clock.now, app_usage=app_usage
+        ),
         clock=clock,
         limits=limits,
         max_output_tokens=output,

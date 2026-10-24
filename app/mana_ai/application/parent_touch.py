@@ -45,6 +45,7 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchReviewedTurn,
     ReviewedMessage,
 )
+from app.mana_ai.domain.family_sources import ChildAppUsageFacts
 
 PARENT_TOUCH_INSTRUCTIONS = """You are Parent-Touch, MANA's sole parent-facing conversation manager.
 Address the adult parent, never the child; reframe child-directed advice for the parent.
@@ -396,6 +397,13 @@ class ParentTouchService(ParentChatService):
                     "For a battery-only request, state charge/date once and one practical "
                     "step; omit unobserved heating/drain scenarios from specialist prose. "
                     "Address the adult parent; never tell them to ask an adult for help."
+                )
+            if any(isinstance(facts, ChildAppUsageFacts) for facts in guidance.source_observations):
+                instructions += (
+                    " App usage observations are one partial provider page of counters, "
+                    "with no verified timezone or measurement period. Qualify their coverage "
+                    "and dates; never sum overlapping app counters into screen time, call "
+                    "them today's usage, infer trends or present them as a complete ranking."
                 )
             instructions += (
                 "\nChild-Safety already reviewed this exact parent message. Communicate its "

@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The subsequent local app-counter increment adds private family v12/source-cache
+  v3 and a captured observation-v2 tool for new turns only. Queued v11 keeps its
+  exact battery-only scope/prompt/digest. `MANA_FAMILY_APP_USAGE_ENABLED` defaults
+  off. The actual exact-child API read passed, but is one partial counter page
+  with unknown timezone/period: never infer daily screen time, complete inventory
+  or a trend. The source-kind consumer fix is required; the initial browser stopped
+  its battery worker after an app event. Preserve that negative evidence and the
+  passing two-message regression, not an automatic worker/message retry. A narrow
+  real RU fictional app/tool loop settled at 1794 safety/1119 speaker tokens; it is
+  not full real-family/UZ/capacity acceptance. Current-image closure retains v12/v3
+  and unknown holds; actual v11/v2 readers refuse it, not a working rollback.
+  Read `docs/mana-child-app-usage-source.md`. Sources still share the original 100
+  admissions/24h ceiling; app API calls reserve no Firestore units. Sampled GPS
+  ownership mapping is unverified; do not guess a parent location join. Bulk
+  collection/remaining specialists/full objective and deployment remain open.
+
 - The subsequent local native source workflow now captures new review-first turns
   in private family v11, freezes model/limits/input and meters each of at most two
   raw model receipts before source dispatch. Preserve partial known costs plus

@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from app.core.config import Settings
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.domain.chat import ChatChild, ParentChildContext
-from app.mana_ai.domain.family_sources import FamilySourceTarget
+from app.mana_ai.domain.family_sources import ChildBatteryFacts, FamilySourceTarget
 from app.services.family_source_runtime import family_source_runtime
 
 NOW = datetime(2026, 10, 24, 9, tzinfo=UTC)
@@ -118,7 +118,8 @@ async def run() -> None:
             runtime = await family_source_runtime(settings, client, Profiles(), clock=lambda: NOW)
             assert runtime and provider.oauth == provider.queries == 0
             result = await runtime.reads.read_child_battery(request)
-            assert result.status == "completed" and result.facts and result.facts.percent == 12
+            assert result.status == "completed" and isinstance(result.facts, ChildBatteryFacts)
+            assert result.facts.percent == 12
             cached = await runtime.reads.read_child_battery(
                 request.model_copy(update={"request_id": uuid4()})
             )

@@ -10,10 +10,13 @@ from pydantic import ValidationError
 from app.mana_ai.application.chat_ports import ParentChatError, ParentChildrenSource
 from app.mana_ai.domain.chat import ParentChildContext
 from app.mana_ai.domain.family_sources import (
+    ChildAppUsageFacts,
     ChildBatteryFacts,
+    ChildSourceFacts,
     FamilySourceClaim,
     FamilySourceReceipt,
     FamilySourceTarget,
+    source_facts,
 )
 
 
@@ -21,11 +24,15 @@ class ChildBatterySource(Protocol):
     async def read(self, child_id: int) -> ChildBatteryFacts: ...
 
 
+class ChildAppUsageSource(Protocol):
+    async def read(self, child_id: int) -> ChildAppUsageFacts: ...
+
+
 class FamilySourceStore(Protocol):
     async def claim(self, target: FamilySourceTarget, now: datetime) -> FamilySourceClaim: ...
 
     async def complete(
-        self, target: FamilySourceTarget, facts: ChildBatteryFacts, now: datetime
+        self, target: FamilySourceTarget, facts: ChildSourceFacts, now: datetime
     ) -> FamilySourceReceipt: ...
 
     async def fail(
@@ -47,11 +54,25 @@ class FamilySourceService:
         battery: ChildBatterySource,
         *,
         clock: Callable[[], datetime],
+        app_usage: ChildAppUsageSource | None = None,
     ) -> None:
         self._store, self._children, self._battery, self._clock = store, children, battery, clock
+        self._app_usage = app_usage
 
     async def read_child_battery(self, target: FamilySourceTarget) -> FamilySourceReceipt:
+        if target.source != "firebase.child_battery.v1":
+            raise ParentChatError("family_source_request_conflict", 409)
+        return await self.read(target)
+
+    async def read_child_app_usage(self, target: FamilySourceTarget) -> FamilySourceReceipt:
+        if target.source != "manakids.child_app_usage.v1":
+            raise ParentChatError("family_source_request_conflict", 409)
+        return await self.read(target)
+
+    async def read(self, target: FamilySourceTarget) -> FamilySourceReceipt:
         target = FamilySourceTarget.model_validate(target.model_dump())
+        if target.source == "manakids.child_app_usage.v1" and self._app_usage is None:
+            raise ParentChatError("family_source_not_enabled", 503)
         if int(target.parent_id) > 2**63 - 1:
             raise ParentChatError("parent_profile_id_required", 422)
         claim = await self._store.claim(target, self._clock())
@@ -74,8 +95,12 @@ class FamilySourceService:
                 raise ParentChatError("family_source_ownership_denied", 403)
             if claim.read_provider:
                 submitted = True
-                result = await self._battery.read(target.child_id)
-                facts = ChildBatteryFacts.model_validate(result.model_dump())
+                adapter: ChildBatterySource | ChildAppUsageSource = self._battery
+                if target.source == "manakids.child_app_usage.v1":
+                    assert self._app_usage is not None
+                    adapter = self._app_usage
+                result = await adapter.read(target.child_id)
+                facts = source_facts(result.model_dump(), target.source)
                 if facts.child_id != target.child_id or not (
                     now - timedelta(seconds=5) <= facts.collected_at <= self._clock()
                 ):

@@ -1,5 +1,9 @@
 # Native family source workflow — local checkpoint, 2026-10-24
 
+The subsequent [app-counter source increment](mana-child-app-usage-source.md)
+adds family v12/source v3 and a new captured tool contract; v11 histories retain
+the battery-only protocol below. It does not upgrade this original real-model party.
+
 This increment wires model-selected own-child battery reads into the actual
 Child-Safety worker, private family SQL and Parent-Touch chat. It follows the
 [SDK transport](mana-native-source-transport.md), whose unwired statements

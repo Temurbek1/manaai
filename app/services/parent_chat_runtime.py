@@ -53,7 +53,9 @@ from app.services.reviewed_message_store import (
 )
 from app.services.source_tool_prompts import SourceToolPromptBuilder
 from app.services.source_tool_safety_store import (
+    SqliteClosedObservationToolSafetyStore,
     SqliteClosedSourceToolSafetyStore,
+    SqliteObservationToolSafetyStore,
     SqliteSourceToolSafetyStore,
 )
 
@@ -73,7 +75,14 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     reviewed: ReviewedMessageStore | None = None
     if settings.mana_child_safety_source_tools_enabled:
         assert settings.mana_child_safety_limits is not None
-        native_store = SqliteSourceToolSafetyStore(
+        if version == 12 and not settings.mana_family_app_usage_enabled:
+            raise RuntimeError("V12 safety execution requires its captured observation runtime")
+        native_class = (
+            SqliteObservationToolSafetyStore
+            if settings.mana_family_app_usage_enabled
+            else SqliteSourceToolSafetyStore
+        )
+        native_store = native_class(
             settings.mana_parent_chat_database_path,
             native_model=settings.mana_child_safety_model or settings.openai_model,
             native_reasoning_effort=settings.openai_reasoning_effort,
@@ -96,10 +105,15 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         store, reviewed = native_store, native_store
-    elif version == 11:
+    elif version in {11, 12}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
-        closed_native = SqliteClosedSourceToolSafetyStore(
+        closed_class = (
+            SqliteClosedObservationToolSafetyStore
+            if version == 12
+            else SqliteClosedSourceToolSafetyStore
+        )
+        closed_native = closed_class(
             settings.mana_parent_chat_database_path,
             history_only=not settings.mana_parent_touch_enabled,
             timezone=settings.mana_parent_chat_timezone,
@@ -308,9 +322,18 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 password=settings.manakids_api_password.get_secret_value(),
                 wall_timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
             )
-            sources = await family_source_runtime(
-                settings, client, children, clock=lambda: datetime.now(UTC)
-            )
+            if settings.mana_family_app_usage_enabled:
+                sources = await family_source_runtime(
+                    settings,
+                    client,
+                    children,
+                    clock=lambda: datetime.now(UTC),
+                    account_auth=children,
+                )
+            else:
+                sources = await family_source_runtime(
+                    settings, client, children, clock=lambda: datetime.now(UTC)
+                )
             if isinstance(store, SqliteFamilyAgentStore) and settings.mana_parent_touch_enabled:
                 safety = None
                 if isinstance(store, SqliteChildSafetyStore):

@@ -12,6 +12,8 @@ from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy
 from app.services.family_google_auth import FamilyFirestoreToken
 from app.services.firestore_child_battery import FirestoreChildBatterySource
+from app.services.manakids_child_usage import ManakidsChildUsageSource, ManakidsReadToken
+from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.source_safety_store import SqliteSourceSafetyStore
 
 
@@ -28,9 +30,12 @@ async def family_source_runtime(
     children: ParentChildrenSource,
     *,
     clock: Callable[[], datetime],
+    account_auth: ManakidsReadToken | None = None,
 ) -> FamilySourceRuntime | None:
     if not settings.mana_family_sources_enabled:
         return None
+    if settings.mana_family_app_usage_enabled and account_auth is None:
+        raise ValueError("The app-usage source requires the shared MANA authentication port")
     assert settings.firebase_project_id and settings.firebase_service_account_file
     auth = FamilyFirestoreToken(
         client,
@@ -43,7 +48,12 @@ async def family_source_runtime(
         timezone=settings.mana_parent_chat_timezone,
         maximum_age_seconds=settings.mana_family_source_maximum_age_seconds,
     )
-    store = SqliteSourceSafetyStore(
+    store_class = (
+        SqliteMultiFamilySourceStore
+        if settings.mana_family_app_usage_enabled
+        else SqliteSourceSafetyStore
+    )
+    store = store_class(
         settings.mana_family_source_database_path,
         binding=(
             f"mana:firebase:{settings.firebase_project_id}:"
@@ -63,5 +73,21 @@ async def family_source_runtime(
         timeout_seconds=settings.mana_family_source_timeout_seconds,
     )
     return FamilySourceRuntime(
-        FamilySourceService(store, children, source, clock=clock), store, policy
+        FamilySourceService(
+            store,
+            children,
+            source,
+            clock=clock,
+            app_usage=ManakidsChildUsageSource(
+                client,
+                account_auth,
+                base_url=settings.manakids_api_base_url,
+                clock=clock,
+                timeout_seconds=settings.mana_family_source_timeout_seconds,
+            )
+            if settings.mana_family_app_usage_enabled and account_auth is not None
+            else None,
+        ),
+        store,
+        policy,
     )

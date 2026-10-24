@@ -43,6 +43,8 @@ from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
 from app.mana_ai.domain.family_agents import AgentQuestionRequest, ParentTouchHistory
 from app.mana_ai.domain.family_sources import (
+    AppUsageCounter,
+    ChildAppUsageFacts,
     ChildBatteryFacts,
     FamilySourceChange,
     FamilySourceLimits,
@@ -57,13 +59,42 @@ from app.services.commercial_conversation_store import SqliteCommercialConversat
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
+from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.source_safety_store import SqliteSourceSafetyStore
 from app.services.source_tool_prompts import SourceToolPromptBuilder
-from app.services.source_tool_safety_store import SqliteSourceToolSafetyStore
+from app.services.source_tool_safety_store import (
+    SqliteObservationToolSafetyStore,
+    SqliteSourceToolSafetyStore,
+)
 
 LAB_PARENT = "900001"
 LAB_CHILD = 900002
+
+
+class LabAppUsageSource:
+    def __init__(self, clock: Clock) -> None:
+        self._clock, self.calls = clock, 0
+
+    async def read(self, child_id: int) -> ChildAppUsageFacts:
+        if child_id != LAB_CHILD:
+            raise ValueError("Only the fictional lab child is allowed")
+        self.calls += 1
+        return ChildAppUsageFacts(
+            child_id=child_id,
+            status="available",
+            returned_apps=1,
+            total_apps=3,
+            complete=False,
+            collected_at=self._clock.now(),
+            entries=(
+                AppUsageCounter(
+                    app_name="Fictional lessons",
+                    provider_recorded_at="2026-10-23 23:43:43",
+                    reported_seconds=3600,
+                ),
+            ),
+        )
 
 
 class ClosableModel(ParentChatModel, Protocol):
@@ -252,7 +283,15 @@ class SimulatedModel:
             else:
                 guidance = json.loads(prompt.messages[0][1]).get("specialist_guidance", {})
                 sources = guidance.get("source_observations", [])
-                if sources and sources[0]["status"] == "available":
+                if sources and "entries" in sources[0]:
+                    answer = (
+                        "Ilovalar hisoblagichlarining bir qismi bor; davr va vaqt zonasi "
+                        "noma’lum. Bu kunlik ekran vaqti emas."
+                        if uzbek or "ilova" in prompt.messages[-1][1].casefold()
+                        else "Есть часть счётчиков приложений; период и часовой пояс неизвестны. "
+                        "Это не экранное время за день."
+                    )
+                elif sources and sources[0]["status"] == "available":
                     stamp = sources[0]["observed_at"] or "unknown"
                     # An unknown presentation hint remains model-directed. This
                     # narrow fictional example is not a production detector.
@@ -321,10 +360,13 @@ class LabOptions:
     clock: Clock = field(default_factory=SystemManaAIClock)
     worker_enabled: bool = True
     native_sources: bool = False
+    native_observations: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.native_observations and not options.native_sources:
+            raise ValueError("Observation lab requires the native workflow")
         self.options = options
         self.mode: Literal["simulation", "real-model"] = (
             "real-model" if options.real_model else "simulation"
@@ -349,6 +391,8 @@ class ChatLab:
         }
         if self.options.native_sources:
             expected["native_sources"] = True
+        if self.options.native_observations:
+            expected["native_observations"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -417,7 +461,12 @@ class ChatLab:
         if self.options.native_sources:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
-            self.store = SqliteSourceToolSafetyStore(
+            native_store_class = (
+                SqliteObservationToolSafetyStore
+                if self.options.native_observations
+                else SqliteSourceToolSafetyStore
+            )
+            self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
                 native_reasoning_effort=profile.reasoning_effort,
@@ -446,7 +495,12 @@ class ChatLab:
         await self.store.initialize()
         profiles = LabProfiles(self.options.clock)
         policy = SourceSafetyPolicy(timezone="Asia/Samarkand")
-        self.source_store = SqliteSourceSafetyStore(
+        source_class = (
+            SqliteMultiFamilySourceStore
+            if self.options.native_observations
+            else SqliteSourceSafetyStore
+        )
+        self.source_store = source_class(
             directory / "sources.sqlite3",
             binding="fake-lab-mana-battery-v1",
             limits=FamilySourceLimits(),
@@ -455,8 +509,13 @@ class ChatLab:
         )
         await self.source_store.initialize()
         self.battery = LabBatterySource(directory, self.options.clock)
+        self.app_usage = LabAppUsageSource(self.options.clock)
         self.sources = FamilySourceService(
-            self.source_store, profiles, self.battery, clock=self.options.clock.now
+            self.source_store,
+            profiles,
+            self.battery,
+            clock=self.options.clock.now,
+            app_usage=self.app_usage if self.options.native_observations else None,
         )
         native = None
         if self.options.native_sources:

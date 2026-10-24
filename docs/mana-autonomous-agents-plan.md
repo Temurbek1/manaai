@@ -30,10 +30,10 @@ keys, SSH settings and source schedules remain outside local changes.
 | One canonical parent, one durable chat, Parent-Touch is the sole speaker | Existing family service/SQL and `mana-chat` three-operation contract; reverify with new specialists and sources, not just the earlier fake lab |
 | Exact sequential question/answer binding; filtering/coalescing; urgent safety priority | Existing broker and reviewed-message workflow; add multi-specialist and autonomous-source E2E acceptance |
 | Agent starts before first parent text; durable message before independent push | Existing local proactive lifecycle; real source-derived language/contact preferences and channel acceptance still required |
-| Independent data access, no mandatory backend producer | Exact-child battery source/cache, server credentials and captured native model selection are runtime-wired locally. One real test-family query and a separate real-model/fake-source loop exist; combined live E2E and remaining source coverage still required |
+| Independent data access, no mandatory backend producer | Battery and exact-child app-counter sources/cache plus captured model selection are runtime-wired locally. Actual source and separate real-model/fake-source loops pass narrowly; combined live E2E and remaining coverage still required |
 | One shared collection, consumers reuse snapshots; changes create internal events | Dedicated SQLite snapshot/change journal, immutable consumer claims and analysis dispatch exist locally; shared bulk collection and cross-context aggregate publication remain to implement |
 | New child data/new parent text triggers Child-Safety without unchanged-context inference | Source-to-safety-to-Parent-Touch fake path and existing message workflow pass; independent real-model/source loop and remaining automatic feeds still required, with retained dedup/unknown/date limits |
-| Behavioral changes, screen time, routes, reports and clarifications | Existing ten analysis contracts, not complete automatic feeds; map actual available sources and implement missing date/ownership-safe ingestion and reports |
+| Behavioral changes, screen time, routes, reports and clarifications | Ten analysis contracts plus a live-compatible partial app-counter source; no verified daily period. GPS identity mapping is unverified. Further source semantics, safe feeds and reports remain required |
 | Timely paid conversion | Local commercial lifecycle/account/catalog adapters exist; replace missing-webhook dependency with source-derived observations without inventing free-start/consent/offer terms |
 | Churn detection, retention, win-back | Implement authoritative account/activity observations, eligibility, communication and supported actions |
 | Real eligible upsell; referral and loyalty using confirmed mechanisms only | Implement supported catalog/benefit contracts and owning policies; no invented discounts, rewards or billing API |
@@ -55,6 +55,13 @@ zero, a fabricated offer, a smaller replacement objective or an excuse to stop
 other implementable work.
 
 ## Subsequent local source-to-chat increment
+
+The latest [app-counter increment](mana-child-app-usage-source.md) adds family v12,
+shared source v3 and a new-turn observation tool for battery/app usage. One actual
+adapter/cache read passed without a webhook; a separate real RU fictional tool
+loop settled with partial/unknown-period qualifications. Old v11 tools never
+upgrade. The first browser exposed a shared-event consumer bug; source-kind SQL
+filtering and a two-message regression fix it. The full objective remains open.
 
 The latest [native workflow checkpoint](mana-native-source-workflow.md) wires the
 model's selected own-child battery tool into the actual review/SQL/worker/chat

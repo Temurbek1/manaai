@@ -512,3 +512,31 @@ See [the workflow evidence and limits](mana-native-source-workflow.md) and
 [lab instructions](mana-chat-lab.md). The settled real RU tool-loop diagnostic
 has presentation caveats and does not establish production capacity or broad
 model quality. Candidate closure is same-code only; never downgrade populated v11.
+
+## 13. Own-child app counters through the same chat — local
+
+`MANA_FAMILY_APP_USAGE_ENABLED=false` is an additional explicit server opt-in.
+When enabled with the existing native/source runtime, new turns capture family
+v12/observation-v2. Child-Safety may call
+`read_child_observation(child_alias, kind)` for `battery` or `app_usage`.
+The backend calls the existing exact-child Manakids API and shared source cache;
+the phone still uses only the three recommended message/status/history operations.
+No new webhook or per-read confirmation is required within admitted scope/limits.
+
+App counters are one bounded provider page with explicit coverage and unknown
+measurement period/timezone. Do not display them as today's screen time, sum
+overlapping counters or infer a full app ranking. Backend dates/collection dates
+are not interchangeable. The existing source request ceiling is shared across
+both sources; caches, cooldowns, unknown locks and auth circuits are source-scoped.
+
+Queued v11 turns keep battery-only tools and digests. Use current v12 closed
+profiles/source v3 for retained history; old v11/v2 images refuse these schemas.
+The source consumer must include the source-kind filter from this increment:
+an app event is not a battery event. Unknown outcomes never auto-retry.
+
+The developer lab is `make chat-lab-observations`, or explicitly paid
+`make chat-lab-observations-live CHAT_LAB_ENV_FILE=/path/to/server.env`.
+It remains fictional, loopback-only and unable to push/grant/read live sources.
+See [actual API/model/browser/image evidence and limits](mana-child-app-usage-source.md).
+This increment is not production activation, complete GPS/GA4 collection or the
+entire multi-agent objective.

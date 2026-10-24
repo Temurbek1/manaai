@@ -1,6 +1,7 @@
 """Dedicated shared family-source cache and conservative, one-shot read ledger."""
 
 import asyncio
+import json
 import os
 import sqlite3
 from collections.abc import Iterator
@@ -11,12 +12,14 @@ from uuid import UUID, uuid4
 
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.domain.family_sources import (
-    ChildBatteryFacts,
+    ChildSourceFacts,
     FamilySourceChange,
     FamilySourceClaim,
+    FamilySourceKey,
     FamilySourceLimits,
     FamilySourceReceipt,
     FamilySourceTarget,
+    source_facts,
 )
 
 _TABLES = {"source_policy", "source_reads", "source_snapshots", "source_heads", "source_changes"}
@@ -28,6 +31,25 @@ class SqliteFamilySourceStore:
 
     _schema_version = 1
     _extra_tables: frozenset[str] = frozenset()
+
+    def _version_tables(self, version: int) -> set[str]:
+        return _TABLES | self._extra_tables if version == self._schema_version else _TABLES
+
+    def _upgrade_versions(self) -> set[int]:
+        return {1}
+
+    def _check_source(self, source: FamilySourceKey) -> None:
+        if source != "firebase.child_battery.v1":
+            raise ParentChatError("family_source_not_enabled", 503)
+
+    def _snapshots(self, source: FamilySourceKey) -> str:
+        return "source_snapshots"
+
+    def _heads(self, source: FamilySourceKey) -> str:
+        return "source_heads"
+
+    def _circuit(self, source: FamilySourceKey) -> str:
+        return "source_policy"
 
     def _extra_schema(self) -> tuple[str, ...]:
         return ()
@@ -84,10 +106,10 @@ class SqliteFamilySourceStore:
             if (
                 tables - expected
                 or application not in {0, _APPLICATION}
-                or version not in {0, 1, self._schema_version}
+                or version not in {0, self._schema_version} | self._upgrade_versions()
             ):
                 raise ValueError("Source cache requires its dedicated database")
-            original_tables = expected if version == self._schema_version else _TABLES
+            original_tables = self._version_tables(version)
             if tables and (
                 application != _APPLICATION or tables != original_tables or version == 0
             ):
@@ -154,11 +176,14 @@ class SqliteFamilySourceStore:
             receipt.child_id != target.child_id
             or receipt.parent_id != target.parent_id
             or receipt.request_id != target.request_id
+            or receipt.source != target.source
         ):
             raise ParentChatError("family_source_request_conflict", 409)
         return receipt
 
     async def observation(self, target: FamilySourceTarget) -> FamilySourceReceipt:
+        self._check_source(target.source)
+
         def observe() -> FamilySourceReceipt:
             with self._connection() as connection:
                 known = self._known(connection, target)
@@ -172,15 +197,19 @@ class SqliteFamilySourceStore:
         return await asyncio.to_thread(self._claim, target, self._time(now))
 
     def _claim(self, target: FamilySourceTarget, now: datetime) -> FamilySourceClaim:
+        self._check_source(target.source)
         with self._connection() as connection:
             known = self._known(connection, target)
             if known is not None:
                 return FamilySourceClaim(receipt=known, admitted=False, read_provider=False)
-            if connection.execute("SELECT blocked FROM source_policy WHERE id=1").fetchone()[0]:
+            if connection.execute(
+                f"SELECT blocked FROM {self._circuit(target.source)} WHERE id=1"
+            ).fetchone()[0]:
                 raise ParentChatError("family_source_circuit_open", 503)
             if connection.execute(
-                "SELECT 1 FROM source_reads WHERE child_id=? AND status IN ('pending','unknown')",
-                (target.child_id,),
+                "SELECT 1 FROM source_reads WHERE child_id=? "
+                "AND json_extract(payload,'$.source')=? AND status IN ('pending','unknown')",
+                (target.child_id, target.source),
             ).fetchone():
                 raise ParentChatError("family_source_read_unresolved", 409)
             budget = connection.execute(
@@ -190,15 +219,16 @@ class SqliteFamilySourceStore:
             if budget[0] >= self._limits.requests_per_24h:
                 raise ParentChatError("family_source_request_limit", 429)
             head = connection.execute(
-                "SELECT h.snapshot_id,h.checked_at,s.payload,s.fingerprint FROM source_heads h "
-                "LEFT JOIN source_snapshots s ON s.snapshot_id=h.snapshot_id "
+                f"SELECT h.snapshot_id,h.checked_at,s.payload,s.fingerprint "
+                f"FROM {self._heads(target.source)} h "
+                f"LEFT JOIN {self._snapshots(target.source)} s ON s.snapshot_id=h.snapshot_id "
                 "AND s.parent_id=h.parent_id AND s.child_id=h.child_id "
                 "WHERE h.parent_id=? AND h.child_id=?",
                 (target.parent_id, target.child_id),
             ).fetchone()
             if head is not None and (
                 head["payload"] is None
-                or ChildBatteryFacts.model_validate_json(head["payload"]).fingerprint()
+                or source_facts(json.loads(head["payload"]), target.source).fingerprint()
                 != head["fingerprint"]
             ):
                 raise ParentChatError("family_source_cache_invalid", 503)
@@ -209,26 +239,32 @@ class SqliteFamilySourceStore:
             )
             if not cache:
                 previous = connection.execute(
-                    "SELECT started_at FROM source_reads WHERE child_id=? AND units>0 "
+                    "SELECT started_at FROM source_reads WHERE child_id=? "
+                    "AND json_extract(payload,'$.source')=? "
+                    "AND json_extract(payload,'$.cache_hit')=0 "
                     "ORDER BY started_at DESC LIMIT 1",
-                    (target.child_id,),
+                    (target.child_id, target.source),
                 ).fetchone()
                 if previous and now < datetime.fromisoformat(previous[0]) + timedelta(
                     seconds=self._limits.minimum_interval_seconds
                 ):
                     raise ParentChatError("family_source_read_cooldown", 429)
-                if budget[1] + 2 > self._limits.document_units_per_24h:
+                units = 2 if target.source == "firebase.child_battery.v1" else 0
+                if budget[1] + units > self._limits.document_units_per_24h:
                     raise ParentChatError("family_source_document_limit", 429)
             receipt = FamilySourceReceipt(
                 parent_id=target.parent_id,
                 child_id=target.child_id,
                 request_id=target.request_id,
+                source=target.source,
                 status="pending",
                 started_at=now,
                 cache_hit=cache,
-                document_units_reserved=0 if cache else 2,
+                document_units_reserved=0
+                if cache or target.source == "manakids.child_app_usage.v1"
+                else 2,
                 snapshot_id=UUID(head["snapshot_id"]) if cache else None,
-                facts=ChildBatteryFacts.model_validate_json(head["payload"]) if cache else None,
+                facts=source_facts(json.loads(head["payload"]), target.source) if cache else None,
             )
             connection.execute(
                 "INSERT INTO source_reads VALUES(?,?,?,?,?,?,?)",
@@ -245,14 +281,15 @@ class SqliteFamilySourceStore:
             return FamilySourceClaim(receipt=receipt, admitted=True, read_provider=not cache)
 
     async def complete(
-        self, target: FamilySourceTarget, facts: ChildBatteryFacts, now: datetime
+        self, target: FamilySourceTarget, facts: ChildSourceFacts, now: datetime
     ) -> FamilySourceReceipt:
         return await asyncio.to_thread(self._complete, target, facts, self._time(now))
 
     def _complete(
-        self, target: FamilySourceTarget, facts: ChildBatteryFacts, now: datetime
+        self, target: FamilySourceTarget, facts: ChildSourceFacts, now: datetime
     ) -> FamilySourceReceipt:
-        facts = ChildBatteryFacts.model_validate(facts.model_dump())
+        self._check_source(target.source)
+        facts = source_facts(facts.model_dump(), target.source)
         if facts.child_id != target.child_id:
             raise ParentChatError("family_source_snapshot_mismatch", 503)
         fingerprint = facts.fingerprint()
@@ -270,16 +307,16 @@ class SqliteFamilySourceStore:
                 snapshot_id = receipt.snapshot_id
             else:
                 known = connection.execute(
-                    "SELECT snapshot_id,payload FROM source_snapshots "
+                    f"SELECT snapshot_id,payload FROM {self._snapshots(target.source)} "
                     "WHERE parent_id=? AND child_id=? AND fingerprint=?",
                     (target.parent_id, target.child_id, fingerprint),
                 ).fetchone()
                 snapshot_id = UUID(known["snapshot_id"]) if known else uuid4()
                 if known:
-                    facts = ChildBatteryFacts.model_validate_json(known["payload"])
+                    facts = source_facts(json.loads(known["payload"]), target.source)
                 else:
                     connection.execute(
-                        "INSERT INTO source_snapshots VALUES(?,?,?,?,?)",
+                        f"INSERT INTO {self._snapshots(target.source)} VALUES(?,?,?,?,?)",
                         (
                             str(snapshot_id),
                             target.parent_id,
@@ -289,7 +326,8 @@ class SqliteFamilySourceStore:
                         ),
                     )
                 head = connection.execute(
-                    "SELECT snapshot_id FROM source_heads WHERE parent_id=? AND child_id=?",
+                    f"SELECT snapshot_id FROM {self._heads(target.source)} "
+                    "WHERE parent_id=? AND child_id=?",
                     (target.parent_id, target.child_id),
                 ).fetchone()
                 if head is None or head[0] != str(snapshot_id):
@@ -300,6 +338,7 @@ class SqliteFamilySourceStore:
                         snapshot_id=snapshot_id,
                         fingerprint=fingerprint,
                         recorded_at=now,
+                        source=target.source,
                     )
                     connection.execute(
                         "INSERT INTO source_changes(event_id,parent_id,payload) VALUES(?,?,?)",
@@ -307,7 +346,8 @@ class SqliteFamilySourceStore:
                     )
                     self._source_changed(connection, event)
                 connection.execute(
-                    "INSERT INTO source_heads VALUES(?,?,?,?) ON CONFLICT(parent_id,child_id) "
+                    f"INSERT INTO {self._heads(target.source)} VALUES(?,?,?,?) "
+                    "ON CONFLICT(parent_id,child_id) "
                     "DO UPDATE SET snapshot_id=excluded.snapshot_id,checked_at=excluded.checked_at",
                     (target.parent_id, target.child_id, str(snapshot_id), now.isoformat()),
                 )
@@ -336,6 +376,8 @@ class SqliteFamilySourceStore:
         unknown: bool,
         close_source: bool,
     ) -> FamilySourceReceipt:
+        self._check_source(target.source)
+
         def fail() -> FamilySourceReceipt:
             with self._connection() as connection:
                 receipt = self._known(connection, target)
@@ -363,7 +405,9 @@ class SqliteFamilySourceStore:
                     ),
                 )
                 if close_source:
-                    connection.execute("UPDATE source_policy SET blocked=1 WHERE id=1")
+                    connection.execute(
+                        f"UPDATE {self._circuit(target.source)} SET blocked=1 WHERE id=1"
+                    )
                 return failed
 
         return await asyncio.to_thread(fail)
@@ -387,17 +431,26 @@ class SqliteFamilySourceStore:
 
         return await asyncio.to_thread(read)
 
-    async def snapshot(self, parent_id: str, child_id: int, snapshot_id: UUID) -> ChildBatteryFacts:
-        def read_snapshot() -> ChildBatteryFacts:
+    async def snapshot(
+        self,
+        parent_id: str,
+        child_id: int,
+        snapshot_id: UUID,
+        *,
+        source: FamilySourceKey = "firebase.child_battery.v1",
+    ) -> ChildSourceFacts:
+        self._check_source(source)
+
+        def read_snapshot() -> ChildSourceFacts:
             with self._connection() as connection:
                 row = connection.execute(
-                    "SELECT payload,fingerprint FROM source_snapshots "
+                    f"SELECT payload,fingerprint FROM {self._snapshots(source)} "
                     "WHERE snapshot_id=? AND parent_id=? AND child_id=?",
                     (str(snapshot_id), parent_id, child_id),
                 ).fetchone()
                 if row is None:
                     raise ParentChatError("family_source_snapshot_not_found", 404)
-                facts = ChildBatteryFacts.model_validate_json(row["payload"])
+                facts = source_facts(json.loads(row["payload"]), source)
                 if facts.child_id != child_id or facts.fingerprint() != row["fingerprint"]:
                     raise ParentChatError("family_source_cache_invalid", 503)
                 return facts

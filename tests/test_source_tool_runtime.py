@@ -17,7 +17,10 @@ from app.mana_ai.domain.source_safety import SourceSafetyPolicy
 from app.services import parent_chat_runtime as runtime_module
 from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.family_source_runtime import FamilySourceRuntime
+from tests.test_child_app_usage import Usage
 from tests.test_child_source_model import NOW
+from tests.test_family_sources import Clock
+from tests.test_observation_tool_workflow import ObservationProvider
 from tests.test_parent_chat import Model
 from tests.test_parent_chat_api import BACKEND_TOKEN, HEADERS
 from tests.test_source_tool_workflow import request, setup
@@ -51,15 +54,26 @@ def settings(path: Path, key: Path, **changes: object) -> Settings:
     )
 
 
+@pytest.mark.parametrize("observations", [False, True])
 async def test_lifespan_worker_runs_native_source_review_through_existing_chat_api(
-    tmp_path: Path, monkeypatch: MonkeyPatch
+    tmp_path: Path, monkeypatch: MonkeyPatch, observations: bool
 ) -> None:
-    runtime = await setup(tmp_path)
+    usage = Usage(Clock())
+    runtime = await setup(
+        tmp_path,
+        observation=observations,
+        provider=ObservationProvider() if observations else None,
+        app_usage=usage if observations else None,
+    )
     key = tmp_path / "not-used-credentials.json"
     key.write_text("{}")
-    config = settings(tmp_path, key)
+    config = settings(tmp_path, key, mana_family_app_usage_enabled=observations)
     reads = FamilySourceService(
-        runtime.source_store, runtime.profiles, runtime.battery, clock=runtime.clock.now
+        runtime.source_store,
+        runtime.profiles,
+        runtime.battery,
+        clock=runtime.clock.now,
+        app_usage=usage if observations else None,
     )
 
     async def source_factory(*args: object, **kwargs: object) -> FamilySourceRuntime:
@@ -112,12 +126,17 @@ async def test_lifespan_worker_runs_native_source_review_through_existing_chat_a
         count = len(runtime.provider.requests)
         replay = await client.post(prefix + "/messages", json=body, headers=HEADERS)
         assert replay.json() == state
-        assert len(runtime.provider.requests) == count and runtime.battery.calls == 1
+        assert len(runtime.provider.requests) == count and runtime.battery.calls == int(
+            not observations
+        )
+        assert usage.calls == int(observations)
         private = await client.get(status_url, params={"parent_id": "456"}, headers=HEADERS)
         assert private.status_code == 404
         history = await client.get(prefix + "/chat", params={"parent_id": "123"}, headers=HEADERS)
         assert history.status_code == 200 and len(history.json()["messages"]) == 2
-        assert speaker.prompts[-1].required_observation_dates == ("2026-10-24",)
+        assert speaker.prompts[-1].required_observation_dates == (
+            () if observations else ("2026-10-24",)
+        )
 
 
 @pytest.mark.parametrize(

@@ -93,6 +93,10 @@ class ManakidsChatChildrenSource:
             self._token = token
             return token
 
+    async def access_token(self) -> str:
+        """Server adapter port; no credential/token is exposed to a model or client."""
+        return await self._access_token()
+
     async def read(self, parent_id: str) -> ParentChildContext:
         try:
             async with asyncio.timeout(self._wall_timeout):

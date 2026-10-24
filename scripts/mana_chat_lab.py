@@ -169,3 +169,26 @@ def create_native_live_app() -> FastAPI:
             root / "data/chat-lab/native-real-model", real_model=True, native_sources=True
         )
     )
+
+
+def create_observation_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/observation-simulation",
+            native_sources=True,
+            native_observations=True,
+        )
+    )
+
+
+def create_observation_live_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/observation-real-model",
+            real_model=True,
+            native_sources=True,
+            native_observations=True,
+        )
+    )

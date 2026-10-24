@@ -15,10 +15,12 @@ from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.source_tools import (
     BatterySourceCall,
     EncryptedSourceReasoning,
+    ObservationSourceCall,
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolScope,
-    source_arguments,
+    source_call_alias,
+    source_call_key,
 )
 from app.services.chat_usage_receipt import terminal_chat_usage
 from app.services.child_safety_model import OpenAIChildSafetyModel
@@ -44,6 +46,30 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
     def _tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
         if not prompt.scope.children:
             return []
+        if prompt.scope.protocol == 2:
+            return [
+                {
+                    "type": "function",
+                    "name": "read_child_observation",
+                    "strict": True,
+                    "description": (
+                        "Read own-child battery or a partial app-counter page; "
+                        "dates/period may be unknown."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "child_alias": {
+                                "type": "string",
+                                "enum": [c.alias for c in prompt.scope.children],
+                            },
+                            "kind": {"type": "string", "enum": ["battery", "app_usage"]},
+                        },
+                        "required": ["child_alias", "kind"],
+                        "additionalProperties": False,
+                    },
+                }
+            ]
         return [
             {
                 "type": "function",
@@ -96,7 +122,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         if continuation.input_digest != self._digest(prompt):
             raise ValueError("Native source input changed")
         call = continuation.call
-        alias = source_arguments(call.arguments)
+        alias = source_call_alias(call)
         child = next((child for child in prompt.scope.children if child.alias == alias), None)
         receipt = prompt.source_result
         assert receipt is not None
@@ -109,6 +135,8 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             or receipt.request_id != prompt.scope.request_id_for(call)
             or receipt.status != "completed"
             or receipt.facts is None
+            or receipt.source != source_call_key(call)
+            or continuation.version != prompt.scope.protocol
         ):
             raise ValueError("An exact completed own-child source result is required")
         items: list[dict[str, object]] = []
@@ -243,7 +271,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         usage: ChatTokens,
         model: str,
     ) -> SourceModelReceipt:
-        items: list[BatterySourceCall | EncryptedSourceReasoning] = []
+        items: list[BatterySourceCall | ObservationSourceCall | EncryptedSourceReasoning] = []
         for item in output:
             kind = item.get("type")
             if kind == "message" and item.get("role") == "assistant":
@@ -251,12 +279,10 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             if item.get("status") not in {None, "completed"}:
                 raise ValueError("A provisional item cannot authorize a source call")
             if kind == "function_call":
-                call = BatterySourceCall.model_validate(
-                    {key: value for key, value in item.items() if key != "status"}
-                )
-                if source_arguments(call.arguments) not in {
-                    child.alias for child in prompt.scope.children
-                }:
+                call = (
+                    BatterySourceCall if prompt.scope.protocol == 1 else ObservationSourceCall
+                ).model_validate({key: value for key, value in item.items() if key != "status"})
+                if source_call_alias(call) not in {child.alias for child in prompt.scope.children}:
                     raise ValueError("An unknown child alias cannot grant source access")
                 items.append(call)
             elif kind == "reasoning" and item.get("summary", []) == []:
@@ -271,7 +297,9 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 )
             else:
                 raise ValueError("Unsupported native source output")
-        continuation = SourceToolContinuation(input_digest=self._digest(prompt), items=tuple(items))
+        continuation = SourceToolContinuation(
+            version=prompt.scope.protocol, input_digest=self._digest(prompt), items=tuple(items)
+        )
         return SourceModelReceipt(
             usage=usage, model=model, completed=True, continuation=continuation
         )

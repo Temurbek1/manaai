@@ -20,7 +20,8 @@ from app.mana_ai.domain.source_tools import (
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolPreparedInput,
-    source_arguments,
+    source_call_alias,
+    source_call_key,
 )
 from app.services.conversion_account_store import (
     SqliteClosedConversionAccountStore,
@@ -40,7 +41,7 @@ def _validate_existing_native_schema(path: Path) -> None:
     if not path.exists():
         return
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
-        if connection.execute("PRAGMA user_version").fetchone()[0] == 11:
+        if connection.execute("PRAGMA user_version").fetchone()[0] in {11, 12}:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:
                 raise RuntimeError(
@@ -50,6 +51,7 @@ def _validate_existing_native_schema(path: Path) -> None:
 
 class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
     _schema_version = 11
+    _source_contract = 1
 
     def _initialize(self) -> None:
         _validate_existing_native_schema(self._path)
@@ -121,6 +123,13 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             sort_keys=True,
             separators=(",", ":"),
         )
+        self._legacy_native_policy = self._native_policy
+        if self._source_contract == 2:
+            self._native_policy = json.dumps(
+                json.loads(self._native_policy) | {"source_contract": 2},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
 
     def _supported_versions(self) -> set[int]:
         return super()._supported_versions() | {10, 11}
@@ -179,6 +188,26 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                     is not None
                     and job.view.kind == "parent_message"
                 )
+
+        return await asyncio.to_thread(read)
+
+    def _captured_protocol(self, payload: str) -> int:
+        if payload == self._legacy_native_policy:
+            return 1
+        if self._source_contract == 2 and payload == self._native_policy:
+            return 2
+        raise ParentChatError("native_source_preparation_denied", 409)
+
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2]:
+        def read() -> Literal[1, 2]:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT profile FROM source_tool_turns WHERE parent_id=? AND turn_id=?",
+                    (job.view.parent_id, job.view.parent_turn_cutoff),
+                ).fetchone()
+                if row is None:
+                    raise ParentChatError("native_source_preparation_denied", 409)
+                return cast(Literal[1, 2], self._captured_protocol(row[0]))
 
         return await asyncio.to_thread(read)
 
@@ -295,11 +324,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             choice = SourceToolContinuation.model_validate_json(row["continuation"])
             target = FamilySourceTarget.model_validate_json(row["target"])
             child = next(
-                (
-                    c
-                    for c in prepared.scope.children
-                    if c.alias == source_arguments(choice.call.arguments)
-                ),
+                (c for c in prepared.scope.children if c.alias == source_call_alias(choice.call)),
                 None,
             )
             if (
@@ -308,6 +333,8 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 or target.child_id != child.child_id
                 or choice.input_digest != prepared.input_digest
                 or target.request_id != prepared.scope.request_id_for(choice.call)
+                or target.source != source_call_key(choice.call)
+                or choice.version != prepared.scope.protocol
             ):
                 raise ParentChatError("native_source_state_invalid", 503)
         elif row["phase"] in {"source_submitting", "source_completed", "second_submitted"}:
@@ -317,10 +344,11 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 raise ParentChatError("native_source_state_invalid", 503)
             receipt = FamilySourceReceipt.model_validate_json(row["source_result"])
             target = FamilySourceTarget.model_validate_json(row["target"])
-            if (receipt.parent_id, receipt.child_id, receipt.request_id) != (
+            if (receipt.parent_id, receipt.child_id, receipt.request_id, receipt.source) != (
                 target.parent_id,
                 target.child_id,
                 target.request_id,
+                target.source,
             ):
                 raise ParentChatError("native_source_state_invalid", 503)
         elif row["phase"] in {"source_completed", "second_submitted"} or (
@@ -368,7 +396,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 allowed = row["allowed_child_ids"]
                 if (
                     capture is None
-                    or capture[0] != self._native_policy
+                    or self._captured_protocol(capture[0]) != prepared.scope.protocol
                     or self._native_profile != profile
                     or row["kind"] != "parent_message"
                     or row["status"] != "preparing"
@@ -527,7 +555,9 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 choice = SourceToolContinuation.model_validate(continuation.model_dump())
                 if choice.input_digest != prepared.input_digest:
                     raise ParentChatError("native_source_input_mismatch", 409)
-                alias = source_arguments(choice.call.arguments)
+                if choice.version != prepared.scope.protocol:
+                    raise ParentChatError("native_source_input_mismatch", 409)
+                alias = source_call_alias(choice.call)
                 child = next((c for c in prepared.scope.children if c.alias == alias), None)
                 if child is None:
                     raise ParentChatError("native_source_child_not_admitted", 403)
@@ -535,6 +565,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                     parent_id=prepared.scope.parent_id,
                     child_id=child.child_id,
                     request_id=prepared.scope.request_id_for(choice.call),
+                    source=source_call_key(choice.call),
                 )
                 payload = choice.model_dump_json()
                 connection.execute(
@@ -556,10 +587,11 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                     raise ParentChatError("native_source_result_not_admitted", 409)
                 target = FamilySourceTarget.model_validate_json(native["target"])
                 checked = FamilySourceReceipt.model_validate(receipt.model_dump())
-                if (checked.parent_id, checked.child_id, checked.request_id) != (
+                if (checked.parent_id, checked.child_id, checked.request_id, checked.source) != (
                     target.parent_id,
                     target.child_id,
                     target.request_id,
+                    target.source,
                 ):
                     raise ParentChatError("native_source_result_mismatch", 409)
                 eligible = (
@@ -638,3 +670,17 @@ class SqliteClosedSourceToolSafetyStore(SqliteClosedConversionAccountStore):
 
     def _allowed_tables(self) -> set[str]:
         return super()._allowed_tables() | _TABLES
+
+
+class SqliteObservationToolSafetyStore(SqliteSourceToolSafetyStore):
+    """V12 captures observation-v2 only for new turns; queued v11 keeps battery-v1."""
+
+    _schema_version = 12
+    _source_contract = 2
+
+
+class SqliteClosedObservationToolSafetyStore(SqliteClosedSourceToolSafetyStore):
+    _schema_version = 12
+
+    def _supported_versions(self) -> set[int]:
+        return {12}

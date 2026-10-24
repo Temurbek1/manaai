@@ -34,15 +34,26 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             return httpx.Response(200, json={"input_tokens": 100})
         data = json.loads(payload["input"][0]["content"])
         results = [item for item in payload["input"] if item.get("type") == "function_call_output"]
-        text = " ".join(item["content"] for item in data.get("chat", [])).casefold()
+        text = next(
+            (
+                item["content"]
+                for item in reversed(data.get("chat", []))
+                if item.get("role") == "user"
+            ),
+            "",
+        ).casefold()
         children = data.get("children", [])
         wants_battery = any(
             word in text for word in ("заряд", "батар", "quvvat", "zaryad", "battery")
         )
+        wants_usage = any(word in text for word in ("приложен", "ilova", "app usage"))
         if results:
             facts = json.loads(results[-1]["output"])["facts"]
             summary = (
-                f"В сохранённой записи заряд {facts['percent']}%; "
+                "Частичная страница счётчиков приложений; период/часовой пояс неизвестны, "
+                "это не дневное экранное время."
+                if "entries" in facts
+                else f"В сохранённой записи заряд {facts['percent']}%; "
                 f"измерение: {facts['observed_at'] or 'время неизвестно'}. Подключение неизвестно."
                 if facts["status"] == "available"
                 else "Запись заряда отсутствует или неоднозначна; значение неизвестно."
@@ -50,7 +61,19 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             answer = SafetyModelDecision(
                 analysis=None, followup_summary=summary, question=None
             ).model_dump_json()
-        elif payload.get("tools") and children and wants_battery:
+        elif (
+            payload.get("tools")
+            and children
+            and (
+                wants_battery
+                or wants_usage
+                and payload["tools"][0]["name"] == "read_child_observation"
+            )
+        ):
+            tool_name = payload["tools"][0]["name"]
+            arguments = {"child_alias": children[0]["alias"]}
+            if tool_name == "read_child_observation":
+                arguments["kind"] = "app_usage" if wants_usage else "battery"
             return httpx.Response(
                 200,
                 json={
@@ -62,9 +85,9 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
                             "type": "function_call",
                             "id": "fc_lab_battery",
                             "call_id": "call_lab_battery",
-                            "name": "read_child_battery",
+                            "name": tool_name,
                             "status": "completed",
-                            "arguments": json.dumps({"child_alias": children[0]["alias"]}),
+                            "arguments": json.dumps(arguments),
                         }
                     ],
                 },

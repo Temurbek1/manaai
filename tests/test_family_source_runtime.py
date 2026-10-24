@@ -19,7 +19,7 @@ from app.core.config import Settings
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.domain.child_safety import ChildSafetyLimits
-from app.mana_ai.domain.family_sources import FamilySourceTarget
+from app.mana_ai.domain.family_sources import ChildBatteryFacts, FamilySourceTarget
 from app.services import parent_chat_runtime as runtime_module
 from app.services.family_google_auth import FamilyFirestoreToken
 from app.services.family_source_runtime import family_source_runtime
@@ -146,7 +146,8 @@ async def test_real_factory_is_lazy_and_shared_cache_and_exact_replay_survive_re
         runtime = await family_source_runtime(settings, client, children, clock=lambda: NOW)
         assert runtime and not provider.requests and children.calls == 0
         receipt = await runtime.reads.read_child_battery(request)
-        assert receipt.status == "completed" and receipt.facts and receipt.facts.percent == 12
+        assert receipt.status == "completed" and isinstance(receipt.facts, ChildBatteryFacts)
+        assert receipt.facts.percent == 12
         assert len(provider.requests) == 2 and children.calls == 1
         assert not await runtime.store.claim_next_dispatch(NOW)
         second = await runtime.reads.read_child_battery(target())
@@ -434,3 +435,67 @@ async def test_authentication_gate_failures_close_source_before_next_family_atte
             await restarted.reads.read_child_battery(target())
         assert len(requests) == count
         assert all(request.url.host != "firestore.googleapis.com" for request in requests)
+
+
+async def test_app_usage_runtime_uses_existing_auth_without_google_requests(
+    tmp_path: Path, credential_file: Path
+) -> None:
+    from tests.test_child_app_usage import page
+
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert request.url.host == "api.manakids.uz"
+        if request.url.path.endswith("/login/"):
+            return httpx.Response(200, json={"access": "fake-access-token"})
+        if request.url.path.endswith("/parent-list/"):
+            assert request.url.params["parent_id"] == "123"
+            return httpx.Response(
+                200,
+                json={
+                    "count": 1,
+                    "next": None,
+                    "results": [
+                        {
+                            "id": 123,
+                            "children": [
+                                {"id": 124, "fullname": "Fictional child", "is_connected": True}
+                            ],
+                        }
+                    ],
+                },
+            )
+        assert request.url.path.endswith("/app-usage-statistics/124/")
+        return httpx.Response(200, json=page())
+
+    settings = config(
+        tmp_path,
+        credential_file,
+        mana_parent_touch_review_first_enabled=True,
+        mana_child_safety_enabled=True,
+        mana_child_safety_source_tools_enabled=True,
+        mana_family_app_usage_enabled=True,
+        mana_child_safety_limits=ChildSafetyLimits(
+            server_daily_tokens=2000, parent_daily_tokens=2000, job_tokens=2000
+        ),
+        mana_child_safety_max_output_tokens=512,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        profiles = ManakidsChatChildrenSource(
+            client=client,
+            base_url="https://api.manakids.uz",
+            username="fake-user",
+            password="fake-password",
+        )
+        runtime = await family_source_runtime(
+            settings, client, profiles, clock=lambda: datetime.now(UTC), account_auth=profiles
+        )
+        assert runtime and not requests
+        req = FamilySourceTarget(
+            parent_id="123", child_id=124, request_id=uuid4(), source="manakids.child_app_usage.v1"
+        )
+        receipt = await runtime.reads.read_child_app_usage(req)
+        assert receipt.status == "completed" and receipt.source == "manakids.child_app_usage.v1"
+        assert len(requests) == 3
+        assert await runtime.reads.read_child_app_usage(req) == receipt and len(requests) == 3

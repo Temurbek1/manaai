@@ -12,9 +12,9 @@ from app.mana_ai.application.chat_ports import (
     ParentChildrenSource,
 )
 from app.mana_ai.application.child_safety_ports import (
-    ChildSafetyPrompts,
     ChildSafetyStore,
     SafetyCompletion,
+    SafetyPrompt,
 )
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.ports import Clock
@@ -33,6 +33,7 @@ from app.mana_ai.domain.source_tools import (
 
 class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     async def native_captured(self, job: SafetyJob) -> bool: ...
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2]: ...
     async def prepare_native(
         self,
         job: SafetyJob,
@@ -55,6 +56,17 @@ class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     async def finalize_native_without_source(self, job: SafetyJob, now: "datetime") -> None: ...
 
 
+class NativeSourcePrompts(Protocol):
+    def build(
+        self,
+        job: SafetyJob,
+        context: ParentChildContext,
+        saved: list[SafetyJobView],
+        *,
+        protocol: int = 1,
+    ) -> SafetyPrompt: ...
+
+
 class SourceToolWorkflow:
     def __init__(
         self,
@@ -62,7 +74,7 @@ class SourceToolWorkflow:
         store: SourceToolSafetyStore,
         children: ParentChildrenSource,
         model: SourceToolModel,
-        prompts: ChildSafetyPrompts,
+        prompts: NativeSourcePrompts,
         sources: FamilySourceService,
         clock: Clock,
         limits: ChildSafetyLimits,
@@ -113,10 +125,12 @@ class SourceToolWorkflow:
         try:
             context = await self._ownership(job)
             saved = await self._store.saved_assessments(job)
-            safety_prompt = self._prompts.build(job, context, saved)
+            protocol = await self._store.native_protocol(job)
+            safety_prompt = self._prompts.build(job, context, saved, protocol=protocol)
             scope = SourceToolScope(
                 parent_id=job.view.parent_id,
                 invocation_id=job.view.job_id,
+                protocol=protocol,
                 children=tuple(
                     SourceToolChild(alias=c.alias, child_id=c.child_id)
                     for c in safety_prompt.children
@@ -160,7 +174,7 @@ class SourceToolWorkflow:
                 target = await self._store.claim_native_source(
                     job, receipt.continuation, self._clock.now()
                 )
-                source = await self._sources.read_child_battery(target)
+                source = await self._sources.read(target)
                 if not await self._store.record_native_source(job, source, self._clock.now()):
                     raise ParentChatError("native_source_read_unavailable", 503)
                 assert source.facts is not None
@@ -171,7 +185,7 @@ class SourceToolWorkflow:
                     safety_prompt,
                     source_qualification=(
                         f"Parent-intent review using an own-child {source.facts.status} "
-                        f"battery record; measurement time {observation}, "
+                        f"{source.source} record; measurement time {observation}, "
                         f"collected {source.facts.collected_at.isoformat()}. "
                         "This is source context, not a complete protective assessment."
                     ),
