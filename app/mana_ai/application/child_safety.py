@@ -5,6 +5,7 @@ from datetime import timedelta
 from uuid import UUID, uuid5
 
 from app.mana_ai.application.chat_ports import (
+    ChatModelReceipt,
     ChatModelRejected,
     ParentChatError,
     ParentChatModel,
@@ -13,6 +14,7 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety_ports import (
     ChildSafetyPrompts,
     ChildSafetyStore,
+    NativeSafetyWorkflow,
     SafetyPrompt,
 )
 from app.mana_ai.application.ports import Clock
@@ -63,12 +65,14 @@ class ChildSafetyService:
         clock: Clock,
         limits: ChildSafetyLimits,
         max_output_tokens: int,
+        native_sources: NativeSafetyWorkflow | None = None,
     ) -> None:
         if not 32 <= max_output_tokens < limits.job_tokens:
             raise ValueError("Safety output cap must fit inside the explicit job allowance")
         self.store, self._children, self._model, self._prompts = store, children, model, prompts
         self._clock, self._limits, self._output = clock, limits, max_output_tokens
         self.worker_available = True
+        self._native_sources = native_sources
 
     async def admit(self, target: SafetyTarget, analysis: ManaAIRequest) -> SafetyJobView:
         return await self.store.admit_analysis(
@@ -95,6 +99,8 @@ class ChildSafetyService:
         return await self._run(job)
 
     async def _run(self, job: SafetyJob) -> SafetyJobView:
+        if self._native_sources is not None and await self._native_sources.captured(job):
+            return await self._native_sources.run(job, self._complete)
         submitted = False
         metered = False
         try:
@@ -135,10 +141,7 @@ class ChildSafetyService:
                 or receipt.notice_id is not None
             ):
                 raise ValueError("Invalid safety decision receipt")
-            decision = SafetyModelDecision.model_validate_json(receipt.answer)
-            result = await self._validate_result(job, decision, receipt.model)
-            question = self._question(job, prompt, decision)
-            return await self.store.finish_safety(job, result, self._clock.now(), question=question)
+            return await self._complete(job, prompt, receipt)
         except ChatModelRejected:
             await self.store.fail_safety(
                 job, "model_request_rejected", self._clock.now(), definite_model_rejection=True
@@ -171,6 +174,16 @@ class ChildSafetyService:
             if isinstance(exc, asyncio.CancelledError):
                 raise
         return await self.assessment(job.view.parent_id, job.view.job_id)
+
+    async def _complete(
+        self, job: SafetyJob, prompt: SafetyPrompt, receipt: ChatModelReceipt
+    ) -> SafetyJobView:
+        if receipt.answer is None:
+            raise ValueError("A metered specialist decision is required")
+        decision = SafetyModelDecision.model_validate_json(receipt.answer)
+        result = await self._validate_result(job, decision, receipt.model)
+        question = self._question(job, prompt, decision)
+        return await self.store.finish_safety(job, result, self._clock.now(), question=question)
 
     async def _validate_result(
         self,
@@ -206,6 +219,8 @@ class ChildSafetyService:
         qualification = (
             f"Dated observation report evaluated at {job.analysis.occurred_at.isoformat()}. "
             if job.analysis
+            else prompt.source_qualification + " "
+            if prompt.source_qualification
             else "Historical chat review; no new sensor measurement. "
         )
         return AgentQuestionRequest(

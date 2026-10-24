@@ -24,6 +24,7 @@ from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.source_safety import SourceSafetyService
+from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
@@ -38,6 +39,7 @@ from app.mana_ai.domain.conversion import (
     ConversionSnapshot,
     PaidConversionOffer,
 )
+from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
 from app.mana_ai.domain.family_agents import AgentQuestionRequest, ParentTouchHistory
 from app.mana_ai.domain.family_sources import (
@@ -50,11 +52,15 @@ from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMoni
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
+from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.family_agent_worker import FamilyAgentWorker
+from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.source_safety_store import SqliteSourceSafetyStore
+from app.services.source_tool_prompts import SourceToolPromptBuilder
+from app.services.source_tool_safety_store import SqliteSourceToolSafetyStore
 
 LAB_PARENT = "900001"
 LAB_CHILD = 900002
@@ -244,12 +250,31 @@ class SimulatedModel:
                 )
                 notice_id = prompt.notice.notice_id
             else:
-                answer = (
-                    "Tushundim. Bu bepul simulyatsiya javobi."
-                    if uzbek
-                    else "Понял. Это ответ бесплатной симуляции; "
-                    "для свободного диалога запустите режим реальной модели."
-                )
+                guidance = json.loads(prompt.messages[0][1]).get("specialist_guidance", {})
+                sources = guidance.get("source_observations", [])
+                if sources and sources[0]["status"] == "available":
+                    stamp = sources[0]["observed_at"] or "unknown"
+                    # An unknown presentation hint remains model-directed. This
+                    # narrow fictional example is not a production detector.
+                    last = prompt.messages[-1][1].casefold()
+                    source_uzbek = uzbek or (
+                        prompt.response_language is None and "farzand" in last and "quvvat" in last
+                    )
+                    answer = (
+                        f"{stamp} yozuvida quvvat {sources[0]['percent']}%. Ulanish noma’lum."
+                        if source_uzbek
+                        else (
+                            f"По записи от {stamp} заряд {sources[0]['percent']}%. "
+                            "Подключение неизвестно."
+                        )
+                    )
+                else:
+                    answer = (
+                        "Tushundim. Bu bepul simulyatsiya javobi."
+                        if uzbek
+                        else "Понял. Это ответ бесплатной симуляции; "
+                        "для свободного диалога запустите режим реальной модели."
+                    )
         return ChatModelReceipt(
             usage=ChatTokens(input_tokens=100, output_tokens=50),
             model="lab-simulated-not-billed",
@@ -295,6 +320,7 @@ class LabOptions:
     real_model: bool = False
     clock: Clock = field(default_factory=SystemManaAIClock)
     worker_enabled: bool = True
+    native_sources: bool = False
 
 
 class ChatLab:
@@ -316,7 +342,13 @@ class ChatLab:
     def _directory(self) -> Path:
         directory = self.options.directory
         marker = directory / "lab-state.json"
-        expected = {"kind": "mana-fictional-chat-lab", "mode": self.mode, "parent_id": LAB_PARENT}
+        expected: dict[str, object] = {
+            "kind": "mana-fictional-chat-lab",
+            "mode": self.mode,
+            "parent_id": LAB_PARENT,
+        }
+        if self.options.native_sources:
+            expected["native_sources"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -340,7 +372,9 @@ class ChatLab:
     async def start(self) -> None:
         directory, now = self._directory(), self.options.clock.now()
         limits = ChildSafetyLimits(
-            server_daily_tokens=2000, parent_daily_tokens=2000, job_tokens=1000
+            server_daily_tokens=2000,
+            parent_daily_tokens=2000,
+            job_tokens=2000 if self.options.native_sources else 1000,
         )
         offer = PaidConversionOffer(
             offer_id="lab-only",
@@ -355,16 +389,6 @@ class ChatLab:
             auto_renew=False,
             checkout_path="/subscriptions/lab-only",
         )
-        self.store = SqliteCommercialConversationStore(
-            directory / "family.sqlite3",
-            conversion_policy=ConversionPolicy(),
-            conversion_offers=(offer,),
-            limits=limits,
-            daily_limit=2000,
-            timezone="Asia/Samarkand",
-            push_enabled=False,
-        )
-        await self.store.initialize()
         speaker: ClosableModel
         specialist: ClosableModel
         if self.options.real_model:
@@ -376,7 +400,9 @@ class ChatLab:
                     }
                 )
             )
-            specialist = OpenAIChildSafetyModel(
+            specialist = (
+                OpenAIChildSourceModel if self.options.native_sources else OpenAIChildSafetyModel
+            )(
                 settings.model_copy(
                     update={
                         "openai_model": settings.mana_child_safety_model or settings.openai_model
@@ -385,7 +411,39 @@ class ChatLab:
             )
         else:
             speaker, specialist = SimulatedModel("speaker"), SimulatedModel("safety")
+            if self.options.native_sources:
+                specialist = LabNativeSourceModel(specialist)
         self._models = [speaker, specialist]
+        if self.options.native_sources:
+            assert isinstance(specialist, OpenAIChildSourceModel)
+            profile = specialist.source_profile
+            self.store = SqliteSourceToolSafetyStore(
+                directory / "family.sqlite3",
+                native_model=profile.model_name,
+                native_reasoning_effort=profile.reasoning_effort,
+                native_verbosity=profile.verbosity,
+                native_wall_timeout_seconds=profile.wall_timeout_seconds,
+                native_max_output_tokens=512,
+                conversion_policy=ConversionPolicy(),
+                conversion_offers=(offer,),
+                limits=limits,
+                daily_limit=2000,
+                timezone="Asia/Samarkand",
+                proactive_enabled=True,
+                conversation_enabled=True,
+                account_read_limits=ConversionAccountReadLimits(),
+            )
+        else:
+            self.store = SqliteCommercialConversationStore(
+                directory / "family.sqlite3",
+                conversion_policy=ConversionPolicy(),
+                conversion_offers=(offer,),
+                limits=limits,
+                daily_limit=2000,
+                timezone="Asia/Samarkand",
+                push_enabled=False,
+            )
+        await self.store.initialize()
         profiles = LabProfiles(self.options.clock)
         policy = SourceSafetyPolicy(timezone="Asia/Samarkand")
         self.source_store = SqliteSourceSafetyStore(
@@ -400,6 +458,20 @@ class ChatLab:
         self.sources = FamilySourceService(
             self.source_store, profiles, self.battery, clock=self.options.clock.now
         )
+        native = None
+        if self.options.native_sources:
+            assert isinstance(self.store, SqliteSourceToolSafetyStore)
+            assert isinstance(specialist, OpenAIChildSourceModel)
+            native = SourceToolWorkflow(
+                store=self.store,
+                children=profiles,
+                model=specialist,
+                prompts=SourceToolPromptBuilder(),
+                sources=self.sources,
+                clock=self.options.clock,
+                limits=limits,
+                max_output_tokens=512,
+            )
         self.safety = ChildSafetyService(
             store=self.store,
             children=profiles,
@@ -408,6 +480,7 @@ class ChatLab:
             clock=self.options.clock,
             limits=limits,
             max_output_tokens=512,
+            native_sources=native,
         )
         proactive = ProactiveParentService(self.store, clock=self.options.clock.now)
         self.touch = ParentTouchService(
@@ -421,6 +494,7 @@ class ChatLab:
             reviewed=self.store,
             conversion=ConversionService(self.store, clock=self.options.clock.now),
             proactive=proactive,
+            sources=self.sources,
         )
         self.source_safety = SourceSafetyService(
             self.source_store, self.safety, profiles, policy=policy, clock=self.options.clock.now

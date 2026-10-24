@@ -14,9 +14,11 @@ from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.mana_ai.application.source_safety import SourceSafetyService
+from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
+from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.commercial_conversation_store import (
     SqliteClosedCommercialConversationStore,
     SqliteCommercialConversationStore,
@@ -49,6 +51,11 @@ from app.services.reviewed_message_store import (
     SqliteClosedReviewedBrokerStore,
     SqliteReviewedMessageStore,
 )
+from app.services.source_tool_prompts import SourceToolPromptBuilder
+from app.services.source_tool_safety_store import (
+    SqliteClosedSourceToolSafetyStore,
+    SqliteSourceToolSafetyStore,
+)
 
 
 @asynccontextmanager
@@ -64,7 +71,43 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     reviewed: ReviewedMessageStore | None = None
-    if settings.mana_conversion_account_source_enabled or (
+    if settings.mana_child_safety_source_tools_enabled:
+        assert settings.mana_child_safety_limits is not None
+        native_store = SqliteSourceToolSafetyStore(
+            settings.mana_parent_chat_database_path,
+            native_model=settings.mana_child_safety_model or settings.openai_model,
+            native_reasoning_effort=settings.openai_reasoning_effort,
+            native_verbosity=settings.openai_verbosity,
+            native_wall_timeout_seconds=min(settings.openai_timeout_seconds, 120) + 10,
+            native_max_output_tokens=settings.mana_child_safety_max_output_tokens,
+            conversion_policy=settings.mana_conversion_policy,
+            conversion_offers=settings.mana_conversion_offers,
+            limits=settings.mana_child_safety_limits,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            push_queue_limit=settings.mana_parent_push_queue_limit,
+            push_max_age_seconds=settings.mana_parent_push_max_age_seconds,
+            push_daily_attempt_limit=settings.mana_parent_push_daily_attempt_limit,
+            proactive_enabled=settings.mana_parent_touch_proactive_enabled,
+            push_enabled=settings.mana_parent_push_enabled,
+            conversation_enabled=settings.mana_conversion_conversation_enabled,
+            account_source_enabled=settings.mana_conversion_account_source_enabled,
+            account_read_limits=settings.mana_conversion_account_read_limits,
+            **store_arguments,
+        )
+        store, reviewed = native_store, native_store
+    elif version == 11:
+        if settings.mana_child_safety_enabled:
+            raise RuntimeError("V11 safety execution requires its captured native source runtime")
+        closed_native = SqliteClosedSourceToolSafetyStore(
+            settings.mana_parent_chat_database_path,
+            history_only=not settings.mana_parent_touch_enabled,
+            timezone=settings.mana_parent_chat_timezone,
+            question_limit=settings.mana_parent_touch_question_limit,
+            **store_arguments,
+        )
+        store, reviewed = closed_native, closed_native
+    elif settings.mana_conversion_account_source_enabled or (
         version == 10 and settings.mana_parent_touch_review_first_enabled
     ):
         assert settings.mana_child_safety_limits is not None
@@ -279,7 +322,26 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         if settings.mana_child_safety_model
                         else settings
                     )
-                    safety_model = OpenAIChildSafetyModel(safety_settings)
+                    safety_model = (
+                        OpenAIChildSourceModel(safety_settings)
+                        if settings.mana_child_safety_source_tools_enabled
+                        else OpenAIChildSafetyModel(safety_settings)
+                    )
+                    native_sources = None
+                    if isinstance(store, SqliteSourceToolSafetyStore):
+                        assert sources is not None and isinstance(
+                            safety_model, OpenAIChildSourceModel
+                        )
+                        native_sources = SourceToolWorkflow(
+                            store=store,
+                            children=children,
+                            model=safety_model,
+                            prompts=SourceToolPromptBuilder(),
+                            sources=sources.reads,
+                            clock=SystemManaAIClock(),
+                            limits=settings.mana_child_safety_limits,
+                            max_output_tokens=settings.mana_child_safety_max_output_tokens,
+                        )
                     safety = ChildSafetyService(
                         store=store,
                         children=children,
@@ -288,6 +350,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         clock=SystemManaAIClock(),
                         limits=settings.mana_child_safety_limits,
                         max_output_tokens=settings.mana_child_safety_max_output_tokens,
+                        native_sources=native_sources,
                     )
                 service: ParentChatService = ParentTouchService(
                     store=store,

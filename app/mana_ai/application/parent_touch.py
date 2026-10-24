@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import Callable
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.mana_ai.application.chat_ports import (
@@ -331,6 +331,7 @@ class ParentTouchService(ParentChatService):
                 "observed_at": question.observed_at.isoformat(),
             }
         instructions = PARENT_TOUCH_INSTRUCTIONS
+        source_dates: tuple[str, ...] = ()
         commercial = await self._touch_store.commercial_context(request.parent_id, turn.turn_id)
         if commercial is not None:
             data["commercial_context"] = commercial.presentation()
@@ -359,8 +360,43 @@ class ParentTouchService(ParentChatService):
                 tuple(c.child_id for c in context.children if c.connected),
             )
             data["specialist_guidance"] = guidance.model_dump(
-                mode="json", exclude={"authorized_child_ids"}
+                mode="json", exclude={"authorized_child_ids", "source_observations"}
             ) | {"basis": "parent_report_and_dated_saved_context_not_fresh_sensors"}
+            if guidance.source_observations:
+                mapping = {
+                    child.child_id: (i + 1, child.name)
+                    for i, child in enumerate(context.children)
+                    if child.connected
+                }
+                data["specialist_guidance"]["source_observations"] = [
+                    facts.model_dump(mode="json", exclude={"child_id"})
+                    | {
+                        "profile_position": mapping[facts.child_id][0],
+                        "child_name": mapping[facts.child_id][1],
+                    }
+                    for facts in guidance.source_observations
+                ]
+                data["specialist_guidance"]["basis"] = "parent_report_and_exact_dated_source_facts"
+                source_dates = tuple(
+                    sorted(
+                        {
+                            facts.observed_at.astimezone(UTC).date().isoformat()
+                            for facts in guidance.source_observations
+                            if facts.observed_at is not None
+                        }
+                    )
+                )
+                instructions += (
+                    "\nThe frozen source observations are verified own-child records, not a "
+                    "fresh diagnosis or permission. Use their exact values over conflicting "
+                    "prose. profile_position is the 1-based position in profiles.children. "
+                    "State each known observation date as YYYY-MM-DD in body. If measurement "
+                    "time is unknown, say so; never substitute collection/server-write time. "
+                    "Connected is not online; a missing/ambiguous record is not zero use. "
+                    "For a battery-only request, state charge/date once and one practical "
+                    "step; omit unobserved heating/drain scenarios from specialist prose. "
+                    "Address the adult parent; never tell them to ask an adult for help."
+                )
             instructions += (
                 "\nChild-Safety already reviewed this exact parent message. Communicate its "
                 "qualified guidance naturally; do not perform another child assessment or add "
@@ -398,6 +434,7 @@ class ParentTouchService(ParentChatService):
             notice=evidence.notice if evidence else None,
             slot_reply=True,
             response_language=response_language,
+            required_observation_dates=source_dates,
             minimum_output_tokens=min(
                 self._max_output,
                 256 if question is not None or evidence and evidence.notice else 128,

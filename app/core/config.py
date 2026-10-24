@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     mana_parent_push_max_age_seconds: int = Field(default=3600, ge=60, le=86400)
     mana_parent_push_daily_attempt_limit: int = Field(default=100, ge=1, le=10000)
     mana_child_safety_enabled: bool = False
+    mana_child_safety_source_tools_enabled: bool = False
     mana_child_safety_model: str | None = Field(
         default="gpt-5.4-mini", min_length=1, max_length=128
     )
@@ -409,6 +410,23 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_child_safety_source_tools_enabled:
+            if not (
+                self.mana_family_sources_enabled and self.mana_parent_touch_review_first_enabled
+            ):
+                raise ValueError("Native source tools require captured reviews and family sources")
+            if self.mana_child_safety_limits is not None:
+                wall = 4 * (min(self.openai_timeout_seconds, 120) + 10)
+                if (
+                    wall
+                    + 3 * self.mana_parent_chat_source_timeout_seconds
+                    + self.mana_family_source_timeout_seconds
+                    + 5
+                    >= self.mana_child_safety_limits.lease_seconds
+                ):
+                    raise ValueError(
+                        "Native source model/read timeouts must fit inside the SQL lease"
+                    )
         if self.mana_family_source_safety_enabled and not (
             self.mana_family_sources_enabled and self.mana_child_safety_enabled
         ):

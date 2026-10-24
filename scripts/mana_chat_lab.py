@@ -153,3 +153,19 @@ def create_live_app() -> FastAPI:
     """Explicit paid inference opt-in; no live family/data/write adapter is enabled."""
     root = Path(__file__).resolve().parents[1]
     return create_app(options=LabOptions(root / "data/chat-lab/real-model", real_model=True))
+
+
+def create_native_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(root / "data/chat-lab/native-simulation", native_sources=True)
+    )
+
+
+def create_native_live_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/native-real-model", real_model=True, native_sources=True
+        )
+    )

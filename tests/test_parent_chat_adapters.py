@@ -1,5 +1,6 @@
 import json
 from copy import deepcopy
+from dataclasses import replace
 from typing import Any
 
 import httpx
@@ -13,6 +14,32 @@ from app.services.parent_chat_children import ManakidsChatChildrenSource
 from app.services.parent_chat_model import OpenAIParentChatModel
 
 PROMPT = ChatPrompt("Synthetic instructions", (("user", "Farzandimga qanday yordam beraman?"),))
+
+
+@pytest.mark.parametrize("preserved", [False, True])
+async def test_source_observation_date_is_required_after_verified_usage(preserved: bool) -> None:
+    payload = model_payload()
+    body = "Дата измерения 2026-10-24." if preserved else "Заряд указан в записи."
+    payload["output"][0]["content"][0]["text"] = json.dumps(
+        {
+            "body": body,
+            "question": None,
+            "notice_communicated": False,
+        },
+        ensure_ascii=False,
+    )
+    prompt = replace(
+        PROMPT, structured_reply=True, slot_reply=True, required_observation_dates=("2026-10-24",)
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as http:
+        adapter = OpenAIParentChatModel(
+            settings(), client=AsyncOpenAI(api_key="fake-key", max_retries=0, http_client=http)
+        )
+        result = await adapter.respond(prompt, max_output_tokens=512)
+        assert result.usage.total == 150 and result.completed is preserved
+        assert (result.answer is not None) is preserved
 
 
 def model_payload() -> dict[str, Any]:

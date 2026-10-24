@@ -35,7 +35,7 @@ class SourceToolChild(ChatContract):
 class SourceToolScope(ChatContract):
     parent_id: ParentChatId
     invocation_id: UUID
-    children: tuple[SourceToolChild, ...] = Field(min_length=1, max_length=20)
+    children: tuple[SourceToolChild, ...] = Field(max_length=20)
 
     @model_validator(mode="after")
     def unique_children(self) -> "SourceToolScope":
@@ -90,3 +90,28 @@ class SourceToolContinuation(ChatContract):
     @property
     def call(self) -> BatterySourceCall:
         return next(item for item in self.items if isinstance(item, BatterySourceCall))
+
+
+class SourceToolPreparedInput(ChatContract):
+    version: Literal[1] = 1
+    scope: SourceToolScope
+    input_digest: str = Field(pattern=r"^[a-f0-9]{64}$", strict=True)
+    instructions: str = Field(min_length=1, max_length=65536, strict=True)
+    messages: tuple[tuple[Literal["user", "assistant"], str], ...] = Field(
+        min_length=1, max_length=20
+    )
+    minimum_output_tokens: int = Field(default=32, ge=32, le=4096, strict=True)
+
+    @model_validator(mode="after")
+    def bounded_input(self) -> "SourceToolPreparedInput":
+        if len(self.model_dump_json().encode()) > 65536:
+            raise ValueError("Native source input exceeds its private bound")
+        return self
+
+
+class SourceToolModelProfile(ChatContract):
+    version: Literal[1] = 1
+    model_name: str = Field(min_length=1, max_length=128, strict=True)
+    reasoning_effort: Literal["none", "low", "medium", "high", "xhigh"]
+    verbosity: Literal["low", "medium", "high"]
+    wall_timeout_seconds: float = Field(ge=10, le=130)

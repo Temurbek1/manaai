@@ -2,6 +2,20 @@
 
 ## Repository expectations
 
+- The subsequent local native source workflow now captures new review-first turns
+  in private family v11, freezes model/limits/input and meters each of at most two
+  raw model receipts before source dispatch. Preserve partial known costs plus
+  unknown continuation holds, exact call/receipt pairing and fresh ownership;
+  old turns never upgrade. Only Parent-Touch communicates exact dated source facts.
+  The source-tool flag remains default off; no production activation or collector
+  is implied. Current-image closed/reconstruction and fictional RU/UZ browser
+  checks passed. The one real RU tool-loop party settled but has negative adult-
+  recipient/verbosity findings; preserve it, do not replay it or claim a postfix
+  quality pass. Its 1798 safety tokens do not establish shared-budget capacity.
+  Read `docs/mana-native-source-workflow.md` before extending/releasing this lane.
+  Earlier SDK-only statements below are historical. Cross-consumer analysis
+  coalescing, remaining sources and the full autonomous objective remain open.
+
 - The subsequent native source transport is SDK-only and not runtime-wired.
   New private family scopes/aliases and exact encrypted call pairing preserve
   raw terminal usage on invalid choices; ordinary specialist calls stay tool-free.

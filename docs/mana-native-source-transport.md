@@ -1,5 +1,9 @@
 # Native family source transport — local checkpoint, 2026-10-24
 
+The subsequent [SQL/runtime workflow](mana-native-source-workflow.md) now wires
+this transport for new captured turns. Unwired/required statements below preserve
+this earlier checkpoint; they are not the latest implementation inventory.
+
 This increment implements the provider protocol needed for model-selected reads,
 not a source dispatcher or a completed autonomous agent. The active objective is
 still the entire single-chat system in `mana-autonomous-agents-plan.md`.

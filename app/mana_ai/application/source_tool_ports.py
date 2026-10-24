@@ -6,7 +6,11 @@ from typing import Literal, Protocol
 from app.mana_ai.application.chat_ports import ChatPrompt
 from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.family_sources import FamilySourceReceipt
-from app.mana_ai.domain.source_tools import SourceToolContinuation, SourceToolScope
+from app.mana_ai.domain.source_tools import (
+    SourceToolContinuation,
+    SourceToolModelProfile,
+    SourceToolScope,
+)
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,14 @@ class SourceModelReceipt:
 
 
 class SourceToolModel(Protocol):
+    @property
+    def source_profile(self) -> SourceToolModelProfile: ...
+
+    @property
+    def model_name(self) -> str: ...
+
+    def source_input_digest(self, prompt: SourceToolPrompt) -> str: ...
+
     async def count_source_input(self, prompt: SourceToolPrompt) -> int: ...
 
     async def respond_source(

@@ -16,6 +16,7 @@ from app.mana_ai.domain.source_tools import (
     BatterySourceCall,
     EncryptedSourceReasoning,
     SourceToolContinuation,
+    SourceToolModelProfile,
     SourceToolScope,
     source_arguments,
 )
@@ -24,7 +25,25 @@ from app.services.child_safety_model import OpenAIChildSafetyModel
 
 
 class OpenAIChildSourceModel(OpenAIChildSafetyModel):
+    @property
+    def source_profile(self) -> SourceToolModelProfile:
+        return SourceToolModelProfile(
+            model_name=self._model,
+            reasoning_effort=self._effort,
+            verbosity=self._verbosity,
+            wall_timeout_seconds=self._wall_timeout,
+        )
+
+    @property
+    def model_name(self) -> str:
+        return self._model
+
+    def source_input_digest(self, prompt: SourceToolPrompt) -> str:
+        return self._digest(prompt)
+
     def _tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
+        if not prompt.scope.children:
+            return []
         return [
             {
                 "type": "function",
@@ -124,7 +143,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 reasoning={"effort": self._effort},
                 text=self._text(prompt.input),
                 tools=self._tools(prompt),
-                tool_choice="none" if prompt.continuation else "auto",
+                tool_choice="none" if prompt.continuation or not prompt.scope.children else "auto",
                 parallel_tool_calls=False,
                 truncation="disabled",
             )
@@ -149,7 +168,9 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                     reasoning={"effort": self._effort},
                     text=self._text(prompt.input),
                     tools=self._tools(prompt),
-                    tool_choice="none" if prompt.continuation else "auto",
+                    tool_choice="none"
+                    if prompt.continuation or not prompt.scope.children
+                    else "auto",
                     parallel_tool_calls=False,
                     include=["reasoning.encrypted_content"],
                     truncation="disabled",

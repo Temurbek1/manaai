@@ -17,6 +17,7 @@ class OpenAIChildSafetyModel(OpenAIParentChatModel):
             or prompt.notice is not None
             or prompt.slot_reply
             or prompt.response_language is not None
+            or prompt.required_observation_dates
         ):
             raise ValueError("A specialist cannot inherit Parent-Touch's publication protocol")
         return {

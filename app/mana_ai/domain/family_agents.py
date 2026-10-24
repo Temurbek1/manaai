@@ -21,6 +21,7 @@ from app.mana_ai.domain.enums import (
     ManaAICapability,
     RiskLevel,
 )
+from app.mana_ai.domain.family_sources import ChildBatteryFacts
 
 FamilyAgentId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{1,63}$", strict=True)]
 InformationKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_.-]{0,99}$", strict=True)]
@@ -110,6 +111,9 @@ class ParentTouchReviewGuidance(ChatContract):
     reviewed_at: AwareDatetime
     parent_message_at: AwareDatetime
     authorized_child_ids: tuple[int, ...]
+    source_observations: tuple[ChildBatteryFacts, ...] = Field(
+        default=(), max_length=1, exclude_if=lambda value: not value
+    )
 
 
 class ReviewedMessage(ChatContract):

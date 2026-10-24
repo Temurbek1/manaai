@@ -1,5 +1,9 @@
 # Shared family source runtime — local increment, 2026-10-24
 
+The subsequent [native workflow](mana-native-source-workflow.md) adds captured
+model-selected reads and family schema 11. Its flag remains default disabled;
+this document preserves the earlier runtime/source-only evidence below.
+
 The server runtime can now construct the existing bounded own-child Firestore
 battery reader, shared private cache and optional source-to-Child-Safety consumer.
 This is implementation progress on the full autonomous single-chat objective,

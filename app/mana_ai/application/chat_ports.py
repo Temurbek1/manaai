@@ -55,6 +55,7 @@ class ChatPrompt:
     slot_reply: bool = False
     safety_parent_review: bool = False
     response_language: ResponseLanguage | None = None
+    required_observation_dates: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

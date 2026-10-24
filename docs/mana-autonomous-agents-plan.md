@@ -30,7 +30,7 @@ keys, SSH settings and source schedules remain outside local changes.
 | One canonical parent, one durable chat, Parent-Touch is the sole speaker | Existing family service/SQL and `mana-chat` three-operation contract; reverify with new specialists and sources, not just the earlier fake lab |
 | Exact sequential question/answer binding; filtering/coalescing; urgent safety priority | Existing broker and reviewed-message workflow; add multi-specialist and autonomous-source E2E acceptance |
 | Agent starts before first parent text; durable message before independent push | Existing local proactive lifecycle; real source-derived language/contact preferences and channel acceptance still required |
-| Independent data access, no mandatory backend producer | Exact-child battery source/cache, server credentials and lazy runtime wiring exist; one real test-family query passed. Native model-selected tools and remaining source coverage still required |
+| Independent data access, no mandatory backend producer | Exact-child battery source/cache, server credentials and captured native model selection are runtime-wired locally. One real test-family query and a separate real-model/fake-source loop exist; combined live E2E and remaining source coverage still required |
 | One shared collection, consumers reuse snapshots; changes create internal events | Dedicated SQLite snapshot/change journal, immutable consumer claims and analysis dispatch exist locally; shared bulk collection and cross-context aggregate publication remain to implement |
 | New child data/new parent text triggers Child-Safety without unchanged-context inference | Source-to-safety-to-Parent-Touch fake path and existing message workflow pass; independent real-model/source loop and remaining automatic feeds still required, with retained dedup/unknown/date limits |
 | Behavioral changes, screen time, routes, reports and clarifications | Existing ten analysis contracts, not complete automatic feeds; map actual available sources and implement missing date/ownership-safe ingestion and reports |
@@ -43,7 +43,7 @@ keys, SSH settings and source schedules remain outside local changes.
 | Shared bulk windows 09:00 and 15:00, plus bounded targeted reads | Implement durable occurrences in explicit Asia/Tashkent timezone; no hourly full scan, catch-up loop or Goal/UI-triggered bulk refresh |
 | Clear costs and hard limits | Preserve 2000 raw chat tokens per parent/day and separate 2000 global safety tokens/day; explicit source/other budgets, no silent expansion or unknown refund; cost forecast before activation |
 | Typed safe actions and verified outcomes | Preserve policy/fresh state/idempotency/audit/recovery; no payment/transaction creation; free-tariff tests only on designated test accounts; no repeat of parent 4's consumed grant |
-| Real quality and end-to-end tests | Unit/HTTP/browser/lost-ack/restart/limit tests plus bounded real models/sources; simulations cannot establish real-family/model/business acceptance |
+| Real quality and end-to-end tests | Native SQL/SDK/runtime/browser and current-image closure checks pass mechanically. Real RU source-selection loop settled but has negative recipient/verbosity findings; simulations and separate source/model parties do not establish combined real-family quality |
 | Updated English integration instructions and practical web lab | Extend lab as capabilities become real; update integration guide for independent collection/controls and evidence limits |
 | Compatible migrations, rollout and rollback with retained private history | Candidate-image and closed-reader checks for actual changes; never downgrade populated schema or restore old DB over new history; separately scoped production approval |
 
@@ -56,18 +56,26 @@ other implementable work.
 
 ## Subsequent local source-to-chat increment
 
+The latest [native workflow checkpoint](mana-native-source-workflow.md) wires the
+model's selected own-child battery tool into the actual review/SQL/worker/chat
+path with immutable new-turn capture and per-call accounting. Family v11 retains
+known first-call spend and unknown continuation reserves; old turns never upgrade.
+The real-model party completed within unchanged budgets but exposed presentation
+defects and almost exhausted the global safety day. Source-consumer coalescing,
+broader sources, throughput, independent quality and release remain open.
+
 The next [server source runtime increment](mana-family-source-runtime.md) wires
 real Google signing, the existing shared cache and optional source consumer into
 the actual Parent-Touch runtime. One bounded test-family Firestore read passed;
 its measurement date remained unknown and it generated no message/model call.
-Native model-selected reads and bulk-window collection remain unimplemented;
+At that earlier checkpoint native reads and bulk-window collection were unimplemented;
 the factory is lazy and default disabled outside a separately scoped release.
 
 The following [native SDK transport](mana-native-source-transport.md) implements
 strict alias-only source selection and exact encrypted result continuation,
-retaining raw usage on invalid outputs. It is not dispatched or runtime-wired;
-the per-call SQL ledger/new-turn capture and actual budget/quality acceptance
-are still required before an agent can use it autonomously.
+retaining raw usage on invalid outputs. At that earlier checkpoint per-call SQL
+metering, new-turn capture and actual budget/quality acceptance were still required
+before autonomous execution. The subsequent workflow above implements that wiring.
 
 The [source safety checkpoint](mana-source-safety-checkpoint.md) extends the
 initial lane with captured consumer admissions, immutable specialist intents,

@@ -475,6 +475,40 @@ cannot be used as a current alert, and no model/message/push/grant was launched.
 Keys remain server-only. A source authorization failure closes its durable lane;
 exact replays and unknown outcomes do not repeat reads.
 
-Native model-selected read invocation, bulk-window collection, remaining
-specialists and broader real-model/source/channel acceptance are still required
-by the full objective. None of these local increments updates production.
+The subsequent native workflow below implements model-selected battery reads.
+Bulk-window collection, remaining specialists and broader real-model/source/channel
+acceptance are still required. None of these local increments updates production.
+
+## 12. Model-selected sources — local, default disabled
+
+The same three chat operations now support an explicitly enabled native
+Child-Safety source review. No mobile integration change or extra chat is needed:
+
+```text
+POST parent-touch/messages -> captured Child-Safety review
+  -> model selects an own-child battery alias -> shared scoped source cache
+  -> same specialist receives the exact result -> Parent-Touch communicates
+GET message status / chat history -> observe the saved answer without redispatch
+```
+
+`MANA_CHILD_SAFETY_SOURCE_TOOLS_ENABLED` requires the existing source runtime,
+review-first configuration and explicit safety ceilings. It remains false by
+default. Keys remain server-only; the model cannot choose arbitrary queries,
+another parent, a URL, source permissions or an increased budget. Old messages
+never acquire the new protocol on migration. Family history advances additively
+to private schema 11; source-cache schema stays 2.
+
+Both specialist generations use the original global 2000-token safety ledger;
+Parent-Touch retains its separate per-parent allowance. Raw receipts are recorded
+before selecting/executing tools. Lost continuations retain partial known costs
+and unknown reserves. Neither a refreshed page nor a repeated request may restart
+them. Reply facts preserve measurement dates and unknown data; a collected record
+does not establish current connectivity or a full protective assessment.
+
+For fictional browser testing, use `make chat-lab-native`, or explicitly opt into
+paid models with `make chat-lab-native-live CHAT_LAB_ENV_FILE=/path/to/server.env`.
+These modes still have no live family sources, push or free-tariff adapters.
+See [the workflow evidence and limits](mana-native-source-workflow.md) and
+[lab instructions](mana-chat-lab.md). The settled real RU tool-loop diagnostic
+has presentation caveats and does not establish production capacity or broad
+model quality. Candidate closure is same-code only; never downgrade populated v11.

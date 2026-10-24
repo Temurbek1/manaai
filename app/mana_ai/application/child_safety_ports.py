@@ -1,9 +1,10 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from app.mana_ai.application.chat_ports import ChatPrompt
+from app.mana_ai.application.chat_ports import ChatModelReceipt, ChatPrompt
 from app.mana_ai.domain.chat import ChatTokens, ParentChildContext
 from app.mana_ai.domain.child_safety import (
     SafetyAssessmentPage,
@@ -28,6 +29,7 @@ class SafetyChildAlias:
 class SafetyPrompt:
     input: ChatPrompt
     children: tuple[SafetyChildAlias, ...]
+    source_qualification: str | None = None
 
 
 class ChildSafetyPrompts(Protocol):
@@ -37,6 +39,15 @@ class ChildSafetyPrompts(Protocol):
         context: ParentChildContext,
         saved: list[SafetyJobView],
     ) -> SafetyPrompt: ...
+
+
+SafetyCompletion = Callable[[SafetyJob, SafetyPrompt, ChatModelReceipt], Awaitable[SafetyJobView]]
+
+
+class NativeSafetyWorkflow(Protocol):
+    async def captured(self, job: SafetyJob) -> bool: ...
+
+    async def run(self, job: SafetyJob, complete: SafetyCompletion) -> SafetyJobView: ...
 
 
 class ChildSafetyStore(Protocol):

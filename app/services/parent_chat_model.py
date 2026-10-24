@@ -238,6 +238,8 @@ class OpenAIParentChatModel:
                 ):
                     failure_code = "reply_language_mismatch"
                     raise ValueError("The speaker used another presentation language")
+                if any(date not in reply.body for date in prompt.required_observation_dates):
+                    raise ValueError("A source-backed reply must preserve its observation date")
                 if isinstance(reply, ParentTouchEvidenceReply):
                     notice_id = reply.notice_id
                     if notice_id is not None and (

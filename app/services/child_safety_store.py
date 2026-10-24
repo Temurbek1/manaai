@@ -840,6 +840,7 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                 ):
                     raise ParentChatError("safety_job_no_longer_claimed", 409)
                 self._validate_safety_publication(connection, row, self._utc(now))
+                self._validate_safety_completion(connection, row)
                 if row["kind"] == "child_data":
                     if (
                         result.analysis is None
@@ -847,8 +848,9 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                         or result.analysis.request_id != json.loads(row["analysis"])["request_id"]
                     ):
                         raise ParentChatError("safety_result_mismatch", 503)
-                elif result.analysis is not None:
-                    raise ParentChatError("safety_result_mismatch", 503)
+                else:
+                    if result.analysis is not None:
+                        raise ParentChatError("safety_result_mismatch", 503)
                 if result.question_id is not None:
                     raise ParentChatError("safety_question_identity_not_host_owned", 503)
                 saved = result
@@ -877,6 +879,9 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
         self, connection: sqlite3.Connection, row: sqlite3.Row, now: datetime
     ) -> None:
         """Newer captured workflows may fence publication, never verified billing."""
+
+    def _validate_safety_completion(self, connection: sqlite3.Connection, row: sqlite3.Row) -> None:
+        """Optional captured protocols verify their own already-metered completion."""
 
     async def assessments(self, parent_id: str, *, after: int, limit: int) -> SafetyAssessmentPage:
         if after < 0 or not 1 <= limit <= 100:
