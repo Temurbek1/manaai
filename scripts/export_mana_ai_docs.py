@@ -19,7 +19,7 @@ from app.api.routes.mana_conversion import router as conversion_router
 from app.api.routes.mana_family_agents import router as family_agents_router
 from app.api.routes.mana_parent_proactive import router as proactive_router
 from app.api.security import require_bearer_token
-from app.core.openapi import SWAGGER_UI_PARAMETERS
+from app.core.openapi import OPENAPI_TAGS, SWAGGER_UI_PARAMETERS
 
 SWAGGER_UI_VERSION = "5.33.2"
 
@@ -28,6 +28,7 @@ def build_schema() -> dict[str, Any]:
     app = FastAPI(
         title="MANA AI",
         version="0.1.0",
+        openapi_tags=OPENAPI_TAGS,
         description=(
             "Product inference and optional persistent parent chat. "
             "Send application evidence and receive a typed analysis. "
@@ -46,11 +47,11 @@ def build_schema() -> dict[str, Any]:
         tags=["mana-ai"],
         dependencies=[Depends(require_bearer_token)],
     )
-    app.include_router(parent_chat_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
-    app.include_router(family_agents_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
-    app.include_router(child_safety_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
-    app.include_router(conversion_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
-    app.include_router(proactive_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
+    app.include_router(parent_chat_router, prefix="/api/v1/mana-ai")
+    app.include_router(family_agents_router, prefix="/api/v1/mana-ai")
+    app.include_router(child_safety_router, prefix="/api/v1/mana-ai")
+    app.include_router(conversion_router, prefix="/api/v1/mana-ai")
+    app.include_router(proactive_router, prefix="/api/v1/mana-ai")
     schema = app.openapi()
     schema["servers"] = [{"url": "/", "description": "Same-origin production API"}]
     return schema

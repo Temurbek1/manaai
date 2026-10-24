@@ -57,7 +57,10 @@ async def controlled[Result](operation: Awaitable[Result]) -> Result:
 
 
 @router.get(
-    "/agents", response_model=FamilyAgentDirectory, summary="Read family-agent availability"
+    "/agents",
+    response_model=FamilyAgentDirectory,
+    summary="Read family-agent availability",
+    tags=["mana-coordination"],
 )
 async def read_agents(service: ServiceDep) -> FamilyAgentDirectory:
     return service.directory()
@@ -66,6 +69,7 @@ async def read_agents(service: ServiceDep) -> FamilyAgentDirectory:
 @router.get(
     "/parent-touch/chat",
     response_model=ParentTouchHistory,
+    tags=["mana-chat"],
     summary="Read the parent's one chat and exact reply identities",
     description="Backend-only. SQL observation: no source read, model call or question delivery. "
     "message_questions maps visible assistant turns to their frozen question identities. "
@@ -88,6 +92,8 @@ async def read_chat(
     "/parent-touch/chat",
     response_model=ParentTouchResponse,
     summary="Send a parent message to Parent-Touch",
+    tags=["mana-chat-compatibility"],
+    deprecated=True,
     description="Derive parent_id from the authenticated MANA backend session. One chat only. "
     "Reuse the identical request_id/body after transport loss. reply_to_question_id explicitly "
     "binds an answer to one previously displayed question; omitted metadata never answers it. "
@@ -102,6 +108,7 @@ async def send_chat(service: ServiceDep, payload: ParentTouchRequest) -> ParentT
     "/parent-touch/messages",
     response_model=ParentTouchMessageState,
     status_code=202,
+    tags=["mana-chat"],
     summary="Admit one review-first parent message to the single chat",
     description="Backend-only. SQL admission; Child-Safety reviews this exact message before "
     "Parent-Touch communicates its guidance. Reuse the identical UUID/body after HTTP loss. "
@@ -120,6 +127,7 @@ async def admit_message(
     "/parent-touch/messages/{request_id}",
     response_model=ParentTouchMessageState,
     summary="Observe a same-family review-first message without redispatch",
+    tags=["mana-chat"],
 )
 async def read_message(
     service: ServiceDep,
@@ -133,6 +141,7 @@ async def read_message(
     "/parent-touch/deliver",
     response_model=ParentTouchResponse,
     summary="Deliver one queued specialist communication in the same chat",
+    tags=["mana-coordination"],
     description="Explicit backend dispatch, not a GET side effect or push notification. "
     "No fabricated parent message. Requires prior parent text for its frozen language/script, "
     "fresh child ownership and the shared Parent-Touch allowance. Reuse the exact request ID; "
@@ -153,6 +162,7 @@ async def deliver_question(
 @router.get(
     "/parent-touch/requests",
     response_model=AgentQuestionPage,
+    tags=["mana-coordination"],
     summary="Observe same-family specialist requests (backend only)",
 )
 async def read_requests(
@@ -168,6 +178,7 @@ async def read_requests(
     "/parent-touch/requests",
     response_model=AgentQuestionReceipt,
     status_code=201,
+    tags=["mana-coordination"],
     summary="Admit a registered specialist's information need, without sending it",
     description="Trusted backend coordination only; do not expose this producer API to mobile. "
     "Fresh own-child validation precedes a new intent. Durable nonce/body/revision deduplication "

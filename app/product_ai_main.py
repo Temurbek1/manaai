@@ -117,11 +117,11 @@ def create_app() -> FastAPI:
     )
 
     api_router = APIRouter()
-    api_router.include_router(mana_ai_chat.router, prefix="/mana-ai", tags=["mana-ai"])
-    api_router.include_router(mana_family_agents.router, prefix="/mana-ai", tags=["mana-ai"])
-    api_router.include_router(mana_child_safety.router, prefix="/mana-ai", tags=["mana-ai"])
-    api_router.include_router(mana_conversion.router, prefix="/mana-ai", tags=["mana-ai"])
-    api_router.include_router(mana_parent_proactive.router, prefix="/mana-ai", tags=["mana-ai"])
+    api_router.include_router(mana_ai_chat.router, prefix="/mana-ai")
+    api_router.include_router(mana_family_agents.router, prefix="/mana-ai")
+    api_router.include_router(mana_child_safety.router, prefix="/mana-ai")
+    api_router.include_router(mana_conversion.router, prefix="/mana-ai")
+    api_router.include_router(mana_parent_proactive.router, prefix="/mana-ai")
     api_router.include_router(health.router, prefix="/health", tags=["health"])
     api_router.include_router(
         audio_moderation.router,

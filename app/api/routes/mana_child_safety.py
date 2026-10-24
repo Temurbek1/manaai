@@ -41,6 +41,7 @@ from app.mana_ai.domain.requests import ManaAIRequest
 
 router = APIRouter(
     prefix="/child-safety",
+    tags=["mana-child-safety"],
     dependencies=[Depends(require_backend_bearer_token), Depends(no_store)],
 )
 

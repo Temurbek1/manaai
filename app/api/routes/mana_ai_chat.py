@@ -12,7 +12,11 @@ from app.mana_ai.domain.chat import (
     ParentChatResponse,
 )
 
-router = APIRouter(dependencies=[Depends(require_backend_bearer_token)])
+router = APIRouter(
+    dependencies=[Depends(require_backend_bearer_token)],
+    tags=["mana-chat-compatibility"],
+    deprecated=True,
+)
 
 
 def get_parent_chat_service(request: Request) -> ParentChatService:

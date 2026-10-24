@@ -21,6 +21,7 @@ from app.mana_ai.domain.conversion_grants import TrialAcceptance, TrialGrantStat
 
 router = APIRouter(
     prefix="/conversion-agent",
+    tags=["mana-conversion"],
     dependencies=[Depends(require_backend_bearer_token), Depends(no_store)],
 )
 

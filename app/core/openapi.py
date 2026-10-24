@@ -10,6 +10,36 @@ OpenAI model selection remain configurable rather than embedded in domain logic.
 
 OPENAPI_TAGS: list[dict[str, Any]] = [
     {
+        "name": "mana-chat",
+        "description": "Recommended single-chat integration: submit a message, "
+        "observe its status, read history. Child-Safety reviews before Parent-Touch responds.",
+    },
+    {
+        "name": "mana-chat-compatibility",
+        "description": "Existing synchronous contracts retained "
+        "without behavior changes. New integrations should not mix different send protocols.",
+    },
+    {
+        "name": "mana-coordination",
+        "description": "Trusted backend specialist coordination and "
+        "diagnostics, not additional chats or mobile UI operations.",
+    },
+    {
+        "name": "mana-child-safety",
+        "description": "Dated child-data ingestion and saved internal "
+        "assessments. Results reach the same chat through Parent-Touch.",
+    },
+    {
+        "name": "mana-conversion",
+        "description": "Trusted backend account events, offer attribution "
+        "and separately gated non-paid grants. Never model-selected payment tools.",
+    },
+    {
+        "name": "mana-notifications",
+        "description": "Trusted backend contact preferences and saved "
+        "push observations. Provider queueing does not prove delivery.",
+    },
+    {
         "name": "health",
         "description": "Service liveness and readiness probes for orchestration.",
     },

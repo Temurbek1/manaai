@@ -5,12 +5,26 @@ PYTEST := .venv/bin/pytest
 ALEMBIC := .venv/bin/alembic
 REPORT_DELIVERER ?= scripts/deliver_portable_artifact.py
 ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
+CHAT_LAB_PORT ?= 8092
+CHAT_LAB_ENV_FILE ?=
 
 .PHONY: install run up down mana-ai-run mana-ai-docker mana-ai-live-eval admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify product-activity-live-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
 
 install:
 	$(PYTHON) -m pip install -e ".[operation,dev]"
 	cd admin-ui && npm ci
+
+.PHONY: chat-lab chat-lab-live chat-lab-check
+chat-lab:
+	PYTHONPATH=. .venv/bin/uvicorn scripts.mana_chat_lab:create_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+chat-lab-live:
+	PYTHONPATH=. .venv/bin/uvicorn scripts.mana_chat_lab:create_live_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT) $(if $(CHAT_LAB_ENV_FILE),--env-file "$(CHAT_LAB_ENV_FILE)")
+
+chat-lab-check:
+	node --check tools/chat-lab/lab.js
+	node --test tools/chat-lab/lab.test.cjs
+	admin-ui/node_modules/.bin/prettier --check tools/chat-lab
 
 run:
 	.venv/bin/uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
@@ -71,7 +85,7 @@ demo:
 openapi:
 	cd admin-ui && npm run generate:api
 
-verify: format-check admin-format-check lint typecheck test
+verify: format-check admin-format-check lint typecheck test chat-lab-check
 	cd admin-ui && npm run build
 	cd admin-ui && npm audit --audit-level=high
 

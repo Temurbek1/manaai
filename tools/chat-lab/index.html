@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="lab-csrf" content="__LAB_CSRF__" />
+    <title>MANA · Тестовый чат</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/lab-assets/lab.css" />
+    <script src="/lab-assets/lab.js" defer></script>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="MANA, тестовый чат"
+          ><span class="logo">M</span
+          ><span>MANA<small>Тестовый чат</small></span></a
+        >
+        <section class="family">
+          <span class="eyebrow">ТЕСТОВАЯ СЕМЬЯ</span
+          ><strong>Родитель и ребёнок, 8 лет</strong
+          ><span>Один чат · Parent-Touch</span>
+        </section>
+        <section>
+          <h2>Сценарии</h2>
+          <div id="scenarios" class="scenarios"></div>
+        </section>
+        <p class="sandbox-note">
+          Только вымышленные данные.<br />Без Firebase, push и выдачи тарифов.
+        </p>
+        <details id="diagnostics">
+          <summary>Под капотом</summary>
+          <div id="budget"></div>
+          <div id="jobs"></div>
+          <div id="offers"></div>
+          <details>
+            <summary>Ответ API</summary>
+            <pre id="raw-state"></pre>
+          </details>
+        </details>
+        <footer>
+          <span id="mode">Подключение…</span
+          ><a href="/openapi.json" target="_blank" rel="noreferrer">API ↗</a>
+        </footer>
+      </aside>
+      <main>
+        <header class="chat-header">
+          <div class="avatar">M</div>
+          <div>
+            <strong>Parent-Touch</strong
+            ><span>Child-Safety и конверсия — внутри одного чата</span>
+          </div>
+          <button
+            id="refresh"
+            class="icon-button"
+            type="button"
+            aria-label="Обновить историю"
+          >
+            ↻
+          </button>
+        </header>
+        <div id="mode-notice" class="mode-notice" role="status"></div>
+        <section
+          id="messages"
+          class="messages"
+          role="log"
+          aria-label="История переписки"
+          aria-live="polite"
+        >
+          <div class="welcome">
+            <div class="welcome-mark">M</div>
+            <h1>Проверим, как работают агенты</h1>
+            <p>Напишите сообщение или запустите сценарий слева.</p>
+            <button id="sleep-example" type="button">
+              Ребёнок поздно засыпает. Помоги разобраться
+            </button>
+          </div>
+        </section>
+        <div class="composer-wrap">
+          <div id="status" role="status" aria-live="polite"></div>
+          <div id="error" role="alert" hidden></div>
+          <form id="composer">
+            <label class="sr-only" for="message">Сообщение родителя</label
+            ><textarea
+              id="message"
+              rows="2"
+              maxlength="2000"
+              placeholder="Напишите родительскому помощнику…"
+              required
+            ></textarea>
+            <div class="composer-bottom">
+              <span id="reply-label"></span
+              ><button id="send" type="submit" aria-label="Отправить сообщение">
+                ↑
+              </button>
+            </div>
+          </form>
+          <p class="fine-print" id="usage">
+            История и лимиты хранятся только в локальной песочнице.
+          </p>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

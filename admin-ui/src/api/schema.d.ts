@@ -1082,12 +1082,14 @@ export interface paths {
         };
         /**
          * Read the parent's single chat and current daily allowance
+         * @deprecated
          * @description Backend-to-backend only. Derive parent_id from the authenticated app session; never accept another parent's ID from the mobile client. No source or model calls. Messages are chronological within the latest page. Page backwards with next_before_turn_id; limit counts turns, not messages.
          */
         get: operations["read_parent_chat_api_v1_mana_ai_chat_get"];
         put?: never;
         /**
          * Send a message in the parent's single persistent chat
+         * @deprecated
          * @description Backend-to-backend only, using the profile/Firebase parent ID (not Firebase Auth UID). The backend authenticates the parent and derives this ID from its session. Replies use the latest message's language. request_id is mandatory: reuse it with the identical body after transport loss; never generate a new ID to retry inference. Daily quota counts all input and output tokens, including bounded history/context. Unknown dispatched costs remain reserved, even across daily rollover. Fresh MANA child profile context is ownership-filtered, with no collection scans. Optional minimized child_observations come only from the authenticated backend; every child must still be connected to this parent in the fresh profile read. Observations must include their actual time/usage period, not collection time.
          */
         post: operations["send_parent_chat_api_v1_mana_ai_chat_post"];
@@ -1652,6 +1654,7 @@ export interface paths {
         put?: never;
         /**
          * Send a parent message to Parent-Touch
+         * @deprecated
          * @description Derive parent_id from the authenticated MANA backend session. One chat only. Reuse the identical request_id/body after transport loss. reply_to_question_id explicitly binds an answer to one previously displayed question; omitted metadata never answers it. A replay preserves the original asked_question, not the current active question. The existing /chat shares this service, history and 2000-token default allowance.
          */
         post: operations["send_chat_api_v1_mana_ai_parent_touch_chat_post"];

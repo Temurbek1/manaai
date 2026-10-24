@@ -23011,7 +23011,7 @@
         ],
         "summary": "Read family-agent availability",
         "tags": [
-          "mana-ai"
+          "mana-coordination"
         ]
       }
     },
@@ -23200,6 +23200,7 @@
     },
     "/api/v1/mana-ai/chat": {
       "get": {
+        "deprecated": true,
         "description": "Backend-to-backend only. Derive parent_id from the authenticated app session; never accept another parent's ID from the mobile client. No source or model calls. Messages are chronological within the latest page. Page backwards with next_before_turn_id; limit counts turns, not messages.",
         "operationId": "read_parent_chat_api_v1_mana_ai_chat_get",
         "parameters": [
@@ -23272,10 +23273,11 @@
         ],
         "summary": "Read the parent's single chat and current daily allowance",
         "tags": [
-          "mana-ai"
+          "mana-chat-compatibility"
         ]
       },
       "post": {
+        "deprecated": true,
         "description": "Backend-to-backend only, using the profile/Firebase parent ID (not Firebase Auth UID). The backend authenticates the parent and derives this ID from its session. Replies use the latest message's language. request_id is mandatory: reuse it with the identical body after transport loss; never generate a new ID to retry inference. Daily quota counts all input and output tokens, including bounded history/context. Unknown dispatched costs remain reserved, even across daily rollover. Fresh MANA child profile context is ownership-filtered, with no collection scans. Optional minimized child_observations come only from the authenticated backend; every child must still be connected to this parent in the fresh profile read. Observations must include their actual time/usage period, not collection time.",
         "operationId": "send_parent_chat_api_v1_mana_ai_chat_post",
         "requestBody": {
@@ -23347,7 +23349,7 @@
         ],
         "summary": "Send a message in the parent's single persistent chat",
         "tags": [
-          "mana-ai"
+          "mana-chat-compatibility"
         ]
       }
     },
@@ -23463,7 +23465,7 @@
         ],
         "summary": "Screen Time",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23510,7 +23512,7 @@
         ],
         "summary": "Gaming",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23581,7 +23583,7 @@
         ],
         "summary": "Page same-family safety jobs (SQL only)",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23639,7 +23641,7 @@
         ],
         "summary": "Observe one same-family assessment",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23686,7 +23688,7 @@
         ],
         "summary": "Behaviour",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23734,7 +23736,7 @@
         ],
         "summary": "Read safety tokens independently of chat quota",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23781,7 +23783,7 @@
         ],
         "summary": "Assistant",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23828,7 +23830,7 @@
         ],
         "summary": "Agreement",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23875,7 +23877,7 @@
         ],
         "summary": "Family Digest",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23922,7 +23924,7 @@
         ],
         "summary": "Location",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -23969,7 +23971,7 @@
         ],
         "summary": "Safety Monitor",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -24016,7 +24018,7 @@
         ],
         "summary": "Scam",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -24063,7 +24065,7 @@
         ],
         "summary": "Content",
         "tags": [
-          "mana-ai"
+          "mana-child-safety"
         ]
       }
     },
@@ -24110,7 +24112,7 @@
         ],
         "summary": "Observe verified adult-account subscription and activity facts",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24157,7 +24159,7 @@
         ],
         "summary": "Record an explicit parent reaction or verified payment receipt",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24228,7 +24230,7 @@
         ],
         "summary": "Observe a parent's conversion history",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24286,7 +24288,7 @@
         ],
         "summary": "Observe one same-family offer",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24345,7 +24347,7 @@
         ],
         "summary": "Observe one durable account-source read without dispatch",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24392,7 +24394,7 @@
         ],
         "summary": "Accept one non-paid Maxsus tariff offer after explicit parent consent",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24440,7 +24442,7 @@
         ],
         "summary": "Observe a parent's non-paid grant without provider calls or retry",
         "tags": [
-          "mana-ai"
+          "mana-conversion"
         ]
       }
     },
@@ -24829,10 +24831,11 @@
         ],
         "summary": "Read the parent's one chat and exact reply identities",
         "tags": [
-          "mana-ai"
+          "mana-chat"
         ]
       },
       "post": {
+        "deprecated": true,
         "description": "Derive parent_id from the authenticated MANA backend session. One chat only. Reuse the identical request_id/body after transport loss. reply_to_question_id explicitly binds an answer to one previously displayed question; omitted metadata never answers it. A replay preserves the original asked_question, not the current active question. The existing /chat shares this service, history and 2000-token default allowance.",
         "operationId": "send_chat_api_v1_mana_ai_parent_touch_chat_post",
         "requestBody": {
@@ -24874,7 +24877,7 @@
         ],
         "summary": "Send a parent message to Parent-Touch",
         "tags": [
-          "mana-ai"
+          "mana-chat-compatibility"
         ]
       }
     },
@@ -24922,7 +24925,7 @@
         ],
         "summary": "Read Contact",
         "tags": [
-          "mana-ai"
+          "mana-notifications"
         ]
       },
       "post": {
@@ -24967,7 +24970,7 @@
         ],
         "summary": "Register verified recipient language and separate contact permissions",
         "tags": [
-          "mana-ai"
+          "mana-notifications"
         ]
       }
     },
@@ -25014,7 +25017,7 @@
         ],
         "summary": "Deliver one queued specialist communication in the same chat",
         "tags": [
-          "mana-ai"
+          "mana-coordination"
         ]
       }
     },
@@ -25061,7 +25064,7 @@
         ],
         "summary": "Admit one review-first parent message to the single chat",
         "tags": [
-          "mana-ai"
+          "mana-chat"
         ]
       }
     },
@@ -25119,7 +25122,7 @@
         ],
         "summary": "Observe a same-family review-first message without redispatch",
         "tags": [
-          "mana-ai"
+          "mana-chat"
         ]
       }
     },
@@ -25191,7 +25194,7 @@
         ],
         "summary": "Observe same-parent pushes attached to already saved chat messages",
         "tags": [
-          "mana-ai"
+          "mana-notifications"
         ]
       }
     },
@@ -25249,7 +25252,7 @@
         ],
         "summary": "Read Notification",
         "tags": [
-          "mana-ai"
+          "mana-notifications"
         ]
       }
     },
@@ -25326,7 +25329,7 @@
         ],
         "summary": "Observe same-family specialist requests (backend only)",
         "tags": [
-          "mana-ai"
+          "mana-coordination"
         ]
       },
       "post": {
@@ -25371,7 +25374,7 @@
         ],
         "summary": "Admit a registered specialist's information need, without sending it",
         "tags": [
-          "mana-ai"
+          "mana-coordination"
         ]
       }
     },
@@ -26372,6 +26375,30 @@
     }
   },
   "tags": [
+    {
+      "description": "Recommended single-chat integration: submit a message, observe its status, read history. Child-Safety reviews before Parent-Touch responds.",
+      "name": "mana-chat"
+    },
+    {
+      "description": "Existing synchronous contracts retained without behavior changes. New integrations should not mix different send protocols.",
+      "name": "mana-chat-compatibility"
+    },
+    {
+      "description": "Trusted backend specialist coordination and diagnostics, not additional chats or mobile UI operations.",
+      "name": "mana-coordination"
+    },
+    {
+      "description": "Dated child-data ingestion and saved internal assessments. Results reach the same chat through Parent-Touch.",
+      "name": "mana-child-safety"
+    },
+    {
+      "description": "Trusted backend account events, offer attribution and separately gated non-paid grants. Never model-selected payment tools.",
+      "name": "mana-conversion"
+    },
+    {
+      "description": "Trusted backend contact preferences and saved push observations. Provider queueing does not prove delivery.",
+      "name": "mana-notifications"
+    },
     {
       "description": "Service liveness and readiness probes for orchestration.",
       "name": "health"

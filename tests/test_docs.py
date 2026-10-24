@@ -34,6 +34,12 @@ async def test_swagger_docs_enabled_outside_production(
         "audio-moderation",
         "health",
         "mana-ai",
+        "mana-chat",
+        "mana-chat-compatibility",
+        "mana-child-safety",
+        "mana-conversion",
+        "mana-coordination",
+        "mana-notifications",
         "marketing",
         "operation-admin",
     }

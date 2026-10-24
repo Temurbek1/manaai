@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- The 2026-10-24 single-chat lab is local-only: `make chat-lab` uses simulated
+  models, the actual family application/SQL worker and one fictional family.
+  The explicit `chat-lab-live` mode permits configured paid models only; it still
+  has no live family sources, grant or push adapter. Preserve its separate mode
+  markers, durable token/unknown holds, loopback/session/CSRF checks and original
+  request observation after lost HTTP acknowledgements. Never mount the lab on
+  the product app or publish it through a production ingress. Read
+  `docs/mana-chat-lab.md` and its checkpoint before extending it. Swagger grouping
+  and compatibility deprecation do not remove any public route or change its
+  authorization. The three recommended operations are message admission, message
+  status and single history; specialist ingestion is backend-only, not more chats.
+
 - The owner clarified the testing restriction on 2026-10-23: free tariffs may be
   granted only to explicitly designated test accounts, never ordinary customers.
   Keep `MANA_CONVERSION_TRIAL_GRANTS_ENABLED=false` by default; enabling conversion

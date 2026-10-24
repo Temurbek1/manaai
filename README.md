@@ -11,6 +11,19 @@ Start with the one you need:
 - **[README.operation-ai.md](README.operation-ai.md)** — MANA OPERATION AI, the internal admin
   platform with agents, Meta Ads analysis, and the browser panel.
 
+## Single-chat testing
+
+Run `make chat-lab` and open <http://127.0.0.1:8092> for the isolated Parent-Touch /
+Child-Safety / conversion test chat. Default responses are simulated; the real
+application services and private SQLite history are used with fictional family
+data. No production sources, push notifications or tariff grants are connected.
+[The lab guide](docs/mana-chat-lab.md) explains scenarios and explicit paid-model
+opt-in. The lab is local only and is not mounted on the production API.
+
+New chat integrations need only three operations: submit a review-first message,
+observe that message's status, and read the single history. Backend ingestion and
+coordination routes remain separate; old synchronous routes remain compatible.
+
 ## The separation
 
 This is the most important thing to understand before touching the code. The two products have

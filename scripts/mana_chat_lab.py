@@ -1,0 +1,146 @@
+"""Loopback-only single-chat lab; default simulation, optional paid-model factory.
+
+Run: .venv/bin/uvicorn scripts.mana_chat_lab:create_app --factory --host 127.0.0.1 --port 8092
+The separate create_live_app factory uses configured models, fictional sources
+and the same durable 2000-token limits. Neither factory can send push or grants.
+"""
+
+import ipaddress
+import secrets
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Literal
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.responses import Response
+
+from app.api.routes import mana_child_safety, mana_conversion, mana_family_agents
+from app.api.security import require_backend_bearer_token
+from app.core.openapi import OPENAPI_TAGS
+from app.core.request_body_limit import RequestBodyLimitMiddleware
+from app.core.validation_errors import sanitized_request_validation_handler
+from app.services.mana_chat_lab import (
+    LAB_CHILD,
+    LAB_PARENT,
+    ChatLab,
+    LabBootstrap,
+    LabOptions,
+    LabState,
+)
+
+
+def create_app(*, options: LabOptions | None = None) -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    selected = options or LabOptions(root / "data/chat-lab/simulation")
+    assets = root / "tools/chat-lab"
+    lab = ChatLab(selected)
+    cookie, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+
+    async def local_session(request: Request) -> None:
+        if not secrets.compare_digest(request.cookies.get("mana_chat_lab", ""), cookie):
+            raise HTTPException(401, detail={"code": "lab_session_required"})
+        if request.method not in {"GET", "HEAD"}:
+            origin = request.headers.get("origin")
+            expected = f"{request.url.scheme}://{request.headers.get('host', '')}"
+            if origin != expected or not secrets.compare_digest(
+                request.headers.get("x-lab-csrf", ""), csrf
+            ):
+                raise HTTPException(403, detail={"code": "lab_csrf_failed"})
+            if request.url.path.endswith("/parent-touch/chat"):
+                raise HTTPException(409, detail={"code": "lab_use_review_first_messages"})
+            try:
+                body = await request.json()
+            except ValueError:
+                raise HTTPException(422, detail={"code": "lab_json_required"}) from None
+            if not isinstance(body, dict) or body.get("parent_id") != LAB_PARENT:
+                raise HTTPException(403, detail={"code": "lab_family_not_allowed"})
+            if body.get("child_id", LAB_CHILD) != LAB_CHILD:
+                raise HTTPException(403, detail={"code": "lab_child_not_allowed"})
+        parent = request.query_params.get("parent_id")
+        if parent is not None and parent != LAB_PARENT:
+            raise HTTPException(403, detail={"code": "lab_family_not_allowed"})
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        try:
+            await lab.start()
+            app.state.parent_chat_service = lab.touch
+            yield
+        finally:
+            await lab.close()
+
+    app = FastAPI(
+        title="MANA fictional chat lab",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_tags=OPENAPI_TAGS,
+    )
+    app.state.chat_lab = lab
+    app.dependency_overrides[require_backend_bearer_token] = local_session
+    app.add_exception_handler(RequestValidationError, sanitized_request_validation_handler)
+    app.add_middleware(RequestBodyLimitMiddleware, max_body_bytes=32768)
+
+    @app.middleware("http")
+    async def loopback_and_private(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        try:
+            local = (
+                request.client is not None and ipaddress.ip_address(request.client.host).is_loopback
+            )
+        except ValueError:
+            local = False
+        if not local:
+            return JSONResponse({"detail": {"code": "lab_loopback_only"}}, status_code=403)
+        response = await call_next(request)
+        response.headers.update(
+            {
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "Content-Security-Policy": (
+                    "default-src 'self'; script-src 'self'; style-src 'self'; "
+                    "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
+                    "base-uri 'none'; form-action 'self'"
+                ),
+            }
+        )
+        return response
+
+    app.add_middleware(
+        TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]"], www_redirect=False
+    )
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def page() -> HTMLResponse:
+        response = HTMLResponse((assets / "index.html").read_text().replace("__LAB_CSRF__", csrf))
+        response.set_cookie("mana_chat_lab", cookie, httponly=True, samesite="strict", path="/")
+        return response
+
+    @app.get("/lab-assets/{name}", include_in_schema=False)
+    async def asset(name: Literal["lab.js", "lab.css"]) -> FileResponse:
+        return FileResponse(assets / name)
+
+    @app.get("/lab/bootstrap", response_model=LabBootstrap, dependencies=[Depends(local_session)])
+    async def bootstrap() -> LabBootstrap:
+        return lab.bootstrap()
+
+    @app.get("/lab/state", response_model=LabState, dependencies=[Depends(local_session)])
+    async def state() -> LabState:
+        return await lab.state()
+
+    for router in (mana_family_agents.router, mana_child_safety.router, mana_conversion.router):
+        app.include_router(router, prefix="/api/v1/mana-ai")
+    return app
+
+
+def create_live_app() -> FastAPI:
+    """Explicit paid inference opt-in; no live family/data/write adapter is enabled."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(options=LabOptions(root / "data/chat-lab/real-model", real_model=True))

@@ -15,7 +15,10 @@ from app.mana_ai.domain.proactive_parent import (
     ParentPushState,
 )
 
-router = APIRouter(dependencies=[Depends(require_backend_bearer_token), Depends(no_store)])
+router = APIRouter(
+    tags=["mana-notifications"],
+    dependencies=[Depends(require_backend_bearer_token), Depends(no_store)],
+)
 
 
 def get_proactive(service: ServiceDep) -> ProactiveParentService:
