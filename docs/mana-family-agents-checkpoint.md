@@ -2,6 +2,63 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Shared 09:00 / 15:00 family collection — 2026-10-25, `53e30be`
+
+Authoritative implementation remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`. Read the new
+[collection checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-collection.md)
+and English integration section 14. The local server can discover canonical MANA
+families even without a chat and acquire registered battery/app-counter facts
+through the existing shared cache, fresh ownership checks and source meters.
+The independent worker uses named 09:00/15:00 Asia/Tashkent windows, finite plans,
+durable pre-I/O claims, carried unsubmitted backlog and immutable qualified
+manifests. Missed slots are not backfilled; unknown reads never redispatch.
+
+New private collection schema 1 is separate from unchanged family v12/source v3.
+`MANA_FAMILY_COLLECTION_ENABLED` remains default false; no production schedule,
+source, inference budget or customer-contact permission is activated. Existing
+battery changes can flow through Child-Safety to the sole speaker Parent-Touch;
+general app-change analysis/coalescing and GA4/administrative bridging remain open.
+
+One actual inventory adapter read (`limit=1&offset=0`) used exactly two MANA HTTP
+attempts: login and Parent List GET. It reported **219,873 parents**, with seven
+connected child links on that single page. No child/Firebase/model/contact/grant
+request occurred. This is not a fleet child-count estimate or complete coverage.
+At page size 25 the count needs 8,795 pages/traversal; current 100 pages/window,
+50 source targets/window and shared 100 source admissions/day cannot serve the
+whole fleet twice daily. Limits were not raised or the objective narrowed.
+The offline Decimal calculator separates full required demand from configured
+ceilings, explicit input prices and unpriced API/inference/other-account costs.
+
+Final `make verify` **20809**, terminal **0**: **1,211 backend /26 admin /7 lab
+controller tests**, mypy **348 files**, lint/types/build and zero npm vulnerabilities.
+Subsequent helper-only static scans passed **351 files**; secret scan passed
+**780 files**. The first complete gate had one lab publication/history read-order
+race; its negative log remains. The corrected projection and subsequent full gate
+passed without retrying paid diagnostics or changing a tariff.
+
+Packaged final image `4f0f92c52c60` passed networkless two-window/reconstruction
+checks, preserving every table fingerprint. Existing model **150 known /1,850
+unknown held tokens**, unknown source and new unknown inventory claims survived
+closed/current reconstruction. Actual previous `c2bc5654cb9d` can still observe the
+family/source history while leaving collection untouched; this is narrow reader
+compatibility, not exercised production rollback or permission to downgrade SQL.
+
+Owned loopback browser verified assistant-first low-charge contact with zero parent
+messages, no second-window duplicate analysis/message, and an Uzbek app question
+answered through the shared cache. It recorded four fictional provider reads plus
+one cache hit, 450 simulated safety /300 speaker tokens. Restart/reload and explicit
+morning-button replay retained the same three chat messages/window IDs/costs and
+performed no new source reads. Desktop/390px screenshots were inspected; owned
+browser/server are closed. No new real model inference was made this increment.
+
+The complete goal remains active. Further telemetry/GA4, source-change analysis
+coalescing, reminders, remaining specialists/owning actions, broader real E2E,
+fleet capacity and separately approved production rollout remain unfinished.
+Production, SSH, keys and unrelated root code are unchanged; the tracked-diff
+fingerprint excluding owned handoffs remains
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
 ### Native app-counter source — 2026-10-25, `5b9a6d4`
 
 Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
