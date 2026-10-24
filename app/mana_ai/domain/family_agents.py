@@ -182,6 +182,9 @@ class FamilyNotice(ChatContract):
     kind: Literal["assessment", "urgent"]
     assessment: ParentTouchAssessment
     expires_at: AwareDatetime
+    source_observations: tuple[ChildBatteryFacts | ChildAppUsageFacts, ...] = Field(
+        default=(), max_length=2, exclude_if=lambda v: not v
+    )
 
 
 class ParentTouchEvidence(ChatContract):

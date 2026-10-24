@@ -13,6 +13,7 @@ from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
+from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.services.child_safety_model import OpenAIChildSafetyModel
@@ -52,6 +53,11 @@ from app.services.reviewed_message_store import (
     SqliteClosedReviewedBrokerStore,
     SqliteReviewedMessageStore,
 )
+from app.services.source_review_cache import SqliteSourceReviewCache
+from app.services.source_review_safety_store import (
+    SqliteClosedSourceReviewSafetyStore,
+    SqliteSourceReviewSafetyStore,
+)
 from app.services.source_tool_prompts import SourceToolPromptBuilder
 from app.services.source_tool_safety_store import (
     SqliteClosedObservationToolSafetyStore,
@@ -73,15 +79,25 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         "max_attempts": settings.mana_parent_chat_max_attempts_per_day,
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
+    if (
+        version == 13
+        and settings.mana_child_safety_source_tools_enabled
+        and not (settings.mana_family_source_reviews_enabled)
+    ):
+        raise RuntimeError("V13 execution requires its captured source-review runtime")
     reviewed: ReviewedMessageStore | None = None
     if settings.mana_child_safety_source_tools_enabled:
         assert settings.mana_child_safety_limits is not None
         if version == 12 and not settings.mana_family_app_usage_enabled:
             raise RuntimeError("V12 safety execution requires its captured observation runtime")
         native_class = (
-            SqliteObservationToolSafetyStore
-            if settings.mana_family_app_usage_enabled
-            else SqliteSourceToolSafetyStore
+            SqliteSourceReviewSafetyStore
+            if settings.mana_family_source_reviews_enabled
+            else (
+                SqliteObservationToolSafetyStore
+                if settings.mana_family_app_usage_enabled
+                else SqliteSourceToolSafetyStore
+            )
         )
         native_store = native_class(
             settings.mana_parent_chat_database_path,
@@ -106,13 +122,17 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12}:
+    elif version in {11, 12, 13}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedObservationToolSafetyStore
-            if version == 12
-            else SqliteClosedSourceToolSafetyStore
+            SqliteClosedSourceReviewSafetyStore
+            if version == 13
+            else (
+                SqliteClosedObservationToolSafetyStore
+                if version == 12
+                else SqliteClosedSourceToolSafetyStore
+            )
         )
         closed_native = closed_class(
             settings.mana_parent_chat_database_path,
@@ -459,6 +479,17 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         service,
                         clock=lambda: datetime.now(UTC),
                         interval=settings.mana_child_safety_poll_seconds,
+                        source_reviews=SourceReviewService(
+                            sources.store,
+                            store,
+                            children,
+                            clock=lambda: datetime.now(UTC),
+                            available=lambda: safety.worker_available,
+                        )
+                        if sources
+                        and isinstance(sources.store, SqliteSourceReviewCache)
+                        and isinstance(store, SqliteSourceReviewSafetyStore)
+                        else None,
                         source_safety=(
                             SourceSafetyService(
                                 sources.store,

@@ -1,7 +1,10 @@
 """Isolated fictional-family lab; never imports a live data or write adapter."""
 
+import asyncio
 import json
 import os
+import sqlite3
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -23,6 +26,7 @@ from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.proactive_parent import ProactiveParentService
+from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext
@@ -32,6 +36,7 @@ from app.mana_ai.domain.child_safety import (
     SafetyBudget,
     SafetyInformationNeed,
     SafetyModelDecision,
+    SafetySourceReviewDecision,
 )
 from app.mana_ai.domain.conversion import (
     ConversionPolicy,
@@ -52,6 +57,7 @@ from app.mana_ai.domain.family_sources import (
 )
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
+from app.mana_ai.domain.source_reviews import SourceReviewPolicy, SourceReviewWork
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
@@ -63,6 +69,8 @@ from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
+from app.services.source_review_cache import SqliteSourceReviewCache
+from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
 from app.services.source_safety_store import SqliteSourceSafetyStore
 from app.services.source_tool_prompts import SourceToolPromptBuilder
 from app.services.source_tool_safety_store import (
@@ -171,8 +179,19 @@ class SimulatedModel:
     async def respond(self, prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
         question_id = notice_id = None
         if self.role == "safety":
+            decision: SafetyModelDecision | SafetySourceReviewDecision
             data = json.loads(prompt.messages[0][1])
-            if data["kind"] == "parent_message":
+            if data["kind"] == "source_review":
+                decision = SafetySourceReviewDecision(
+                    analysis=None,
+                    followup_summary=(
+                        "Снимки батареи и приложений получены; период счётчиков "
+                        "и текущее подключение неизвестны. Проверьте заряд телефона."
+                    ),
+                    question=None,
+                    notify_parent=True,
+                )
+            elif data["kind"] == "parent_message":
                 chat_text = " ".join(item["content"] for item in data["chat"]).casefold()
                 wants_sleep = any(
                     word in chat_text for word in ("сон", "спит", "уснуть", "uyqu", "uxla", "sleep")
@@ -282,6 +301,15 @@ class SimulatedModel:
                     )
                 )
                 notice_id = prompt.notice.notice_id
+                if prompt.notice.source_observations:
+                    answer = (
+                        "Qurilma yozuvlari bor. Ilova hisoblagichlarining davri va vaqt zonasi "
+                        "noma’lum; bu kunlik ekran vaqti emas. Telefon quvvatini tekshiring."
+                        if uzbek
+                        else "Есть снимки данных устройства. Период счётчиков приложений "
+                        "и часовой пояс неизвестны; это не экранное время за день. "
+                        "Проверьте заряд телефона."
+                    )
             else:
                 guidance = json.loads(prompt.messages[0][1]).get("specialist_guidance", {})
                 sources = guidance.get("source_observations", [])
@@ -355,6 +383,7 @@ class LabState(BaseModel):
     source_changes: list[FamilySourceChange]
     source_dispatches: list[SourceSafetyReceipt]
     collection_windows: list[FamilyCollectionWindow] = []
+    source_reviews: list[SourceReviewWork] = []
 
 
 @dataclass(frozen=True)
@@ -366,12 +395,17 @@ class LabOptions:
     native_sources: bool = False
     native_observations: bool = False
     scheduled_collection: bool = False
+    source_reviews: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
         if options.native_observations and not options.native_sources:
             raise ValueError("Observation lab requires the native workflow")
+        if options.source_reviews and (
+            not options.native_observations or options.scheduled_collection
+        ):
+            raise ValueError("Source-review lab requires native observations and its own directory")
         if options.scheduled_collection and (
             options.real_model
             or not options.native_observations
@@ -407,6 +441,8 @@ class ChatLab:
             expected["native_observations"] = True
         if self.options.scheduled_collection:
             expected["scheduled_collection"] = True
+        if self.options.source_reviews:
+            expected["source_reviews"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -481,9 +517,13 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteObservationToolSafetyStore
-                if self.options.native_observations
-                else SqliteSourceToolSafetyStore
+                SqliteSourceReviewSafetyStore
+                if self.options.source_reviews
+                else (
+                    SqliteObservationToolSafetyStore
+                    if self.options.native_observations
+                    else SqliteSourceToolSafetyStore
+                )
             )
             self.store = native_store_class(
                 directory / "family.sqlite3",
@@ -519,12 +559,23 @@ class ChatLab:
             if self.options.native_observations
             else SqliteSourceSafetyStore
         )
-        self.source_store = source_class(
-            directory / "sources.sqlite3",
-            binding="fake-lab-mana-battery-v1",
-            limits=FamilySourceLimits(),
-            policy=policy,
-            enabled=True,
+        self.source_store = (
+            SqliteSourceReviewCache(
+                directory / "sources.sqlite3",
+                binding="fake-lab-mana-battery-v1",
+                limits=FamilySourceLimits(),
+                policy=policy,
+                enabled=True,
+                review_policy=SourceReviewPolicy(),
+            )
+            if self.options.source_reviews
+            else source_class(
+                directory / "sources.sqlite3",
+                binding="fake-lab-mana-battery-v1",
+                limits=FamilySourceLimits(),
+                policy=policy,
+                enabled=True,
+            )
         )
         await self.source_store.initialize()
         self.battery = LabBatterySource(directory, self.options.clock)
@@ -610,6 +661,16 @@ class ChatLab:
             clock=self.options.clock.now,
             interval=0.25,
             source_safety=self.source_safety,
+            source_reviews=SourceReviewService(
+                self.source_store,
+                self.store,
+                profiles,
+                clock=self.options.clock.now,
+                available=lambda: self.safety.worker_available,
+            )
+            if isinstance(self.source_store, SqliteSourceReviewCache)
+            and isinstance(self.store, SqliteSourceReviewSafetyStore)
+            else None,
         )
         if self.options.worker_enabled:
             self._worker.start()
@@ -621,6 +682,19 @@ class ChatLab:
             await model.close()
 
     async def state(self) -> LabState:
+        # Keep this composite debug projection coherent across worker commits.
+        # A single observer connection detects changes while async repositories
+        # read their own transactions. Observation retries never call providers.
+        with closing(sqlite3.connect(self.options.directory / "family.sqlite3")) as observer:
+            for _ in range(5):
+                version = observer.execute("PRAGMA data_version").fetchone()[0]
+                result = await self._state_once()
+                if observer.execute("PRAGMA data_version").fetchone()[0] == version:
+                    return result
+                await asyncio.sleep(0)
+        raise ParentChatError("lab_state_busy", 409)
+
+    async def _state_once(self) -> LabState:
         assert self.touch.conversion is not None
         # These are separate SQL observations. Read publication statuses before
         # history so a newly published proposal cannot refer to an older empty
@@ -640,6 +714,9 @@ class ChatLab:
             source_changes=changes,
             source_dispatches=dispatches,
             collection_windows=windows,
+            source_reviews=await self.source_store.reviews(LAB_PARENT)
+            if isinstance(self.source_store, SqliteSourceReviewCache)
+            else [],
         )
 
     def bootstrap(self) -> LabBootstrap:
@@ -680,6 +757,24 @@ class ChatLab:
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="source-apps",
+                            title="Приложения (тестовый источник)",
+                            path="/lab/child-observation",
+                            local=True,
+                            body={
+                                "parent_id": LAB_PARENT,
+                                "child_id": LAB_CHILD,
+                                "request_id": str(uuid4()),
+                                "source": "manakids.child_app_usage.v1",
+                            },
+                        )
+                    ]
+                    if self.options.native_observations
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

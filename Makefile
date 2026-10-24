@@ -15,6 +15,13 @@ install:
 	cd admin-ui && npm ci
 
 .PHONY: chat-lab chat-lab-live chat-lab-native chat-lab-native-live chat-lab-observations chat-lab-observations-live chat-lab-collection chat-lab-check
+.PHONY: chat-lab-source-reviews chat-lab-source-reviews-live
+chat-lab-source-reviews:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_source_review_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+chat-lab-source-reviews-live:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_source_review_live_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT) $(if $(CHAT_LAB_ENV_FILE),--env-file "$(CHAT_LAB_ENV_FILE)")
+
 chat-lab-collection:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_collection_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 

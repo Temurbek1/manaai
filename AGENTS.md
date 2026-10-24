@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The subsequent local source-review increment uses family v13/source-cache v4.
+  `MANA_FAMILY_SOURCE_REVIEWS_ENABLED` stays default off. New admitted battery/app
+  changes coalesce into one immutable qualified snapshot review through the same
+  2000-token global Child-Safety meter; Parent-Touch remains the sole speaker.
+  Native read attribution suppresses duplicate background work without changing
+  original tool scope/pairing. Preparing claims expire to unknown, never retry;
+  invalid/unknown model usage stays accounted. Ordinary source-review pushes
+  wait for existing quiet hours before a send claim. Preserve all old history,
+  source captures and unknown holds; no historical recapture or schema downgrade.
+  Read `docs/mana-source-reviews.md`. The single real ten-counter synthetic party
+  is narrow evidence, including an awkward RU phrase and an offline correction
+  for its actual GPT-5.4 speaker price; do not rerun or relabel it a broad pass.
+  Current packaged closed readers retain v13/v4; actual previous v12/v3 image
+  refuses them unchanged and is not a working fallback. No deployment or budget
+  increase is implied. Fleet/GA4/remaining specialists/full-goal acceptance stays open.
+
 - The subsequent local collector discovers canonical MANA families and acquires
   registered battery/app-counter facts at 09:00/15:00 Asia/Tashkent through the
   existing shared source meters/cache. `MANA_FAMILY_COLLECTION_ENABLED` stays

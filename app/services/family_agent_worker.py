@@ -7,6 +7,7 @@ from datetime import datetime
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.parent_touch import ParentTouchService
+from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 
 
@@ -21,9 +22,11 @@ class FamilyAgentWorker:
         clock: Callable[[], datetime],
         interval: float = 1,
         source_safety: SourceSafetyService | None = None,
+        source_reviews: SourceReviewService | None = None,
     ) -> None:
         self._safety, self._touch, self._clock, self._interval = safety, touch, clock, interval
         self._source_safety = source_safety
+        self._source_reviews = source_reviews
         self._stop = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
         self._logger = logging.getLogger(__name__)
@@ -45,6 +48,8 @@ class FamilyAgentWorker:
             while not self._stop.is_set():
                 if self._source_safety is not None:
                     await self._source_safety.process_one()
+                if self._source_reviews is not None:
+                    await self._source_reviews.process_one()
                 processed = await self._safety.process_one()
                 await self._touch.process_reviewed_message()
                 delivery = await self._safety.store.next_delivery(self._clock())

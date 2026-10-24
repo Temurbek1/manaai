@@ -18,6 +18,7 @@ from app.services.firestore_child_battery import FirestoreChildBatterySource
 from app.services.manakids_child_usage import ManakidsChildUsageSource, ManakidsReadToken
 from app.services.manakids_family_inventory import ManakidsFamilyInventory
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
+from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_safety_store import SqliteSourceSafetyStore
 
 
@@ -61,15 +62,29 @@ async def family_source_runtime(
         if settings.mana_family_app_usage_enabled
         else SqliteSourceSafetyStore
     )
-    store = store_class(
-        settings.mana_family_source_database_path,
-        binding=(
-            f"mana:firebase:{settings.firebase_project_id}:"
-            f"{settings.firebase_database_id}:child-battery-v1"
-        ),
-        limits=settings.mana_family_source_limits,
-        policy=policy,
-        enabled=settings.mana_family_source_safety_enabled,
+    store = (
+        SqliteSourceReviewCache(
+            settings.mana_family_source_database_path,
+            binding=(
+                f"mana:firebase:{settings.firebase_project_id}:"
+                f"{settings.firebase_database_id}:child-battery-v1"
+            ),
+            limits=settings.mana_family_source_limits,
+            policy=policy,
+            enabled=settings.mana_family_source_safety_enabled,
+            review_policy=settings.mana_family_source_review_policy,
+        )
+        if settings.mana_family_source_reviews_enabled
+        else store_class(
+            settings.mana_family_source_database_path,
+            binding=(
+                f"mana:firebase:{settings.firebase_project_id}:"
+                f"{settings.firebase_database_id}:child-battery-v1"
+            ),
+            limits=settings.mana_family_source_limits,
+            policy=policy,
+            enabled=settings.mana_family_source_safety_enabled,
+        )
     )
     await store.initialize()
     source = FirestoreChildBatterySource(

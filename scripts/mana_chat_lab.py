@@ -154,6 +154,14 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
         return await mana_family_agents.controlled(lab.sources.read_child_battery(payload))
 
     @app.post(
+        "/lab/child-observation",
+        response_model=FamilySourceReceipt,
+        dependencies=[Depends(local_session)],
+    )
+    async def child_observation(payload: FamilySourceTarget) -> FamilySourceReceipt:
+        return await mana_family_agents.controlled(lab.sources.read(payload))
+
+    @app.post(
         "/lab/collection",
         response_model=FamilyCollectionWindow,
         dependencies=[Depends(local_session)],
@@ -222,5 +230,30 @@ def create_collection_app() -> FastAPI:
             native_observations=True,
             scheduled_collection=True,
             clock=LabCollectionClock(),
+        )
+    )
+
+
+def create_source_review_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/source-review-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+        )
+    )
+
+
+def create_source_review_live_app() -> FastAPI:
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/source-review-real-model",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            real_model=True,
         )
     )

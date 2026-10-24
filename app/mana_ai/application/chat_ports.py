@@ -48,6 +48,7 @@ class ChatPrompt:
     instructions: str
     messages: tuple[tuple[str, str], ...]
     structured_reply: bool = False
+    safety_source_review: bool = False
     question: FamilyQuestion | None = None
     evidence_reply: bool = False
     notice: FamilyNotice | None = None

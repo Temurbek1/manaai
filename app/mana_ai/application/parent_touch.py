@@ -305,6 +305,11 @@ class ParentTouchService(ParentChatService):
                 data["assessments"]["supplied_report_limit"] = 1
             if evidence.notice:
                 data["assessments"]["notice_kind"] = evidence.notice.kind
+                if evidence.notice.source_observations:
+                    data["assessments"]["source_snapshots"] = [
+                        facts.model_dump(mode="json", exclude={"child_id"})
+                        for facts in evidence.notice.source_observations
+                    ]
         reference = await self._touch_store.language_reference(request.parent_id, turn.turn_id)
         response_language = await self._touch_store.language_hint(request.parent_id, turn.turn_id)
         if response_language is None:
@@ -335,6 +340,13 @@ class ParentTouchService(ParentChatService):
                 "observed_at": question.observed_at.isoformat(),
             }
         instructions = PARENT_TOUCH_INSTRUCTIONS
+        if evidence and evidence.notice and evidence.notice.source_observations:
+            instructions += (
+                "\nThis notice reviews partial source snapshots, not a fresh sensor alert. "
+                "Preserve their measurement/collection distinction. App counter periods and "
+                "timezone are unverified; never sum them into daily screen time or infer a "
+                "complete ranking/trend. Battery connectivity/current danger remain unknown."
+            )
         source_dates: tuple[str, ...] = ()
         commercial = await self._touch_store.commercial_context(request.parent_id, turn.turn_id)
         if commercial is not None:

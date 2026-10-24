@@ -22,6 +22,7 @@ from app.mana_ai.application.source_tool_ports import SourceToolModel, SourceToo
 from app.mana_ai.domain.chat import ChatTokens, ParentChildContext
 from app.mana_ai.domain.child_safety import ChildSafetyLimits, SafetyJob, SafetyJobView
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
+from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
     SourceToolChild,
     SourceToolContinuation,
@@ -32,6 +33,7 @@ from app.mana_ai.domain.source_tools import (
 
 
 class SourceToolSafetyStore(ChildSafetyStore, Protocol):
+    async def source_review_owner(self, job: SafetyJob) -> SourceAnalysisOwner | None: ...
     async def native_captured(self, job: SafetyJob) -> bool: ...
     async def native_protocol(self, job: SafetyJob) -> Literal[1, 2]: ...
     async def prepare_native(
@@ -174,7 +176,12 @@ class SourceToolWorkflow:
                 target = await self._store.claim_native_source(
                     job, receipt.continuation, self._clock.now()
                 )
-                source = await self._sources.read(target)
+                owner = await self._store.source_review_owner(job)
+                source = (
+                    await self._sources.read_for_analysis(target, owner)
+                    if owner is not None
+                    else await self._sources.read(target)
+                )
                 if not await self._store.record_native_source(job, source, self._clock.now()):
                     raise ParentChatError("native_source_read_unavailable", 503)
                 assert source.facts is not None

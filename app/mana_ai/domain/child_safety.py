@@ -12,8 +12,9 @@ from app.mana_ai.domain.enums import ManaAICapability
 from app.mana_ai.domain.family_agents import InformationKey
 from app.mana_ai.domain.requests import ManaAIRequest
 from app.mana_ai.domain.responses import ManaAIAnalysisResult, ModelAnalysis
+from app.mana_ai.domain.source_reviews import SourceReviewBundle
 
-SafetyJobKind = Literal["child_data", "parent_message"]
+SafetyJobKind = Literal["child_data", "parent_message", "source_review"]
 SafetyJobStatus = Literal[
     "queued", "preparing", "submitted", "unknown", "metered", "completed", "failed"
 ]
@@ -66,7 +67,7 @@ class SafetyConversationNeed(ChatContract):
 
 
 class SafetyContextSnapshot(ChatContract):
-    version: Literal[1, 2] = 1
+    version: Literal[1, 2, 3] = 1
     chat_turn_cutoff: int = Field(ge=0, strict=True)
     messages: list[SafetyChatMessage] = Field(max_length=20)
     saved_assessment_ids: list[UUID] = Field(max_length=20)
@@ -74,6 +75,7 @@ class SafetyContextSnapshot(ChatContract):
     conversation_needs: list[SafetyConversationNeed] = Field(default_factory=list, max_length=1010)
     typed_parent_review: bool = Field(default=False, strict=True)
     review_first: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
+    source_review: SourceReviewBundle | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_validator(mode="after")
     def exact_saved_identities(self) -> "SafetyContextSnapshot":
@@ -81,6 +83,8 @@ class SafetyContextSnapshot(ChatContract):
             raise ValueError("Historical v1 contexts cannot acquire conversation needs")
         if self.review_first and (self.version != 2 or not self.typed_parent_review):
             raise ValueError("Review-first requires the captured typed-review protocol")
+        if (self.version == 3) != (self.source_review is not None):
+            raise ValueError("Only source-review v3 contexts contain frozen source snapshots")
         if len(set(self.saved_assessment_ids)) != len(self.saved_assessment_ids):
             raise ValueError("Frozen assessment identities must be unique")
         if self.saved_assessment_total < len(self.saved_assessment_ids):
@@ -92,6 +96,7 @@ class SafetyStoredResult(ChatContract):
     analysis: ManaAIAnalysisResult | None = None
     followup_summary: str | None = Field(default=None, min_length=1, max_length=1500)
     question_id: UUID | None = None
+    source_review_notify: bool | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_validator(mode="after")
     def one_result(self) -> "SafetyStoredResult":
@@ -169,6 +174,10 @@ class SafetyParentReviewDecision(ChatContract):
     analysis: None
     followup_summary: str = Field(min_length=1, max_length=1500)
     question: SafetyInformationNeed | None
+
+
+class SafetySourceReviewDecision(SafetyParentReviewDecision):
+    notify_parent: bool = Field(strict=True)
 
 
 class SafetyAssessmentPage(ChatContract):

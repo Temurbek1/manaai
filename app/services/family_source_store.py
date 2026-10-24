@@ -21,6 +21,7 @@ from app.mana_ai.domain.family_sources import (
     FamilySourceTarget,
     source_facts,
 )
+from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 
 _TABLES = {"source_policy", "source_reads", "source_snapshots", "source_heads", "source_changes"}
 _APPLICATION = 1296125507
@@ -195,6 +196,11 @@ class SqliteFamilySourceStore:
 
     async def claim(self, target: FamilySourceTarget, now: datetime) -> FamilySourceClaim:
         return await asyncio.to_thread(self._claim, target, self._time(now))
+
+    async def claim_for_analysis(
+        self, target: FamilySourceTarget, owner: SourceAnalysisOwner, now: datetime
+    ) -> FamilySourceClaim:
+        raise ParentChatError("source_review_owner_not_enabled", 503)
 
     def _claim(self, target: FamilySourceTarget, now: datetime) -> FamilySourceClaim:
         self._check_source(target.source)

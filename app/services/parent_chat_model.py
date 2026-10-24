@@ -46,7 +46,7 @@ class OpenAIParentChatModel:
         )
 
     def _text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
-        if prompt.safety_parent_review:
+        if prompt.safety_parent_review or prompt.safety_source_review:
             raise ValueError("A parent-chat adapter cannot inherit a specialist review protocol")
         text: ResponseTextConfigParam = {"verbosity": self._verbosity}
         if prompt.slot_reply:

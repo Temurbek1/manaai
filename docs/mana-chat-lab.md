@@ -153,3 +153,13 @@ UI опрашивает **только локальный SQL**. GET/reload не
 напрямую из существующих источников; новые webhook-и не являются обязательным
 условием. Неизвестные разрешения/условия нельзя выдумывать. Работающий симулятор
 не доказывает paid conversion.
+
+### Shared source-review mode
+
+`make chat-lab-source-reviews` uses its own simulation directory. Trigger the app
+and battery sources within three seconds; one qualified Child-Safety overview
+should reach the single Parent-Touch chat. Repeating a cached read does not create
+another overview. A later RU/Uzbek message is a separate conversational request.
+See [source-review semantics and evidence](mana-source-reviews.md). The `-live`
+variant explicitly uses paid configured models with fictional sources, never a
+real family data, push or tariff adapter. Neither variant belongs on production.

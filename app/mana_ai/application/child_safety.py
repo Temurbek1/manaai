@@ -26,6 +26,7 @@ from app.mana_ai.domain.child_safety import (
     SafetyJob,
     SafetyJobView,
     SafetyModelDecision,
+    SafetySourceReviewDecision,
     SafetyStoredResult,
     SafetyTarget,
 )
@@ -180,8 +181,23 @@ class ChildSafetyService:
     ) -> SafetyJobView:
         if receipt.answer is None:
             raise ValueError("A metered specialist decision is required")
-        decision = SafetyModelDecision.model_validate_json(receipt.answer)
+        source_decision = (
+            SafetySourceReviewDecision.model_validate_json(receipt.answer)
+            if job.view.kind == "source_review"
+            else None
+        )
+        decision = (
+            SafetyModelDecision.model_validate(
+                source_decision.model_dump(exclude={"notify_parent"})
+            )
+            if source_decision
+            else SafetyModelDecision.model_validate_json(receipt.answer)
+        )
         result = await self._validate_result(job, decision, receipt.model)
+        if source_decision is not None:
+            result = result.model_copy(
+                update={"source_review_notify": source_decision.notify_parent}
+            )
         question = self._question(job, prompt, decision)
         return await self.store.finish_safety(job, result, self._clock.now(), question=question)
 

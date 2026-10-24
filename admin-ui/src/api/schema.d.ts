@@ -7828,7 +7828,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "child_data" | "parent_message";
+            kind: "child_data" | "parent_message" | "source_review";
             /** Model */
             model?: string | null;
             /** Parent Id */
@@ -7966,6 +7966,8 @@ export interface components {
             followup_summary?: string | null;
             /** Question Id */
             question_id?: string | null;
+            /** Source Review Notify */
+            source_review_notify?: boolean | null;
         };
         /** ScamPrivacyShieldActionProposal */
         ScamPrivacyShieldActionProposal: {

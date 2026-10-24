@@ -97,6 +97,7 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
                 payload["instructions"],
                 (("user", payload["input"][0]["content"]),),
                 safety_parent_review=data["kind"] == "parent_message",
+                safety_source_review=data["kind"] == "source_review",
             )
             result = await self._fallback.respond(
                 prompt, max_output_tokens=payload["max_output_tokens"]

@@ -15875,7 +15875,8 @@
           "kind": {
             "enum": [
               "child_data",
-              "parent_message"
+              "parent_message",
+              "source_review"
             ],
             "title": "Kind",
             "type": "string"
@@ -16314,6 +16315,17 @@
               }
             ],
             "title": "Question Id"
+          },
+          "source_review_notify": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Review Notify"
           }
         },
         "title": "SafetyStoredResult",

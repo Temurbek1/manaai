@@ -190,12 +190,12 @@ class SqliteTouchEvidenceStore(SqliteFamilyAgentStore):
             )
         latest = connection.execute(
             "SELECT * FROM child_safety_jobs WHERE parent_id=? AND status='completed' "
-            "AND kind='child_data' ORDER BY position DESC LIMIT 1",
+            "AND kind IN ('child_data','source_review') ORDER BY position DESC LIMIT 1",
             (request.parent_id,),
         ).fetchone()
         total = connection.execute(
             "SELECT COUNT(*) FROM child_safety_jobs WHERE parent_id=? "
-            "AND status='completed' AND kind='child_data'",
+            "AND status='completed' AND kind IN ('child_data','source_review')",
             (request.parent_id,),
         ).fetchone()[0]
         context = ParentTouchEvidence(

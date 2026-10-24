@@ -18,6 +18,7 @@ from app.mana_ai.domain.family_sources import (
     FamilySourceTarget,
     source_facts,
 )
+from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 
 
 class ChildBatterySource(Protocol):
@@ -29,6 +30,10 @@ class ChildAppUsageSource(Protocol):
 
 
 class FamilySourceStore(Protocol):
+    async def claim_for_analysis(
+        self, target: FamilySourceTarget, owner: SourceAnalysisOwner, now: datetime
+    ) -> FamilySourceClaim: ...
+
     async def claim(self, target: FamilySourceTarget, now: datetime) -> FamilySourceClaim: ...
 
     async def complete(
@@ -70,12 +75,26 @@ class FamilySourceService:
         return await self.read(target)
 
     async def read(self, target: FamilySourceTarget) -> FamilySourceReceipt:
+        return await self._read(target)
+
+    async def read_for_analysis(
+        self, target: FamilySourceTarget, owner: SourceAnalysisOwner
+    ) -> FamilySourceReceipt:
+        return await self._read(target, owner=owner)
+
+    async def _read(
+        self, target: FamilySourceTarget, *, owner: SourceAnalysisOwner | None = None
+    ) -> FamilySourceReceipt:
         target = FamilySourceTarget.model_validate(target.model_dump())
         if target.source == "manakids.child_app_usage.v1" and self._app_usage is None:
             raise ParentChatError("family_source_not_enabled", 503)
         if int(target.parent_id) > 2**63 - 1:
             raise ParentChatError("parent_profile_id_required", 422)
-        claim = await self._store.claim(target, self._clock())
+        claim = (
+            await self._store.claim_for_analysis(target, owner, self._clock())
+            if owner is not None
+            else await self._store.claim(target, self._clock())
+        )
         if not claim.admitted:
             return claim.receipt  # Exact SQL observation, including lost/unknown calls.
         submitted = False

@@ -4,7 +4,11 @@ from openai.lib._pydantic import to_strict_json_schema
 from openai.types.responses.response_text_config_param import ResponseTextConfigParam
 
 from app.mana_ai.application.chat_ports import ChatPrompt
-from app.mana_ai.domain.child_safety import SafetyModelDecision, SafetyParentReviewDecision
+from app.mana_ai.domain.child_safety import (
+    SafetyModelDecision,
+    SafetyParentReviewDecision,
+    SafetySourceReviewDecision,
+)
 from app.services.parent_chat_model import OpenAIParentChatModel
 
 
@@ -27,7 +31,9 @@ class OpenAIChildSafetyModel(OpenAIParentChatModel):
                 "name": "child_safety_decision",
                 "strict": True,
                 "schema": to_strict_json_schema(
-                    SafetyParentReviewDecision
+                    SafetySourceReviewDecision
+                    if prompt.safety_source_review
+                    else SafetyParentReviewDecision
                     if prompt.safety_parent_review
                     else SafetyModelDecision
                 ),

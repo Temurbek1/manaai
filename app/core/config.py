@@ -13,6 +13,7 @@ from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_collection import FamilyCollectionPolicy
 from app.mana_ai.domain.family_sources import FamilySourceLimits
+from app.mana_ai.domain.source_reviews import SourceReviewPolicy
 
 
 class Settings(BaseSettings):
@@ -82,6 +83,8 @@ class Settings(BaseSettings):
     mana_family_source_timeout_seconds: float = Field(default=30, ge=1, le=60)
     mana_family_source_maximum_age_seconds: int = Field(default=21600, ge=60, le=86400)
     mana_family_collection_enabled: bool = False
+    mana_family_source_reviews_enabled: bool = False
+    mana_family_source_review_policy: SourceReviewPolicy = Field(default_factory=SourceReviewPolicy)
     mana_family_collection_database_path: Path = Path("data/mana-family-collection.sqlite3")
     mana_family_collection_policy: FamilyCollectionPolicy = Field(
         default_factory=FamilyCollectionPolicy
@@ -418,6 +421,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_source_reviews_enabled and not (
+            self.mana_family_app_usage_enabled and self.mana_family_source_safety_enabled
+        ):
+            raise ValueError(
+                "Source reviews require captured native observations and source safety"
+            )
+        if self.mana_family_source_reviews_enabled and (
+            self.mana_family_source_review_policy.preparation_lease_seconds
+            <= self.mana_parent_chat_source_timeout_seconds + 10
+        ):
+            raise ValueError("The source-review ownership timeout must fit its durable preparation")
         if self.mana_family_collection_enabled:
             if not self.mana_family_sources_enabled:
                 raise ValueError("Collection requires the governed family source runtime")

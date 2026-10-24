@@ -7,6 +7,7 @@ from app.mana_ai.domain.chat import ParentChildContext
 from app.mana_ai.domain.child_safety import SafetyJob, SafetyJobView
 from app.services.mana_ai_prompts import BASE_INSTRUCTIONS, build_system_instructions
 from app.services.mana_ai_provider_payload import build_provider_payload
+from app.services.source_review_prompts import source_review_prompt
 
 PARENT_REVIEW_INSTRUCTIONS = """You are Child-Safety, the internal MANA family specialist.
 Read the latest parent message as conversation intent: understand what help they want about
@@ -30,6 +31,8 @@ class ChildSafetyPromptBuilder:
         context: ParentChildContext,
         saved: list[SafetyJobView],
     ) -> SafetyPrompt:
+        if job.view.kind == "source_review":
+            return source_review_prompt(job, context)
         children = sorted((c for c in context.children if c.connected), key=lambda c: c.child_id)
         if job.view.child_id is not None:
             children = [c for c in children if c.child_id == job.view.child_id]

@@ -556,3 +556,17 @@ annual costs and the demonstrated fleet-capacity gap. Defaults do not provide
 whole-population refresh. GA4/shared administrative aggregates and broader source
 consumers remain unfinished. For fictional first-contact testing, run
 `make chat-lab-collection`; it cannot use paid models or real family data.
+
+## 15. Coalesced source reviews (local, default disabled)
+
+With `MANA_FAMILY_SOURCE_REVIEWS_ENABLED`, admitted battery/app-counter changes can
+be combined into one bounded Child-Safety review and routed through Parent-Touch,
+even before the parent writes. Native source requests carry host attribution to
+avoid a duplicate background review; their existing tool scope is unchanged.
+
+No new phone operation, additional chat or backend webhook is needed. Continue
+using the three recommended chat operations. Own-child access, observation dates,
+partial/unknown app-counter periods, consent, raw token limits, idempotency and
+unknown holds remain enforced. Ordinary source-review pushes respect quiet hours.
+See [the source-review checkpoint](mana-source-reviews.md) for private v13/v4
+storage, real-model receipts, corrected cost calculation and remaining acceptance.

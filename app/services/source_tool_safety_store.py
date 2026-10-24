@@ -16,6 +16,7 @@ from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_agents import ParentTouchReviewedTurn, ParentTouchReviewGuidance
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
+from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
     SourceToolContinuation,
     SourceToolModelProfile,
@@ -41,7 +42,7 @@ def _validate_existing_native_schema(path: Path) -> None:
     if not path.exists():
         return
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
-        if connection.execute("PRAGMA user_version").fetchone()[0] in {11, 12}:
+        if connection.execute("PRAGMA user_version").fetchone()[0] in {11, 12, 13}:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:
                 raise RuntimeError(
@@ -52,6 +53,9 @@ def _validate_existing_native_schema(path: Path) -> None:
 class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
     _schema_version = 11
     _source_contract = 1
+
+    async def source_review_owner(self, job: SafetyJob) -> SourceAnalysisOwner | None:
+        return None  # Historical captures cannot acquire the new shared-review protocol.
 
     def _initialize(self) -> None:
         _validate_existing_native_schema(self._path)

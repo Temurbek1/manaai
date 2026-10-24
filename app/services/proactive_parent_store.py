@@ -570,6 +570,8 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
                         )
                         continue
                     assert context is not None
+                    if not self._push_delivery_ready(connection, row, current):
+                        continue
                     if row["purpose"] == "marketing":
                         hour = current.astimezone(ZoneInfo(context.timezone)).hour
                         start = self._conversion_policy.quiet_start_hour
@@ -596,6 +598,12 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
                 return None
 
         return await asyncio.to_thread(claim)
+
+    def _push_delivery_ready(
+        self, connection: sqlite3.Connection, row: sqlite3.Row, now: datetime
+    ) -> bool:
+        """Owning private protocols may defer unsubmitted notifications only."""
+        return True
 
     def _marketing_push_block(
         self, connection: sqlite3.Connection, push: sqlite3.Row, now: datetime
