@@ -2,6 +2,52 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Server source runtime / real bounded read — 2026-10-24, `6fe9db3`
+
+The feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now wires explicit
+server Google signing, the existing shared private source-cache v2 and optional
+source-to-Child-Safety consumer into the real Parent-Touch runtime. Defaults stay
+off; construction performs no HTTP. `ParentTouchService.sources` exposes typed
+internal reads, not a new mobile endpoint or a native model-selected tool loop.
+The latter, bulk 09:00/15:00 collection, remaining specialists and full acceptance
+are still required by the active goal. Read
+[the exact checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-source-runtime.md).
+
+One authorized designated-parent `4` diagnostic passed real membership/API,
+OAuth and a two-document-limited Firestore battery query. It made one login,
+two exact-parent GETs, one OAuth and one runQuery; exact replay added zero HTTP.
+The available measurement has unknown observation time, so it was not converted
+to a current alert. SQL retains one read/snapshot/change, two conservative units,
+disabled consumer and zero dispatches. No model, contact, push, grant, Firebase
+write/delete or full scan occurred. The first local configuration preflight
+failed before HTTP; both original attempts remain in private feature `output/`.
+Do not repeat the test to reproduce evidence. No credential/`.env` was changed.
+
+Authorization refusals from Google or the Manakids ownership gate now close the
+source's durable circuit across restart; invalid OAuth receipts do so immediately.
+Unknown calls keep their original holds. New source/database/confirmation settings
+remain separate from existing analytics settings and cannot share chat storage.
+
+Final **`make verify` session 62822**, terminal exit **0**: **1092 backend /26
+admin /7 lab controller tests**, mypy **303 files**, lint/types/build and npm audit
+zero. Focused source/auth/adapter **10681** separately passed **87 cases**; counts
+overlap. Initial missing-dummy-key collection, test/static/scan failures and earlier
+green gates are retained and qualified in the checkpoint. Final secret scan passed
+**526 files** and diff checks passed.
+
+The minimal product lock adds real google-auth/signing dependencies, resolved in
+Python 3.12. A separate audit found certifi PYSEC-2026-4320; the lock/shared local
+development environment now use 2026.10.19, and the final product audit reports no
+known vulnerabilities. Existing models/OpenAI 2.53.0 remain pinned. Private output
+is excluded from Docker context. The final local image
+`mana-ai-family:source-runtime-auth-20261024-local`,
+`sha256:09c041a0599183b923ac3f14391da96bbd273b6fe6a45003032b5d53aebdfd09`,
+passed actual networkless signing/query/cache/restart/unknown-hold smoke **91420**,
+exit **0**, with fictional data and no app source/customer-data mount. This is
+current-image evidence, not old-image rollback, real model/channel quality or a
+production release. Root dirty code, production, source schedules, SSH and keys
+are preserved. No owned server/browser/test process remains running.
+
 ### Source change to single-chat message — 2026-10-24, `4aee2c4`
 
 The feature checkout `/mnt/ssd2/mana-conversion-agent-20261021` now connects a
