@@ -10,11 +10,16 @@ from app.core.config import Settings
 from app.mana_ai.application.chat_ports import ParentChildrenSource
 from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
+from app.mana_ai.application.inventory_tariffs import InventoryTariffSink, TariffCollectionService
 from app.mana_ai.domain.family_sources import FamilySourceKey
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy
-from app.services.family_collection_store import SqliteFamilyCollectionStore
+from app.services.family_collection_store import (
+    SqliteFamilyCollectionStore,
+    collection_storage_version,
+)
 from app.services.family_google_auth import FamilyFirestoreToken
 from app.services.firestore_child_battery import FirestoreChildBatterySource
+from app.services.inventory_tariff_store import SqliteInventoryTariffStore
 from app.services.manakids_child_usage import ManakidsChildUsageSource, ManakidsReadToken
 from app.services.manakids_family_inventory import ManakidsFamilyInventory
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
@@ -38,6 +43,7 @@ async def family_source_runtime(
     *,
     clock: Callable[[], datetime],
     account_auth: ManakidsReadToken | None = None,
+    tariff_receiver: InventoryTariffSink | None = None,
 ) -> FamilySourceRuntime | None:
     if not settings.mana_family_sources_enabled:
         return None
@@ -114,29 +120,62 @@ async def family_source_runtime(
     collection_store = None
     if settings.mana_family_collection_enabled:
         assert account_auth is not None
+        if settings.mana_collection_tariffs_enabled and tariff_receiver is None:
+            raise ValueError("Inventory tariff collection requires its owning receiver")
         registered: tuple[FamilySourceKey, ...] = (
             ("firebase.child_battery.v1", "manakids.child_app_usage.v1")
             if settings.mana_family_app_usage_enabled
             else ("firebase.child_battery.v1",)
         )
-        collection_store = SqliteFamilyCollectionStore(
-            settings.mana_family_collection_database_path,
-            binding=f"mana:{settings.firebase_project_id}:{settings.firebase_database_id}:manakids-v1",
-            policy=settings.mana_family_collection_policy,
-            sources=registered,
+        tariff_reader = settings.mana_collection_tariffs_enabled or (
+            await collection_storage_version(settings.mana_family_collection_database_path) == 2
+        )
+        collection_binding = (
+            f"mana:{settings.firebase_project_id}:{settings.firebase_database_id}:manakids-v1"
+        )
+        collection_store = (
+            SqliteInventoryTariffStore(
+                settings.mana_family_collection_database_path,
+                tariff_policy=settings.mana_collection_tariff_policy,
+                tariffs_enabled=settings.mana_collection_tariffs_enabled,
+                recipient_binding=str(settings.mana_parent_chat_database_path.resolve()),
+                binding=collection_binding,
+                policy=settings.mana_family_collection_policy,
+                sources=registered,
+            )
+            if tariff_reader
+            else SqliteFamilyCollectionStore(
+                settings.mana_family_collection_database_path,
+                binding=collection_binding,
+                policy=settings.mana_family_collection_policy,
+                sources=registered,
+            )
         )
         await collection_store.initialize(clock())
-        collection = FamilyCollectionService(
-            collection_store,
-            ManakidsFamilyInventory(
-                client,
-                account_auth,
-                base_url=settings.manakids_api_base_url,
-                clock=clock,
-                timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
-            ),
-            reads,
-            store,
+        inventory = ManakidsFamilyInventory(
+            client,
+            account_auth,
+            base_url=settings.manakids_api_base_url,
             clock=clock,
+            timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
+            include_tariffs=settings.mana_collection_tariffs_enabled,
+        )
+        collection = (
+            TariffCollectionService(
+                collection_store,
+                inventory,
+                reads,
+                store,
+                receiver=tariff_receiver if settings.mana_collection_tariffs_enabled else None,
+                clock=clock,
+            )
+            if isinstance(collection_store, SqliteInventoryTariffStore)
+            else FamilyCollectionService(
+                collection_store,
+                inventory,
+                reads,
+                store,
+                clock=clock,
+            )
         )
     return FamilySourceRuntime(reads, store, policy, collection, collection_store)

@@ -34,13 +34,12 @@ capability. Raw MANA authentication remains a separate server-only adapter port.
 This is not a new hourly scan, listener or automatic retry. UI/status/history GETs
 still observe SQL only.
 
-The unfiltered bulk Parent List inventory **page itself is not yet a billing
-fan-out producer**. The collector feeds this feature through its existing targeted
-ownership reads. Parents without such a recent read, including families without
-queued child targets, may not be covered. Existing collection/source ceilings
-remain; do not claim coverage of all 219,873 reported parents. A separately
-admitted bulk-page consumer would need durable completion/late-result proof,
-not an adapter callback that publishes before the page claim is settled.
+By default the collector feeds this cache only through its existing targeted
+ownership reads. The subsequent default-disabled [inventory-tariff increment](mana-inventory-tariffs.md)
+adds durable collection-v2 batches from known completed bulk pages, including
+parents without child targets. It does not publish from a pre-completion adapter
+callback or expand existing collection/source ceilings. Neither path proves whole
+population coverage, and enabling expiry alone does not activate bulk fan-out.
 
 Only new observed reads enter the minimized cache: canonical parent ID, collection
 time, selected record's `is_paid` and `valid_until`. No child identity/name, phone,

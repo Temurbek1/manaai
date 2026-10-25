@@ -156,50 +156,96 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
 
         await asyncio.to_thread(close)
 
+    async def observe_inventory_tariffs(
+        self, facts: tuple[RetentionTariffFact, ...], now: datetime
+    ) -> bool:
+        current = self._utc(now)
+        checked = tuple(RetentionTariffFact.model_validate(f.model_dump()) for f in facts)
+        if not 1 <= len(checked) <= 100 or len({f.parent_id for f in checked}) != len(checked):
+            raise ValueError("A bounded unique-parent inventory batch is required")
+        if any(not current - timedelta(seconds=180) <= f.collected_at <= current for f in checked):
+            raise ValueError("An inventory batch must retain its actual fresh collection dates")
+        normalized = tuple(
+            f.model_copy(
+                update={
+                    "collected_at": f.collected_at.astimezone(UTC),
+                    "valid_until": f.valid_until.astimezone(UTC) if f.valid_until else None,
+                }
+            )
+            for f in checked
+        )
+        return await asyncio.to_thread(self._record_inventory, normalized)
+
+    def _record_inventory(self, facts: tuple[RetentionTariffFact, ...]) -> bool:
+        if not self._expiry_enabled:
+            return False
+        with self._transaction() as db:
+            if not self._expiry_open(db):
+                return False
+            db.execute("SAVEPOINT inventory_facts")
+            for fact in facts:
+                self._put_fact(db, fact.parent_id, fact, fact.collected_at)
+            if not self._expiry_open(db):
+                db.execute("ROLLBACK TO inventory_facts")
+                db.execute("RELEASE inventory_facts")
+                db.execute("UPDATE retention_expiry_policy SET circuit_open=1 WHERE id=1")
+                return False
+            db.execute("RELEASE inventory_facts")
+            return True
+
     def _record(self, parent: str, fact: RetentionTariffFact | None, collected: datetime) -> None:
         if not self._expiry_enabled:
             return
         with self._transaction() as db:
-            if not self._expiry_open(db):
-                return
-            old = db.execute(
-                "SELECT * FROM retention_tariff_heads WHERE parent_id=?", (parent,)
-            ).fetchone()
-            if old and datetime.fromisoformat(old["collected_at"]) > collected:
-                return
-            digest = _digest(fact)
-            payload = fact.model_dump_json() if fact else None
+            self._put_fact(db, parent, fact, collected)
+
+    def _put_fact(
+        self,
+        db: sqlite3.Connection,
+        parent: str,
+        fact: RetentionTariffFact | None,
+        collected: datetime,
+    ) -> None:
+        if not self._expiry_open(db):
+            return
+        old = db.execute(
+            "SELECT * FROM retention_tariff_heads WHERE parent_id=?", (parent,)
+        ).fetchone()
+        if old and datetime.fromisoformat(old["collected_at"]) > collected:
+            return
+        digest = _digest(fact)
+        payload = fact.model_dump_json() if fact else None
+        if (
+            old is None
+            and db.execute("SELECT COUNT(*) FROM retention_tariff_heads").fetchone()[0]
+            >= self._expiry_policy.maximum_profiles
+        ):
+            db.execute("UPDATE retention_expiry_policy SET circuit_open=1 WHERE id=1")
+            return
+        changed = old is None or old["digest"] != digest
+        if changed:
             if (
-                old is None
-                and db.execute("SELECT COUNT(*) FROM retention_tariff_heads").fetchone()[0]
-                >= self._expiry_policy.maximum_profiles
+                db.execute("SELECT COUNT(*) FROM retention_tariff_changes").fetchone()[0]
+                >= self._expiry_policy.maximum_changes
             ):
                 db.execute("UPDATE retention_expiry_policy SET circuit_open=1 WHERE id=1")
                 return
-            changed = old is None or old["digest"] != digest
-            if changed:
-                if (
-                    db.execute("SELECT COUNT(*) FROM retention_tariff_changes").fetchone()[0]
-                    >= self._expiry_policy.maximum_changes
-                ):
-                    db.execute("UPDATE retention_expiry_policy SET circuit_open=1 WHERE id=1")
-                    return
-                db.execute(
-                    "INSERT INTO retention_tariff_changes(parent_id,payload,digest,coll"
-                    "ected_at) VALUES(?,?,?,?)",
-                    (parent, payload, digest, collected.isoformat()),
-                )
             db.execute(
-                "INSERT OR REPLACE INTO retention_tariff_heads VALUES(?,?,?,?,?,?)",
-                (
-                    parent,
-                    payload,
-                    digest,
-                    collected.isoformat(),
-                    fact.is_paid if fact else None,
-                    fact.valid_until.isoformat() if fact and fact.valid_until else None,
-                ),
+                "INSERT INTO retention_tariff_changes(parent_id,payload,digest,coll"
+                "ected_at) VALUES(?,?,?,?)",
+                (parent, payload, digest, collected.isoformat()),
             )
+        db.execute(
+            "INSERT OR REPLACE INTO retention_tariff_heads VALUES(?,?,?,?,?,?)",
+            (
+                parent,
+                payload,
+                digest,
+                collected.isoformat(),
+                fact.is_paid if fact else None,
+                fact.valid_until.isoformat() if fact and fact.valid_until else None,
+            ),
+        )
 
     def _retention_daily_count(self, db: sqlite3.Connection, now: datetime) -> int:
         return super()._retention_daily_count(db, now) + int(

@@ -7,13 +7,17 @@ from typing import Literal
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
+from app.mana_ai.application.inventory_tariffs import InventoryTariffSink, TariffCollectionService
 from app.mana_ai.domain.family_collection import (
     FamilyCollectionPolicy,
     FamilyCollectionWindow,
     FamilyInventoryPage,
     InventoryFamily,
 )
+from app.mana_ai.domain.inventory_tariffs import InventoryTariffPolicy, TariffInventoryPage
+from app.mana_ai.domain.retention_expiry import RetentionTariffFact
 from app.services.family_collection_store import SqliteFamilyCollectionStore
+from app.services.inventory_tariff_store import SqliteInventoryTariffStore
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 
 
@@ -40,13 +44,25 @@ class LabCollectionClock:
 
 
 async def lab_collection_store(
-    directory: Path, clock: LabCollectionClock
+    directory: Path, clock: LabCollectionClock, *, tariffs: bool = False
 ) -> SqliteFamilyCollectionStore:
-    store = SqliteFamilyCollectionStore(
-        directory / "collection.sqlite3",
-        binding="fake-lab-mana",
-        policy=FamilyCollectionPolicy(page_size=1, reads_per_window=4),
-        sources=("firebase.child_battery.v1", "manakids.child_app_usage.v1"),
+    store = (
+        SqliteInventoryTariffStore(
+            directory / "collection.sqlite3",
+            binding="fake-lab-mana",
+            policy=FamilyCollectionPolicy(page_size=1, reads_per_window=4),
+            sources=("firebase.child_battery.v1", "manakids.child_app_usage.v1"),
+            tariff_policy=InventoryTariffPolicy(),
+            recipient_binding="fictional-family-v17",
+            tariffs_enabled=True,
+        )
+        if tariffs
+        else SqliteFamilyCollectionStore(
+            directory / "collection.sqlite3",
+            binding="fake-lab-mana",
+            policy=FamilyCollectionPolicy(page_size=1, reads_per_window=4),
+            sources=("firebase.child_battery.v1", "manakids.child_app_usage.v1"),
+        )
     )
     await store.initialize(clock.now())
     latest = await store.latest(1)
@@ -56,12 +72,40 @@ async def lab_collection_store(
 
 
 class LabInventory:
-    def __init__(self, clock: LabCollectionClock, parent_id: str, child_id: int) -> None:
+    def __init__(
+        self,
+        clock: LabCollectionClock,
+        parent_id: str,
+        child_id: int,
+        *,
+        tariff_deadline: datetime | None = None,
+    ) -> None:
         self._clock, self._parent, self._child = clock, parent_id, child_id
         self.calls = 0
+        self._tariff_deadline = tariff_deadline
 
     async def read(self, offset: int, limit: int) -> FamilyInventoryPage:
         self.calls += 1
+        if self._tariff_deadline is not None:
+            return TariffInventoryPage(
+                offset=offset,
+                limit=limit,
+                total_parents=1,
+                families=(InventoryFamily(parent_id=self._parent, connected_child_ids=()),)
+                if offset == 0
+                else (),
+                collected_at=self._clock.now(),
+                tariff_facts=(
+                    RetentionTariffFact(
+                        parent_id=self._parent,
+                        collected_at=self._clock.now(),
+                        is_paid=True,
+                        valid_until=self._tariff_deadline,
+                    ),
+                )
+                if offset == 0
+                else (),
+            )
         return FamilyInventoryPage(
             offset=offset,
             limit=limit,
@@ -83,11 +127,24 @@ class LabCollection:
         *,
         parent_id: str,
         child_id: int,
+        tariff_receiver: InventoryTariffSink | None = None,
+        tariff_deadline: datetime | None = None,
     ) -> None:
         self.store, self.clock = store, clock
-        self.inventory = LabInventory(clock, parent_id, child_id)
-        self.service = FamilyCollectionService(
-            store, self.inventory, reads, observations, clock=clock.now
+        self.inventory = LabInventory(clock, parent_id, child_id, tariff_deadline=tariff_deadline)
+        self.service = (
+            TariffCollectionService(
+                store,
+                self.inventory,
+                reads,
+                observations,
+                receiver=tariff_receiver,
+                clock=clock.now,
+            )
+            if isinstance(store, SqliteInventoryTariffStore)
+            else FamilyCollectionService(
+                store, self.inventory, reads, observations, clock=clock.now
+            )
         )
 
     async def collect(self, hour: Literal[9, 15]) -> FamilyCollectionWindow:

@@ -563,16 +563,21 @@ class LabOptions:
     upsell: bool = False
     tariff_context: bool = False
     expiry: bool = False
+    collection_tariffs: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.collection_tariffs and not (options.expiry and options.scheduled_collection):
+            raise ValueError("Inventory tariff lab requires its full fictional collection profile")
         if options.expiry and (not options.upsell or not options.tariff_context):
             raise ValueError("Expiry lab requires its full profile and fictional tariff")
         if options.native_observations and not options.native_sources:
             raise ValueError("Observation lab requires the native workflow")
         if options.source_reviews and (
-            not options.native_observations or options.scheduled_collection
+            not options.native_observations
+            or options.scheduled_collection
+            and not options.collection_tariffs
         ):
             raise ValueError("Source-review lab requires native observations and its own directory")
         if options.scheduled_collection and (
@@ -628,6 +633,8 @@ class ChatLab:
             expected["tariff_context"] = True
         if self.options.expiry:
             expected["expiry"] = True
+        if self.options.collection_tariffs:
+            expected["collection_tariffs"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -678,7 +685,9 @@ class ChatLab:
         collection_store = None
         if self.options.scheduled_collection:
             assert isinstance(self.options.clock, LabCollectionClock)
-            collection_store = await lab_collection_store(directory, self.options.clock)
+            collection_store = await lab_collection_store(
+                directory, self.options.clock, tariffs=self.options.collection_tariffs
+            )
         now = self.options.clock.now()
         limits = ChildSafetyLimits(
             server_daily_tokens=2000,
@@ -895,6 +904,10 @@ class ChatLab:
                 self.source_store,
                 parent_id=LAB_PARENT,
                 child_id=LAB_CHILD,
+                tariff_receiver=self.store
+                if isinstance(self.store, SqliteRetentionExpiryStore)
+                else None,
+                tariff_deadline=tariff_until if self.options.collection_tariffs else None,
             )
             self.touch.collection = self.collection.service
         if await self.store.contact_context(LAB_PARENT, now) is None:

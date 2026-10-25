@@ -50,7 +50,38 @@ def _digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+async def collection_storage_version(path: Path) -> int | None:
+    def read() -> int | None:
+        if path.is_symlink() or path.parent.is_symlink():
+            raise ValueError("Collection storage cannot use symlinks")
+        if not path.exists():
+            return None
+        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
+            return int(db.execute("PRAGMA user_version").fetchone()[0])
+
+    return await asyncio.to_thread(read)
+
+
 class SqliteFamilyCollectionStore:
+    _schema_version = 1
+
+    def _valid_layout(self, tables: set[str], version: int) -> bool:
+        return tables == _TABLES and version == 1
+
+    def _extra_schema(self, db: sqlite3.Connection) -> None:
+        pass
+
+    def _page_claimed(self, db: sqlite3.Connection, page_id: int) -> None:
+        pass
+
+    def _validated_page(self, page: FamilyInventoryPage) -> FamilyInventoryPage:
+        return FamilyInventoryPage.model_validate(page.model_dump())
+
+    def _page_recorded(
+        self, db: sqlite3.Connection, work: FamilyCollectionWork, page: FamilyInventoryPage
+    ) -> None:
+        pass
+
     def __init__(
         self,
         path: Path,
@@ -109,7 +140,7 @@ class SqliteFamilyCollectionStore:
             )
             if (
                 tables
-                and (tables != _TABLES or app != _APPLICATION_ID or version != 1)
+                and (not self._valid_layout(tables, version) or app != _APPLICATION_ID)
                 or not tables
                 and (app or version)
             ):
@@ -159,6 +190,7 @@ class SqliteFamilyCollectionStore:
             )
             for statement in statements:
                 db.execute(statement)
+            self._extra_schema(db)
             known = db.execute("SELECT configuration FROM collection_policy WHERE id=1").fetchone()
             if known and known[0] != self._configuration:
                 raise ValueError(
@@ -172,7 +204,7 @@ class SqliteFamilyCollectionStore:
                 ),
             )
             db.execute(f"PRAGMA application_id={_APPLICATION_ID}")
-            db.execute("PRAGMA user_version=1")
+            db.execute(f"PRAGMA user_version={self._schema_version}")
 
     def _recover(self, db: sqlite3.Connection, now: datetime) -> None:
         stamp = now.isoformat()
@@ -519,6 +551,7 @@ class SqliteFamilyCollectionStore:
                 (identity, offset, claim, now.isoformat(), expires.isoformat()),
             )
             assert cursor.lastrowid is not None
+            self._page_claimed(db, cursor.lastrowid)
             return FamilyCollectionWork(
                 window_id=identity,
                 claim_id=claim,
@@ -554,7 +587,7 @@ class SqliteFamilyCollectionStore:
     def _finish_page(
         self, work: FamilyCollectionWork, page: FamilyInventoryPage, now: datetime
     ) -> None:
-        checked = FamilyInventoryPage.model_validate(page.model_dump())
+        checked = self._validated_page(page)
         if checked.offset != work.offset or checked.limit != self.policy.page_size:
             raise ValueError("A collection page must match its original claim")
         with self._connection() as db:
@@ -564,6 +597,8 @@ class SqliteFamilyCollectionStore:
             ).fetchone()
             if row is None:
                 raise ValueError("Unknown collection page claim")
+            if work.kind != "inventory" or row["offset"] != checked.offset:
+                raise ValueError("A collection page must retain its original offset and kind")
             if row["phase"] not in {"claimed", "unknown"}:
                 return
             if (
@@ -577,7 +612,8 @@ class SqliteFamilyCollectionStore:
             ).fetchone()
             late = (
                 row["phase"] == "unknown"
-                or now >= work.deadline
+                or now >= datetime.fromisoformat(row["expires_at"])
+                or now >= datetime.fromisoformat(active["deadline"])
                 or active["status"] != "collecting"
             )
             db.execute(
@@ -597,6 +633,7 @@ class SqliteFamilyCollectionStore:
                     "AND inventory_blocked='inventory_unknown'"
                 )
                 return
+            self._page_recorded(db, work, checked)
             targets = {
                 (p.parent_id, c, s)
                 for p in checked.families

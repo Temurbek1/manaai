@@ -18,6 +18,10 @@ install:
 .PHONY: chat-lab-upsell chat-lab-upsell-live
 .PHONY: chat-lab-profile chat-lab-profile-live
 .PHONY: chat-lab-expiry chat-lab-expiry-live
+.PHONY: chat-lab-inventory-tariffs
+chat-lab-inventory-tariffs:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_collection_tariff_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 chat-lab-expiry:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_expiry_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 

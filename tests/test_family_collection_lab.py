@@ -117,3 +117,49 @@ def test_fictional_collection_clock_cannot_reset_real_model_quotas(tmp_path: Pat
                 clock=LabCollectionClock(),
             )
         )
+
+
+async def test_inventory_tariff_lab_starts_chat_without_child_source_reads_and_survives_restart(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from app.services.retention_expiry_store import SqliteRetentionExpiryStore
+
+    selected = replace(
+        options(tmp_path / "tariffs", worker=False),
+        source_reviews=True,
+        reminders=True,
+        retention=True,
+        upsell=True,
+        tariff_context=True,
+        expiry=True,
+        collection_tariffs=True,
+    )
+    lab = ChatLab(selected)
+    await lab.start()
+    try:
+        assert lab.collection and isinstance(lab.store, SqliteRetentionExpiryStore)
+        first = await lab.collection.collect(9)
+        assert first.status == "completed" and first.targets == 0 and first.parents_seen == 1
+        assert await lab.touch.process_retention()
+        history = (await lab.state()).history.messages
+        assert len(history) == 1 and history[0].role == "assistant"
+        assert (await lab.collection.collect(9)) == first
+        await lab.collection.collect(15)
+        assert not await lab.touch.process_retention()
+        assert lab.collection.inventory.calls == 2
+        assert lab.battery.calls == lab.app_usage.calls == lab.catalog.calls == 0
+        assert (await lab.state()).history.quota.used_tokens == 0
+        await lab.close()
+        lab = ChatLab(replace(selected, clock=LabCollectionClock()))
+        await lab.start()
+        assert lab.collection and isinstance(lab.store, SqliteRetentionExpiryStore)
+        assert (await lab.collection.collect(9)) == first
+        assert not await lab.touch.process_retention()
+        assert (await lab.state()).history.messages == history
+        assert lab.collection.inventory.calls == 0
+        with lab.store._connect() as db:
+            assert db.execute("SELECT COUNT(*) FROM retention_tariff_changes").fetchone()[0] == 1
+    finally:
+        await lab.close()

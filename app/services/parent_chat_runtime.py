@@ -448,6 +448,9 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     children,
                     clock=lambda: datetime.now(UTC),
                     account_auth=profile_source,
+                    tariff_receiver=store
+                    if isinstance(store, SqliteRetentionExpiryStore)
+                    else None,
                 )
             else:
                 sources = await family_source_runtime(

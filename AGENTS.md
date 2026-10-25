@@ -2,6 +2,21 @@
 
 ## Repository expectations
 
+- The subsequent local inventory-tariff increment uses collection schema v2,
+  unchanged family v17/source v4, and default-disabled `MANA_COLLECTION_TARIFFS_ENABLED`.
+  Only newly captured, known on-time page claims produce minimized tariff batches
+  in the same SQL transaction as page completion. Old/disabled/late/unknown claims
+  never upgrade. A one-shot local receiver claim updates the shared expiry cache;
+  lost acknowledgements never repeat HTTP, cache dispatch or model work. Retain
+  unknown claims, original collection dates, parent/page hashes and separate
+  recipient consent/priority/outreach policy. A child-target capacity refusal
+  does not discard the independently known tariff page. Read
+  `docs/mana-inventory-tariffs.md`: actual source-only login/one-row GET is not
+  whole-fleet/real-contact/model-quality acceptance. Current deactivated v2 preserves
+  old unknown inventory and new unknown fan-out; the actual previous v1 collector
+  refuses v2 and is not a working collector rollback. No source/model quota,
+  production schedule, SSH, key, payment, customer tariff or contact changes follow.
+
 - The local source-driven expiry increment uses private family v17/source v4
   (collection stays v1) and default-disabled `MANA_RETENTION_EXPIRY_ENABLED`.
   New existing profile reads feed a minimized paid/end-time cache; no additional

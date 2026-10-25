@@ -1,5 +1,11 @@
 # Shared family collection at 09:00 / 15:00 — local, 2026-10-25
 
+Subsequent optional [collection-v2 tariff fan-out](mana-inventory-tariffs.md) shares
+selected billing facts from the same known page with Retention, without another
+HTTP request or dependency on child-target capacity. Its separate flag stays off;
+the schema-1 evidence below is the historical acquisition checkpoint, not proof
+that an old collector reader can execute v2 or that the full fleet is covered.
+
 This increment implements the next part of the [autonomous agents objective](mana-autonomous-agents-plan.md):
 existing source facts can be acquired without waiting for a new application webhook
 or for a parent to open a chat. A single durable collector discovers canonical MANA

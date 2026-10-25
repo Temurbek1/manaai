@@ -685,4 +685,20 @@ Turning only `MANA_RETENTION_EXPIRY_ENABLED` off on a v17 store stops expiry
 observation, publication and pending expiry pushes while retaining the compatible
 core chat services and all history, quotas and deduplication. It never resets a
 source circuit or permits an older image to execute that schema.
+
+## 21. Reuse bulk Parent List tariffs (local, not released)
+
+With explicit `MANA_COLLECTION_TARIFFS_ENABLED` and its collector/expiry profile,
+the existing 09:00/15:00 collection shares selected paid/end-time facts with Retention.
+It adds no mobile operation or required backend event, and makes no second read for
+each recipient or agent. Known page completion and a minimized batch commit together;
+the local receiver is one-shot. Old/disabled/unknown/late claims never upgrade.
+Parents without queued child-source targets can qualify through the same verified
+contact policy; inventory membership or a tariff never supplies consent.
+
+The application still retrieves the assistant message through the same chat history.
+Source ages, safety priority, opt-out, outreach caps, neutral push policy and token
+limits are unchanged. Default is off; production has not been activated. Use
+`make chat-lab-inventory-tariffs` for fictional windows and
+[the source/compatibility evidence](mana-inventory-tariffs.md) for the precise limits.
 These additions are not enabled or released on production.

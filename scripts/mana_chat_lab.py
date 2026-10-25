@@ -417,6 +417,27 @@ def create_expiry_app() -> FastAPI:
     )
 
 
+def create_collection_tariff_app() -> FastAPI:
+    """Fictional bulk windows and zero-model first contact; no paid mode or providers."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/collection-tariff-simulation",
+            clock=LabCollectionClock(),
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            scheduled_collection=True,
+            collection_tariffs=True,
+        )
+    )
+
+
 def create_expiry_live_app() -> FastAPI:
     """Paid model replies only; profile facts and expiry permissions remain fictional."""
     root = Path(__file__).resolve().parents[1]

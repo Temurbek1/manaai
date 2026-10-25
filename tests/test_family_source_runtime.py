@@ -67,6 +67,7 @@ def config(path: Path, credentials: Path, **changes: object) -> Settings:
             "mana_family_sources_enabled": True,
             "mana_family_firebase_mana_confirmed": True,
             "mana_family_source_database_path": path / "source.sqlite3",
+            "mana_family_collection_database_path": path / "collection.sqlite3",
             "firebase_project_id": "test-project",
             "firebase_service_account_file": credentials,
         }
@@ -529,13 +530,14 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
 
 
 @pytest.mark.parametrize(
-    "reminders,retention,upsell,expiry",
+    "reminders,retention,upsell,expiry,inventory_tariffs",
     [
-        (False, False, False, False),
-        (True, False, False, False),
-        (True, True, False, False),
-        (True, True, True, False),
-        (True, True, True, True),
+        (False, False, False, False, False),
+        (True, False, False, False, False),
+        (True, True, False, False, False),
+        (True, True, True, False, False),
+        (True, True, True, True, False),
+        (True, True, True, True, True),
     ],
 )
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
@@ -546,6 +548,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
     retention: bool,
     upsell: bool,
     expiry: bool,
+    inventory_tariffs: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
@@ -578,6 +581,8 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_client_retention_enabled=retention,
         mana_client_upsell_enabled=upsell,
         mana_retention_expiry_enabled=expiry,
+        mana_family_collection_enabled=inventory_tariffs,
+        mana_collection_tariffs_enabled=inventory_tariffs,
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -596,6 +601,15 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         assert (service.expiry is not None) is expiry
         if expiry:
             assert service.sources and service.sources._children is service._children
+        if inventory_tariffs:
+            from app.mana_ai.application.inventory_tariffs import TariffCollectionService
+            from app.services.inventory_tariff_store import SqliteInventoryTariffStore
+            from app.services.retention_expiry_store import SqliteRetentionExpiryStore
+
+            assert isinstance(service.store, SqliteRetentionExpiryStore)
+            assert isinstance(service.collection, TariffCollectionService)
+            assert service.collection._receiver is service.store
+            assert isinstance(service.collection._tariffs, SqliteInventoryTariffStore)
         assert isinstance(service.sources._store, SqliteSourceReviewCache)
         assert isinstance(service.safety.store, SqliteSourceReviewSafetyStore)
         assert (await service.history("123", before=None, limit=20)).messages == []
@@ -603,7 +617,12 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         from app.mana_ai.application.retention_expiry import RetentionProfileSource
         from app.services.retention_expiry_store import SqliteRetentionExpiryStore
 
-        stopped = settings.model_copy(update={"mana_retention_expiry_enabled": False})
+        stopped = settings.model_copy(
+            update={
+                "mana_retention_expiry_enabled": False,
+                "mana_collection_tariffs_enabled": False,
+            }
+        )
         async with runtime_module.parent_chat_runtime(stopped) as service:
             assert isinstance(service, ParentTouchService)
             assert isinstance(service.store, SqliteRetentionExpiryStore)
@@ -611,4 +630,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
             assert service.expiry is None
             assert not isinstance(service._children, RetentionProfileSource)
             assert not await service.store.publish_expiry(datetime.now(UTC))
+            if inventory_tariffs:
+                assert isinstance(service.collection, TariffCollectionService)
+                assert service.collection._receiver is None
     assert not provider.requests
