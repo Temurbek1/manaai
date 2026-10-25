@@ -2,6 +2,52 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Shared bulk tariff facts — 2026-10-25, `7a0f95e`
+
+Authoritative family checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
+[Policy, evidence and limits](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-inventory-tariffs.md)
+and English integration section 21 describe collection schema v2, unchanged
+family v17/source v4. Default-disabled `MANA_COLLECTION_TARIFFS_ENABLED` shares
+selected paid/end-time facts from the existing known Parent List page with the
+same Retention cache, adding no HTTP, inference or mandatory backend producer.
+New page claims freeze eligibility before I/O; completion/batch commit together.
+Old/disabled/unknown/late claims never upgrade. A one-shot local receiver claim
+retains page/window/hash/date pairing; lost local acknowledgements never repeat
+source or cache dispatch. Child-target capacity does not discard a known tariff
+page. No recipient permissions, token budgets or outreach ceilings are expanded.
+
+One new source-only login +unfiltered Parent List GET `limit=1&offset=0` both
+returned 200: one paired minimized tariff fact, known paid/end-time values,
+**220,460 provider-reported parents**. This is not a child count, consent, fleet
+coverage or real-contact proof. No family cache/message/push/model/Firestore/GA4/
+grant/payment write/call followed; original receipts are retained, not replayed.
+
+Final `make verify` **4460** exited 0: **1325 backend /26 admin /10 lab cases**,
+mypy **387**, formatting/lint/types/build/npm zero; API sync/marker/secret scans
+pass. Lazy runtime, separate stop/readers, lost acknowledgements, exact pairing,
+unknown/stale/lease-late pages, capacity/auth and old-claim preservation are covered.
+The negative fixture shared-default-path and persistently lost-ack harness checks
+remain; fixes isolate test storage and expect an observation failure to stop.
+
+Owned 390px Chromium: 09:00 assistant-first notice with 0/0 model tokens, 15:00
+equal facts without duplicate, Uzbek parent reply in the same three-message chat.
+150/150 simulated tokens, one semantic change, two applied page batches; reload,
+actual server restart and repeating a saved window retain every family/source/
+collector table fingerprint. Screenshots inspected; no overflow; browser/port closed.
+Candidate `f3228a4d7ef6` passes networkless old-v1 upgrade/deactivated-v2 checks,
+retaining original unknown inventory and unknown fan-out. Its family probe retains
+150 known/1850 unknown safety tokens and history. Critical source hashes match.
+Actual previous `8791d2946969` refuses collector v2 unchanged, while its closed v17
+reader preserves the new three-message family history without opening collection.
+This is not a verified execution/production rollback; never downgrade populated SQL.
+
+The complete goal remains active. Source-to-conversion derivation, confirmed free
+start semantics, referral contracts, broader child sources, fleet capacity/quality
+and separately scoped release acceptance remain open. This local increment changes
+no production service, schedule, main/audio, SSH/key or customer tariff/contact.
+The unrelated root tracked diff remains the original `f4b205e5...` fingerprint.
+
+
 ### Source-driven expiry reminder — 2026-10-25, `e819dc9`
 
 Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
