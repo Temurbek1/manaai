@@ -2,6 +2,70 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Shared tariff observations veto commercial contact — 2026-10-25, `cdebaa9`
+
+Implementation remains in `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. Read
+[the shared Conversion profile checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-shared-conversion-profile.md)
+and English integration section 25. Root application/owner changes were preserved.
+
+New default-disabled `MANA_CONVERSION_SHARED_PROFILE_ENABLED` uses private family
+**20**; source/collection schemas are unchanged. Known existing profile/inventory
+acquisition atomically feeds Retention and a minimized Conversion check, with no
+extra provider read, Firebase/GA4 query, model call or grant. Only new conversion
+events capture the stricter check. Old profiles/events do not recapture on upgrade,
+enable or replay; exact repeated observations are ignored and equal-time conflicting
+legacy data closes only the Conversion consumer. Original date/owner scope remains.
+
+Paid/unknown/stale/changed-term/closed/disabled evidence cancels captured queued
+proposals and suppresses unsubmitted marketing push, retaining saved chat messages.
+Non-paid selection creates no eligibility: authoritative free-start/activity/
+consent/approved billing terms and independent account verification remain required.
+A paid source row is not a payment receipt or a measured conversion. No autonomous
+free grant, transaction, payment or fabricated renewal/discount is added.
+
+Final `make verify` **14649**, exit **0**: **1424 backend cases**, one skip/two
+excluded live opt-ins, **26 admin/11 suites**, **10 lab-controller cases**, mypy
+**406 files**, lint/types/build and zero npm vulnerabilities. The new focused suite
+passed **18 cases**; actual runtime configurations cover both a profile-only native
+mode and the dated collection mode, with no provider call at startup. API/schema,
+marker/secret/diff checks passed; final secret scan inspected **1553 files**.
+
+An independent final regression reproduced old-profile replay acquiring a newly
+enabled shared head. Its negative receipt is retained. The subsequent fix inspects
+the preceding Retention head in the same transaction; exact old observations cannot
+acquire the consumer, and equal-time conflicting legacy facts close it. The earlier
+1423-case gate/browser did not cover that regression; only the final 1424-case gate
+and final packaged probe establish the fix. Initial fixture/type/import and image
+PYTHONPATH failures also remain recorded; no paid/source/contact test was repeated.
+
+Final image `a652d0ed9e02…` matches all **six** changed application Python hashes,
+contains no `.env`, and passed networkless/read-only-root/user-1000 probes. V19
+upgrade retains every original table fingerprint and **150 known/1850 unknown**
+safety tokens; replaying the actual old profile creates no new shared head.
+One different fictional parent receives one existing host-owned offer at zero
+model tokens; a later shared paid observation suppresses its unsubmitted push.
+Original-event replay cannot republish; current closed v20 retains every table.
+Actual v19 image `8ed752964ac3` refuses v20 with bytes unchanged: this is not a
+working execution/production rollback. Never downgrade populated databases.
+Production-mode fixtures explicitly disable unrelated Telegram auth only locally.
+
+`make chat-lab-shared-conversion` supplies isolated fictional profile buttons.
+Owned **390 px** Chromium exercised a profile that created no offer, the existing
+authoritative fictional conversion event and one same-chat offer, a paid profile,
+and a new contradictory free event refused as `shared_profile_paid`. An independently
+permitted Retention expiry notice also ran at 15:00: **two assistant messages**,
+zero simulated model tokens, no real request. Reload/actual restart retained all
+family/source table fingerprints. Screenshots passed visual inspection with no
+overflow/browser errors. The owned browser and port 8097 server were closed.
+
+The full goal remains active: this is source reuse/fresh-state enforcement, not
+complete autonomous conversion, real-family/channel/model-quality acceptance or
+a release. Free-start/activity/approved offers, referral, GPS/broader sources,
+administrative owners, capacity and separately scoped production rollout remain.
+No production, source schedule, cloud data, main/audio, SSH/key, customer tariff
+or real contact was changed; old negative/qualified model receipts remain intact.
+
 ### Scheduled dated collection to proactive chat — 2026-10-25, `5b48008`
 
 Authoritative implementation remains in
