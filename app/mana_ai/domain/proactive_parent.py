@@ -29,6 +29,9 @@ class ParentContactContext(ChatContract):
     )
     assistant_push_consent: bool = Field(default=False, strict=True, exclude_if=lambda v: not v)
 
+    retention_chat_consent: bool = Field(default=False, strict=True, exclude_if=lambda v: not v)
+    retention_push_consent: bool = Field(default=False, strict=True, exclude_if=lambda v: not v)
+
     @field_validator("parent_id")
     @classmethod
     def upstream_identifier_range(cls, value: str) -> str:
@@ -52,7 +55,7 @@ class ParentContactContext(ChatContract):
         return self
 
 
-ParentPushPurpose = Literal["safety", "marketing", "assistant"]
+ParentPushPurpose = Literal["safety", "marketing", "assistant", "retention"]
 ParentPushStatus = Literal[
     "queued", "submitting", "queued_by_provider", "not_queued", "unknown", "suppressed"
 ]

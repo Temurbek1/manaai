@@ -9,6 +9,7 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator, model_vali
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.mana_ai.domain.child_safety import ChildSafetyLimits
+from app.mana_ai.domain.client_retention import ClientRetentionPolicy
 from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_collection import FamilyCollectionPolicy
@@ -86,6 +87,10 @@ class Settings(BaseSettings):
     mana_family_collection_enabled: bool = False
     mana_family_source_reviews_enabled: bool = False
     mana_parent_reminders_enabled: bool = False
+    mana_client_retention_enabled: bool = False
+    mana_client_retention_policy: ClientRetentionPolicy = Field(
+        default_factory=ClientRetentionPolicy
+    )
     mana_parent_reminder_policy: ReminderPolicy = Field(default_factory=ReminderPolicy)
     mana_family_source_review_policy: SourceReviewPolicy = Field(default_factory=SourceReviewPolicy)
     mana_family_collection_database_path: Path = Path("data/mana-family-collection.sqlite3")
@@ -424,6 +429,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_client_retention_enabled and not self.mana_parent_reminders_enabled:
+            raise ValueError("Retention requires the complete parent conversation profile")
         if self.mana_parent_reminders_enabled:
             if not self.mana_family_source_reviews_enabled:
                 raise ValueError(

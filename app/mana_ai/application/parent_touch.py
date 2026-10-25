@@ -14,6 +14,7 @@ from app.mana_ai.application.chat_ports import (
     ParentTouchStore,
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
+from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.family_collection import FamilyCollectionService
@@ -30,6 +31,7 @@ from app.mana_ai.domain.chat import (
     ParentChildContext,
     StoredChatTurn,
 )
+from app.mana_ai.domain.client_retention import ParentTouchRetentionTurn
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
     AgentQuestionReceipt,
@@ -88,9 +90,11 @@ class ParentTouchService(ParentChatService):
         sources: FamilySourceService | None = None,
         collection: FamilyCollectionService | None = None,
         reminders: ParentReminderService | None = None,
+        retention: ClientRetentionService | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
+        self.retention = retention
         super().__init__(
             store=store,
             children=children,
@@ -115,6 +119,14 @@ class ParentTouchService(ParentChatService):
     async def process_reminders(self) -> bool:
         return await self.reminders.process_one() if self.reminders else False
 
+    async def process_retention(self) -> bool:
+        if self.retention is None:
+            return False
+        return await self.retention.process_one(self._speak_retention)
+
+    async def _speak_retention(self, request: ParentTouchRetentionTurn) -> ParentChatResponse:
+        return await ParentChatService.send(self, request)
+
     async def process_conversion(self) -> bool:
         """Only Parent-Touch may publish an approved, account-scoped promotion."""
         if self.conversion is None:
@@ -122,6 +134,10 @@ class ParentTouchService(ParentChatService):
         return await self.conversion.communicate(render_parent_offer)
 
     async def admit_message(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState:
+        if self.retention is not None:
+            declined = await self.retention.control(request)
+            if declined is not None:
+                return declined
         if self.reminders is not None:
             controlled = await self.reminders.control(request)
             if controlled is not None:
@@ -211,6 +227,17 @@ class ParentTouchService(ParentChatService):
                     definition=FamilyAgentDefinition(
                         agent_id="parent-assistant",
                         title="Parent Assistant",
+                        speaks_to_parent=False,
+                    ),
+                    status="available",
+                )
+            )
+        if self.retention is not None:
+            directory.agents.append(
+                FamilyAgentAvailability(
+                    definition=FamilyAgentDefinition(
+                        agent_id="retention-agent",
+                        title="Retention & Win-back",
                         speaks_to_parent=False,
                     ),
                     status="available",
@@ -308,6 +335,12 @@ class ParentTouchService(ParentChatService):
         context: ParentChildContext,
         messages: tuple[tuple[str, str], ...],
     ) -> ChatPrompt:
+        if isinstance(request, ParentTouchRetentionTurn):
+            if self.retention is None:
+                raise ParentChatError("retention_runtime_disabled", 503)
+            if not self._clock() - timedelta(seconds=180) <= context.collected_at <= self._clock():
+                raise ParentChatError("retention_profile_not_fresh", 503)
+            return await self.retention.prompt(request.parent_id, turn.turn_id, messages)
         data = json.loads(messages[0][1])
         if not isinstance(data, dict) or "profiles" not in data:
             raise ParentChatError("touch_context_invalid", 503)

@@ -369,3 +369,24 @@ async def test_specialist_can_start_the_same_chat_before_parent_text(tmp_path: P
         assert state["history"]["active_question"], state
         assert [item["role"] for item in state["history"]["messages"]] == ["assistant"]
         assert state["history"]["quota"]["used_tokens"] == 150
+
+
+async def test_composite_observation_busy_is_controlled_without_generation(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    from app.mana_ai.application.chat_ports import ParentChatError
+    from app.services.mana_chat_lab import LabState
+
+    app = create_app(options=LabOptions(tmp_path / "busy", clock=Clock(), worker_enabled=False))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=BASE) as client,
+    ):
+        await session(client)
+
+        async def busy() -> LabState:
+            raise ParentChatError("lab_state_busy", 409)
+
+        monkeypatch.setattr(app.state.chat_lab, "state", busy)
+        result = await client.get("/lab/state")
+        assert result.status_code == 409 and result.json()["detail"]["code"] == "lab_state_busy"

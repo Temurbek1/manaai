@@ -2,6 +2,20 @@
 
 ## Repository expectations
 
+- The local client Retention increment uses private family v15, unchanged source
+  v4, and default-disabled `MANA_CLIENT_RETENTION_ENABLED`. It detects a completed
+  parent-chat gap, not app churn, and admits one immutable intent per last-message
+  anchor. Parent-Touch alone generates/publishes within its existing 2000 tokens;
+  the parent's reply follows normal safety review. Separate retention chat/push
+  consent, quiet hours, specialist priority, opt-out, fresh parent ownership,
+  in-flight fences and unknown holds remain enforced. No discounts, pause,
+  subscription action or business lift is implemented by this check-in lane.
+  Read `docs/mana-client-retention.md`: the one real RU synthetic full loop used
+  1734 speaker/1024 safety tokens with zero holds; it is not broad model/UZ or
+  real-customer acceptance. Previous v14 refuses v15 unchanged; use current closed
+  readers, never downgrade. No production/source schedule or budget was changed.
+
+
 - The local default-disabled parent-assistant increment uses private family v14
   with unchanged source-cache v4. Only new eligible Parent-Touch turns capture
   reminder scope; only a real parent reply to the exact parent-level preview

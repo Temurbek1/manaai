@@ -13005,6 +13005,16 @@
             "title": "Parent Id",
             "type": "string"
           },
+          "retention_chat_consent": {
+            "default": false,
+            "title": "Retention Chat Consent",
+            "type": "boolean"
+          },
+          "retention_push_consent": {
+            "default": false,
+            "title": "Retention Push Consent",
+            "type": "boolean"
+          },
           "revision": {
             "minimum": 1.0,
             "title": "Revision",
@@ -13400,7 +13410,8 @@
             "enum": [
               "safety",
               "marketing",
-              "assistant"
+              "assistant",
+              "retention"
             ],
             "title": "Purpose",
             "type": "string"

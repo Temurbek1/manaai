@@ -42,7 +42,7 @@ def _validate_existing_native_schema(path: Path) -> None:
     if not path.exists():
         return
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
-        if connection.execute("PRAGMA user_version").fetchone()[0] in {11, 12, 13, 14}:
+        if connection.execute("PRAGMA user_version").fetchone()[0] in {11, 12, 13, 14, 15}:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:
                 raise RuntimeError(

@@ -480,6 +480,8 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
         if context is None or not (
             context.safety_push_consent
             if purpose == "safety"
+            else context.retention_push_consent
+            if purpose == "retention"
             else context.assistant_push_consent
             if purpose == "assistant"
             else context.marketing_push_consent
@@ -559,6 +561,8 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
                         if not (
                             context.safety_push_consent
                             if row["purpose"] == "safety"
+                            else context.retention_push_consent
+                            if row["purpose"] == "retention"
                             else context.assistant_push_consent
                             if row["purpose"] == "assistant"
                             else context.marketing_push_consent

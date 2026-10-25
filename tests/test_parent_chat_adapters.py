@@ -332,3 +332,41 @@ async def test_source_never_retries_or_follows_pagination_or_redirects(status: i
         with pytest.raises(ParentChatError):
             await source.read("123")
     assert calls == 2
+
+
+@pytest.mark.parametrize(
+    "body,valid", [("Можно вернуться к разговору об учебе.", True), ("Как дела у ребёнка?", False)]
+)
+async def test_retention_question_cannot_bypass_managed_slot_after_verified_usage(
+    body: str, valid: bool
+) -> None:
+    from datetime import UTC, datetime, timedelta
+    from uuid import uuid4
+
+    from app.mana_ai.domain.client_retention import RetentionIntent
+
+    now = datetime(2026, 10, 25, tzinfo=UTC)
+    intent = RetentionIntent(
+        intent_id=uuid4(),
+        parent_id="900001",
+        request_id=uuid4(),
+        anchor_turn_id=1,
+        last_parent_message_at=now - timedelta(days=15),
+        admitted_at=now,
+        expires_at=now + timedelta(seconds=180),
+        language="ru",
+        contact_digest="a" * 64,
+    )
+    prompt = replace(PROMPT, structured_reply=True, slot_reply=True, retention_scope=intent)
+    payload = model_payload()
+    payload["output"][0]["content"][0]["text"] = json.dumps(
+        {"body": body, "question": None, "notice_communicated": False}
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as http:
+        adapter = OpenAIParentChatModel(
+            settings(), client=AsyncOpenAI(api_key="fake-key", max_retries=0, http_client=http)
+        )
+        receipt = await adapter.respond(prompt, max_output_tokens=512)
+    assert receipt.usage.total == 150 and receipt.completed is valid

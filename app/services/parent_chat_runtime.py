@@ -7,6 +7,7 @@ import httpx
 
 from app.core.config import Settings
 from app.mana_ai.application.child_safety import ChildSafetyService
+from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.conversion_accounts import ConversionAccountVerifier
 from app.mana_ai.application.conversion_grants import TrialGrantService
@@ -22,6 +23,10 @@ from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_safety_store import SqliteChildSafetyStore
 from app.services.child_source_model import OpenAIChildSourceModel
+from app.services.client_retention_store import (
+    SqliteClientRetentionStore,
+    SqliteClosedClientRetentionStore,
+)
 from app.services.commercial_conversation_store import (
     SqliteClosedCommercialConversationStore,
     SqliteCommercialConversationStore,
@@ -86,6 +91,12 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
+        version == 15
+        and settings.mana_child_safety_enabled
+        and not settings.mana_client_retention_enabled
+    ):
+        raise RuntimeError("V15 execution requires its captured Retention runtime")
+    if (
         version == 14
         and settings.mana_child_safety_enabled
         and not settings.mana_parent_reminders_enabled
@@ -133,7 +144,14 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         native_store = (
-            SqliteParentReminderStore(
+            SqliteClientRetentionStore(
+                settings.mana_parent_chat_database_path,
+                reminder_policy=settings.mana_parent_reminder_policy,
+                retention_policy=settings.mana_client_retention_policy,
+                **native_options,
+            )
+            if settings.mana_client_retention_enabled
+            else SqliteParentReminderStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
                 **native_options,
@@ -142,11 +160,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14}:
+    elif version in {11, 12, 13, 14, 15}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedParentReminderStore
+            SqliteClosedClientRetentionStore
+            if version == 15
+            else SqliteClosedParentReminderStore
             if version == 14
             else (
                 SqliteClosedSourceReviewSafetyStore
@@ -432,6 +452,9 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     reviewed=reviewed,
                     sources=sources.reads if sources else None,
                     collection=sources.collection if sources else None,
+                    retention=ClientRetentionService(store, clock=lambda: datetime.now(UTC))
+                    if isinstance(store, SqliteClientRetentionStore)
+                    else None,
                     reminders=ParentReminderService(
                         store, children, clock=lambda: datetime.now(UTC)
                     )

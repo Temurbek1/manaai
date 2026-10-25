@@ -249,3 +249,25 @@ test("an active child question has priority over an assistant confirmation", asy
   assert.equal(body.reply_to_question_id, "child-question");
   assert.equal(body.reply_to_confirmation_id, undefined);
 });
+
+test("a retention fixture receipt is not mislabelled as a failed provider read", async () => {
+  const env = await environment({
+    sourceStatus: "prepared",
+    scenarios: [
+      {
+        key: "retention",
+        title: "Retention",
+        path: "/lab/retention-scenario",
+        local: true,
+        body: { parent_id: "900001" },
+      },
+    ],
+  });
+  await env.element("scenarios").children[0].listeners.click();
+  assert.equal(env.element("error").hidden, true);
+  assert.match(env.element("status").textContent, /Retention/);
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    1,
+  );
+});

@@ -143,7 +143,7 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
 
     @app.get("/lab/state", response_model=LabState, dependencies=[Depends(local_session)])
     async def state() -> LabState:
-        return await lab.state()
+        return await mana_family_agents.controlled(lab.state())
 
     @app.post(
         "/lab/child-battery",
@@ -170,6 +170,14 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
         if lab.collection is None:
             raise HTTPException(409, detail={"code": "lab_collection_disabled"})
         return await mana_family_agents.controlled(lab.collection.collect(payload.hour))
+
+    @app.post(
+        "/lab/retention-scenario",
+        dependencies=[Depends(local_session)],
+        response_model=dict[str, str],
+    )
+    async def retention_scenario() -> dict[str, str]:
+        return await mana_family_agents.controlled(lab.prepare_retention_scenario())
 
     for router in (mana_family_agents.router, mana_child_safety.router, mana_conversion.router):
         app.include_router(router, prefix="/api/v1/mana-ai")
@@ -284,5 +292,36 @@ def create_reminder_live_app() -> FastAPI:
             native_observations=True,
             source_reviews=True,
             reminders=True,
+        )
+    )
+
+
+def create_retention_app() -> FastAPI:
+    """One fictional family, actual wall clock and SQL; no push, live data or paid model."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/retention-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+        )
+    )
+
+
+def create_retention_live_app() -> FastAPI:
+    """Explicit paid model only; fictional data and real clock, no live parent contacts."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/retention-real-model",
+            real_model=True,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
         )
     )

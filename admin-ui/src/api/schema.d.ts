@@ -6772,6 +6772,16 @@ export interface components {
             observed_at: string;
             /** Parent Id */
             parent_id: string;
+            /**
+             * Retention Chat Consent
+             * @default false
+             */
+            retention_chat_consent: boolean;
+            /**
+             * Retention Push Consent
+             * @default false
+             */
+            retention_push_consent: boolean;
             /** Revision */
             revision: number;
             /** Safety Chat Consent */
@@ -6917,7 +6927,7 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "safety" | "marketing" | "assistant";
+            purpose: "safety" | "marketing" | "assistant" | "retention";
             /**
              * Push Id
              * Format: uuid

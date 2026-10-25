@@ -296,6 +296,12 @@ async function start() {
           await refresh();
           return;
         }
+        if (fresh.path === "/lab/retention-scenario") {
+          $("status").textContent =
+            "Вымышленная история подготовлена. Retention обратится через Parent-Touch.";
+          await refresh();
+          return;
+        }
         if (fresh.local && receipt.status !== "completed") {
           throw new Error(
             receipt.error_code || "Чтение источника не подтверждено.",

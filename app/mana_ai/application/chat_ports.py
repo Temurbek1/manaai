@@ -13,6 +13,7 @@ from app.mana_ai.domain.chat import (
     ResponseLanguage,
     StoredChatTurn,
 )
+from app.mana_ai.domain.client_retention import RetentionIntent
 from app.mana_ai.domain.commercial_conversation import CommercialConversationContext
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
@@ -59,6 +60,7 @@ class ChatPrompt:
     response_language: ResponseLanguage | None = None
     required_observation_dates: tuple[str, ...] = ()
     reminder_scope: ReminderScope | None = None
+    retention_scope: RetentionIntent | None = None
 
 
 @dataclass(frozen=True)

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict
@@ -22,6 +22,7 @@ from app.mana_ai.application.chat_ports import (
     ParentChatModel,
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
+from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_reminders import ParentReminderService
@@ -40,6 +41,7 @@ from app.mana_ai.domain.child_safety import (
     SafetyModelDecision,
     SafetySourceReviewDecision,
 )
+from app.mana_ai.domain.client_retention import ClientRetentionPolicy
 from app.mana_ai.domain.conversion import (
     ConversionPolicy,
     ConversionProposalPage,
@@ -48,7 +50,11 @@ from app.mana_ai.domain.conversion import (
 )
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
-from app.mana_ai.domain.family_agents import AgentQuestionRequest, ParentTouchHistory
+from app.mana_ai.domain.family_agents import (
+    AgentQuestionRequest,
+    ParentTouchHistory,
+    ParentTouchMessageRequest,
+)
 from app.mana_ai.domain.family_collection import FamilyCollectionWindow
 from app.mana_ai.domain.family_sources import (
     AppUsageCounter,
@@ -65,6 +71,7 @@ from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyRec
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_source_model import OpenAIChildSourceModel
+from app.services.client_retention_store import SqliteClientRetentionStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
@@ -269,6 +276,21 @@ class SimulatedModel:
             answer = decision.model_dump_json()
         else:
             uzbek = prompt.response_language == "uz-Latn"
+            if prompt.retention_scope is not None:
+                return ChatModelReceipt(
+                    usage=ChatTokens(input_tokens=100, output_tokens=50),
+                    model="lab-simulated-not-billed",
+                    completed=True,
+                    answer=(
+                        "Avvalgi suhbatimizga qaytishingiz mumkin. "
+                        "Sozlamalar bo‘yicha yordam bera olaman."
+                    )
+                    if prompt.response_language == "uz-Latn"
+                    else (
+                        "Можно вернуться к прошлому разговору. "
+                        "Помогу разобраться с настройками MANA."
+                    ),
+                )
             if prompt.reminder_scope:
                 latest = prompt.messages[-1][1].casefold()
                 task = next(
@@ -427,6 +449,7 @@ class LabOptions:
     scheduled_collection: bool = False
     source_reviews: bool = False
     reminders: bool = False
+    retention: bool = False
 
 
 class ChatLab:
@@ -444,6 +467,8 @@ class ChatLab:
         ):
             raise ValueError("Collection lab requires fictional time, sources and model")
         self.options = options
+        if options.retention and not options.reminders:
+            raise ValueError("Retention lab requires the complete conversation profile")
         if options.reminders and not options.source_reviews:
             raise ValueError("The assistant lab requires the complete source-review profile")
         self.mode: Literal["simulation", "real-model"] = (
@@ -478,6 +503,8 @@ class ChatLab:
             expected["source_reviews"] = True
         if self.options.reminders:
             expected["reminders"] = True
+        if self.options.retention:
+            expected["retention"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -552,7 +579,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteParentReminderStore
+                SqliteClientRetentionStore
+                if self.options.retention
+                else SqliteParentReminderStore
                 if self.options.reminders
                 else (
                     SqliteSourceReviewSafetyStore
@@ -567,6 +596,8 @@ class ChatLab:
             reminder_options: dict[str, Any] = (
                 {"reminder_policy": ReminderPolicy()} if self.options.reminders else {}
             )
+            if self.options.retention:
+                reminder_options["retention_policy"] = ClientRetentionPolicy()
             self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
@@ -667,6 +698,9 @@ class ChatLab:
             conversion=ConversionService(self.store, clock=self.options.clock.now),
             proactive=proactive,
             sources=self.sources,
+            retention=ClientRetentionService(self.store, clock=self.options.clock.now)
+            if isinstance(self.store, SqliteClientRetentionStore)
+            else None,
             reminders=ParentReminderService(self.store, profiles, clock=self.options.clock.now)
             if isinstance(self.store, SqliteParentReminderStore)
             else None,
@@ -765,6 +799,49 @@ class ChatLab:
             else [],
         )
 
+    async def prepare_retention_scenario(self) -> dict[str, str]:
+        if not self.options.retention or not isinstance(self.store, SqliteClientRetentionStore):
+            raise ParentChatError("lab_retention_disabled", 409)
+        if self.options.real_model:
+            raise ParentChatError("lab_retention_fixture_requires_simulation", 409)
+        now = self.options.clock.now()
+        request = ParentTouchMessageRequest(
+            parent_id=LAB_PARENT,
+            request_id=uuid5(NAMESPACE_URL, "fictional-retention-lab-v1"),
+            message="Как помочь ребёнку не отвлекаться на телефон во время уроков?",
+        )
+        with self.store._transaction() as db:
+            if db.execute(
+                "SELECT 1 FROM parent_chat_turns WHERE parent_id=? AND request_id=?",
+                (LAB_PARENT, str(request.request_id)),
+            ).fetchone():
+                return {"status": "already_prepared"}
+            if db.execute("SELECT 1 FROM parent_chat_turns").fetchone():
+                raise ParentChatError("lab_retention_requires_empty_history", 409)
+            self.store._host_reply(
+                db,
+                request,
+                LAB_PARENT,
+                request.request_id,
+                "Тестовая история: обсудили короткие учебные интервалы и перерывы.",
+                now - timedelta(days=15),
+            )
+        assert self.touch.proactive is not None
+        prior = await self.store.contact_context(LAB_PARENT, now)
+        assert prior is not None
+        await self.touch.proactive.register(
+            prior.model_copy(
+                update={
+                    "event_id": uuid4(),
+                    "revision": prior.revision + 1,
+                    "observed_at": now,
+                    "valid_until": now + timedelta(days=1),
+                    "retention_chat_consent": True,
+                }
+            )
+        )
+        return {"status": "prepared"}
+
     def bootstrap(self) -> LabBootstrap:
         now = self.options.clock.now()
         needs = AgentQuestionRequest(
@@ -803,6 +880,19 @@ class ChatLab:
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="retention",
+                            title="Возврат после паузы (вымышленная история)",
+                            path="/lab/retention-scenario",
+                            body={"parent_id": LAB_PARENT},
+                            local=True,
+                        )
+                    ]
+                    if self.options.retention and not self.options.real_model
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

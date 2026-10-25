@@ -606,3 +606,26 @@ Push permission is separate: backend-verified contact context adds optional
 these from safety/marketing settings or from the AI's text. A confirmed timer
 permits its specific chat reminder; an explicit current chat veto cancels delivery.
 See [ownership, limits, storage and actual evidence](mana-parent-reminders.md).
+
+## 17. Retention / Win-back through Parent-Touch (local, not released)
+
+`MANA_CLIENT_RETENTION_ENABLED` adds one supported proactive scenario: a check-in
+after a verified gap in the parent's own chat. Parent-Touch remains the only
+speaker; no new phone endpoint, second chat or backend webhook is required.
+It must not be interpreted as per-parent app-churn prediction.
+
+Optional backend-verified `retention_chat_consent` and `retention_push_consent`
+default to false. Supply them through the existing contact-context contract only
+when actually verified. Safety, marketing and assistant permissions do not imply
+Retention permission. Quiet hours, current consent and specialist priorities are
+checked before generating/publishing. Push follows durable chat storage separately.
+
+The parent simply replies through the standard message POST. A returned-to-chat
+observation is recorded once; normal Child-Safety review and Parent-Touch continue.
+`не пиши первым`, `birinchi bo‘lib yozmang`, and `stop check-ins` are supported
+persistent opt-outs, acknowledged without inference even after quota exhaustion.
+They do not change safety permissions or revoke an already dispatched push.
+
+See [implementation, exact limits and real-model evidence](mana-client-retention.md).
+The workflow is local, private schema v15, and default disabled. Do not call these
+additions on production until an explicit release is confirmed.

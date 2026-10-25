@@ -249,6 +249,10 @@ class OpenAIParentChatModel:
                 ):
                     failure_code = "reply_language_mismatch"
                     raise ValueError("The speaker used another presentation language")
+                if prompt.retention_scope is not None and (
+                    len(reply.body) > 700 or any(mark in reply.body for mark in ("?", "？", "؟"))
+                ):
+                    raise ValueError("A retention check-in cannot create an unmanaged question")
                 if any(date not in reply.body for date in prompt.required_observation_dates):
                     raise ValueError("A source-backed reply must preserve its observation date")
                 if isinstance(reply, ParentTouchEvidenceReply):

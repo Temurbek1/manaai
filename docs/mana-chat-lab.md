@@ -178,3 +178,13 @@ live family data, send push or grant tariffs. Never reset its quotas/history to
 repeat diagnostics or run a paid model with an artificial clock. The simulator's
 known notebook phrases are fixtures, not evidence of general language quality.
 See [the actual qualified model and lifecycle checkpoint](mana-parent-reminders.md).
+
+### Retention / Win-back
+
+Run `make chat-lab-retention`. The “Возврат после паузы” button in an empty history
+prepares one fictional historical conversation and test opt-in. Parent-Touch then
+initiates one check-in. Reply normally, or write `не пиши первым` /
+`birinchi bo‘lib yozmang` to stop these check-ins. No clock is accelerated, source
+is read, tariff is granted or push is sent. Repeating the button does not recreate
+history or repeat work. It is unavailable in the explicit paid-model mode.
+See [the supported flow and actual acceptance](mana-client-retention.md).

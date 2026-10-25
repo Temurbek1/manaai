@@ -528,9 +528,13 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
     assert not Settings(openai_api_key="fake", _env_file=None).mana_family_collection_enabled
 
 
-@pytest.mark.parametrize("reminders", [False, True])
+@pytest.mark.parametrize("reminders,retention", [(False, False), (True, False), (True, True)])
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
-    tmp_path: Path, credential_file: Path, monkeypatch: MonkeyPatch, reminders: bool
+    tmp_path: Path,
+    credential_file: Path,
+    monkeypatch: MonkeyPatch,
+    reminders: bool,
+    retention: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
@@ -560,6 +564,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_family_source_safety_enabled=True,
         mana_family_source_reviews_enabled=True,
         mana_parent_reminders_enabled=reminders,
+        mana_client_retention_enabled=retention,
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -573,6 +578,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         assert service.safety is not None
         assert isinstance(service.safety.store, SqliteParentReminderStore) is reminders
         assert (service.reminders is not None) is reminders
+        assert (service.retention is not None) is retention
         assert isinstance(service.sources._store, SqliteSourceReviewCache)
         assert isinstance(service.safety.store, SqliteSourceReviewSafetyStore)
         assert (await service.history("123", before=None, limit=20)).messages == []
