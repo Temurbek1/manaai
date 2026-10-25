@@ -56,6 +56,15 @@ other implementable work.
 
 ## Subsequent local source-to-chat increment
 
+The [actual production-copy rehearsal](mana-production-upgrade-rehearsal.md)
+preserves all original cells in sixteen deployed v6 tables through the actual v21
+HTTP/runtime image and current closed reader, with historical replay and zero
+provider calls. Production containers/configurations remained identical. This is
+not a deployment or functional old-image rollback. The separate
+[bounded source observation](mana-source-access-20261025.md) found a fresh exact-child
+location GET rejected with 403 and monitoring-log GET accepted with an empty list;
+GPS mapping/populated log semantics remain unverified rather than guessed.
+
 The [Parent-Touch manager increment](mana-parent-touch-manager.md) makes ordinary
 conversation independent of the global Child-Safety token balance. New captured
 turns choose one owning child/tariff/reminder workflow through strict metered

@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- The read-only October-25 production-copy rehearsal changes no application code
+  or production state. Read `docs/mana-production-upgrade-rehearsal.md` and
+  `docs/mana-source-access-20261025.md`. Actual v6 history migrates locally through
+  the current v21 HTTP image with all original cells preserved and no provider
+  calls; current closed-reader acceptance is not functional old-image rollback.
+  Private SQL/configuration snapshots stay outside Git/images/model parties.
+  Do not repeat the obsolete-path copy failure or recopy production automatically.
+  New full dated profiles need explicit lease timing; no financial/schedule/source
+  authority increases. The known test-family location 403 is not a guessed GPS
+  join or proof of absent Firestore data; monitoring 200/empty is not a populated
+  event contract. Keep the full original objective and missing integrations open.
+
 - The subsequent local `MANA_PARENT_TOUCH_MANAGER_ENABLED` profile defaults off,
   adds family v21 and leaves source/collection protocols unchanged. Read
   `docs/mana-parent-touch-manager.md`. Only new eligible turns capture one bounded

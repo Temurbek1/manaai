@@ -809,3 +809,18 @@ permissions. Try `make chat-lab-manager` with fictional providers and explicitly
 simulated models. Read [the implementation, retained negative diagnostic and
 actual acceptance limits](mana-parent-touch-manager.md). Production remains on
 the earlier release until a separately scoped rollout is confirmed.
+
+## 27. Production migration rehearsal (not a release)
+
+The actual deployed v6 history was copied consistently in read-only mode and
+upgraded to v21 **locally** in the exact current image, without networking or real
+keys. History and exact old-request replay passed through the production HTTP
+factory; all sixteen original tables retained every original cell. The current
+closed reader returned the same history. Production remains `f8d095e`; do not
+assume the local sections above are enabled there.
+
+For a future full dated-source profile the default SDK/read bounds require an
+explicit 360-second native SQL lease; token limits remain unchanged. Do not use
+old images against a migrated v21 file, restore stale backups over newer chats,
+or interpret this rehearsal as working execution rollback. Read
+[the exact evidence, selected profile and outstanding release requirements](mana-production-upgrade-rehearsal.md).
