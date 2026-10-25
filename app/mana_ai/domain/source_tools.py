@@ -2,12 +2,14 @@
 
 import hashlib
 import json
+from datetime import date
 from typing import Literal
 from uuid import UUID, uuid5
 
 from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
+from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE
 from app.mana_ai.domain.family_sources import FamilySourceKey
 
 
@@ -35,6 +37,19 @@ class ObservationSourceArguments(BatterySourceArguments):
     kind: Literal["battery", "app_usage"]
 
 
+class DatedObservationArguments(BatterySourceArguments):
+    kind: Literal["battery", "app_usage", "app_usage_day"]
+    calendar_day: str | None = Field(pattern=r"^\d{4}-\d{2}-\d{2}$", strict=True)
+
+    @model_validator(mode="after")
+    def exact_day(self) -> "DatedObservationArguments":
+        if (self.kind == "app_usage_day") != (self.calendar_day is not None):
+            raise ValueError("Only a dated usage read takes a calendar day")
+        if self.calendar_day is not None:
+            date.fromisoformat(self.calendar_day)
+        return self
+
+
 class SourceToolChild(ChatContract):
     alias: str = Field(pattern=r"^child-[1-9][0-9]?$", strict=True)
     child_id: int = Field(gt=0, le=2**63 - 1, strict=True)
@@ -44,7 +59,8 @@ class SourceToolScope(ChatContract):
     parent_id: ParentChatId
     invocation_id: UUID
     children: tuple[SourceToolChild, ...] = Field(max_length=20)
-    protocol: Literal[1, 2] = 1
+    protocol: Literal[1, 2, 3] = 1
+    calendar_today: date | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_serializer(mode="wrap")
     def original_scope(self, handler: SerializerFunctionWrapHandler) -> object:
@@ -60,9 +76,29 @@ class SourceToolScope(ChatContract):
             or len({child.child_id for child in self.children}) != len(self.children)
         ):
             raise ValueError("Invalid native source family scope")
+        if (self.protocol == 3) != (self.calendar_today is not None):
+            raise ValueError("Only dated source scopes freeze their query-calendar date")
         return self
 
-    def request_id_for(self, call: "BatterySourceCall | ObservationSourceCall") -> UUID:
+    def validate_call(
+        self, call: "BatterySourceCall | ObservationSourceCall | DatedObservationCall"
+    ) -> None:
+        expected = {1: BatterySourceCall, 2: ObservationSourceCall, 3: DatedObservationCall}[
+            self.protocol
+        ]
+        if not isinstance(call, expected) or source_call_alias(call) not in {
+            c.alias for c in self.children
+        }:
+            raise ValueError("The exact captured source protocol and child are required")
+        day = source_call_day(call)
+        if day is not None and (
+            self.calendar_today is None or not 1 <= (self.calendar_today - day).days <= 31
+        ):
+            raise ValueError("The query day is outside the captured completed-day window")
+
+    def request_id_for(
+        self, call: "BatterySourceCall | ObservationSourceCall | DatedObservationCall"
+    ) -> UUID:
         identity = hashlib.sha256(call.model_dump_json().encode()).hexdigest()
         return uuid5(self.invocation_id, "native-source-read-v1:" + identity)
 
@@ -97,7 +133,22 @@ class ObservationSourceCall(ChatContract):
         return self
 
 
-def source_call_alias(call: BatterySourceCall | ObservationSourceCall) -> str:
+class DatedObservationCall(ObservationSourceCall):
+    @model_validator(mode="after")
+    def valid_arguments(self) -> "DatedObservationCall":
+        dated_arguments(self.arguments)
+        return self
+
+
+def dated_arguments(value: str) -> DatedObservationArguments:
+    return DatedObservationArguments.model_validate(_source_payload(value))
+
+
+def source_call_alias(
+    call: BatterySourceCall | ObservationSourceCall | DatedObservationCall,
+) -> str:
+    if isinstance(call, DatedObservationCall):
+        return dated_arguments(call.arguments).child_alias
     return (
         source_arguments(call.arguments)
         if isinstance(call, BatterySourceCall)
@@ -105,13 +156,35 @@ def source_call_alias(call: BatterySourceCall | ObservationSourceCall) -> str:
     )
 
 
-def source_call_key(call: BatterySourceCall | ObservationSourceCall) -> FamilySourceKey:
+def source_call_key(
+    call: BatterySourceCall | ObservationSourceCall | DatedObservationCall,
+) -> FamilySourceKey | Literal["manakids.family_day_app_usage.v1"]:
+    if isinstance(call, DatedObservationCall):
+        kind = dated_arguments(call.arguments).kind
+        return (
+            DAY_USAGE_SOURCE
+            if kind == "app_usage_day"
+            else "firebase.child_battery.v1"
+            if kind == "battery"
+            else "manakids.child_app_usage.v1"
+        )
     return (
         "firebase.child_battery.v1"
         if isinstance(call, BatterySourceCall)
         or observation_arguments(call.arguments).kind == "battery"
         else "manakids.child_app_usage.v1"
     )
+
+
+def source_call_day(
+    call: BatterySourceCall | ObservationSourceCall | DatedObservationCall,
+) -> date | None:
+    value = (
+        dated_arguments(call.arguments).calendar_day
+        if isinstance(call, DatedObservationCall)
+        else None
+    )
+    return date.fromisoformat(value) if value is not None else None
 
 
 class EncryptedSourceReasoning(ChatContract):
@@ -121,11 +194,12 @@ class EncryptedSourceReasoning(ChatContract):
 
 
 class SourceToolContinuation(ChatContract):
-    version: Literal[1, 2] = 1
+    version: Literal[1, 2, 3] = 1
     input_digest: str = Field(pattern=r"^[a-f0-9]{64}$", strict=True)
-    items: tuple[BatterySourceCall | ObservationSourceCall | EncryptedSourceReasoning, ...] = Field(
-        min_length=1, max_length=5
-    )
+    items: tuple[
+        BatterySourceCall | DatedObservationCall | ObservationSourceCall | EncryptedSourceReasoning,
+        ...,
+    ] = Field(min_length=1, max_length=5)
 
     @model_validator(mode="after")
     def one_call(self) -> "SourceToolContinuation":
@@ -133,7 +207,10 @@ class SourceToolContinuation(ChatContract):
             sum(isinstance(item, BatterySourceCall | ObservationSourceCall) for item in self.items)
             != 1
             or any(
-                isinstance(item, ObservationSourceCall) != (self.version == 2)
+                type(item)
+                is not {1: BatterySourceCall, 2: ObservationSourceCall, 3: DatedObservationCall}[
+                    self.version
+                ]
                 for item in self.items
                 if isinstance(item, BatterySourceCall | ObservationSourceCall)
             )
@@ -144,7 +221,7 @@ class SourceToolContinuation(ChatContract):
         return self
 
     @property
-    def call(self) -> BatterySourceCall | ObservationSourceCall:
+    def call(self) -> BatterySourceCall | ObservationSourceCall | DatedObservationCall:
         return next(
             item
             for item in self.items

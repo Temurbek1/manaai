@@ -1,6 +1,7 @@
 """Application-family agents, separate from the four operational administrators."""
 
 import re
+from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -122,6 +123,16 @@ class ParentTouchReviewGuidance(ChatContract):
     source_observations: tuple[ChildBatteryFacts | ChildAppUsageFacts, ...] = Field(
         default=(), max_length=1, exclude_if=lambda value: not value
     )
+    day_usage_query: date | None = Field(default=None, exclude_if=lambda v: v is None)
+    day_usage_child_returned: bool | None = Field(
+        default=None, strict=True, exclude_if=lambda v: v is None
+    )
+
+    @model_validator(mode="after")
+    def query_context(self) -> "ParentTouchReviewGuidance":
+        if (self.day_usage_query is None) != (self.day_usage_child_returned is None):
+            raise ValueError("Dated usage guidance requires an explicit child-row outcome")
+        return self
 
 
 class ReviewedMessage(ChatContract):

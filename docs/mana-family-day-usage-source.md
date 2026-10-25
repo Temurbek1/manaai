@@ -1,10 +1,15 @@
 # Completed-day app counters — qualified source port, 2026-10-25
 
+Subsequent local integration: [dated native source/cache/chat workflow](mana-dated-source-workflow.md)
+now implements the captured v18/v5 path. The source-only findings and original
+negative/live diagnostics below remain historical evidence, not retroactive passes.
+
 The documented bulk usage endpoint applies `username`, `start_date`, `end_date`
 and `page`; the exact-child detail endpoint does not establish those filter semantics.
 The new `ManakidsFamilyDayUsageSource` reads one explicit completed calendar day
-for a freshly verified MANA family. It is a typed source implementation, **not yet
-wired into the agent runtime, cache, native tools, collector or mobile API**.
+for a freshly verified MANA family. At the original `cb54a9c` checkpoint this was a
+source port without runtime/cache/native-tool wiring. The linked subsequent local
+increment adds those connections; the collector/mobile API remain unchanged.
 Do not present it as an already released daily report or another top-level agent.
 
 ## Actual contract findings

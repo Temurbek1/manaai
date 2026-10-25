@@ -455,3 +455,22 @@ def create_expiry_live_app() -> FastAPI:
             expiry=True,
         )
     )
+
+
+def create_day_usage_app() -> FastAPI:
+    """Dated usage through the native agent/chat loop, exclusively fictional providers."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/day-usage-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            day_usage=True,
+        )
+    )

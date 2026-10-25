@@ -40,6 +40,10 @@ from app.services.conversion_account_store import (
     SqliteConversionAccountStore,
 )
 from app.services.conversion_store import SqliteClosedConversionStore, SqliteConversionStore
+from app.services.dated_source_safety_store import (
+    SqliteClosedDatedSourceSafetyStore,
+    SqliteDatedSourceSafetyStore,
+)
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.family_collection_worker import FamilyCollectionWorker
@@ -100,7 +104,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
-        version == 17
+        version in {17, 18}
         and settings.mana_child_safety_enabled
         and not settings.mana_client_upsell_enabled
     ):
@@ -165,7 +169,11 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         native_store = (
-            SqliteRetentionExpiryStore(
+            (
+                SqliteDatedSourceSafetyStore
+                if settings.mana_family_day_usage_enabled or version == 18
+                else SqliteRetentionExpiryStore
+            )(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
                 retention_policy=settings.mana_client_retention_policy,
@@ -173,11 +181,16 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 catalog_binding=settings.manakids_api_base_url + "/api/v1/tariffs/",
                 expiry_policy=settings.mana_retention_expiry_policy,
                 expiry_enabled=settings.mana_retention_expiry_enabled,
+                **(
+                    {"day_tools_enabled": settings.mana_family_day_usage_enabled}
+                    if settings.mana_family_day_usage_enabled or version == 18
+                    else {}
+                ),
                 profile_binding=settings.manakids_api_base_url
                 + "/api/v1/admin-panel-parent/parent-list/",
                 **native_options,
             )
-            if settings.mana_retention_expiry_enabled or version == 17
+            if settings.mana_retention_expiry_enabled or version in {17, 18}
             else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
@@ -203,11 +216,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15, 16, 17}:
+    elif version in {11, 12, 13, 14, 15, 16, 17, 18}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedRetentionExpiryStore
+            SqliteClosedDatedSourceSafetyStore
+            if version == 18
+            else SqliteClosedRetentionExpiryStore
             if version == 17
             else SqliteClosedClientUpsellStore
             if version == 16
@@ -448,6 +463,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     children,
                     clock=lambda: datetime.now(UTC),
                     account_auth=profile_source,
+                    day_identities=profile_source,
                     tariff_receiver=store
                     if isinstance(store, SqliteRetentionExpiryStore)
                     else None,
@@ -483,6 +499,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                             model=safety_model,
                             prompts=SourceToolPromptBuilder(),
                             sources=sources.reads,
+                            day_usage=sources.day_usage,
                             clock=SystemManaAIClock(),
                             limits=settings.mana_child_safety_limits,
                             max_output_tokens=settings.mana_child_safety_max_output_tokens,

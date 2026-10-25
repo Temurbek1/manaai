@@ -5,6 +5,7 @@ from typing import Literal, Protocol
 
 from app.mana_ai.application.chat_ports import ChatPrompt
 from app.mana_ai.domain.chat import ChatTokens
+from app.mana_ai.domain.family_day_usage import DayUsageReceipt
 from app.mana_ai.domain.family_sources import FamilySourceReceipt
 from app.mana_ai.domain.source_tools import (
     SourceToolContinuation,
@@ -18,7 +19,7 @@ class SourceToolPrompt:
     input: ChatPrompt
     scope: SourceToolScope
     continuation: SourceToolContinuation | None = None
-    source_result: FamilySourceReceipt | None = None
+    source_result: FamilySourceReceipt | DayUsageReceipt | None = None
 
 
 @dataclass(frozen=True)

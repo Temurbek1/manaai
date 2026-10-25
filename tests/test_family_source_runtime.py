@@ -530,14 +530,15 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
 
 
 @pytest.mark.parametrize(
-    "reminders,retention,upsell,expiry,inventory_tariffs",
+    "reminders,retention,upsell,expiry,inventory_tariffs,day_usage",
     [
-        (False, False, False, False, False),
-        (True, False, False, False, False),
-        (True, True, False, False, False),
-        (True, True, True, False, False),
-        (True, True, True, True, False),
-        (True, True, True, True, True),
+        (False, False, False, False, False, False),
+        (True, False, False, False, False, False),
+        (True, True, False, False, False, False),
+        (True, True, True, False, False, False),
+        (True, True, True, True, False, False),
+        (True, True, True, True, True, False),
+        (True, True, True, True, False, True),
     ],
 )
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
@@ -549,6 +550,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
     upsell: bool,
     expiry: bool,
     inventory_tariffs: bool,
+    day_usage: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
@@ -583,6 +585,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_retention_expiry_enabled=expiry,
         mana_family_collection_enabled=inventory_tariffs,
         mana_collection_tariffs_enabled=inventory_tariffs,
+        mana_family_day_usage_enabled=day_usage,
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -599,6 +602,10 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         assert (service.retention is not None) is retention
         assert (service.upsell is not None) is upsell
         assert (service.expiry is not None) is expiry
+        from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
+
+        assert isinstance(service.safety._native_sources, SourceToolWorkflow)
+        assert (service.safety._native_sources._day_usage is not None) is day_usage
         if expiry:
             assert service.sources and service.sources._children is service._children
         if inventory_tariffs:
@@ -621,6 +628,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
             update={
                 "mana_retention_expiry_enabled": False,
                 "mana_collection_tariffs_enabled": False,
+                "mana_family_day_usage_enabled": False,
             }
         )
         async with runtime_module.parent_chat_runtime(stopped) as service:

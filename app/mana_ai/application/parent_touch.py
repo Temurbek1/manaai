@@ -367,6 +367,16 @@ class ParentTouchService(ParentChatService):
         data = json.loads(messages[0][1])
         if not isinstance(data, dict) or "profiles" not in data:
             raise ParentChatError("touch_context_invalid", 503)
+        guidance = None
+        if isinstance(request, ParentTouchReviewedTurn):
+            if self._reviewed is None:
+                raise ParentChatError("review_first_disabled", 503)
+            guidance = await self._reviewed.review_guidance(
+                request.parent_id,
+                turn.turn_id,
+                tuple(c.child_id for c in context.children if c.connected),
+            )
+        dated_review = guidance is not None and guidance.day_usage_query is not None
         if request.message and context.tariff is not None:
             tariff = ParentTariffContext.model_validate(context.tariff.model_dump())
             if (
@@ -457,7 +467,17 @@ class ParentTouchService(ParentChatService):
                 else None,
             }
             instructions += (
-                "\nYou may propose one parent-assistant reminder only for the latest parent's "
+                "\nDraft a reminder only for the latest explicit parent request. content is its "
+                "shortest EXACT task quote, excluding command/date/time, or the frozen pending "
+                "task when answering its date question. Never invent tasks, doses, calls, "
+                "orders, subscriptions or payments. Use supplied clock/zone for relative dates; "
+                "due_at needs the IANA zone's correct UTC offset, null if time is missing. "
+                "Default timezone is only a proposal. Host requires separate human confirmation; "
+                "only its receipt proves scheduling. With draft: body='', "
+                "notice_communicated=false, keep only an admitted question. Urgent notice or "
+                "ordinary/source conversation: reminder=null."
+                if dated_review
+                else "\nYou may propose one parent-assistant reminder only for the latest parent's "
                 "explicit request. This is a draft, never execution: the host separately asks "
                 "for exact human confirmation. reminder.content must be an EXACT task quote "
                 "from that parent message, or the frozen pending task when they answer its "
@@ -496,7 +516,20 @@ class ParentTouchService(ParentChatService):
             )
         if upsell_scope is not None:
             instructions += (
-                "\nFor a parent's EXPLICIT current request to see/compare ordinary MANA tariff "
+                "\nOnly an explicit latest-parent price/duration request permits one upsell "
+                "enquiry. parent_quote is its EXACT relevant substring. Durations: month=30, "
+                "three=90, six=180, year=365 days; unspecified=1..366. UZS/USD minor units=100. "
+                "maximum_price_minor is null unless an explicit total budget. objective=list "
+                "for options, lowest_total for lowest total, lowest_daily only for explicit "
+                "unit-price comparison. Host checks/prices separately, never billing. No "
+                "invented prices, benefits, discounts, renewal, checkout or eligibility; "
+                "unknown Basic/Premium features require upsell=null. No targeting from child "
+                "facts/history. With upsell: body='', reminder=null, notice_communicated=false; "
+                "keep only an admitted question. Urgent notice or no explicit enquiry: "
+                "upsell=null."
+                if dated_review
+                else "\nFor a parent's EXPLICIT current request to see/compare "
+                "ordinary MANA tariff "
                 "prices or choose a subscription duration, you may return one upsell enquiry. "
                 "This requests catalog evidence, never billing or contact authority. Use only "
                 "the latest parent message; parent_quote must be its exact relevant substring. "
@@ -543,13 +576,7 @@ class ParentTouchService(ParentChatService):
                 "Do not use child safety facts to pressure a purchase; safety takes priority."
             )
         if isinstance(request, ParentTouchReviewedTurn):
-            if self._reviewed is None:
-                raise ParentChatError("review_first_disabled", 503)
-            guidance = await self._reviewed.review_guidance(
-                request.parent_id,
-                turn.turn_id,
-                tuple(c.child_id for c in context.children if c.connected),
-            )
+            assert guidance is not None
             data["specialist_guidance"] = guidance.model_dump(
                 mode="json", exclude={"authorized_child_ids", "source_observations"}
             ) | {"basis": "parent_report_and_dated_saved_context_not_fresh_sensors"}
@@ -577,31 +604,51 @@ class ParentTouchService(ParentChatService):
                         }
                     )
                 )
-                instructions += (
-                    "\nThe frozen source observations are verified own-child records, not a "
-                    "fresh diagnosis or permission. Use their exact values over conflicting "
-                    "prose. profile_position is the 1-based position in profiles.children. "
-                    "State each known observation date as YYYY-MM-DD in body. If measurement "
-                    "time is unknown, say so; never substitute collection/server-write time. "
-                    "Connected is not online; a missing/ambiguous record is not zero use. "
-                    "For a battery-only request, state charge/date once and one practical "
-                    "step; omit unobserved heating/drain scenarios from specialist prose. "
-                    "Address the adult parent; never tell them to ask an adult for help."
-                )
-            if any(isinstance(facts, ChildAppUsageFacts) for facts in guidance.source_observations):
+                if guidance.day_usage_query is None:
+                    instructions += (
+                        "\nThe frozen source observations are verified own-child records, not a "
+                        "fresh diagnosis or permission. Use their exact values over conflicting "
+                        "prose. profile_position is the 1-based position in profiles.children. "
+                        "State each known observation date as YYYY-MM-DD in body. If measurement "
+                        "time is unknown, say so; never substitute collection/server-write time. "
+                        "Connected is not online; a missing/ambiguous record is not zero use. "
+                        "For a battery-only request, state charge/date once and one practical "
+                        "step; omit unobserved heating/drain scenarios from specialist prose. "
+                        "Address the adult parent; never tell them to ask an adult for help."
+                    )
+            if guidance.day_usage_query is None and any(
+                isinstance(facts, ChildAppUsageFacts) for facts in guidance.source_observations
+            ):
                 instructions += (
                     " App usage observations are one partial provider page of counters, "
                     "with no verified timezone or measurement period. Qualify their coverage "
                     "and dates; never sum overlapping app counters into screen time, call "
                     "them today's usage, infer trends or present them as a complete ranking."
                 )
-            instructions += (
-                "\nChild-Safety already reviewed this exact parent message. Communicate its "
-                "qualified guidance naturally; do not perform another child assessment or add "
-                "independent condition/normality/risk judgments. Keep its uncertainty, advice "
-                "and observation-date distinctions. A missing sensor fact stays unknown. "
-                "If an admitted clarification exists, ask it without an independent diagnosis."
-            )
+            if guidance.day_usage_query is not None:
+                source_dates = tuple(
+                    sorted(set(source_dates) | {guidance.day_usage_query.isoformat()})
+                )
+                instructions += (
+                    "\nChild-Safety reviewed this exact message. Relay its qualified guidance "
+                    "to the adult parent; no independent diagnosis, risk/normality or motives. "
+                    "Use exact source values over prose. profile_position indexes "
+                    "profiles.children. State day_usage_query as YYYY-MM-DD: the requested API "
+                    "filter, never a verified measurement day/timezone. Counters may overlap "
+                    "and cover a partial app page: no summed screen time, full ranking or "
+                    "trend. Collection/write isn't observation; unknown time stays unknown. "
+                    "Missing/ambiguous facts or day_usage_child_returned=false mean unavailable "
+                    "evidence, never zero use. Connected isn't online. Ask only an admitted "
+                    "clarification; no new assessment or permissions."
+                )
+            else:
+                instructions += (
+                    "\nChild-Safety already reviewed this exact parent message. Communicate its "
+                    "qualified guidance naturally; do not perform another child assessment or add "
+                    "independent condition/normality/risk judgments. Keep its uncertainty, advice "
+                    "and observation-date distinctions. A missing sensor fact stays unknown. "
+                    "If an admitted clarification exists, ask it without an independent diagnosis."
+                )
         if evidence is not None and evidence.assessments:
             instructions += (
                 "\nOne bounded report/top finding is loaded, not complete coverage. "

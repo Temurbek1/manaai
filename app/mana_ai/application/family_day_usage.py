@@ -14,3 +14,9 @@ class FamilyDayUsageSource(Protocol):
     async def read(self, parent_id: str, requested_day: date) -> FamilyDayUsagePage:
         """Caller must durably admit the whole bounded read before provider I/O."""
         ...
+
+    async def read_verified(
+        self, lookup: ParentUsageLookup, requested_day: date
+    ) -> FamilyDayUsagePage:
+        """Use the just-verified ephemeral identity without a second profile GET."""
+        ...

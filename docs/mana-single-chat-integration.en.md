@@ -704,6 +704,9 @@ limits are unchanged. Default is off; production has not been activated. Use
 
 ## 22. Date-filtered family usage source (adapter only)
 
+This heading describes the original source-port checkpoint. The subsequent local
+integration in section 23 connects it to the existing chat without a new mobile route.
+
 A local typed adapter can obtain one completed calendar day's labeled app counters
 for a verified family through the existing bulk Manakids API. It reuses one fresh
 ownership lookup/authentication and preserves partial/missing data. This is **not
@@ -712,3 +715,22 @@ chat operations and do not invent a new production path. Old app-counter calls k
 their original contract. Calendar labels do not establish screen time or timezone.
 See [source evidence and required integration](mana-family-day-usage-source.md).
 These additions are not enabled or released on production.
+
+## 23. Dated child app questions in the same chat (local, not released)
+
+With the complete v18 profile and `MANA_FAMILY_DAY_USAGE_ENABLED`, new reviewed
+messages let Child-Safety select a completed query day using its typed source tool.
+Continue using the same message POST, message-status GET and history GET. The mobile
+client passes no username, Firestore query or tool call and opens no additional chat.
+
+One family/day page is cached for siblings; each selected child still needs fresh
+ownership. Missing child rows and incomplete app pages remain explicitly unknown.
+Parent-Touch displays the requested YYYY-MM-DD label without equating it with a
+verified screen-time measurement period or timezone. Language follows the parent.
+Existing 2000-token speaker/global safety budgets, raw usage/unknown holds and
+one-shot source limits remain. The collector's schedules are unchanged.
+
+`make chat-lab-day-usage` exercises this with fictional providers. Read the
+[complete implementation, negative diagnostics and acceptance limits](mana-dated-source-workflow.md)
+before enabling it anywhere. A narrow actual Uzbek model case passed after several
+retained budget failures; broader quality/capacity and production release remain open.

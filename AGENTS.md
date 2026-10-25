@@ -2,6 +2,23 @@
 
 ## Repository expectations
 
+- The subsequent local dated-source increment uses family v18/source-cache v5,
+  default-disabled `MANA_FAMILY_DAY_USAGE_ENABLED`, and unchanged collection v2.
+  Read `docs/mana-dated-source-workflow.md`. New protocol-3 turns freeze query-calendar
+  day/alias/call pairing; old v1/v2 never upgrade. One family/day cache serves siblings
+  under the shared request meter, parent six-hour cooldown and fresh ownership.
+  Unknown ownership/provider calls retain nonexpiring parent/child holds. Missing
+  child rows are unavailable evidence, never zero use or verified screen time.
+  Keep raw 2000 speaker/global safety budgets and all failed model parties. One
+  small actual Uzbek full loop passed after retained budget failures; it is not
+  broad/fleet/real-family or production acceptance. Final-only v3 model requests
+  omit callable schemas but retain exact original tool/call/result digests and
+  opaque pairing. Dated Parent-Touch instructions retain original words/facts and
+  reminder/upsell scopes. Turning the flag off never upgrades/cancels/retries old
+  captures. Closed v18 and deactivated v5 retain history/unknown holds; old v17/v4
+  refusal is not a working rollback. No new bulk schedule, source activation,
+  contact/payment/grant, production, SSH/key or quota change follows.
+
 - The subsequent local completed-day usage **source port** is not runtime-wired:
   read `docs/mana-family-day-usage-source.md` before extending it. One fresh MANA
   ownership/username lookup and one filtered family page cover at most ten children,

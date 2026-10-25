@@ -1,6 +1,8 @@
 """Actual SDK native protocol with an in-memory fictional provider; never network I/O."""
 
 import json
+import re
+from datetime import date, timedelta
 
 import httpx
 from openai import AsyncOpenAI
@@ -48,9 +50,13 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
         )
         wants_usage = any(word in text for word in ("приложен", "ilova", "app usage"))
         if results:
-            facts = json.loads(results[-1]["output"])["facts"]
+            tool_result = json.loads(results[-1]["output"])
+            facts = tool_result["facts"]
             summary = (
-                "Частичная страница счётчиков приложений; период/часовой пояс неизвестны, "
+                f"Запрос за {tool_result['query_calendar_day']}: "
+                "ребёнка нет в странице; использование неизвестно."
+                if facts is None
+                else "Частичная страница счётчиков приложений; период/часовой пояс неизвестны, "
                 "это не дневное экранное время."
                 if "entries" in facts
                 else f"В сохранённой записи заряд {facts['percent']}%; "
@@ -71,9 +77,25 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             )
         ):
             tool_name = payload["tools"][0]["name"]
-            arguments = {"child_alias": children[0]["alias"]}
+            arguments: dict[str, str | None] = {"child_alias": children[0]["alias"]}
             if tool_name == "read_child_observation":
                 arguments["kind"] = "app_usage" if wants_usage else "battery"
+                if "calendar_day" in payload["tools"][0]["parameters"]["properties"]:
+                    arguments["calendar_day"] = None
+                    if wants_usage:
+                        explicit = re.search(r"\d{4}-\d{2}-\d{2}", text)
+                        today = re.search(
+                            r"query-calendar today (\d{4}-\d{2}-\d{2})", payload["instructions"]
+                        )
+                        assert today
+                        arguments["kind"] = "app_usage_day"
+                        arguments["calendar_day"] = (
+                            explicit.group(0)
+                            if explicit
+                            else (
+                                date.fromisoformat(today.group(1)) - timedelta(days=1)
+                            ).isoformat()
+                        )
             return httpx.Response(
                 200,
                 json={

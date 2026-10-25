@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Literal, Protocol, cast
+from zoneinfo import ZoneInfo
 
 from app.mana_ai.application.chat_ports import (
     ChatModelReceipt,
@@ -16,11 +17,13 @@ from app.mana_ai.application.child_safety_ports import (
     SafetyCompletion,
     SafetyPrompt,
 )
+from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.source_tool_ports import SourceToolModel, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens, ParentChildContext
 from app.mana_ai.domain.child_safety import ChildSafetyLimits, SafetyJob, SafetyJobView
+from app.mana_ai.domain.family_day_usage import DayUsageReceipt, DayUsageTarget
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
@@ -35,7 +38,7 @@ from app.mana_ai.domain.source_tools import (
 class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     async def source_review_owner(self, job: SafetyJob) -> SourceAnalysisOwner | None: ...
     async def native_captured(self, job: SafetyJob) -> bool: ...
-    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2]: ...
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3]: ...
     async def prepare_native(
         self,
         job: SafetyJob,
@@ -51,9 +54,9 @@ class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     ) -> int | None: ...
     async def claim_native_source(
         self, job: SafetyJob, continuation: SourceToolContinuation, now: "datetime"
-    ) -> FamilySourceTarget: ...
+    ) -> FamilySourceTarget | DayUsageTarget: ...
     async def record_native_source(
-        self, job: SafetyJob, receipt: FamilySourceReceipt, now: "datetime"
+        self, job: SafetyJob, receipt: FamilySourceReceipt | DayUsageReceipt, now: "datetime"
     ) -> bool: ...
     async def finalize_native_without_source(self, job: SafetyJob, now: "datetime") -> None: ...
 
@@ -81,12 +84,14 @@ class SourceToolWorkflow:
         clock: Clock,
         limits: ChildSafetyLimits,
         max_output_tokens: int,
+        day_usage: FamilyDayUsageService | None = None,
     ) -> None:
         if not 32 <= max_output_tokens < limits.job_tokens:
             raise ValueError("Native source output must fit inside the captured job budget")
         self._store, self._children, self._model = store, children, model
         self._prompts, self._sources, self._clock = prompts, sources, clock
         self._limits, self._output = limits, max_output_tokens
+        self._day_usage = day_usage
 
     async def captured(self, job: SafetyJob) -> bool:
         return await self._store.native_captured(job)
@@ -133,6 +138,9 @@ class SourceToolWorkflow:
                 parent_id=job.view.parent_id,
                 invocation_id=job.view.job_id,
                 protocol=protocol,
+                calendar_today=context.collected_at.astimezone(ZoneInfo("Asia/Tashkent")).date()
+                if protocol == 3
+                else None,
                 children=tuple(
                     SourceToolChild(alias=c.alias, child_id=c.child_id)
                     for c in safety_prompt.children
@@ -177,24 +185,41 @@ class SourceToolWorkflow:
                     job, receipt.continuation, self._clock.now()
                 )
                 owner = await self._store.source_review_owner(job)
-                source = (
-                    await self._sources.read_for_analysis(target, owner)
-                    if owner is not None
-                    else await self._sources.read(target)
-                )
+                source: FamilySourceReceipt | DayUsageReceipt
+                if isinstance(target, DayUsageTarget):
+                    if self._day_usage is None:
+                        raise ParentChatError("family_day_usage_not_enabled", 503)
+                    source = await self._day_usage.read_for_analysis(target, owner)
+                else:
+                    source = (
+                        await self._sources.read_for_analysis(target, owner)
+                        if owner is not None
+                        else await self._sources.read(target)
+                    )
                 if not await self._store.record_native_source(job, source, self._clock.now()):
                     raise ParentChatError("native_source_read_unavailable", 503)
-                assert source.facts is not None
                 observation = (
-                    source.facts.observed_at.isoformat() if source.facts.observed_at else "unknown"
+                    source.facts.observed_at.isoformat()
+                    if source.facts and source.facts.observed_at
+                    else "unknown"
+                )
+                status = source.facts.status if source.facts else "not_returned"
+                collected = (
+                    source.facts.collected_at.isoformat() if source.facts else "no child facts"
                 )
                 safety_prompt = replace(
                     safety_prompt,
                     source_qualification=(
-                        f"Parent-intent review using an own-child {source.facts.status} "
+                        f"Parent-intent review using an own-child {status} "
                         f"{source.source} record; measurement time {observation}, "
-                        f"collected {source.facts.collected_at.isoformat()}. "
-                        "This is source context, not a complete protective assessment."
+                        f"collected {collected}. "
+                        + (
+                            f"Query calendar label {source.requested_day.isoformat()}, "
+                            "not a verified measurement day/period. "
+                            if isinstance(source, DayUsageReceipt)
+                            else ""
+                        )
+                        + "This is source context, not a complete protective assessment."
                     ),
                 )
                 await self._ownership(job)  # No alias rebinding on ownership change.

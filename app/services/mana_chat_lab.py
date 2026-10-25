@@ -6,13 +6,13 @@ import os
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol
 from uuid import NAMESPACE_URL, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 from app.core.config import get_settings
 from app.mana_ai.application.chat_ports import (
@@ -26,6 +26,7 @@ from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.client_upsell import ClientUpsellService
 from app.mana_ai.application.conversion import ConversionService
+from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
@@ -64,6 +65,7 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchMessageRequest,
 )
 from app.mana_ai.domain.family_collection import FamilyCollectionWindow
+from app.mana_ai.domain.family_day_usage import FamilyDayUsagePage, ParentUsageLookup
 from app.mana_ai.domain.family_sources import (
     AppUsageCounter,
     ChildAppUsageFacts,
@@ -83,6 +85,8 @@ from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.client_retention_store import SqliteClientRetentionStore
 from app.services.client_upsell_store import SqliteClientUpsellStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
+from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
+from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_native_source_model import LabNativeSourceModel
@@ -126,6 +130,56 @@ class LabAppUsageSource:
                     reported_seconds=3600,
                 ),
             ),
+        )
+
+
+class LabDayUsageSource:
+    """Fictional date-filtered family source; no username or provider is accessed."""
+
+    def __init__(self, profiles: ParentChildrenSource, clock: Clock) -> None:
+        self._profiles, self._clock, self.calls = profiles, clock, 0
+
+    async def read_usage_lookup(self, parent_id: str) -> ParentUsageLookup:
+        context = await self._profiles.read(parent_id)
+        return ParentUsageLookup(
+            parent_id=context.parent_id,
+            username=SecretStr("fictional-lookup"),
+            connected_child_ids=tuple(c.child_id for c in context.children if c.connected),
+            collected_at=context.collected_at,
+        )
+
+    async def read(self, parent_id: str, requested_day: date) -> FamilyDayUsagePage:
+        return await self.read_verified(await self.read_usage_lookup(parent_id), requested_day)
+
+    async def read_verified(
+        self, lookup: ParentUsageLookup, requested_day: date
+    ) -> FamilyDayUsagePage:
+        self.calls += 1
+        now = self._clock.now()
+        facts = ChildAppUsageFacts(
+            child_id=LAB_CHILD,
+            status="available",
+            returned_apps=1,
+            total_apps=3,
+            complete=False,
+            collected_at=now,
+            entries=(
+                AppUsageCounter(
+                    app_name="Fictional lessons",
+                    provider_recorded_at=requested_day.isoformat() + " 12:00:00",
+                    reported_seconds=3600,
+                ),
+            ),
+        )
+        return FamilyDayUsagePage(
+            parent_id=lookup.parent_id,
+            requested_day=requested_day,
+            ownership_collected_at=lookup.collected_at,
+            collected_at=now,
+            owned_children_count=len(lookup.connected_child_ids),
+            provider_children_count=1,
+            children=(facts,),
+            complete_family=True,
         )
 
 
@@ -475,7 +529,20 @@ class SimulatedModel:
             else:
                 guidance = json.loads(prompt.messages[0][1]).get("specialist_guidance", {})
                 sources = guidance.get("source_observations", [])
-                if sources and "entries" in sources[0]:
+                if guidance.get("day_usage_query"):
+                    day = guidance["day_usage_query"]
+                    answer = (
+                        (
+                            f"{day} so‘rovi bo‘yicha ilova hisoblagichlarining bir qismi bor. "
+                            "Davr va vaqt zonasi noma’lum; bu kunlik ekran vaqti emas."
+                            if uzbek or "ilova" in prompt.messages[-1][1].casefold()
+                            else f"По запросу за {day} есть часть счётчиков приложений. "
+                            "Период и часовой пояс неизвестны; это не экранное время за день."
+                        )
+                        if guidance.get("day_usage_child_returned")
+                        else f"{day}: ребёнка нет в полученной странице; использование неизвестно."
+                    )
+                elif sources and "entries" in sources[0]:
                     answer = (
                         "Ilovalar hisoblagichlarining bir qismi bor; davr va vaqt zonasi "
                         "noma’lum. Bu kunlik ekran vaqti emas."
@@ -564,10 +631,13 @@ class LabOptions:
     tariff_context: bool = False
     expiry: bool = False
     collection_tariffs: bool = False
+    day_usage: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.day_usage and not options.expiry:
+            raise ValueError("Dated usage lab requires the full current family profile")
         if options.collection_tariffs and not (options.expiry and options.scheduled_collection):
             raise ValueError("Inventory tariff lab requires its full fictional collection profile")
         if options.expiry and (not options.upsell or not options.tariff_context):
@@ -633,6 +703,8 @@ class ChatLab:
             expected["tariff_context"] = True
         if self.options.expiry:
             expected["expiry"] = True
+        if self.options.day_usage:
+            expected["day_usage"] = True
         if self.options.collection_tariffs:
             expected["collection_tariffs"] = True
         if (
@@ -736,7 +808,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteRetentionExpiryStore
+                SqliteDatedSourceSafetyStore
+                if self.options.day_usage
+                else SqliteRetentionExpiryStore
                 if self.options.expiry
                 else SqliteClientUpsellStore
                 if self.options.upsell
@@ -768,6 +842,8 @@ class ChatLab:
                     expiry_policy=RetentionExpiryPolicy(),
                     profile_binding="fictional-mana-profile-v1",
                 )
+            if self.options.day_usage:
+                reminder_options["day_tools_enabled"] = True
             self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
@@ -811,7 +887,7 @@ class ChatLab:
             else SqliteSourceSafetyStore
         )
         self.source_store = (
-            SqliteSourceReviewCache(
+            (SqliteDayUsageCache if self.options.day_usage else SqliteSourceReviewCache)(
                 directory / "sources.sqlite3",
                 binding="fake-lab-mana-battery-v1",
                 limits=FamilySourceLimits(),
@@ -838,6 +914,17 @@ class ChatLab:
             clock=self.options.clock.now,
             app_usage=self.app_usage if self.options.native_observations else None,
         )
+        self.day_provider = LabDayUsageSource(profiles, self.options.clock)
+        self.day_usage = (
+            FamilyDayUsageService(
+                self.source_store,
+                self.day_provider,
+                self.day_provider,
+                clock=self.options.clock.now,
+            )
+            if isinstance(self.source_store, SqliteDayUsageCache)
+            else None
+        )
         native = None
         if self.options.native_sources:
             assert isinstance(self.store, SqliteSourceToolSafetyStore)
@@ -848,6 +935,7 @@ class ChatLab:
                 model=specialist,
                 prompts=SourceToolPromptBuilder(),
                 sources=self.sources,
+                day_usage=self.day_usage,
                 clock=self.options.clock,
                 limits=limits,
                 max_output_tokens=512,

@@ -15,6 +15,7 @@ from app.mana_ai.domain.child_safety import ChildSafetyLimits, SafetyJob
 from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_agents import ParentTouchReviewedTurn, ParentTouchReviewGuidance
+from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, DayUsageReceipt, DayUsageTarget
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
@@ -22,6 +23,7 @@ from app.mana_ai.domain.source_tools import (
     SourceToolModelProfile,
     SourceToolPreparedInput,
     source_call_alias,
+    source_call_day,
     source_call_key,
 )
 from app.services.conversion_account_store import (
@@ -30,6 +32,31 @@ from app.services.conversion_account_store import (
 )
 
 _TABLES = {"source_tool_turns", "source_tool_jobs", "source_tool_receipts"}
+
+
+def _target(payload: str) -> FamilySourceTarget | DayUsageTarget:
+    return (
+        DayUsageTarget
+        if json.loads(payload).get("source") == DAY_USAGE_SOURCE
+        else FamilySourceTarget
+    ).model_validate_json(payload)
+
+
+def _receipt(payload: str) -> FamilySourceReceipt | DayUsageReceipt:
+    return (
+        DayUsageReceipt
+        if json.loads(payload).get("source") == DAY_USAGE_SOURCE
+        else FamilySourceReceipt
+    ).model_validate_json(payload)
+
+
+def _matches(
+    receipt: FamilySourceReceipt | DayUsageReceipt, target: FamilySourceTarget | DayUsageTarget
+) -> bool:
+    return all(
+        getattr(receipt, key) == getattr(target, key)
+        for key in ("parent_id", "child_id", "request_id", "source")
+    ) and (getattr(receipt, "requested_day", None) == getattr(target, "requested_day", None))
 
 
 def _hash(value: str) -> str:
@@ -42,7 +69,16 @@ def _validate_existing_native_schema(path: Path) -> None:
     if not path.exists():
         return
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as connection:
-        if connection.execute("PRAGMA user_version").fetchone()[0] in {11, 12, 13, 14, 15, 16, 17}:
+        if connection.execute("PRAGMA user_version").fetchone()[0] in {
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+        }:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:
                 raise RuntimeError(
@@ -128,9 +164,14 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             separators=(",", ":"),
         )
         self._legacy_native_policy = self._native_policy
-        if self._source_contract == 2:
+        self._observation_native_policy = json.dumps(
+            json.loads(self._native_policy) | {"source_contract": 2},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if self._source_contract >= 2:
             self._native_policy = json.dumps(
-                json.loads(self._native_policy) | {"source_contract": 2},
+                json.loads(self._native_policy) | {"source_contract": self._source_contract},
                 sort_keys=True,
                 separators=(",", ":"),
             )
@@ -198,12 +239,14 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
     def _captured_protocol(self, payload: str) -> int:
         if payload == self._legacy_native_policy:
             return 1
-        if self._source_contract == 2 and payload == self._native_policy:
+        if self._source_contract >= 2 and payload == self._observation_native_policy:
             return 2
+        if self._source_contract == 3 and payload == self._native_policy:
+            return 3
         raise ParentChatError("native_source_preparation_denied", 409)
 
-    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2]:
-        def read() -> Literal[1, 2]:
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3]:
+        def read() -> Literal[1, 2, 3]:
             with self._connect() as connection:
                 row = connection.execute(
                     "SELECT profile FROM source_tool_turns WHERE parent_id=? AND turn_id=?",
@@ -211,7 +254,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 ).fetchone()
                 if row is None:
                     raise ParentChatError("native_source_preparation_denied", 409)
-                return cast(Literal[1, 2], self._captured_protocol(row[0]))
+                return cast(Literal[1, 2, 3], self._captured_protocol(row[0]))
 
         return await asyncio.to_thread(read)
 
@@ -232,15 +275,25 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 if row is None:
                     return guidance
                 native = self._native(connection, self._job(row))
-                receipt = FamilySourceReceipt.model_validate_json(native["source_result"])
+                receipt = _receipt(native["source_result"])
                 if (
-                    receipt.status != "completed"
-                    or receipt.facts is None
+                    receipt.status
+                    not in (
+                        {"completed", "unavailable"}
+                        if isinstance(receipt, DayUsageReceipt)
+                        else {"completed"}
+                    )
                     or receipt.child_id not in connected
                     or receipt.child_id not in guidance.authorized_child_ids
                 ):
                     raise ParentChatError("native_source_guidance_not_authorized", 403)
-                return guidance.model_copy(update={"source_observations": (receipt.facts,)})
+                updates: dict[str, object] = {
+                    "source_observations": (receipt.facts,) if receipt.facts is not None else ()
+                }
+                if isinstance(receipt, DayUsageReceipt):
+                    updates["day_usage_query"] = receipt.requested_day
+                    updates["day_usage_child_returned"] = receipt.child_returned
+                return guidance.model_copy(update=updates)
 
         return await asyncio.to_thread(source)
 
@@ -326,7 +379,8 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             if _hash(row["continuation"]) != row["continuation_hash"]:
                 raise ParentChatError("native_source_state_invalid", 503)
             choice = SourceToolContinuation.model_validate_json(row["continuation"])
-            target = FamilySourceTarget.model_validate_json(row["target"])
+            target = _target(row["target"])
+            prepared.scope.validate_call(choice.call)
             child = next(
                 (c for c in prepared.scope.children if c.alias == source_call_alias(choice.call)),
                 None,
@@ -339,6 +393,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 or target.request_id != prepared.scope.request_id_for(choice.call)
                 or target.source != source_call_key(choice.call)
                 or choice.version != prepared.scope.protocol
+                or getattr(target, "requested_day", None) != source_call_day(choice.call)
             ):
                 raise ParentChatError("native_source_state_invalid", 503)
         elif row["phase"] in {"source_submitting", "source_completed", "second_submitted"}:
@@ -346,14 +401,9 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
         if row["source_result"] is not None:
             if _hash(row["source_result"]) != row["source_result_hash"]:
                 raise ParentChatError("native_source_state_invalid", 503)
-            receipt = FamilySourceReceipt.model_validate_json(row["source_result"])
-            target = FamilySourceTarget.model_validate_json(row["target"])
-            if (receipt.parent_id, receipt.child_id, receipt.request_id, receipt.source) != (
-                target.parent_id,
-                target.child_id,
-                target.request_id,
-                target.source,
-            ):
+            receipt = _receipt(row["source_result"])
+            target = _target(row["target"])
+            if not _matches(receipt, target):
                 raise ParentChatError("native_source_state_invalid", 503)
         elif row["phase"] in {"source_completed", "second_submitted"} or (
             row["phase"] == "final_metered" and row["continuation"] is not None
@@ -544,8 +594,8 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
 
     async def claim_native_source(
         self, job: SafetyJob, continuation: SourceToolContinuation, now: datetime
-    ) -> FamilySourceTarget:
-        def claim() -> FamilySourceTarget:
+    ) -> FamilySourceTarget | DayUsageTarget:
+        def claim() -> FamilySourceTarget | DayUsageTarget:
             with self._transaction() as connection:
                 row, native = self._claimed(connection, job), self._native(connection, job)
                 if (
@@ -561,15 +611,22 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                     raise ParentChatError("native_source_input_mismatch", 409)
                 if choice.version != prepared.scope.protocol:
                     raise ParentChatError("native_source_input_mismatch", 409)
+                prepared.scope.validate_call(choice.call)
                 alias = source_call_alias(choice.call)
                 child = next((c for c in prepared.scope.children if c.alias == alias), None)
                 if child is None:
                     raise ParentChatError("native_source_child_not_admitted", 403)
-                target = FamilySourceTarget(
+                data = dict(
                     parent_id=prepared.scope.parent_id,
                     child_id=child.child_id,
                     request_id=prepared.scope.request_id_for(choice.call),
                     source=source_call_key(choice.call),
+                )
+                day = source_call_day(choice.call)
+                target = (
+                    DayUsageTarget.model_validate(data | {"requested_day": day})
+                    if day is not None
+                    else FamilySourceTarget.model_validate(data)
                 )
                 payload = choice.model_dump_json()
                 connection.execute(
@@ -582,24 +639,24 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
         return await asyncio.to_thread(claim)
 
     async def record_native_source(
-        self, job: SafetyJob, receipt: FamilySourceReceipt, now: datetime
+        self, job: SafetyJob, receipt: FamilySourceReceipt | DayUsageReceipt, now: datetime
     ) -> bool:
         def record() -> bool:
             with self._transaction() as connection:
                 row, native = self._claimed(connection, job), self._native(connection, job)
                 if native["phase"] != "source_submitting":
                     raise ParentChatError("native_source_result_not_admitted", 409)
-                target = FamilySourceTarget.model_validate_json(native["target"])
-                checked = FamilySourceReceipt.model_validate(receipt.model_dump())
-                if (checked.parent_id, checked.child_id, checked.request_id, checked.source) != (
-                    target.parent_id,
-                    target.child_id,
-                    target.request_id,
-                    target.source,
-                ):
+                target = _target(native["target"])
+                checked = _receipt(receipt.model_dump_json())
+                if not _matches(checked, target):
                     raise ParentChatError("native_source_result_mismatch", 409)
                 eligible = (
-                    checked.status == "completed"
+                    checked.status
+                    in (
+                        {"completed", "unavailable"}
+                        if isinstance(checked, DayUsageReceipt)
+                        else {"completed"}
+                    )
                     and row["status"] == "preparing"
                     and row["lease_expires_at"] > self._utc(now).isoformat()
                 )

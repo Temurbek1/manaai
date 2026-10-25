@@ -75,18 +75,40 @@ class ManakidsFamilyDayUsageSource:
             raise ParentChatError("family_day_usage_invalid", 503) from None
 
     async def _read(self, parent_id: str, requested_day: date) -> FamilyDayUsagePage:
+        self._validate_day(requested_day)
+        lookup = await self._identities.read_usage_lookup(parent_id)
+        if lookup.parent_id != parent_id:
+            raise ParentChatError("family_day_usage_owner_or_date_invalid", 403)
+        return await self._read_verified(lookup, requested_day)
+
+    def _validate_day(self, requested_day: date) -> None:
         now = self._clock()
         if now.utcoffset() is None or type(requested_day) is not date:
             raise ValueError("Aware source clock and exact query day are required")
         delta = (now.astimezone(ZoneInfo("Asia/Tashkent")).date() - requested_day).days
         if not 1 <= delta <= 31:
             raise ParentChatError("family_day_usage_day_outside_window", 422)
-        lookup = await self._identities.read_usage_lookup(parent_id)
+
+    async def read_verified(
+        self, lookup: ParentUsageLookup, requested_day: date
+    ) -> FamilyDayUsagePage:
+        try:
+            async with asyncio.timeout(self._timeout):
+                return await self._read_verified(lookup, requested_day)
+        except ParentChatError:
+            raise
+        except (httpx.HTTPError, TimeoutError):
+            raise ParentChatError("family_day_usage_unavailable", 503) from None
+        except (ValidationError, ValueError, TypeError, UnicodeError, RecursionError):
+            raise ParentChatError("family_day_usage_invalid", 503) from None
+
+    async def _read_verified(
+        self, lookup: ParentUsageLookup, requested_day: date
+    ) -> FamilyDayUsagePage:
+        self._validate_day(requested_day)
+        now = self._clock()
         lookup = ParentUsageLookup.model_validate(vars(lookup))
-        if (
-            lookup.parent_id != parent_id
-            or not now - timedelta(seconds=180) <= lookup.collected_at <= self._clock()
-        ):
+        if not now - timedelta(seconds=180) <= lookup.collected_at <= now:
             raise ParentChatError("family_day_usage_owner_or_date_invalid", 403)
         if not lookup.connected_child_ids:
             raise ParentChatError("family_day_usage_no_connected_children", 409)
@@ -138,7 +160,7 @@ class ManakidsFamilyDayUsageSource:
             raise ParentChatError("family_day_usage_child_not_authorized", 403)
         collected = self._clock()
         return FamilyDayUsagePage(
-            parent_id=parent_id,
+            parent_id=lookup.parent_id,
             requested_day=requested_day,
             ownership_collected_at=lookup.collected_at,
             collected_at=collected,

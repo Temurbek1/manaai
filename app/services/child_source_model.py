@@ -12,14 +12,17 @@ from pydantic import ValidationError
 from app.mana_ai.application.chat_ports import ChatModelRejected
 from app.mana_ai.application.source_tool_ports import SourceModelReceipt, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens
+from app.mana_ai.domain.family_day_usage import DayUsageReceipt
 from app.mana_ai.domain.source_tools import (
     BatterySourceCall,
+    DatedObservationCall,
     EncryptedSourceReasoning,
     ObservationSourceCall,
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolScope,
     source_call_alias,
+    source_call_day,
     source_call_key,
 )
 from app.services.chat_usage_receipt import terminal_chat_usage
@@ -46,7 +49,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
     def _tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
         if not prompt.scope.children:
             return []
-        if prompt.scope.protocol == 2:
+        if prompt.scope.protocol in {2, 3}:
             return [
                 {
                     "type": "function",
@@ -63,9 +66,28 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                                 "type": "string",
                                 "enum": [c.alias for c in prompt.scope.children],
                             },
-                            "kind": {"type": "string", "enum": ["battery", "app_usage"]},
+                            "kind": {
+                                "type": "string",
+                                "enum": ["battery", "app_usage"]
+                                + (["app_usage_day"] if prompt.scope.protocol == 3 else []),
+                            },
+                            **(
+                                {
+                                    "calendar_day": {
+                                        "type": ["string", "null"],
+                                        "pattern": r"^\d{4}-\d{2}-\d{2}$",
+                                        "description": (
+                                            "Completed query day, last 31 days; null for other "
+                                            "kinds. Not a verified measurement period."
+                                        ),
+                                    }
+                                }
+                                if prompt.scope.protocol == 3
+                                else {}
+                            ),
                         },
-                        "required": ["child_alias", "kind"],
+                        "required": ["child_alias", "kind"]
+                        + (["calendar_day"] if prompt.scope.protocol == 3 else []),
                         "additionalProperties": False,
                     },
                 }
@@ -110,6 +132,13 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
 
+    def _request_tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
+        # V3 keeps the original advertised schema in its immutable input digest,
+        # but its final-only request has no callable tools. V1/v2 remain exact.
+        if prompt.scope.protocol == 3 and prompt.continuation is not None:
+            return []
+        return self._tools(prompt)
+
     def _source_input(self, prompt: SourceToolPrompt) -> ResponseInputParam:
         SourceToolScope.model_validate(prompt.scope.model_dump())
         self._text(prompt.input)  # Refuse a Parent-Touch publication protocol before HTTP.
@@ -122,6 +151,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         if continuation.input_digest != self._digest(prompt):
             raise ValueError("Native source input changed")
         call = continuation.call
+        prompt.scope.validate_call(call)
         alias = source_call_alias(call)
         child = next((child for child in prompt.scope.children if child.alias == alias), None)
         receipt = prompt.source_result
@@ -133,10 +163,19 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             or receipt.parent_id != prompt.scope.parent_id
             or receipt.child_id != child.child_id
             or receipt.request_id != prompt.scope.request_id_for(call)
-            or receipt.status != "completed"
-            or receipt.facts is None
+            or receipt.status
+            not in (
+                {"completed", "unavailable"}
+                if isinstance(receipt, DayUsageReceipt)
+                else {"completed"}
+            )
+            or (receipt.facts is None and not isinstance(receipt, DayUsageReceipt))
             or receipt.source != source_call_key(call)
             or continuation.version != prompt.scope.protocol
+            or (
+                isinstance(receipt, DayUsageReceipt)
+                and receipt.requested_day != source_call_day(call)
+            )
         ):
             raise ValueError("An exact completed own-child source result is required")
         items: list[dict[str, object]] = []
@@ -145,13 +184,25 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             if isinstance(item, EncryptedSourceReasoning):
                 value["summary"] = []  # No raw or summarized reasoning is retained.
             items.append(value)
-        tool_result = {
+        tool_result: dict[str, object] = {
             "child_alias": alias,
             "source": receipt.source,
             "cache_hit": receipt.cache_hit,
-            "facts": receipt.facts.model_dump(mode="json", exclude={"child_id"}),
+            "facts": receipt.facts.model_dump(mode="json", exclude={"child_id"})
+            if receipt.facts is not None
+            else None,
             "qualification": "Observations only; unknown measurement time stays unknown.",
         }
+        if isinstance(receipt, DayUsageReceipt):
+            tool_result.update(
+                query_calendar_day=receipt.requested_day.isoformat(),
+                child_returned=receipt.child_returned,
+                status=receipt.status,
+                qualification=(
+                    "API-filter label only; incomplete counters, unknown measurement "
+                    "period/timezone; absent row is not zero use."
+                ),
+            )
         items.append(
             {
                 "type": "function_call_output",
@@ -170,7 +221,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 input=source_input,
                 reasoning={"effort": self._effort},
                 text=self._text(prompt.input),
-                tools=self._tools(prompt),
+                tools=self._request_tools(prompt),
                 tool_choice="none" if prompt.continuation or not prompt.scope.children else "auto",
                 parallel_tool_calls=False,
                 truncation="disabled",
@@ -195,7 +246,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                     input=source_input,
                     reasoning={"effort": self._effort},
                     text=self._text(prompt.input),
-                    tools=self._tools(prompt),
+                    tools=self._request_tools(prompt),
                     tool_choice="none"
                     if prompt.continuation or not prompt.scope.children
                     else "auto",
@@ -271,7 +322,12 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         usage: ChatTokens,
         model: str,
     ) -> SourceModelReceipt:
-        items: list[BatterySourceCall | ObservationSourceCall | EncryptedSourceReasoning] = []
+        items: list[
+            BatterySourceCall
+            | ObservationSourceCall
+            | DatedObservationCall
+            | EncryptedSourceReasoning
+        ] = []
         for item in output:
             kind = item.get("type")
             if kind == "message" and item.get("role") == "assistant":
@@ -280,10 +336,13 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 raise ValueError("A provisional item cannot authorize a source call")
             if kind == "function_call":
                 call = (
-                    BatterySourceCall if prompt.scope.protocol == 1 else ObservationSourceCall
+                    BatterySourceCall
+                    if prompt.scope.protocol == 1
+                    else DatedObservationCall
+                    if prompt.scope.protocol == 3
+                    else ObservationSourceCall
                 ).model_validate({key: value for key, value in item.items() if key != "status"})
-                if source_call_alias(call) not in {child.alias for child in prompt.scope.children}:
-                    raise ValueError("An unknown child alias cannot grant source access")
+                prompt.scope.validate_call(call)
                 items.append(call)
             elif kind == "reasoning" and item.get("summary", []) == []:
                 items.append(

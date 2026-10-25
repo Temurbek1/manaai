@@ -8,11 +8,14 @@ import httpx
 
 from app.core.config import Settings
 from app.mana_ai.application.chat_ports import ParentChildrenSource
+from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_collection import FamilyCollectionService
+from app.mana_ai.application.family_day_usage import ParentUsageIdentitySource
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.inventory_tariffs import InventoryTariffSink, TariffCollectionService
 from app.mana_ai.domain.family_sources import FamilySourceKey
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy
+from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_collection_store import (
     SqliteFamilyCollectionStore,
     collection_storage_version,
@@ -21,6 +24,7 @@ from app.services.family_google_auth import FamilyFirestoreToken
 from app.services.firestore_child_battery import FirestoreChildBatterySource
 from app.services.inventory_tariff_store import SqliteInventoryTariffStore
 from app.services.manakids_child_usage import ManakidsChildUsageSource, ManakidsReadToken
+from app.services.manakids_family_day_usage import ManakidsFamilyDayUsageSource
 from app.services.manakids_family_inventory import ManakidsFamilyInventory
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.source_review_cache import SqliteSourceReviewCache
@@ -34,6 +38,7 @@ class FamilySourceRuntime:
     safety_policy: SourceSafetyPolicy
     collection: FamilyCollectionService | None = None
     collection_store: SqliteFamilyCollectionStore | None = None
+    day_usage: FamilyDayUsageService | None = None
 
 
 async def family_source_runtime(
@@ -44,6 +49,7 @@ async def family_source_runtime(
     clock: Callable[[], datetime],
     account_auth: ManakidsReadToken | None = None,
     tariff_receiver: InventoryTariffSink | None = None,
+    day_identities: ParentUsageIdentitySource | None = None,
 ) -> FamilySourceRuntime | None:
     if not settings.mana_family_sources_enabled:
         return None
@@ -68,8 +74,11 @@ async def family_source_runtime(
         if settings.mana_family_app_usage_enabled
         else SqliteSourceSafetyStore
     )
+    day_reader = settings.mana_family_day_usage_enabled or (
+        await collection_storage_version(settings.mana_family_source_database_path) == 5
+    )
     store = (
-        SqliteSourceReviewCache(
+        (SqliteDayUsageCache if day_reader else SqliteSourceReviewCache)(
             settings.mana_family_source_database_path,
             binding=(
                 f"mana:firebase:{settings.firebase_project_id}:"
@@ -77,10 +86,11 @@ async def family_source_runtime(
             ),
             limits=settings.mana_family_source_limits,
             policy=policy,
-            enabled=settings.mana_family_source_safety_enabled,
+            enabled=settings.mana_family_source_safety_enabled
+            and settings.mana_family_source_reviews_enabled,
             review_policy=settings.mana_family_source_review_policy,
         )
-        if settings.mana_family_source_reviews_enabled
+        if settings.mana_family_source_reviews_enabled or day_reader
         else store_class(
             settings.mana_family_source_database_path,
             binding=(
@@ -116,6 +126,29 @@ async def family_source_runtime(
         if settings.mana_family_app_usage_enabled and account_auth is not None
         else None,
     )
+    day_usage = None
+    if settings.mana_family_day_usage_enabled:
+        if (
+            day_identities is None
+            or account_auth is None
+            or not isinstance(store, SqliteDayUsageCache)
+        ):
+            raise ValueError(
+                "Dated usage requires verified identity, shared authentication and its "
+                "durable cache"
+            )
+        day_usage = FamilyDayUsageService(
+            store,
+            day_identities,
+            ManakidsFamilyDayUsageSource(
+                client,
+                account_auth,
+                day_identities,
+                base_url=settings.manakids_api_base_url,
+                clock=clock,
+            ),
+            clock=clock,
+        )
     collection = None
     collection_store = None
     if settings.mana_family_collection_enabled:
@@ -178,4 +211,4 @@ async def family_source_runtime(
                 clock=clock,
             )
         )
-    return FamilySourceRuntime(reads, store, policy, collection, collection_store)
+    return FamilySourceRuntime(reads, store, policy, collection, collection_store, day_usage)

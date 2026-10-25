@@ -89,6 +89,7 @@ class Settings(BaseSettings):
     mana_family_source_maximum_age_seconds: int = Field(default=21600, ge=60, le=86400)
     mana_family_collection_enabled: bool = False
     mana_family_source_reviews_enabled: bool = False
+    mana_family_day_usage_enabled: bool = False
     mana_parent_reminders_enabled: bool = False
     mana_client_retention_enabled: bool = False
     mana_client_upsell_enabled: bool = False
@@ -442,6 +443,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_day_usage_enabled and not self.mana_retention_expiry_enabled:
+            raise ValueError("Dated usage tools require the complete current parent-chat profile")
         if self.mana_collection_tariffs_enabled and not (
             self.mana_family_collection_enabled and self.mana_retention_expiry_enabled
         ):
@@ -511,7 +514,10 @@ class Settings(BaseSettings):
                 if (
                     wall
                     + 3 * self.mana_parent_chat_source_timeout_seconds
-                    + self.mana_family_source_timeout_seconds
+                    + max(
+                        self.mana_family_source_timeout_seconds,
+                        60 if self.mana_family_day_usage_enabled else 0,
+                    )
                     + 5
                     >= self.mana_child_safety_limits.lease_seconds
                 ):
