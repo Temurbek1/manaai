@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The local Upsell increment uses private family v16/source v4 and default-disabled
+  `MANA_CLIENT_UPSELL_ENABLED`. Only new eligible parent-message turns capture
+  typed price/duration enquiry scope; old queued turns never upgrade. Parent-Touch
+  stays the only speaker. A durable shared catalog claim precedes one login/GET,
+  six-hour cache/cooldown and four rolling-day reads. Unknown attempts block across
+  restart; lost local acknowledgements observe their original SQL receipts. Fresh
+  exact-parent ownership, frozen language, late-text fences and specialist priority
+  still apply. Exact code-owned quotes create no payment, grant, discount, feature
+  entitlement or push; this is not full proactive Basic-to-Premium eligibility.
+  Read `docs/mana-client-upsell.md`: preserve the negative strict-schema diagnostic
+  and the separate RU actual-model/catalog pass, not a replay or broad quality
+  acceptance. Existing 2000 speaker/2000 global safety limits remain. Current
+  closed readers preserve v16; older v15 is not a working rollback. No deployment,
+  production activation, source schedule or customer state change is implied.
+
+
 - The local client Retention increment uses private family v15, unchanged source
   v4, and default-disabled `MANA_CLIENT_RETENTION_ENABLED`. It detects a completed
   parent-chat gap, not app churn, and admits one immutable intent per last-message

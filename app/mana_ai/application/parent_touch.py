@@ -15,6 +15,7 @@ from app.mana_ai.application.chat_ports import (
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
+from app.mana_ai.application.client_upsell import ClientUpsellService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.family_collection import FamilyCollectionService
@@ -91,10 +92,12 @@ class ParentTouchService(ParentChatService):
         collection: FamilyCollectionService | None = None,
         reminders: ParentReminderService | None = None,
         retention: ClientRetentionService | None = None,
+        upsell: ClientUpsellService | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
         self.retention = retention
+        self.upsell = upsell
         super().__init__(
             store=store,
             children=children,
@@ -118,6 +121,9 @@ class ParentTouchService(ParentChatService):
 
     async def process_reminders(self) -> bool:
         return await self.reminders.process_one() if self.reminders else False
+
+    async def process_upsell(self) -> bool:
+        return await self.upsell.process_one() if self.upsell else False
 
     async def process_retention(self) -> bool:
         if self.retention is None:
@@ -239,6 +245,15 @@ class ParentTouchService(ParentChatService):
                         agent_id="retention-agent",
                         title="Retention & Win-back",
                         speaks_to_parent=False,
+                    ),
+                    status="available",
+                )
+            )
+        if self.upsell is not None:
+            directory.agents.append(
+                FamilyAgentAvailability(
+                    definition=FamilyAgentDefinition(
+                        agent_id="upsell-agent", title="Upsell", speaks_to_parent=False
                     ),
                     status="available",
                 )
@@ -443,6 +458,30 @@ class ParentTouchService(ParentChatService):
                 "for ordinary conversation or source reports. Only a host receipt "
                 "proves scheduling."
             )
+        upsell_scope = (
+            await self.upsell.scope(request.parent_id, turn.turn_id) if self.upsell else None
+        )
+        if upsell_scope is not None:
+            instructions += (
+                "\nFor a parent's EXPLICIT current request to see/compare ordinary MANA tariff "
+                "prices or choose a subscription duration, you may return one upsell enquiry. "
+                "This requests catalog evidence, never billing or contact authority. Use only "
+                "the latest parent message; parent_quote must be its exact relevant substring. "
+                "Set minimum_days/maximum_days from their stated duration (one month=30 days, "
+                "three months=90, six months=180, one year=365); if unspecified use 1..366. "
+                "UZS and USD have 100 minor units per unit; 60000 UZS means 6000000 minor units. "
+                "maximum_price_minor=null unless the parent states a total budget. "
+                "Use objective=list to show options, lowest_total for lowest total cost, or "
+                "lowest_daily only for explicitly requested long-term unit-price comparison. "
+                "The host checks fresh exact prices and publishes the quote separately; "
+                "do not invent prices, features, discounts, eligibility, renewal or checkout. "
+                "With upsell set body='', reminder=null, notice_communicated=false; preserve "
+                "only an already admitted question. Urgent notices forbid an upsell. "
+                "Unknown feature entitlement (for example Basic/Premium, number of children) "
+                "cannot be solved from price/duration: use upsell=null and explain that gap. "
+                "Do not derive a commercial need from child safety/profile/history or suggest "
+                "a tariff without an explicit current parent request. Otherwise upsell=null."
+            )
         if evidence and evidence.notice and evidence.notice.source_observations:
             instructions += (
                 "\nThis notice reviews partial source snapshots, not a fresh sensor alert. "
@@ -559,6 +598,7 @@ class ParentTouchService(ParentChatService):
             evidence_reply=evidence is not None,
             notice=evidence.notice if evidence else None,
             reminder_scope=reminder_scope,
+            upsell_scope=upsell_scope,
             slot_reply=True,
             response_language=response_language,
             required_observation_dates=source_dates,

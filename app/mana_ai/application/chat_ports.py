@@ -14,6 +14,7 @@ from app.mana_ai.domain.chat import (
     StoredChatTurn,
 )
 from app.mana_ai.domain.client_retention import RetentionIntent
+from app.mana_ai.domain.client_upsell import UpsellChoice, UpsellScope
 from app.mana_ai.domain.commercial_conversation import CommercialConversationContext
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
@@ -61,6 +62,7 @@ class ChatPrompt:
     required_observation_dates: tuple[str, ...] = ()
     reminder_scope: ReminderScope | None = None
     retention_scope: RetentionIntent | None = None
+    upsell_scope: UpsellScope | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,8 @@ class ChatModelReceipt:
     failure_code: ChatDecisionFailure | None = None
     reminder_candidate: ReminderCandidate | None = None
     reminder_question_text: str | None = None
+    upsell_choice: UpsellChoice | None = None
+    upsell_question_text: str | None = None
 
 
 class ParentChatModel(Protocol):

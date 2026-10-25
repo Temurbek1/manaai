@@ -58,6 +58,7 @@ class SqliteParentChatStore:
             receipt.question_id is None
             and receipt.notice_id is None
             and receipt.reminder_candidate is None
+            and receipt.upsell_choice is None
         )
 
     def _on_settled(

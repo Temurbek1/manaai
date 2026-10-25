@@ -16,6 +16,64 @@ from app.services.parent_chat_model import OpenAIParentChatModel
 PROMPT = ChatPrompt("Synthetic instructions", (("user", "Farzandimga qanday yordam beraman?"),))
 
 
+@pytest.mark.parametrize("change", [None, "body", "duration", "reminder", "extra"])
+async def test_upsell_choice_is_strict_and_invalid_output_still_retains_raw_usage(
+    change: str | None,
+) -> None:
+    from app.mana_ai.domain.client_upsell import UpsellScope
+
+    reply: dict[str, Any] = {
+        "body": "",
+        "question": None,
+        "notice_communicated": False,
+        "reminder": None,
+        "upsell": {
+            "parent_quote": "на 3 месяца",
+            "objective": "lowest_total",
+            "currency": "UZS",
+            "minimum_days": 90,
+            "maximum_days": 90,
+            "maximum_price_minor": None,
+        },
+    }
+    if change == "body":
+        reply["body"] = "Цена всего 1 сум."
+    if change == "duration":
+        reply["upsell"]["maximum_days"] = 30
+    if change == "reminder":
+        reply["reminder"] = {"content": "pay", "due_at": None, "timezone": "UTC"}
+    if change == "extra":
+        reply["upsell"]["checkout"] = "/fake"
+    payload = model_payload()
+    payload["output"][0]["content"][0]["text"] = json.dumps(reply)
+    prompt = replace(PROMPT, structured_reply=True, slot_reply=True, upsell_scope=UpsellScope())
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as http:
+        adapter = OpenAIParentChatModel(
+            settings(), client=AsyncOpenAI(api_key="fake-key", max_retries=0, http_client=http)
+        )
+        receipt = await adapter.respond(prompt, max_output_tokens=512)
+    assert receipt.usage.total == 150
+    assert receipt.completed is (change is None)
+    assert (receipt.upsell_choice is not None) is (change is None)
+    if change:
+        assert receipt.answer is None
+
+
+def test_upsell_provider_schema_requires_every_nullable_field() -> None:
+    from app.mana_ai.domain.client_upsell import UpsellScope
+
+    prompt = replace(PROMPT, structured_reply=True, slot_reply=True, upsell_scope=UpsellScope())
+    adapter = OpenAIParentChatModel(settings())
+    text: Any = adapter._text(prompt)
+    schema = text["format"]["schema"]
+    for definition in [schema, *schema.get("$defs", {}).values()]:
+        assert definition["additionalProperties"] is False
+        assert set(definition["required"]) == set(definition["properties"])
+    assert schema["properties"]["body"].get("minLength", 0) == 0
+
+
 @pytest.mark.parametrize("zone,valid", [("Asia/Tashkent", True), ("No/SuchZone", False)])
 async def test_reminder_arguments_preserve_verified_usage_without_model_self_approval(
     zone: str, valid: bool

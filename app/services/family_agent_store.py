@@ -334,6 +334,8 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         receipt: ChatModelReceipt,
         now: datetime,
     ) -> bool:
+        if receipt.upsell_choice is not None:
+            return False
         if receipt.reminder_candidate is not None:
             return False  # Only the explicit assistant profile may accept this new protocol.
         if receipt.notice_id is not None:

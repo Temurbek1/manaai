@@ -325,3 +325,36 @@ def create_retention_live_app() -> FastAPI:
             retention=True,
         )
     )
+
+
+def create_upsell_app() -> FastAPI:
+    """Fictional catalog and family; no payments, push, grants or live source adapters."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/upsell-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+        )
+    )
+
+
+def create_upsell_live_app() -> FastAPI:
+    """Explicit paid inference, still fictional family/catalog and no financial action."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/upsell-real-model",
+            real_model=True,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+        )
+    )

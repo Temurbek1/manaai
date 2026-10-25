@@ -59,6 +59,7 @@ class FamilyAgentWorker:
                         await self._touch.deliver(delivery)
                 if not self._stop.is_set():
                     await self._touch.process_reminders()
+                    await self._touch.process_upsell()
                     await self._touch.process_retention()
                     await self._touch.process_conversion()
                     await self._touch.process_push()

@@ -23,6 +23,7 @@ from app.mana_ai.application.chat_ports import (
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
+from app.mana_ai.application.client_upsell import ClientUpsellService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_reminders import ParentReminderService
@@ -42,6 +43,7 @@ from app.mana_ai.domain.child_safety import (
     SafetySourceReviewDecision,
 )
 from app.mana_ai.domain.client_retention import ClientRetentionPolicy
+from app.mana_ai.domain.client_upsell import ClientUpsellPolicy, UpsellChoice
 from app.mana_ai.domain.conversion import (
     ConversionPolicy,
     ConversionProposalPage,
@@ -49,6 +51,10 @@ from app.mana_ai.domain.conversion import (
     PaidConversionOffer,
 )
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
+from app.mana_ai.domain.conversion_catalog import (
+    ConversionCatalogObservation,
+    ConversionTariffPrice,
+)
 from app.mana_ai.domain.enums import AnalysisVerdict, FindingCategory, RiskLevel
 from app.mana_ai.domain.family_agents import (
     AgentQuestionRequest,
@@ -72,6 +78,7 @@ from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.client_retention_store import SqliteClientRetentionStore
+from app.services.client_upsell_store import SqliteClientUpsellStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
@@ -120,6 +127,30 @@ class LabAppUsageSource:
 
 class ClosableModel(ParentChatModel, Protocol):
     async def close(self) -> None: ...
+
+
+class LabCatalog:
+    """Fictional fixture matching known price shapes; never a live catalog read."""
+
+    def __init__(self, clock: Clock) -> None:
+        self._clock, self.calls = clock, 0
+
+    async def read(self) -> ConversionCatalogObservation:
+        self.calls += 1
+        return ConversionCatalogObservation(
+            collected_at=self._clock.now(),
+            tariffs=tuple(
+                ConversionTariffPrice(
+                    tariff_id=identity, currency="UZS", price_minor=price, duration_days=days
+                )
+                for identity, price, days in [
+                    ("3", 6000000, 30),
+                    ("8", 16200000, 90),
+                    ("9", 29900000, 180),
+                    ("4", 59900000, 365),
+                ]
+            ),
+        )
 
 
 class LabProfiles:
@@ -276,6 +307,26 @@ class SimulatedModel:
             answer = decision.model_dump_json()
         else:
             uzbek = prompt.response_language == "uz-Latn"
+            if prompt.upsell_scope is not None:
+                latest = prompt.messages[-1][1]
+                if any(
+                    q in latest.casefold()
+                    for q in ("тариф на 3 месяца", "3 oylik tarif", "90-day tariff")
+                ):
+                    return ChatModelReceipt(
+                        usage=ChatTokens(input_tokens=100, output_tokens=50),
+                        model="lab-simulated-not-billed",
+                        completed=True,
+                        answer="Catalog enquiry awaiting host validation.",
+                        upsell_choice=UpsellChoice(
+                            parent_quote=latest,
+                            objective="lowest_total",
+                            currency="UZS",
+                            minimum_days=90,
+                            maximum_days=90,
+                            maximum_price_minor=None,
+                        ),
+                    )
             if prompt.retention_scope is not None:
                 return ChatModelReceipt(
                     usage=ChatTokens(input_tokens=100, output_tokens=50),
@@ -450,6 +501,7 @@ class LabOptions:
     source_reviews: bool = False
     reminders: bool = False
     retention: bool = False
+    upsell: bool = False
 
 
 class ChatLab:
@@ -467,6 +519,8 @@ class ChatLab:
         ):
             raise ValueError("Collection lab requires fictional time, sources and model")
         self.options = options
+        if options.upsell and not options.retention:
+            raise ValueError("Upsell lab requires the complete conversation runtime")
         if options.retention and not options.reminders:
             raise ValueError("Retention lab requires the complete conversation profile")
         if options.reminders and not options.source_reviews:
@@ -505,6 +559,8 @@ class ChatLab:
             expected["reminders"] = True
         if self.options.retention:
             expected["retention"] = True
+        if self.options.upsell:
+            expected["upsell"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -579,7 +635,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteClientRetentionStore
+                SqliteClientUpsellStore
+                if self.options.upsell
+                else SqliteClientRetentionStore
                 if self.options.retention
                 else SqliteParentReminderStore
                 if self.options.reminders
@@ -598,6 +656,10 @@ class ChatLab:
             )
             if self.options.retention:
                 reminder_options["retention_policy"] = ClientRetentionPolicy()
+            if self.options.upsell:
+                reminder_options.update(
+                    upsell_policy=ClientUpsellPolicy(), catalog_binding="fictional-mana-catalog-v1"
+                )
             self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
@@ -686,6 +748,7 @@ class ChatLab:
             native_sources=native,
         )
         proactive = ProactiveParentService(self.store, clock=self.options.clock.now)
+        self.catalog = LabCatalog(self.options.clock)
         self.touch = ParentTouchService(
             store=self.store,
             children=profiles,
@@ -698,6 +761,11 @@ class ChatLab:
             conversion=ConversionService(self.store, clock=self.options.clock.now),
             proactive=proactive,
             sources=self.sources,
+            upsell=ClientUpsellService(
+                self.store, self.catalog, profiles, clock=self.options.clock.now
+            )
+            if isinstance(self.store, SqliteClientUpsellStore)
+            else None,
             retention=ClientRetentionService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteClientRetentionStore)
             else None,

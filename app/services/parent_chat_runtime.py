@@ -8,6 +8,7 @@ import httpx
 from app.core.config import Settings
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
+from app.mana_ai.application.client_upsell import ClientUpsellService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.conversion_accounts import ConversionAccountVerifier
 from app.mana_ai.application.conversion_grants import TrialGrantService
@@ -27,6 +28,7 @@ from app.services.client_retention_store import (
     SqliteClientRetentionStore,
     SqliteClosedClientRetentionStore,
 )
+from app.services.client_upsell_store import SqliteClientUpsellStore, SqliteClosedClientUpsellStore
 from app.services.commercial_conversation_store import (
     SqliteClosedCommercialConversationStore,
     SqliteCommercialConversationStore,
@@ -47,6 +49,7 @@ from app.services.family_compatibility_store import (
 from app.services.family_source_runtime import family_source_runtime
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.manakids_conversion_accounts import ManakidsConversionAccountSource
+from app.services.manakids_conversion_catalog import ManakidsConversionCatalogSource
 from app.services.manakids_parent_push import ManakidsParentPushGateway
 from app.services.manakids_trial_grants import ManakidsTrialGrantGateway
 from app.services.parent_chat_children import ManakidsChatChildrenSource
@@ -90,6 +93,12 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         "max_attempts": settings.mana_parent_chat_max_attempts_per_day,
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
+    if (
+        version == 16
+        and settings.mana_child_safety_enabled
+        and not settings.mana_client_upsell_enabled
+    ):
+        raise RuntimeError("V16 execution requires its captured Upsell runtime")
     if (
         version == 15
         and settings.mana_child_safety_enabled
@@ -144,7 +153,16 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         native_store = (
-            SqliteClientRetentionStore(
+            SqliteClientUpsellStore(
+                settings.mana_parent_chat_database_path,
+                reminder_policy=settings.mana_parent_reminder_policy,
+                retention_policy=settings.mana_client_retention_policy,
+                upsell_policy=settings.mana_client_upsell_policy,
+                catalog_binding=settings.manakids_api_base_url + "/api/v1/tariffs/",
+                **native_options,
+            )
+            if settings.mana_client_upsell_enabled
+            else SqliteClientRetentionStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
                 retention_policy=settings.mana_client_retention_policy,
@@ -160,11 +178,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15}:
+    elif version in {11, 12, 13, 14, 15, 16}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedClientRetentionStore
+            SqliteClosedClientUpsellStore
+            if version == 16
+            else SqliteClosedClientRetentionStore
             if version == 15
             else SqliteClosedParentReminderStore
             if version == 14
@@ -452,6 +472,20 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     reviewed=reviewed,
                     sources=sources.reads if sources else None,
                     collection=sources.collection if sources else None,
+                    upsell=ClientUpsellService(
+                        store,
+                        ManakidsConversionCatalogSource(
+                            client=client,
+                            base_url=settings.manakids_api_base_url,
+                            username=settings.manakids_api_username,
+                            password=settings.manakids_api_password.get_secret_value(),
+                            clock=lambda: datetime.now(UTC),
+                        ),
+                        children,
+                        clock=lambda: datetime.now(UTC),
+                    )
+                    if isinstance(store, SqliteClientUpsellStore)
+                    else None,
                     retention=ClientRetentionService(store, clock=lambda: datetime.now(UTC))
                     if isinstance(store, SqliteClientRetentionStore)
                     else None,

@@ -23,6 +23,7 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchReminderReply,
     ParentTouchSlotReply,
     ParentTouchText,
+    ParentTouchUpsellReply,
 )
 from app.services.chat_usage_receipt import terminal_chat_usage
 
@@ -54,7 +55,11 @@ class OpenAIParentChatModel:
             if not prompt.structured_reply:
                 raise ValueError("A publication slot requires a structured reply")
             schema = (
-                ParentTouchReminderReply if prompt.reminder_scope else ParentTouchSlotReply
+                ParentTouchUpsellReply
+                if prompt.upsell_scope
+                else ParentTouchReminderReply
+                if prompt.reminder_scope
+                else ParentTouchSlotReply
             ).model_json_schema()
             if prompt.response_language:
                 language = language_name(prompt.response_language)
@@ -66,7 +71,7 @@ class OpenAIParentChatModel:
                 )
             if prompt.question is None:
                 schema["properties"]["question"] = {"type": "null"}
-                if prompt.reminder_scope is None:
+                if prompt.reminder_scope is None and prompt.upsell_scope is None:
                     schema["properties"]["body"]["minLength"] = 1
             schema["properties"]["notice_communicated"] = (
                 {"type": "boolean", "enum": [False]}
@@ -204,13 +209,22 @@ class OpenAIParentChatModel:
         failure_code: ChatDecisionFailure | None = None if completed else "provider_output_invalid"
         reminder_candidate = None
         reminder_question_text = None
+        upsell_choice = None
+        upsell_question_text = None
         if completed and prompt.structured_reply:
             try:
                 reply: ParentTouchText
                 if prompt.slot_reply:
                     reply = (
-                        ParentTouchReminderReply if prompt.reminder_scope else ParentTouchSlotReply
+                        ParentTouchUpsellReply
+                        if prompt.upsell_scope
+                        else ParentTouchReminderReply
+                        if prompt.reminder_scope
+                        else ParentTouchSlotReply
                     ).model_validate_json(answer)
+                    if isinstance(reply, ParentTouchUpsellReply) and reply.upsell is not None:
+                        upsell_choice = reply.upsell
+                        upsell_question_text = reply.question
                     if isinstance(reply, ParentTouchReminderReply) and reply.reminder is not None:
                         reminder_candidate = reply.reminder
                         reminder_question_text = reply.question
@@ -268,6 +282,8 @@ class OpenAIParentChatModel:
                 ):
                     raise ValueError("The reply selected an unadmitted question")
                 answer = "\n\n".join(part for part in (reply.body.strip(), reply.question) if part)
+                if upsell_choice is not None and not answer:
+                    answer = "Catalog enquiry awaiting host validation."
                 if reminder_candidate is not None and not answer:
                     answer = "Reminder proposal awaiting host validation."
             except (ValueError, ValidationError):
@@ -283,6 +299,8 @@ class OpenAIParentChatModel:
             failure_code=failure_code,
             reminder_candidate=reminder_candidate if completed else None,
             reminder_question_text=reminder_question_text if completed else None,
+            upsell_choice=upsell_choice if completed else None,
+            upsell_question_text=upsell_question_text if completed else None,
         )
 
     async def close(self) -> None:

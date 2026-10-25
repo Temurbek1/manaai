@@ -629,3 +629,22 @@ They do not change safety permissions or revoke an already dispatched push.
 See [implementation, exact limits and real-model evidence](mana-client-retention.md).
 The workflow is local, private schema v15, and default disabled. Do not call these
 additions on production until an explicit release is confirmed.
+
+## 18. Upsell price enquiries in the same chat (local, not released)
+
+The default-disabled `MANA_CLIENT_UPSELL_ENABLED` adds no mobile route or chat.
+Post the parent's ordinary message, observe its existing message status, then keep
+refreshing the same single history. For an explicit price/duration request,
+Parent-Touch acknowledges it and later publishes the exact dated catalog quote
+as another assistant message with its own `turn_id`. Do not insert a second copy
+in the application or treat original-message completion as the final history head.
+
+For example: `Покажи самый дешёвый тариф на 90 дней в UZS`.
+The model extracts the request; code selects a real observed tariff by exact
+currency, term and total price. Catalog prices do not establish feature upgrades,
+recipient eligibility, checkout or renewal. Nothing is purchased or granted.
+This path sends no push and requires no new backend event. One shared catalog
+cache/read ledger bounds acquisition across parents; failures are not retried.
+Existing 2000 speaker/2000 global safety limits remain. Old captured turns do not
+upgrade. See [the implementation/evidence](mana-client-upsell.md) and run
+`make chat-lab-upsell` for fictional UI tests. These new paths are not released.

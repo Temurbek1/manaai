@@ -57,9 +57,9 @@ class _Tariff(BaseModel):
 
 
 class ManakidsConversionCatalogSource:
-    """Not runtime-wired, scheduled, cached or exposed as an agent source tool.
+    """Bounded evidence adapter; the caller owns cache and durable read admission.
 
-    The caller must durably admit a manual read before invoking this adapter.
+    The caller must durably admit an authorized read before invoking this adapter.
     Replay/restart must observe that receipt rather than call read again. No
     catalogue read is added to account events, publication or application start.
     """

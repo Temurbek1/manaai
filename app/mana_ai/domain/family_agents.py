@@ -14,6 +14,7 @@ from app.mana_ai.domain.chat import (
     ParentChatResponse,
     StoredChatTurn,
 )
+from app.mana_ai.domain.client_upsell import UpsellChoice
 from app.mana_ai.domain.enums import (
     AnalysisStatus,
     AnalysisVerdict,
@@ -267,6 +268,7 @@ class ParentTouchText(ChatContract):
             not self.body.strip()
             and self.question is None
             and getattr(self, "reminder", None) is None
+            and getattr(self, "upsell", None) is None
         ):
             raise ValueError("A parent-facing reply cannot be empty")
         return self
@@ -299,4 +301,18 @@ class ParentTouchReminderReply(ParentTouchSlotReply):
     def host_owned_confirmation(self) -> "ParentTouchReminderReply":
         if self.reminder is not None and (self.body.strip() or self.notice_communicated):
             raise ValueError("Reminder proposals reserve no model execution claim or notice")
+        return self
+
+
+class ParentTouchUpsellReply(ParentTouchReminderReply):
+    upsell: UpsellChoice | None
+
+    @model_validator(mode="after")
+    def one_host_intent(self) -> "ParentTouchUpsellReply":
+        if self.upsell is not None and (
+            self.reminder is not None or self.body.strip() or self.notice_communicated
+        ):
+            raise ValueError(
+                "A catalog enquiry cannot also speak, propose a reminder or claim a notice"
+            )
         return self
