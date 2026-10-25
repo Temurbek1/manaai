@@ -2,6 +2,53 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Completed-day usage source port — 2026-10-25, `cb54a9c`
+
+Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
+[Source contract and next integration](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-day-usage-source.md)
+describe one verified MANA family/explicit completed calendar day, using one
+ownership lookup and one bulk usage GET with shared authentication. Raw lookup
+username is ephemeral/excluded; child IDs, freshness, dates, pagination and byte
+limits fail closed. This is **not yet runtime/cache/native-tool/collector wiring**
+or a new mobile endpoint. Old native tools/scopes never acquire it. Family/source/
+collection stay v17/v4/v2; source and 2000-token budgets are unchanged.
+
+Actual two-day discovery returned five owned children with 10/20 counter rows
+matching October 24/23 labels. The first typed adapter party got HTTP 200 but
+failed controlled validation; its saved failure lacks a code and stays negative.
+A separate October-22 metadata query found empty nested pages using count 0/page
+count 1. The regression reproduced this before the fix. Shared parsing now accepts
+0/1 pages only for zero count/rows, preserving all nonempty checks and missing-data
+uncertainty. This also fixes the existing detail adapter without retrying old calls.
+
+A distinct postfix October-21 typed-source check passed: five-of-five owned child
+rows, ten counters, one partial app page, no serialized phone/name, exactly three
+HTTP attempts. Across those four phases: 13 source HTTP attempts, no direct
+Firestore/GA4/model, message/push, grant/payment or production action. No old party
+was replayed or rewritten. Calendar labels still do not prove foreground screen
+time, provider timezone or complete app data; absent child rows are not zero use.
+
+Final `make verify` **67155**, exit 0: **1358 backend /26 admin /10 lab cases**,
+mypy **391**, formatting/lint/types/build/npm zero; API sync/marker/secret scans
+pass (1335 inspected files at that stage). Candidate `6a07ddfb4cb3` passes a
+networkless/read-only-root packaged MockTransport source test and existing closed
+family checks, retaining every original table fingerprint, three history messages
+and 150 known/1850 unknown safety tokens. Critical source hashes match. This is
+source/image engineering evidence, not a new agent-browser or production release.
+
+The separate three-request Account API investigation matched designated parent 4
+through the ephemeral exact username and distinguished registration from selected
+tariff creation. No top-level language/timezone/consent fields were observed;
+country is not substituted for those preferences or verified free-use duration.
+Checked local/installed-repository sources supplied no authoritative GPS ID join.
+
+Next: capture a new dated-source scope, bind parent/day receipts and shared cache/
+read ceilings/unknown holds, then connect qualified facts through Child-Safety and
+Parent-Touch with chat/lab, model-budget/quality and compatibility acceptance.
+No historical recapture, silent upgrade, new refresh or quota increase. The full
+goal remains active; root unrelated edits and production were preserved.
+
+
 ### Shared bulk tariff facts — 2026-10-25, `7a0f95e`
 
 Authoritative family checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
