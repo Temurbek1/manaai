@@ -56,6 +56,16 @@ other implementable work.
 
 ## Subsequent local source-to-chat increment
 
+The [Parent-Touch manager increment](mana-parent-touch-manager.md) makes ordinary
+conversation independent of the global Child-Safety token balance. New captured
+turns choose one owning child/tariff/reminder workflow through strict metered
+native handoff, under the same pending message and unchanged quotas. A retained
+paid failure exposed the all-capability final prompt; the new selected-owner
+publication keeps every supplied fact/date while removing irrelevant action
+schemas. A distinct small Uzbek fictional full loop passed with settled costs;
+this is not broad quality, full multi-owner orchestration or production acceptance.
+Old admissions do not upgrade. The complete scope in the table remains open.
+
 The [shared conversion-profile increment](mana-shared-conversion-profile.md) wires
 the already acquired selected-tariff facts to newly captured commercial checks.
 Paid/unknown/stale/changed facts stop work without another profile/source/model

@@ -122,6 +122,17 @@ UI опрашивает **только локальный SQL**. GET/reload не
 
 ## Какие API действительно нужны чату
 
+### Independent Parent-Touch manager (local)
+
+Run `make chat-lab-manager` for the current fictional single-chat manager profile.
+Use the ordinary composer for a greeting, a 90-day price enquiry, a child question
+or an explicit reminder. General conversation/catalogue enquiries do not consume
+Child-Safety's separate global quota. Child requests retain the same pending
+message until the specialist review and sole-speaker reply. Reminder proposals
+still require the parent's exact confirmation. This simulation has its own
+`manager-simulation` history; it attaches no real source, push or tariff grant.
+See [the exact implementation and qualified actual-model evidence](mana-parent-touch-manager.md).
+
 Для нового интерфейса достаточно трёх операций:
 
 | Операция | Назначение |

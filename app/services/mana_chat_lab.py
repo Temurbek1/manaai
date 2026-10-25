@@ -30,6 +30,7 @@ from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
+from app.mana_ai.application.parent_touch_manager import manager_binding
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.retention_expiry import RetentionExpiryService, RetentionProfileSource
@@ -74,6 +75,7 @@ from app.mana_ai.domain.family_sources import (
     FamilySourceLimits,
 )
 from app.mana_ai.domain.parent_reminders import ReminderCandidate, ReminderPolicy
+from app.mana_ai.domain.parent_touch_manager import ManagerTarget, ParentTouchManagerHandoff
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy, RetentionTariffFact
@@ -96,6 +98,7 @@ from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_reminder_store import SqliteParentReminderStore
+from app.services.parent_touch_manager_store import SqliteParentTouchManagerStore
 from app.services.retention_expiry_store import SqliteRetentionExpiryStore
 from app.services.shared_conversion_profile_store import SqliteSharedConversionProfileStore
 from app.services.source_review_cache import SqliteSourceReviewCache
@@ -298,6 +301,41 @@ class SimulatedModel:
     async def respond(self, prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
         if (
             self.role == "speaker"
+            and prompt.manager_scope
+            and prompt.manager_scope.stage == "route"
+        ):
+            text = prompt.messages[-1][1].casefold()
+            target: ManagerTarget | None = (
+                "reminder"
+                if any(t in text for t in ("напомни", "eslat", "remind"))
+                else "upsell"
+                if any(
+                    t in text for t in ("тариф", "tarif", "цен", "narx", "price", "заканчивается")
+                )
+                else None
+                if any(t in text for t in ("привет", "спасибо", "hello", "salom", "rahmat"))
+                else "child_safety"
+            )
+            return ChatModelReceipt(
+                usage=ChatTokens(input_tokens=100, output_tokens=50),
+                model="lab-simulated-not-billed",
+                completed=True,
+                answer=None
+                if target
+                else {
+                    "ru": "Здравствуйте. Помогу с MANA.",
+                    "uz-Latn": "Salom. MANA bo‘yicha yordam beraman.",
+                    "uz-Cyrl": "Салом. MANA бўйича ёрдам бераман.",
+                    "en": "Hello. I can help with MANA.",
+                }[prompt.manager_scope.language],
+                manager_handoff=ParentTouchManagerHandoff(
+                    target=target, call_id="call_" + uuid4().hex
+                )
+                if target
+                else None,
+            )
+        if (
+            self.role == "speaker"
             and prompt.notice is None
             and prompt.question is None
             and any(
@@ -427,7 +465,12 @@ class SimulatedModel:
                 latest = prompt.messages[-1][1]
                 if any(
                     q in latest.casefold()
-                    for q in ("тариф на 3 месяца", "3 oylik tarif", "90-day tariff")
+                    for q in (
+                        "тариф на 3 месяца",
+                        "тариф на 90 дней",
+                        "3 oylik tarif",
+                        "90-day tariff",
+                    )
                 ):
                     return ChatModelReceipt(
                         usage=ChatTokens(input_tokens=100, output_tokens=50),
@@ -644,10 +687,13 @@ class LabOptions:
     dated_reviews: bool = False
     day_collection: bool = False
     shared_conversion_profile: bool = False
+    manager: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.manager and not options.expiry:
+            raise ValueError("Manager lab requires the current complete family profile")
         if options.shared_conversion_profile and (not options.expiry or options.real_model):
             raise ValueError("Shared conversion lab requires the existing profile observer")
         if options.dated_reviews and not options.day_usage:
@@ -731,6 +777,8 @@ class ChatLab:
             expected["collection_tariffs"] = True
         if self.options.shared_conversion_profile:
             expected["shared_conversion_profile"] = True
+        if self.options.manager:
+            expected["manager"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -835,7 +883,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteSharedConversionProfileStore
+                SqliteParentTouchManagerStore
+                if self.options.manager
+                else SqliteSharedConversionProfileStore
                 if self.options.shared_conversion_profile
                 else SqliteDatedReviewSafetyStore
                 if self.options.dated_reviews
@@ -879,6 +929,25 @@ class ChatLab:
                 reminder_options["dated_reviews_enabled"] = True
             if self.options.shared_conversion_profile:
                 reminder_options["shared_profile_enabled"] = True
+            if self.options.manager:
+                manager_model = (
+                    (settings.mana_parent_touch_model or settings.openai_model)
+                    if self.options.real_model
+                    else "lab-simulated-not-billed"
+                )
+                reminder_options.update(
+                    manager_enabled=True,
+                    manager_model=manager_model,
+                    manager_binding=manager_binding(
+                        manager_model,
+                        settings.openai_reasoning_effort,
+                        settings.openai_verbosity,
+                        512,
+                        settings.openai_timeout_seconds,
+                    )
+                    if self.options.real_model
+                    else "fictional-manager-v1",
+                )
             self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
@@ -1010,6 +1079,7 @@ class ChatLab:
             store=self.store,
             children=profiles,
             model=speaker,
+            manager=self.store if isinstance(self.store, SqliteParentTouchManagerStore) else None,
             clock=self.options.clock.now,
             max_output_tokens=512,
             history_turn_limit=2,

@@ -36,6 +36,16 @@ class SqliteReviewedMessageStore(SqliteChildSafetyStore):
     def _allowed_tables(self) -> set[str]:
         return super()._allowed_tables() | {REVIEW_TABLE}
 
+    def _defer_initial_review(
+        self,
+        connection: sqlite3.Connection,
+        request: ParentTouchReviewedTurn,
+        turn_id: int,
+        now: datetime,
+        context: str,
+    ) -> bool:
+        return False
+
     def _extra_schema(self) -> str:
         return (
             super()._extra_schema()
@@ -89,11 +99,14 @@ class SqliteReviewedMessageStore(SqliteChildSafetyStore):
         )
         if len(snapshot.model_dump_json().encode()) > self._safety_limits.max_context_bytes:
             raise ParentChatError("safety_context_too_large", 422)
-        connection.execute(
-            "INSERT INTO child_safety_parent_events(turn_id,parent_id,created_at,context) "
-            "VALUES(?,?,?,?)",
-            (turn_id, request.parent_id, now.isoformat(), snapshot.model_dump_json()),
-        )
+        if not self._defer_initial_review(
+            connection, request, turn_id, now, snapshot.model_dump_json()
+        ):
+            connection.execute(
+                "INSERT INTO child_safety_parent_events(turn_id,parent_id,created_at,context) "
+                "VALUES(?,?,?,?)",
+                (turn_id, request.parent_id, now.isoformat(), snapshot.model_dump_json()),
+            )
         connection.execute(
             "INSERT INTO family_reviewed_messages(turn_id,parent_id,request_id,request,phase) "
             "VALUES(?,?,?,?,'waiting')",

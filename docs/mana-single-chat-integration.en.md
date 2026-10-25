@@ -779,3 +779,33 @@ outcome. Defaults/budgets remain unchanged; old events never acquire new checks.
 Run `make chat-lab-shared-conversion` for fictional profile/offer/paid-veto examples.
 Read [the exact implementation, compatibility and acceptance limits](mana-shared-conversion-profile.md).
 This increment has not been deployed.
+
+## 26. Parent-Touch chooses the specialist (local, not released)
+
+The default-disabled family-v21 `MANA_PARENT_TOUCH_MANAGER_ENABLED` profile keeps
+the same message POST, status GET and history GET. The phone never selects an
+agent, submits another chat ID or inserts a placeholder assistant message.
+
+New eligible messages start in the existing `responding` phase while Parent-Touch
+either replies normally or chooses one existing owner. Greetings/general app
+conversation use only the parent's chat budget. A child request transitions to
+`awaiting_review` under the same `request_id`/`turn_id`; Child-Safety reviews it,
+then Parent-Touch publishes the final response. Tariff/reminder requests remain
+`responding` through their selected typed preparation. A reminder still requires
+the existing separate confirmation; a tariff enquiry creates no payment or grant.
+Replies to an admitted specialist question retain the original review-first path.
+
+Observe the existing status/history APIs until completion or a terminal error.
+GET, refresh, a dropped connection or exact POST replay never starts another
+generation. Unknown receipts retain quota holds. The final usage includes both
+Parent-Touch decisions under the original **2000 raw tokens/parent/day**;
+Child-Safety keeps its separate **2000 global/day**. Budget exhaustion still stops
+child analysis and does not silently enlarge either allowance.
+
+The server freezes language/model/scope at admission. Historical messages never
+upgrade on flag changes. A late/disabled/changed decision is refused after known
+usage is accounted. This profile does not activate source refresh or contact
+permissions. Try `make chat-lab-manager` with fictional providers and explicitly
+simulated models. Read [the implementation, retained negative diagnostic and
+actual acceptance limits](mana-parent-touch-manager.md). Production remains on
+the earlier release until a separately scoped rollout is confirmed.

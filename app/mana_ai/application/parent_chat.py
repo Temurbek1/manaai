@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from app.mana_ai.application.chat_ports import (
     ChatModelRejected,
     ChatPrompt,
+    ChatReplyDeferred,
     ParentChatError,
     ParentChatModel,
     ParentChatStore,
@@ -67,11 +68,14 @@ class ParentChatService:
         turn = await self.store.admit(request, self._clock())
         if turn.result is not None:
             return turn.result
-        return await self._respond_to_admitted(turn, request)
+        result = await self._respond_to_admitted(turn, request)
+        if result is None:
+            raise ParentChatError("parent_touch_async_message_required", 409)
+        return result
 
     async def _respond_to_admitted(
         self, turn: StoredChatTurn, request: ParentChatRequest
-    ) -> ParentChatResponse:
+    ) -> ParentChatResponse | None:
         # Only admit() can issue a new preparing turn to this invocation. Replays
         # are rejected there, including submitted/unknown calls after a restart.
         submitted = False
@@ -155,6 +159,8 @@ class ParentChatService:
             )
             settled = True
             return result
+        except ChatReplyDeferred:
+            return None
         except ChatModelRejected:
             await self.store.fail(turn, code="model_request_rejected", status_code=502)
             raise ParentChatError("model_request_rejected", 502) from None

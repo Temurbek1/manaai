@@ -28,6 +28,10 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchQuestion,
 )
 from app.mana_ai.domain.parent_reminders import ReminderCandidate, ReminderScope
+from app.mana_ai.domain.parent_touch_manager import (
+    ParentTouchManagerHandoff,
+    ParentTouchManagerScope,
+)
 
 ChatDecisionFailure = Literal[
     "provider_output_invalid", "reply_schema_invalid", "reply_language_mismatch"
@@ -44,6 +48,10 @@ class ParentChatError(Exception):
 
 class ChatModelRejected(Exception):
     """A definitive upstream rejection before inference, not an unknown receipt."""
+
+
+class ChatReplyDeferred(Exception):
+    """Verified usage is saved; this same turn now awaits an owning specialist."""
 
 
 @dataclass(frozen=True)
@@ -63,6 +71,7 @@ class ChatPrompt:
     reminder_scope: ReminderScope | None = None
     retention_scope: RetentionIntent | None = None
     upsell_scope: UpsellScope | None = None
+    manager_scope: ParentTouchManagerScope | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +87,7 @@ class ChatModelReceipt:
     reminder_question_text: str | None = None
     upsell_choice: UpsellChoice | None = None
     upsell_question_text: str | None = None
+    manager_handoff: ParentTouchManagerHandoff | None = None
 
 
 class ParentChatModel(Protocol):

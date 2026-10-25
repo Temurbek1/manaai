@@ -1,8 +1,9 @@
 """No transport retries; strict raw terminal usage before text validation."""
 
 import asyncio
+import json
 from datetime import UTC
-from typing import cast
+from typing import Any, cast
 
 from openai import APIStatusError, AsyncOpenAI
 from openai.types.responses import ResponseInputParam
@@ -17,6 +18,7 @@ from app.mana_ai.application.chat_ports import (
     ChatPrompt,
 )
 from app.mana_ai.application.parent_languages import language_name, parent_language
+from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.family_agents import (
     ParentTouchEvidenceReply,
     ParentTouchModelReply,
@@ -24,6 +26,13 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchSlotReply,
     ParentTouchText,
     ParentTouchUpsellReply,
+)
+from app.mana_ai.domain.parent_touch_manager import (
+    CHILD_REVIEW_TOOL,
+    REMINDER_TOOL,
+    UPSELL_TOOL,
+    ParentTouchManagerHandoff,
+    ParentTouchManagerReply,
 )
 from app.services.chat_usage_receipt import terminal_chat_usage
 
@@ -51,6 +60,16 @@ class OpenAIParentChatModel:
         if prompt.safety_parent_review or prompt.safety_source_review:
             raise ValueError("A parent-chat adapter cannot inherit a specialist review protocol")
         text: ResponseTextConfigParam = {"verbosity": self._verbosity}
+        if prompt.manager_scope and prompt.manager_scope.stage == "route":
+            if not prompt.structured_reply:
+                raise ValueError("A manager decision requires its strict response contract")
+            text["format"] = {
+                "type": "json_schema",
+                "name": "parent_touch_manager_reply",
+                "strict": True,
+                "schema": ParentTouchManagerReply.model_json_schema(),
+            }
+            return text
         if prompt.slot_reply:
             if not prompt.structured_reply:
                 raise ValueError("A publication slot requires a structured reply")
@@ -121,6 +140,106 @@ class OpenAIParentChatModel:
             }
         return text
 
+    @staticmethod
+    def _manager_tools(prompt: ChatPrompt) -> dict[str, Any]:
+        scope = prompt.manager_scope
+        if scope is None or scope.stage != "route":
+            return {}
+        descriptions = [
+            (CHILD_REVIEW_TOOL, "Ask Child-Safety to analyse this parent's child request.")
+        ]
+        if scope.upsell_enabled:
+            descriptions.append((UPSELL_TOOL, "Handle the parent's account or tariff question."))
+        if scope.reminders_enabled:
+            descriptions.append((REMINDER_TOOL, "Prepare the parent's requested reminder."))
+        return {
+            "tools": [
+                {
+                    "type": "function",
+                    "name": name,
+                    "description": description,
+                    "strict": True,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": False,
+                    },
+                }
+                for name, description in descriptions
+            ],
+            "parallel_tool_calls": False,
+            "tool_choice": "auto",
+        }
+
+    def _manager_call_receipt(
+        self, prompt: ChatPrompt, payload: dict[str, Any], usage: ChatTokens, output_cap: int
+    ) -> ChatModelReceipt | None:
+        scope = prompt.manager_scope
+        if scope is None or scope.stage != "route":
+            return None
+        output = payload.get("output")
+        calls = (
+            [
+                item
+                for item in output
+                if isinstance(item, dict) and item.get("type") == "function_call"
+            ]
+            if isinstance(output, list)
+            else []
+        )
+        if not calls:
+            return None
+        raw_model = payload.get("model")
+        model = (
+            raw_model if isinstance(raw_model, str) and 0 < len(raw_model) <= 128 else self._model
+        )
+        handoff = None
+        try:
+            if (
+                len(calls) != 1
+                or payload.get("status") != "completed"
+                or not isinstance(raw_model, str)
+                or not 0 < len(raw_model) <= 128
+                or usage.output_tokens > output_cap
+            ):
+                raise ValueError("Invalid manager terminal decision")
+            assert isinstance(output, list)
+            if any(
+                not isinstance(i, dict)
+                or i.get("type") not in {"function_call", "message", "reasoning"}
+                for i in output
+            ):
+                raise ValueError("Unexpected manager output")
+            call = calls[0]
+            targets = {CHILD_REVIEW_TOOL: "child_safety"}
+            if scope.upsell_enabled:
+                targets[UPSELL_TOOL] = "upsell"
+            if scope.reminders_enabled:
+                targets[REMINDER_TOOL] = "reminder"
+            arguments = call.get("arguments")
+            if (
+                call.get("name") not in targets
+                or call.get("status") not in {None, "completed"}
+                or not isinstance(arguments, str)
+                or len(arguments) > 256
+                or json.loads(arguments) != {}
+            ):
+                raise ValueError("Unadmitted manager call")
+            handoff = ParentTouchManagerHandoff(
+                target=targets[call["name"]], call_id=call.get("call_id")
+            )
+        except (ValueError, TypeError, ValidationError):
+            pass
+        return ChatModelReceipt(
+            usage=usage,
+            model=model,
+            answer=None,
+            completed=handoff is not None,
+            failure_code=None if handoff else "reply_schema_invalid",
+            manager_handoff=handoff,
+        )
+
     async def count_input(self, prompt: ChatPrompt) -> int:
         async with asyncio.timeout(self._wall_timeout):
             return await self._count_input(prompt)
@@ -133,6 +252,7 @@ class OpenAIParentChatModel:
             reasoning={"effort": self._effort},
             text=self._text(prompt),
             truncation="disabled",
+            **self._manager_tools(prompt),
         )
         payload = raw.http_response.json()
         count = payload.get("input_tokens") if isinstance(payload, dict) else None
@@ -156,6 +276,7 @@ class OpenAIParentChatModel:
                 max_output_tokens=max_output_tokens,
                 store=False,
                 service_tier="default",
+                **self._manager_tools(prompt),
             )
         except APIStatusError as exc:
             if exc.status_code in {400, 401, 403, 404, 413, 422}:
@@ -166,6 +287,9 @@ class OpenAIParentChatModel:
         assert isinstance(payload, dict)
         model = payload.get("model")
         valid_model = isinstance(model, str) and 0 < len(model) <= 128
+        delegated = self._manager_call_receipt(prompt, payload, tokens, max_output_tokens)
+        if delegated is not None:
+            return delegated
         # From this point invalid text/schema still returns the verified usage.
         text: list[str] = []
         output = payload.get("output")
@@ -214,7 +338,10 @@ class OpenAIParentChatModel:
         if completed and prompt.structured_reply:
             try:
                 reply: ParentTouchText
-                if prompt.slot_reply:
+                if prompt.manager_scope and prompt.manager_scope.stage == "route":
+                    routed = ParentTouchManagerReply.model_validate_json(answer)
+                    reply = ParentTouchText(body=routed.body, question=None)
+                elif prompt.slot_reply:
                     reply = (
                         ParentTouchUpsellReply
                         if prompt.upsell_scope

@@ -490,6 +490,25 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_manager_app() -> FastAPI:
+    """Fictional manager routes general, tariff, reminder and child requests in one chat."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/manager-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+        )
+    )
+
+
 def create_shared_conversion_app() -> FastAPI:
     """Fictional profile changes veto an existing conversion without provider I/O."""
     root = Path(__file__).resolve().parents[1]

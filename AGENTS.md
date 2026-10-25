@@ -2,6 +2,23 @@
 
 ## Repository expectations
 
+- The subsequent local `MANA_PARENT_TOUCH_MANAGER_ENABLED` profile defaults off,
+  adds family v21 and leaves source/collection protocols unchanged. Read
+  `docs/mana-parent-touch-manager.md`. Only new eligible turns capture one bounded
+  metered native handoff; old/bound-question/priority turns retain review-first.
+  Parent-Touch alone speaks. Ordinary replies do not consume Child-Safety tokens;
+  child handoffs keep the same root pending through its existing owning review.
+  Final publication retains all facts/dates/bindings but no unrelated action
+  schema. Tariff/reminder scope is not execution/consent authority. Account every
+  raw initial/final receipt against the original parent's 2000/day, preserve the
+  separate global 2000 safety budget and unknown holds, and never replay lost
+  calls or publish stopped/late decisions. Preserve the first paid budget failure
+  and its corrected append-only cost audit; the distinct Uzbek full-loop pass is
+  qualified synthetic evidence, not broad quality, fleet or production acceptance.
+  Current closed v21 preserves history/holds; actual v20 refusal is not working
+  rollback. No source refresh, grant/payment, production, SSH/key or quota change
+  is implied. Keep the complete original objective and remaining agents open.
+
 - The subsequent local `MANA_CONVERSION_SHARED_PROFILE_ENABLED` consumer defaults
   off and uses family v20, with no source/collection schema change. Read
   `docs/mana-shared-conversion-profile.md`. Only new conversion events capture

@@ -79,6 +79,8 @@ def _validate_existing_native_schema(path: Path) -> None:
             17,
             18,
             19,
+            20,
+            21,
         }:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:

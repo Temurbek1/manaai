@@ -16,6 +16,7 @@ from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
+from app.mana_ai.application.parent_touch_manager import manager_binding
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.retention_expiry import RetentionExpiryService, RetentionProfileSource
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
@@ -69,6 +70,10 @@ from app.services.parent_reminder_store import (
     SqliteClosedParentReminderStore,
     SqliteParentReminderStore,
 )
+from app.services.parent_touch_manager_store import (
+    SqliteClosedParentTouchManagerStore,
+    SqliteParentTouchManagerStore,
+)
 from app.services.proactive_parent_store import (
     SqliteClosedProactiveParentStore,
     SqliteProactiveParentStore,
@@ -112,7 +117,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
-        version in {17, 18, 19, 20}
+        version in {17, 18, 19, 20, 21}
         and settings.mana_child_safety_enabled
         and not settings.mana_client_upsell_enabled
     ):
@@ -177,18 +182,37 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         profile_options: dict[str, Any] = {}
-        if settings.mana_conversion_shared_profile_enabled or version == 20:
+        if settings.mana_parent_touch_manager_enabled or version == 21:
+            model_name = settings.mana_parent_touch_model or settings.openai_model
+            profile_options.update(
+                manager_enabled=settings.mana_parent_touch_manager_enabled,
+                manager_model=model_name,
+                manager_binding=manager_binding(
+                    model_name,
+                    settings.openai_reasoning_effort,
+                    settings.openai_verbosity,
+                    settings.mana_parent_chat_max_output_tokens,
+                    settings.openai_timeout_seconds,
+                ),
+            )
+        if (
+            settings.mana_conversion_shared_profile_enabled
+            or settings.mana_parent_touch_manager_enabled
+            or version in {20, 21}
+        ):
             profile_options.update(
                 shared_profile_enabled=settings.mana_conversion_shared_profile_enabled,
                 shared_profile_policy=settings.mana_conversion_shared_profile_policy,
             )
-        if settings.mana_family_day_usage_enabled or version in {18, 19, 20}:
+        if settings.mana_family_day_usage_enabled or version in {18, 19, 20, 21}:
             profile_options["day_tools_enabled"] = settings.mana_family_day_usage_enabled
-        if settings.mana_family_day_reviews_enabled or version in {19, 20}:
+        if settings.mana_family_day_reviews_enabled or version in {19, 20, 21}:
             profile_options["dated_reviews_enabled"] = settings.mana_family_day_reviews_enabled
         native_store = (
             (
-                SqliteSharedConversionProfileStore
+                SqliteParentTouchManagerStore
+                if settings.mana_parent_touch_manager_enabled or version == 21
+                else SqliteSharedConversionProfileStore
                 if settings.mana_conversion_shared_profile_enabled or version == 20
                 else SqliteDatedReviewSafetyStore
                 if settings.mana_family_day_reviews_enabled or version == 19
@@ -208,7 +232,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 + "/api/v1/admin-panel-parent/parent-list/",
                 **native_options,
             )
-            if settings.mana_retention_expiry_enabled or version in {17, 18, 19, 20}
+            if settings.mana_retention_expiry_enabled or version in {17, 18, 19, 20, 21}
             else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
@@ -234,11 +258,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19, 20}:
+    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedSharedConversionProfileStore
+            SqliteClosedParentTouchManagerStore
+            if version == 21
+            else SqliteClosedSharedConversionProfileStore
             if version == 20
             else SqliteClosedDatedReviewSafetyStore
             if version == 19
@@ -545,6 +571,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     history_turn_limit=settings.mana_parent_chat_history_turns,
                     safety=safety,
                     reviewed=reviewed,
+                    manager=store if isinstance(store, SqliteParentTouchManagerStore) else None,
                     sources=sources.reads if sources else None,
                     collection=sources.collection if sources else None,
                     upsell=ClientUpsellService(

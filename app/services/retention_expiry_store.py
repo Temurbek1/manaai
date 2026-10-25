@@ -273,6 +273,9 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
     async def publish_expiry(self, now: datetime) -> bool:
         return await asyncio.to_thread(self._publish_expiry, self._utc(now))
 
+    def _expiry_parent_ready(self, db: sqlite3.Connection, parent: str, now: datetime) -> bool:
+        return True
+
     def _publish_expiry(self, now: datetime) -> bool:
         if not self._expiry_enabled:
             return False
@@ -298,6 +301,7 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
                 parent = row["parent_id"]
                 if (
                     not self._contact_ready(db, parent, now)
+                    or not self._expiry_parent_ready(db, parent, now)
                     or self._priority_waiting(db, parent, now)
                     or self._retention_recent(db, parent, now)
                 ):

@@ -23,6 +23,7 @@ from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.application.parent_reminders import ParentReminderService
+from app.mana_ai.application.parent_touch_manager import ParentTouchManagerPort, manager_prompt
 from app.mana_ai.application.parent_touch_offers import render_parent_offer
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.retention_expiry import RetentionExpiryService
@@ -98,12 +99,14 @@ class ParentTouchService(ParentChatService):
         retention: ClientRetentionService | None = None,
         upsell: ClientUpsellService | None = None,
         expiry: RetentionExpiryService | None = None,
+        manager: ParentTouchManagerPort | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
         self.retention = retention
         self.upsell = upsell
         self.expiry = expiry
+        self.manager = manager
         super().__init__(
             store=store,
             children=children,
@@ -368,7 +371,14 @@ class ParentTouchService(ParentChatService):
         if not isinstance(data, dict) or "profiles" not in data:
             raise ParentChatError("touch_context_invalid", 503)
         guidance = None
-        if isinstance(request, ParentTouchReviewedTurn):
+        manager_scope = (
+            await self.manager.manager_scope(request.parent_id, turn.turn_id)
+            if self.manager
+            else None
+        )
+        if isinstance(request, ParentTouchReviewedTurn) and (
+            manager_scope is None or manager_scope.stage == "child_safety"
+        ):
             if self._reviewed is None:
                 raise ParentChatError("review_first_disabled", 503)
             guidance = await self._reviewed.review_guidance(
@@ -589,8 +599,7 @@ class ParentTouchService(ParentChatService):
                 "directly, without suggesting that this free grant itself might charge. "
                 "Do not use child safety facts to pressure a purchase; safety takes priority."
             )
-        if isinstance(request, ParentTouchReviewedTurn):
-            assert guidance is not None
+        if guidance is not None:
             data["specialist_guidance"] = guidance.model_dump(
                 mode="json", exclude={"authorized_child_ids", "source_observations"}
             ) | {"basis": "parent_report_and_dated_saved_context_not_fresh_sensors"}
@@ -681,7 +690,7 @@ class ParentTouchService(ParentChatService):
                 "Communicate admitted facts/question; never fabricate a parent answer. "
                 "For a question alone, body may be empty; do not restate the profile."
             )
-        return ChatPrompt(
+        template = ChatPrompt(
             instructions,
             (
                 (messages[0][0], json.dumps(data, ensure_ascii=False, separators=(",", ":"))),
@@ -700,4 +709,9 @@ class ParentTouchService(ParentChatService):
                 self._max_output,
                 256 if question is not None or evidence and evidence.notice else 128,
             ),
+        )
+        return (
+            manager_prompt(manager_scope, data, messages, template=template)
+            if manager_scope
+            else template
         )
