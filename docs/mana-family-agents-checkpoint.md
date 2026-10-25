@@ -2,6 +2,25 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Referral contract investigation — 2026-10-25
+
+The owner confirms an existing referral mechanism, but the newly supplied
+`agent-tariff-api.md` / `parent-api.md` still describe only a lifetime one-time
+1–30-day Maxsus grant and Parent List. A new bounded test-parent 4 login/GET both
+returned 200: `is_paid`, `agent_trial_used`, `created_at`, `payment_date`,
+`valid_until`, `tariff_name` exist in the actual response, despite the old sample.
+No referral fields appeared in that one response; this is not proof that other
+services lack them. No grant, contact, model, Firebase/GA4 or production call was
+made. Three bounded unauthenticated schema-discovery GETs returned 404.
+
+The existing one-time grant must not be relabeled as a reward for each friend;
+parent 4's consumed grant must never be repeated. Read the exact source hashes,
+receipts and missing referral contracts in
+[the status record](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-referral-integration-status.md).
+No new Referral/reward feature is claimed. The full goal remains active; await
+the actual referral contract while continuing other supported requirements.
+
+
 ### Client Upsell — 2026-10-25, `2d88696`
 
 Authoritative family checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
