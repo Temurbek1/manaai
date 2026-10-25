@@ -2,6 +2,28 @@
 
 ## Repository expectations
 
+- The local source-driven expiry increment uses private family v17/source v4
+  (collection stays v1) and default-disabled `MANA_RETENTION_EXPIRY_ENABLED`.
+  New existing profile reads feed a minimized paid/end-time cache; no additional
+  query, historical recapture, model allowance or schedule activation follows.
+  Parent-Touch alone atomically publishes one exact template per parent/UTC term;
+  it consumes zero model tokens and asks no unmanaged question. Fresh independent
+  Retention consent/language/timezone, quiet hours, opt-out, safety priority,
+  shared daily outreach limit and parent cooldown remain mandatory. Unknown or
+  changed profiles suppress stale queued pushes; auth/capacity/integrity close
+  this consumer without resetting source/other-agent budgets. No renewal/payment,
+  trial, referral reward or loss-of-protection claim is authorized. Read
+  `docs/mana-retention-expiry.md`: preserve the one actual-model fictional full
+  loop (1902 speaker/935 safety) and distinct real test-parent read with no contact.
+  One loop is not broad quality, full-population coverage, business lift or release
+  acceptance. Bulk inventory pages themselves are not yet billing fan-out receipts.
+  Current closed v17 preserves history/unknown holds; old v16 refusal is not a
+  working execution rollback. Turning only the expiry flag off keeps the v17 core
+  chat reader/services available, disables its observer/publication/push and retains
+  history, quotas, deduplication and circuits. Re-enable grants no reset. Production,
+  keys, SSH and existing schedules stay unchanged.
+
+
 - The local current-account increment adds optional `ParentTariffContext` from the
   same exact-parent profile GET, without another billing read, chat route, model
   generation or schema migration (family/source stay v16/v4). Only Parent-Touch

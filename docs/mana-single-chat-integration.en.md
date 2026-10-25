@@ -663,3 +663,26 @@ limits and action policies remain; nothing is purchased, granted or renewed.
 Use `make chat-lab-profile` for fictional RU/UZ tests. Evidence and the qualified
 real-parent/model checks are in [the account context checkpoint](mana-parent-account-context.md).
 These local changes are not a production release.
+
+## 20. Source-driven expiry reminder (local, not released)
+
+With the explicit server expiry profile enabled, a new ordinary MANA profile
+observation can produce one Parent-Touch reminder before the parent has written.
+The profile's selected paid term must end within 72 hours, evidence/contact settings
+must be fresh, and independent Retention chat consent/quiet hours/opt-out/priority
+must pass. There is no extra required webhook, mobile endpoint or expiry scan.
+
+The phone keeps observing the existing single history: it receives an assistant-only
+message with a new `turn_id`, then submits the parent's ordinary reply. Do not
+insert a duplicate message or manufacture a user question/confirmation. Exact date
+rendering makes zero model calls; the subsequent reply uses existing models/limits.
+There is no renewal, payment, trial reward or loss-of-protection claim.
+
+An independently allowed push remains neutral and references that same saved chat.
+Queueing is not delivery; unknown sends never retry automatically. Use
+`make chat-lab-expiry` for fictional checks. See [policy/evidence and partial coverage](mana-retention-expiry.md).
+Turning only `MANA_RETENTION_EXPIRY_ENABLED` off on a v17 store stops expiry
+observation, publication and pending expiry pushes while retaining the compatible
+core chat services and all history, quotas and deduplication. It never resets a
+source circuit or permits an older image to execute that schema.
+These additions are not enabled or released on production.

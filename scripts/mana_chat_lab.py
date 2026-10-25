@@ -179,6 +179,10 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     async def retention_scenario() -> dict[str, str]:
         return await mana_family_agents.controlled(lab.prepare_retention_scenario())
 
+    @app.post("/lab/expiry-profile", include_in_schema=False)
+    async def expiry_profile() -> dict[str, str]:
+        return await mana_family_agents.controlled(lab.prepare_expiry_scenario())
+
     for router in (mana_family_agents.router, mana_child_safety.router, mana_conversion.router):
         app.include_router(router, prefix="/api/v1/mana-ai")
     return app
@@ -391,5 +395,42 @@ def create_profile_live_app() -> FastAPI:
             retention=True,
             upsell=True,
             tariff_context=True,
+        )
+    )
+
+
+def create_expiry_app() -> FastAPI:
+    """Explicit fictional profile event, then a zero-model Parent-Touch expiry notice."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/expiry-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+        )
+    )
+
+
+def create_expiry_live_app() -> FastAPI:
+    """Paid model replies only; profile facts and expiry permissions remain fictional."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/expiry-real-model",
+            real_model=True,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
         )
     )

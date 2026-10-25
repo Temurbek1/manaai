@@ -16,6 +16,7 @@ from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_collection import FamilyCollectionPolicy
 from app.mana_ai.domain.family_sources import FamilySourceLimits
 from app.mana_ai.domain.parent_reminders import ReminderPolicy
+from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy
 
 
@@ -90,6 +91,10 @@ class Settings(BaseSettings):
     mana_parent_reminders_enabled: bool = False
     mana_client_retention_enabled: bool = False
     mana_client_upsell_enabled: bool = False
+    mana_retention_expiry_enabled: bool = False
+    mana_retention_expiry_policy: RetentionExpiryPolicy = Field(
+        default_factory=RetentionExpiryPolicy
+    )
     mana_client_upsell_policy: ClientUpsellPolicy = Field(default_factory=ClientUpsellPolicy)
     mana_client_retention_policy: ClientRetentionPolicy = Field(
         default_factory=ClientRetentionPolicy
@@ -432,6 +437,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_retention_expiry_enabled and not self.mana_client_upsell_enabled:
+            raise ValueError("Retention expiry requires the current full parent-chat profile")
         if self.mana_client_upsell_enabled and not self.mana_client_retention_enabled:
             raise ValueError("Upsell requires the complete parent conversation runtime")
         if self.mana_client_retention_enabled and not self.mana_parent_reminders_enabled:

@@ -177,6 +177,17 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
     async def claim_retention(self, now: datetime) -> RetentionIntent | None:
         return await asyncio.to_thread(self._claim_retention, self._utc(now))
 
+    def _retention_daily_count(self, db: sqlite3.Connection, now: datetime) -> int:
+        return int(
+            db.execute(
+                "SELECT COUNT(*) FROM retention_intents WHERE admitted_at>?",
+                ((now - timedelta(days=1)).isoformat(),),
+            ).fetchone()[0]
+        )
+
+    def _retention_recent(self, db: sqlite3.Connection, parent: str, now: datetime) -> bool:
+        return False
+
     def _claim_retention(self, now: datetime) -> RetentionIntent | None:
         with self._transaction() as db:
             for row in db.execute(
@@ -189,10 +200,7 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
                         (row["intent_id"],),
                     )
                     self._retention_event(db, old.parent_id, row["intent_id"], "claim_expired", now)
-            total = db.execute(
-                "SELECT COUNT(*) FROM retention_intents WHERE admitted_at>?",
-                ((now - timedelta(days=1)).isoformat(),),
-            ).fetchone()[0]
+            total = self._retention_daily_count(db, now)
             if total >= self._retention_policy.daily_outreach_limit:
                 return None
             cutoff = now - timedelta(days=self._retention_policy.inactive_chat_days)
@@ -209,8 +217,10 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
             ).fetchall()
             for row in rows:
                 parent = row["parent_id"]
-                if not self._contact_ready(db, parent, now) or self._priority_waiting(
-                    db, parent, now
+                if (
+                    self._retention_recent(db, parent, now)
+                    or not self._contact_ready(db, parent, now)
+                    or self._priority_waiting(db, parent, now)
                 ):
                     continue
                 contact = _current_context(db, parent, now)

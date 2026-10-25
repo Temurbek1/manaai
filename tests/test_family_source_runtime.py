@@ -529,8 +529,14 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
 
 
 @pytest.mark.parametrize(
-    "reminders,retention,upsell",
-    [(False, False, False), (True, False, False), (True, True, False), (True, True, True)],
+    "reminders,retention,upsell,expiry",
+    [
+        (False, False, False, False),
+        (True, False, False, False),
+        (True, True, False, False),
+        (True, True, True, False),
+        (True, True, True, True),
+    ],
 )
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
     tmp_path: Path,
@@ -539,6 +545,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
     reminders: bool,
     retention: bool,
     upsell: bool,
+    expiry: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
@@ -570,6 +577,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_parent_reminders_enabled=reminders,
         mana_client_retention_enabled=retention,
         mana_client_upsell_enabled=upsell,
+        mana_retention_expiry_enabled=expiry,
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -585,7 +593,22 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         assert (service.reminders is not None) is reminders
         assert (service.retention is not None) is retention
         assert (service.upsell is not None) is upsell
+        assert (service.expiry is not None) is expiry
+        if expiry:
+            assert service.sources and service.sources._children is service._children
         assert isinstance(service.sources._store, SqliteSourceReviewCache)
         assert isinstance(service.safety.store, SqliteSourceReviewSafetyStore)
         assert (await service.history("123", before=None, limit=20)).messages == []
+    if expiry:
+        from app.mana_ai.application.retention_expiry import RetentionProfileSource
+        from app.services.retention_expiry_store import SqliteRetentionExpiryStore
+
+        stopped = settings.model_copy(update={"mana_retention_expiry_enabled": False})
+        async with runtime_module.parent_chat_runtime(stopped) as service:
+            assert isinstance(service, ParentTouchService)
+            assert isinstance(service.store, SqliteRetentionExpiryStore)
+            assert service.safety and service.upsell and service.retention
+            assert service.expiry is None
+            assert not isinstance(service._children, RetentionProfileSource)
+            assert not await service.store.publish_expiry(datetime.now(UTC))
     assert not provider.requests

@@ -17,6 +17,13 @@ install:
 .PHONY: chat-lab chat-lab-live chat-lab-native chat-lab-native-live chat-lab-observations chat-lab-observations-live chat-lab-collection chat-lab-check
 .PHONY: chat-lab-upsell chat-lab-upsell-live
 .PHONY: chat-lab-profile chat-lab-profile-live
+.PHONY: chat-lab-expiry chat-lab-expiry-live
+chat-lab-expiry:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_expiry_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+chat-lab-expiry-live:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_expiry_live_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT) $(if $(CHAT_LAB_ENV_FILE),--env-file "$(CHAT_LAB_ENV_FILE)")
+
 chat-lab-profile:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_profile_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 

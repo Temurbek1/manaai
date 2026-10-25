@@ -20,6 +20,7 @@ from app.mana_ai.application.chat_ports import (
     ChatPrompt,
     ParentChatError,
     ParentChatModel,
+    ParentChildrenSource,
 )
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
@@ -30,6 +31,7 @@ from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.proactive_parent import ProactiveParentService
+from app.mana_ai.application.retention_expiry import RetentionExpiryService, RetentionProfileSource
 from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
@@ -72,6 +74,7 @@ from app.mana_ai.domain.family_sources import (
 from app.mana_ai.domain.parent_reminders import ReminderCandidate, ReminderPolicy
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
+from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy, SourceReviewWork
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
 from app.services.child_safety_model import OpenAIChildSafetyModel
@@ -87,6 +90,7 @@ from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_reminder_store import SqliteParentReminderStore
+from app.services.retention_expiry_store import SqliteRetentionExpiryStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
 from app.services.source_safety_store import SqliteSourceSafetyStore
@@ -154,9 +158,12 @@ class LabCatalog:
 
 
 class LabProfiles:
-    def __init__(self, clock: Clock, *, tariff_context: bool = False) -> None:
+    def __init__(
+        self, clock: Clock, *, tariff_context: bool = False, tariff_until: datetime | None = None
+    ) -> None:
         self._clock = clock
         self._tariff_context = tariff_context
+        self._tariff_until = tariff_until
 
     async def read(self, parent_id: str) -> ParentChildContext:
         if parent_id != LAB_PARENT:
@@ -173,7 +180,8 @@ class LabProfiles:
                 collected_at=now,
                 tariff_name="Fictional 1-Month",
                 is_paid=True,
-                valid_until=datetime(2026, 11, 23, 16, 0, tzinfo=ZoneInfo("Asia/Tashkent")),
+                valid_until=self._tariff_until
+                or datetime(2026, 11, 23, 16, 0, tzinfo=ZoneInfo("Asia/Tashkent")),
                 payment_date=None,
                 agent_trial_used=True,
             )
@@ -242,15 +250,31 @@ class SimulatedModel:
             and '"parent_tariff"' in prompt.messages[0][1]
         ):
             uz = "mening tarifim" in prompt.messages[-1][1].casefold()
+            tariff = ParentTariffContext.model_validate(
+                json.loads(prompt.messages[0][1])["parent_tariff"]
+            )
+            until = tariff.valid_until
+            if (
+                until
+                and prompt.reminder_scope
+                and prompt.reminder_scope.timezone_basis == "verified_contact"
+            ):
+                until = until.astimezone(ZoneInfo(prompt.reminder_scope.default_timezone))
+            date = (
+                f"{until:%Y-%m-%d %H:%M}, UTC{until:%z}"
+                if until
+                else "noma’lum"
+                if uz
+                else "дата неизвестна"
+            )
+            name = tariff.tariff_name or ("nomi noma’lum" if uz else "название неизвестно")
             return ChatModelReceipt(
                 usage=ChatTokens(input_tokens=100, output_tokens=50),
                 model="lab-simulated-not-billed",
                 answer=(
-                    "Ilovada Fictional 1-Month pullik tarifi ko‘rsatilgan; "
-                    "2026-11-23 soat 16:00 gacha, UTC+05:00."
+                    f"Ilovada {name} tarifi ko‘rsatilgan; muddati {date}."
                     if uz
-                    else "В приложении указан оплаченный Fictional 1-Month, "
-                    "действующий до 2026-11-23 16:00, UTC+05:00."
+                    else f"В приложении указан тариф {name}; срок — {date}."
                 ),
                 completed=True,
             )
@@ -538,10 +562,13 @@ class LabOptions:
     retention: bool = False
     upsell: bool = False
     tariff_context: bool = False
+    expiry: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.expiry and (not options.upsell or not options.tariff_context):
+            raise ValueError("Expiry lab requires its full profile and fictional tariff")
         if options.native_observations and not options.native_sources:
             raise ValueError("Observation lab requires the native workflow")
         if options.source_reviews and (
@@ -599,6 +626,8 @@ class ChatLab:
             expected["upsell"] = True
         if self.options.tariff_context:
             expected["tariff_context"] = True
+        if self.options.expiry:
+            expected["expiry"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -621,6 +650,31 @@ class ChatLab:
 
     async def start(self) -> None:
         directory = self._directory()
+        tariff_until = None
+        if self.options.expiry:
+            fixture = directory / "expiry-tariff.json"
+            if fixture.is_symlink():
+                raise ValueError("Expiry fixture cannot be a symlink")
+            if not fixture.exists():
+                with os.fdopen(
+                    os.open(fixture, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
+                ) as stream:
+                    stream.write(
+                        json.dumps(
+                            {
+                                "valid_until": (
+                                    self.options.clock.now() + timedelta(days=2)
+                                ).isoformat()
+                            }
+                        )
+                    )
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            if fixture.stat().st_size > 200:
+                raise ValueError("Invalid expiry fixture")
+            tariff_until = datetime.fromisoformat(json.loads(fixture.read_text())["valid_until"])
+            if tariff_until.utcoffset() is None:
+                raise ValueError("Expiry fixture requires an explicit timezone")
         collection_store = None
         if self.options.scheduled_collection:
             assert isinstance(self.options.clock, LabCollectionClock)
@@ -673,7 +727,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteClientUpsellStore
+                SqliteRetentionExpiryStore
+                if self.options.expiry
+                else SqliteClientUpsellStore
                 if self.options.upsell
                 else SqliteClientRetentionStore
                 if self.options.retention
@@ -697,6 +753,11 @@ class ChatLab:
             if self.options.upsell:
                 reminder_options.update(
                     upsell_policy=ClientUpsellPolicy(), catalog_binding="fictional-mana-catalog-v1"
+                )
+            if self.options.expiry:
+                reminder_options.update(
+                    expiry_policy=RetentionExpiryPolicy(),
+                    profile_binding="fictional-mana-profile-v1",
                 )
             self.store = native_store_class(
                 directory / "family.sqlite3",
@@ -726,7 +787,14 @@ class ChatLab:
                 push_enabled=False,
             )
         await self.store.initialize()
-        profiles = LabProfiles(self.options.clock, tariff_context=self.options.tariff_context)
+        profiles: ParentChildrenSource = LabProfiles(
+            self.options.clock,
+            tariff_context=self.options.tariff_context,
+            tariff_until=tariff_until,
+        )
+        if isinstance(self.store, SqliteRetentionExpiryStore):
+            profiles = RetentionProfileSource(profiles, self.store, clock=self.options.clock.now)
+        self._profiles = profiles
         policy = SourceSafetyPolicy(timezone="Asia/Samarkand")
         source_class = (
             SqliteMultiFamilySourceStore
@@ -804,6 +872,9 @@ class ChatLab:
             )
             if isinstance(self.store, SqliteClientUpsellStore)
             else None,
+            expiry=RetentionExpiryService(self.store, clock=self.options.clock.now)
+            if isinstance(self.store, SqliteRetentionExpiryStore)
+            else None,
             retention=ClientRetentionService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteClientRetentionStore)
             else None,
@@ -839,6 +910,7 @@ class ChatLab:
                     safety_chat_consent=True,
                     safety_push_consent=False,
                     marketing_push_consent=False,
+                    retention_chat_consent=self.options.expiry,
                 )
             )
         self._worker = FamilyAgentWorker(
@@ -948,6 +1020,12 @@ class ChatLab:
         )
         return {"status": "prepared"}
 
+    async def prepare_expiry_scenario(self) -> dict[str, str]:
+        if not self.options.expiry:
+            raise ParentChatError("expiry_fixture_disabled", 409)
+        await self._profiles.read(LAB_PARENT)
+        return {"status": "completed"}
+
     def bootstrap(self) -> LabBootstrap:
         now = self.options.clock.now()
         needs = AgentQuestionRequest(
@@ -986,6 +1064,19 @@ class ChatLab:
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="expiry",
+                            title="Скоро истекает тариф (вымышленные данные)",
+                            path="/lab/expiry-profile",
+                            body={"parent_id": LAB_PARENT},
+                            local=True,
+                        )
+                    ]
+                    if self.options.expiry
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

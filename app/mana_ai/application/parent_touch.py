@@ -25,6 +25,7 @@ from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch_offers import render_parent_offer
 from app.mana_ai.application.proactive_parent import ProactiveParentService
+from app.mana_ai.application.retention_expiry import RetentionExpiryService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.mana_ai.domain.chat import (
     ParentChatRequest,
@@ -96,11 +97,13 @@ class ParentTouchService(ParentChatService):
         reminders: ParentReminderService | None = None,
         retention: ClientRetentionService | None = None,
         upsell: ClientUpsellService | None = None,
+        expiry: RetentionExpiryService | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
         self.retention = retention
         self.upsell = upsell
+        self.expiry = expiry
         super().__init__(
             store=store,
             children=children,
@@ -129,6 +132,8 @@ class ParentTouchService(ParentChatService):
         return await self.upsell.process_one() if self.upsell else False
 
     async def process_retention(self) -> bool:
+        if self.expiry is not None and await self.expiry.process_one():
+            return True
         if self.retention is None:
             return False
         return await self.retention.process_one(self._speak_retention)

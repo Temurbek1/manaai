@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from app.core.config import Settings
+from app.mana_ai.application.chat_ports import ParentChildrenSource
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.client_upsell import ClientUpsellService
@@ -16,6 +17,7 @@ from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.proactive_parent import ProactiveParentService
+from app.mana_ai.application.retention_expiry import RetentionExpiryService, RetentionProfileSource
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
 from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
@@ -63,6 +65,10 @@ from app.services.proactive_parent_store import (
     SqliteClosedProactiveParentStore,
     SqliteProactiveParentStore,
 )
+from app.services.retention_expiry_store import (
+    SqliteClosedRetentionExpiryStore,
+    SqliteRetentionExpiryStore,
+)
 from app.services.reviewed_message_store import (
     SqliteClosedReviewedBrokerStore,
     SqliteReviewedMessageStore,
@@ -93,6 +99,12 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         "max_attempts": settings.mana_parent_chat_max_attempts_per_day,
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
+    if (
+        version == 17
+        and settings.mana_child_safety_enabled
+        and not settings.mana_client_upsell_enabled
+    ):
+        raise RuntimeError("V17 execution requires its compatible full chat reader")
     if (
         version == 16
         and settings.mana_child_safety_enabled
@@ -153,7 +165,20 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         native_store = (
-            SqliteClientUpsellStore(
+            SqliteRetentionExpiryStore(
+                settings.mana_parent_chat_database_path,
+                reminder_policy=settings.mana_parent_reminder_policy,
+                retention_policy=settings.mana_client_retention_policy,
+                upsell_policy=settings.mana_client_upsell_policy,
+                catalog_binding=settings.manakids_api_base_url + "/api/v1/tariffs/",
+                expiry_policy=settings.mana_retention_expiry_policy,
+                expiry_enabled=settings.mana_retention_expiry_enabled,
+                profile_binding=settings.manakids_api_base_url
+                + "/api/v1/admin-panel-parent/parent-list/",
+                **native_options,
+            )
+            if settings.mana_retention_expiry_enabled or version == 17
+            else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
                 retention_policy=settings.mana_client_retention_policy,
@@ -178,11 +203,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15, 16}:
+    elif version in {11, 12, 13, 14, 15, 16, 17}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedClientUpsellStore
+            SqliteClosedRetentionExpiryStore
+            if version == 17
+            else SqliteClosedClientUpsellStore
             if version == 16
             else SqliteClosedClientRetentionStore
             if version == 15
@@ -401,12 +428,18 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         worker: FamilyAgentWorker | None = None
         collection_worker: FamilyCollectionWorker | None = None
         try:
-            children = ManakidsChatChildrenSource(
+            profile_source = ManakidsChatChildrenSource(
                 client=client,
                 base_url=settings.manakids_api_base_url,
                 username=settings.manakids_api_username,
                 password=settings.manakids_api_password.get_secret_value(),
                 wall_timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
+            )
+            children: ParentChildrenSource = (
+                RetentionProfileSource(profile_source, store, clock=lambda: datetime.now(UTC))
+                if isinstance(store, SqliteRetentionExpiryStore)
+                and settings.mana_retention_expiry_enabled
+                else profile_source
             )
             if settings.mana_family_app_usage_enabled or settings.mana_family_collection_enabled:
                 sources = await family_source_runtime(
@@ -414,7 +447,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     client,
                     children,
                     clock=lambda: datetime.now(UTC),
-                    account_auth=children,
+                    account_auth=profile_source,
                 )
             else:
                 sources = await family_source_runtime(
@@ -485,6 +518,10 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         clock=lambda: datetime.now(UTC),
                     )
                     if isinstance(store, SqliteClientUpsellStore)
+                    else None,
+                    expiry=RetentionExpiryService(store, clock=lambda: datetime.now(UTC))
+                    if isinstance(store, SqliteRetentionExpiryStore)
+                    and settings.mana_retention_expiry_enabled
                     else None,
                     retention=ClientRetentionService(store, clock=lambda: datetime.now(UTC))
                     if isinstance(store, SqliteClientRetentionStore)
