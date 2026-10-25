@@ -2,6 +2,57 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Parent assistant reminders — 2026-10-25, `fe7396a`
+
+Authoritative checkout is `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. Read
+[the reminder checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-reminders.md)
+and English integration section 16. Parent-Touch remains the sole speaker;
+model-owned drafts require an exact parent-level preview and real confirmation,
+not a child-question ID or model self-approval. Date/list/cancel/confirmation
+controls use no additional inference. Due delivery uses one fresh exact-parent
+MANA profile check, a durable claim and SQL-only verified continuation; unknown
+reads never retry. In-flight parent chat, urgent safety and cancellation fence
+late publication. Assistant push consent is separate; no lab has a push gateway.
+
+The flag stays default off. Private family v14/source-cache v4 are local and not
+a production activation or source schedule. Old turns never acquire reminder
+scope; unknown model/source holds remain. Host-only messages carry no invented
+child-context date. The complete source-review/native runtime is currently
+required; activation on an earlier standalone family profile is not implemented.
+
+Final `make verify` **20576**, terminal **0**: **1235 backend tests**, one skip,
+two live opt-ins excluded, **26 admin /9 lab controller tests**, mypy **369 files**,
+lint/typecheck/build and zero npm vulnerabilities. Ten dedicated lifecycle cases,
+SDK MockTransport argument checks and fake production-factory tests pass. API sync,
+Ruff/mypy, secret scan **959 files** and diff checks pass. Earlier gate/harness
+failures are retained and qualified in the feature checkpoint.
+
+One independent paid synthetic party used **777 safety /1055 speaker tokens**,
+zero holds, four OpenAI HTTP calls; generation estimate **$0.004359**, not invoice
+or counting proof. It selected the right date/time but quoted the whole request.
+The original negative harness result remains. A separately admitted zero-inference
+continuation confirmed that same draft and delivered it once on the real clock.
+The following short-task instruction change has not had another paid diagnostic.
+No real family source, push, tariff or production request occurred.
+
+The owned 390px RU browser clarified a date, confirmed and delivered once; UZ
+confirmation/cancellation also passed. Restart retained seven exact SQL turns,
+thirteen messages, one delivery and 300 simulated speaker tokens. Current image
+`b14af3564999` passed networkless v13 -> v14 initialization with all old rows and
+150 known /1850 unknown safety tokens retained, plus closed reading of five new
+messages. The actual previous v13 image refuses v14 unchanged: not a working
+rollback. Consistent SQLite backup-API fixtures are used. Owned browser/servers
+are stopped; no other developer session was touched.
+
+The full goal stays active: GA4/shared administrative aggregates, remaining child
+telemetry, other specialists/owning actions, broader mixed-intent/model/consent/
+channel acceptance, fleet capacity and separately approved release remain open.
+Do not restore a new-backend-webhook blocker for available source facts, increase
+the 2000-token limits silently or deploy from this local checkpoint. Root unrelated
+tracked diff still has fingerprint
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
 ### Coalesced source reviews — 2026-10-25, `dc5f434`
 
 Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
