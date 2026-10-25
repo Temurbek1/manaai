@@ -2,6 +2,46 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Current account context — 2026-10-25, `8fe07da`
+
+The authoritative family checkout `/mnt/ssd2/mana-conversion-agent-20261021` now
+projects optional selected-tariff fields from the same exact-parent profile GET
+into Parent-Touch, without another billing request, route, inference generation
+or migration. Parent-Touch can answer tariff/expiry questions; unknown paid/renewal
+state remains unknown. Raw 2000 speaker/2000 global safety limits stay unchanged.
+New fields are omitted from ordinary/native Child-Safety profile projections;
+malformed optional billing preserves valid child ownership. It is not proactive
+expiry outreach, eligibility, an action grant or all-entitlement/payment history.
+
+[Implementation and evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-account-context.md),
+English integration section 19 and `make chat-lab-profile` describe the flow.
+Family/source stay v16/v4; old history/digests are not recaptured. No production,
+source schedule, Firebase data, SSH, key or customer tariff changed.
+
+One actual test-parent 4 + real-model review-first v10 conversation completed with
+**1184 speaker /1213 safety tokens**, zero holds, seven HTTP attempts (three
+existing profile/auth +four OpenAI), no new billing/source/write/push endpoint.
+It preserved the current paid 1-Month record/expiry and unknown automatic charging.
+Original RU wording has ISO/internal-record and unverified-menu qualifications;
+it is not postfix UX/native all-agent acceptance. Its harness failed after the
+answer; a separate SQL-only reconciliation observed the original completed replay
+and two messages with no provider calls. Estimate **$0.005441**, not an invoice.
+A distinct synthetic UZ ordinary-speaker case passed the corrected human date,
+unknown paid/renewal/no-menu wording, **772 input +99 output tokens**, zero holds,
+no live family/safety call; estimate **$0.003415**, not broader source acceptance.
+
+Final `make verify` **18364** exited 0: **1282 backend /26 admin /10 lab cases**,
+mypy **379**, format/lint/types/build/npm zero; schema sync/marker/secret scans pass.
+Twelve new context cases include moving-clock consistency. Initial real-clock lab
+failure and its generic replies remain; one captured clock fixes it. An existing
+collection test now honors exact HTTP 409 busy observation without repeating POSTs.
+Corrected 390px RU/UZ browser/reload retained eight messages and 600 simulated
+speaker/600 safety tokens, zero holds/no overflow; screenshot inspected, browser/
+owned port closed. Actual prior v16 image `658b61059504` reads that new history
+closed/networkless with every table fingerprint retained, not execution/release
+acceptance. The full goal remains active; actual referral contract is still needed.
+
+
 ### Referral contract investigation — 2026-10-25
 
 The owner confirms an existing referral mechanism, but the newly supplied
