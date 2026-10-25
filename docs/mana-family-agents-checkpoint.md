@@ -2,6 +2,74 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Client Retention / Win-back — 2026-10-25, `a27b673`
+
+Authoritative family checkout is `/mnt/ssd2/mana-conversion-agent-20261021`.
+[Detailed checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-client-retention.md),
+English integration section 17, and `make chat-lab-retention` describe the first
+executable Retention scenario: dated chat inactivity -> private intent ->
+Parent-Touch check-in -> parent reply -> normal safety review/conversation.
+Only Parent-Touch speaks. It does not infer app churn, billing state or child
+danger, grant a tariff, pause a subscription or create a discount/payment.
+
+Default-disabled `MANA_CLIENT_RETENTION_ENABLED` uses private family v15/source
+v4. One last-parent-message anchor admits one intent; daily global ceiling 20,
+preparation 180 seconds and existing **2000 parent speaker /2000 global safety**
+tokens remain. Separate verified Retention chat/push consent, quiet hours,
+priority, freshness, late-revocation fences, exact replay, unknown holds and
+persistent chat opt-out are enforced. No new mandatory backend webhook exists.
+
+One independent actual RU fictional model party completed check-in -> parent
+reply -> Child-Safety -> Parent-Touch with **1734 speaker /1024 safety tokens**,
+zero holds, six HTTP attempts and three generations. One return observation,
+no duplicate; uncached generation estimate **$0.0076030**, not invoice/counting
+proof or real business lift. No real family/source/push/grant was contacted.
+The content addressed the adult and offered conditional homework advice.
+Broader UZ/model, real consent/channel and other retention scenarios remain open.
+
+Final `make verify` **49659**, terminal **0**: **1252 backend /26 admin /10 lab
+controller cases**, mypy **373 files**, formatting/lint/types/build and zero npm
+findings. Thirteen Retention lifecycle cases plus actual-SDK MockTransport and
+lazy fake-provider factory checks pass. API sync, secret/marker checks pass.
+Owned RU/UZ 390px browser/restart retained exact four SQL turns/seven messages,
+300 simulated speaker /150 safety tokens, returned status, opt-out and audit.
+The browser exposed an unhandled composite-state busy error and fixture wording;
+controlled 409 and a dedicated fixture receipt fix both, with original negative
+evidence retained. Browser and owned loopback servers are stopped.
+
+Image `5bd40d810980` passed networkless copied-history upgrade/closed reading,
+retaining all original table fingerprints, 150 known /1850 unknown safety tokens,
+and the real-model party's five messages. Critical source hashes match. Previous
+v14 `b14af3564999` refuses v15 unchanged; this is not a working old-image rollback.
+No production/source schedule, SSH/key, main/audio or customer state changed.
+
+### Shared administrative GA4 collection — 2026-10-25, `304d6f1`
+
+The clean `/mnt/ssd2/mana-autonomous-ga4-20261025` branch separately implements
+source-only 09:00/15:00 Asia/Tashkent collection, existing shared six-hour cache,
+ledger and Retention report publisher. It does not enable other schedules,
+maintenance, client outreach or per-parent identity joins. Unknown/orphan reads
+block rather than automatically retry; skipped windows do not catch up.
+[Evidence and limits](/mnt/ssd2/mana-autonomous-ga4-20261025/docs/mana-autonomous-ga4.md).
+
+One actual six-HTTP (OAuth +five GA4) local read completed through the real runtime,
+all 200, and saved a valid shared MANA parent report for 2026-09-25–2026-10-24.
+1/7/30-day windows, events, mature cohorts and notification funnel passed; the six
+ten-group breakdowns remain partial. Zero Firestore/model/contact requests.
+Actual ledger: six provider calls, 81623 response bytes, zero configured source/
+model charge, not billing proof. Pre-dispatch local harness errors were verified
+as zero attempts before the same-party bootstrap correction; no paid/unknown read
+was replayed. Source snapshots are local and not deployed or auto-activated.
+
+Its final `make verify` **2523** exited 0: **1418 backend /224 UI**, mypy **402**;
+31 PostgreSQL cases passed separately after migration round-trip/drift checks.
+Next/eslint 16.4.3 and supported transitive fixes resolve the audit findings; no
+production UI was released. This checkout is intentionally separate from the
+root's owner-dirty operational/old-chat tree and the new family feature branch.
+Native discretionary source approval removal/content dedup and wider owning-agent
+acceptance still need work. The full original goal remains active; next family
+work is actual Upsell catalog/eligibility in the same chat, not more infrastructure.
+
 ### Parent assistant reminders — 2026-10-25, `fe7396a`
 
 Authoritative checkout is `/mnt/ssd2/mana-conversion-agent-20261021`, branch
