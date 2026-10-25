@@ -701,4 +701,14 @@ Source ages, safety priority, opt-out, outreach caps, neutral push policy and to
 limits are unchanged. Default is off; production has not been activated. Use
 `make chat-lab-inventory-tariffs` for fictional windows and
 [the source/compatibility evidence](mana-inventory-tariffs.md) for the precise limits.
+
+## 22. Date-filtered family usage source (adapter only)
+
+A local typed adapter can obtain one completed calendar day's labeled app counters
+for a verified family through the existing bulk Manakids API. It reuses one fresh
+ownership lookup/authentication and preserves partial/missing data. This is **not
+yet an agent tool, scheduled producer or mobile endpoint**; keep the existing three
+chat operations and do not invent a new production path. Old app-counter calls keep
+their original contract. Calendar labels do not establish screen time or timezone.
+See [source evidence and required integration](mana-family-day-usage-source.md).
 These additions are not enabled or released on production.

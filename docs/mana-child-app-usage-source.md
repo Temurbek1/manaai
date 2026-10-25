@@ -1,5 +1,12 @@
 # Own-child app counters in the single chat — 2026-10-25, local
 
+The subsequent [completed-day family source port](mana-family-day-usage-source.md)
+confirms that the documented **bulk** endpoint can filter calendar labels. It is
+not runtime-wired and does not upgrade this detail tool's captured scope. Neither
+path proves foreground screen-time units or provider timezone. The shared parser
+also now accepts the observed one-empty-page convention without treating missing
+evidence as measured zero use; original failed diagnostics remain retained.
+
 The active [autonomous objective](mana-autonomous-agents-plan.md) now has a second
 runtime-wired source: the existing exact-child Manakids usage API. Child-Safety
 can select battery or app counters, receive their qualified facts and return its

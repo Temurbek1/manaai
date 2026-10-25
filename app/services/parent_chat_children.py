@@ -4,13 +4,15 @@ import asyncio
 import base64
 import json
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool, ValidationError
 
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.domain.chat import ChatChild, ParentChildContext, ParentTariffContext
+from app.mana_ai.domain.family_day_usage import ParentUsageLookup
 
 
 def _tariff_context(row: object, collected_at: datetime) -> ParentTariffContext | None:
@@ -70,6 +72,7 @@ class ManakidsChatChildrenSource:
         username: str,
         password: str,
         wall_timeout_seconds: float = 30,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._client = client
         self._base = base_url.rstrip("/")
@@ -80,6 +83,7 @@ class ManakidsChatChildrenSource:
         self._auth_lock = asyncio.Lock()
         self._auth_retry_at = 0.0
         self._wall_timeout = wall_timeout_seconds
+        self._clock = clock if clock is not None else lambda: datetime.now(UTC)
 
     async def _read_json(self, response: httpx.Response) -> object:
         if response.status_code in {401, 403}:
@@ -149,6 +153,25 @@ class ManakidsChatChildrenSource:
             raise ParentChatError("child_context_unavailable", 503) from None
 
     async def _read(self, parent_id: str) -> ParentChildContext:
+        context, _ = await self._read_profile(parent_id)
+        return context
+
+    async def read_usage_lookup(self, parent_id: str) -> ParentUsageLookup:
+        try:
+            async with asyncio.timeout(self._wall_timeout):
+                context, username = await self._read_profile(parent_id)
+            return ParentUsageLookup(
+                parent_id=context.parent_id,
+                username=SecretStr(username),
+                connected_child_ids=tuple(c.child_id for c in context.children if c.connected),
+                collected_at=context.collected_at,
+            )
+        except TimeoutError:
+            raise ParentChatError("child_context_unavailable", 503) from None
+        except (ValidationError, TypeError, ValueError):
+            raise ParentChatError("family_usage_lookup_invalid", 503) from None
+
+    async def _read_profile(self, parent_id: str) -> tuple[ParentChildContext, str]:
         # The documented Parent API is keyed by Parent.pk, not Firebase Auth UID.
         if not parent_id.isascii() or not parent_id.isdecimal() or str(int(parent_id)) != parent_id:
             raise ParentChatError("parent_profile_id_required", 422)
@@ -186,11 +209,11 @@ class ManakidsChatChildrenSource:
             raise ParentChatError("child_context_invalid", 503)
         if parent.children_count is not None and parent.children_count != len(parent.children):
             raise ParentChatError("child_context_incomplete", 503)
-        collected_at = datetime.now(UTC)
+        collected_at = self._clock()
         # The raw row is considered only after exact parent and child coverage checks.
         assert isinstance(payload, dict) and isinstance(payload["results"], list)
         tariff = _tariff_context(payload["results"][0], collected_at)
-        return ParentChildContext(
+        context = ParentChildContext(
             parent_id=parent_id,
             children=[
                 ChatChild(
@@ -209,3 +232,5 @@ class ManakidsChatChildrenSource:
                 "or app usage; separately supplied backend observations are dated evidence only.",
             ],
         )
+        username = payload["results"][0].get("phone")
+        return context, username if isinstance(username, str) else ""

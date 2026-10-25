@@ -4,7 +4,7 @@ import asyncio
 import json
 import re
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Protocol
 
 import httpx
@@ -38,6 +38,51 @@ class _UsagePage(BaseModel):
     current_page: int = Field(ge=1, le=1, strict=True)
     page_count: int = Field(ge=0, le=100000, strict=True)
     per_page: int = Field(ge=1, le=10, strict=True)
+
+
+def usage_counter_facts(
+    child_id: int, page: _UsagePage, collected_at: datetime, *, requested_day: date | None = None
+) -> ChildAppUsageFacts:
+    expected_pages = (
+        {0, 1}
+        if page.total_count == 0
+        else {(page.total_count + page.per_page - 1) // page.per_page}
+    )
+    if (
+        not page.success
+        or len(page.results) != min(page.per_page, page.total_count)
+        or page.page_count not in expected_pages
+    ):
+        raise ValueError("Incomplete or inconsistent usage page")
+    entries = []
+    for row in page.results:
+        for counter in row.daily_usage:
+            # Preserve a provider calendar label without inventing its timezone
+            # or silently converting its timestamp into a measurement period.
+            label = datetime.strptime(counter.date, "%Y-%m-%d %H:%M:%S")
+            if requested_day is not None and label.date() != requested_day:
+                raise ValueError("Counter label does not match the requested calendar day")
+            if not re.fullmatch(r"\d{1,3}:\d{2}:\d{2}", counter.total_time):
+                raise ValueError("Unknown provider duration format")
+            hours, minutes, seconds = map(int, counter.total_time.split(":"))
+            if minutes > 59 or seconds > 59:
+                raise ValueError("Invalid provider duration")
+            entries.append(
+                AppUsageCounter(
+                    app_name=row.app,
+                    provider_recorded_at=counter.date,
+                    reported_seconds=hours * 3600 + minutes * 60 + seconds,
+                )
+            )
+    return ChildAppUsageFacts(
+        child_id=child_id,
+        status="available" if page.total_count else "missing",
+        entries=tuple(entries),
+        returned_apps=len(page.results),
+        total_apps=page.total_count,
+        complete=len(page.results) == page.total_count,
+        collected_at=collected_at,
+    )
 
 
 class ManakidsChildUsageSource:
@@ -82,36 +127,4 @@ class ManakidsChildUsageSource:
                     if len(data) > 65536:
                         raise ValueError("Usage response exceeds its byte ceiling")
                 page = _UsagePage.model_validate(json.loads(data))
-        if (
-            not page.success
-            or len(page.results) != min(page.per_page, page.total_count)
-            or (page.page_count != (page.total_count + page.per_page - 1) // page.per_page)
-        ):
-            raise ValueError("Incomplete or inconsistent usage page")
-        entries = []
-        for row in page.results:
-            for counter in row.daily_usage:
-                # Preserve a provider calendar label without inventing its timezone
-                # or silently converting its timestamp into a measurement period.
-                datetime.strptime(counter.date, "%Y-%m-%d %H:%M:%S")
-                if not re.fullmatch(r"\d{1,3}:\d{2}:\d{2}", counter.total_time):
-                    raise ValueError("Unknown provider duration format")
-                hours, minutes, seconds = map(int, counter.total_time.split(":"))
-                if minutes > 59 or seconds > 59:
-                    raise ValueError("Invalid provider duration")
-                entries.append(
-                    AppUsageCounter(
-                        app_name=row.app,
-                        provider_recorded_at=counter.date,
-                        reported_seconds=hours * 3600 + minutes * 60 + seconds,
-                    )
-                )
-        return ChildAppUsageFacts(
-            child_id=child_id,
-            status="available" if page.total_count else "missing",
-            entries=tuple(entries),
-            returned_apps=len(page.results),
-            total_apps=page.total_count,
-            complete=len(page.results) == page.total_count,
-            collected_at=self._clock(),
-        )
+        return usage_counter_facts(child_id, page, self._clock())

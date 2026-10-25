@@ -2,6 +2,20 @@
 
 ## Repository expectations
 
+- The subsequent local completed-day usage **source port** is not runtime-wired:
+  read `docs/mana-family-day-usage-source.md` before extending it. One fresh MANA
+  ownership/username lookup and one filtered family page cover at most ten children,
+  retaining exact requested calendar labels and per-child app-page qualifications.
+  The lookup username is ephemeral/excluded, not model data or a source grant.
+  Unknown timezone/measurement period and missing evidence remain unknown; do not
+  sum counters into screen time. The shared parser now accepts the observed empty
+  page_count=1 convention only with zero count/rows; nonempty invariants remain.
+  Preserve the failed first live party, negative empty-page regression and distinct
+  older-day postfix receipt; never replay old attempts to amend them. Family/source/
+  collector remain v17/v4/v2. Old native tools do not acquire this port; its future
+  activation needs captured scope, shared meters/cache/holds and source-to-chat
+  acceptance. No new endpoint, refresh, quota, payment, contact or deployment follows.
+
 - The subsequent local inventory-tariff increment uses collection schema v2,
   unchanged family v17/source v4, and default-disabled `MANA_COLLECTION_TARIFFS_ENABLED`.
   Only newly captured, known on-time page claims produce minimized tariff batches
