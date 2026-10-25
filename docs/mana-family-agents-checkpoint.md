@@ -2,6 +2,68 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Parent-Touch chooses its owning specialist — 2026-10-25, `ced2964`
+
+Implementation is committed in `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. Read
+[the manager checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-touch-manager.md)
+and English integration section 26. Root application/owner changes are preserved.
+
+New default-disabled `MANA_PARENT_TOUCH_MANAGER_ENABLED`, family v21, gives new
+eligible messages one metered native decision: ordinary conversation, or one
+existing child/tariff/reminder owner. Parent-Touch remains the only speaker under
+the same root message and unchanged three mobile operations. A child handoff
+waits for actual Child-Safety review; helpers/greetings use no safety tokens.
+Bound specialist answers/priority work keep review-first; old turns never upgrade.
+SQL separately forbids another owner's action even if a model returns one.
+The final child publication retains every supplied fact/date/binding, while
+excluding unrelated action schemas. There is no new source/collection protocol,
+permission, model allowance or arbitrary tool. Unknown/late/stop holds remain.
+
+The first new paid fictional party routed correctly but its legacy final prompt
+exceeded the remaining parent budget; a separate greeting passed with no safety
+job. Preserve that negative receipt and its appended cost correction: **782
+speaker /867 safety**, seven HTTP attempts/three generations, corrected estimate
+**$0.003459**, no unknown holds. Do not replay or relabel it. After the publication
+scope fix a distinct Uzbek fictional full loop completed: **1322 speaker /925
+safety**, six HTTP attempts/three generations, **$0.00618625** conservative uncached
+generation estimate, zero unknown holds and exact replay. Existing GPT-5.4/mini
+roles remained. A small unverified comparative preference remains a wording
+qualification; neither party proves broad language/semantic/fleet readiness.
+No real family/source/push/grant/payment request occurred.
+
+Final `make verify`, session **36983**, exited **0**: **1456 backend /26 admin /
+10 lab** tests, strict mypy **411 files**, lint/format/types, production UI build
+and npm audit zero. API/schema sync passed with no artifact change. Secret/marker
+scans passed; the ordinary security target's Compose portion refused missing
+fixture variables/`.env`, then structural Compose validation passed with explicit
+dummy values and `--no-env-resolution`. That is not production configuration
+acceptance or a passing unmodified full security target.
+
+Final image `4422280bffca…`, `mana-ai-family:parent-manager-v21-final-20261025-local`,
+matches all **13 changed application files**, contains no `.env`, and passed
+networkless non-root/read-only probes. Actual v20 upgrade preserves all old table
+fingerprints and **150 known /1850 unknown safety tokens** without historical
+capture. New v21 unknown continuation retains **150 known /1850 reserved speaker
+tokens** through the current closed reader. Actual old v20 refuses both new files
+unchanged; this is not a working old-image/production rollback. No SQL downgrade.
+
+An owned 390px browser exercised greeting, real app catalog lifecycle, Uzbek
+child question/bound answer and an unconfirmed reminder. **11 messages /6 turns**,
+four manager captures, two safety jobs and **1200 simulated speaker /300 safety**
+tokens survived an actual server restart. All family/source fingerprints remained
+identical after reload and exact old POST replay; no horizontal overflow/JS error.
+The existing Upsell acknowledgement and later quote remain separate Parent-Touch
+messages. No reminder was confirmed, push queued or tariff granted. The initial
+invalid button wait and timezone-fixture failure remain qualified diagnostics.
+Only the owned browser/server were stopped.
+
+The complete original objective remains active: GPS/measurement semantics,
+referral/rewards, autonomous paid-offer eligibility, broader source/channel/model
+quality, whole-fleet capacity, four administrative owners and separately scoped
+compatible production rollout are not complete. Production, schedules, keys/SSH,
+main/audio, customer tariffs and root unrelated edits were not changed.
+
 ### Shared tariff observations veto commercial contact — 2026-10-25, `cdebaa9`
 
 Implementation remains in `/mnt/ssd2/mana-conversion-agent-20261021`, branch
