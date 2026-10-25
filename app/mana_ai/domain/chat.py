@@ -1,6 +1,6 @@
 """The single, application-facing parent chat; unrelated to operational topics."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -124,11 +124,30 @@ class ChatChild(ChatContract):
     connected: bool = Field(strict=True)
 
 
+class ParentTariffContext(ChatContract):
+    """Selected current tariff, not all entitlements, payment history or permission."""
+
+    scope: Literal["selected_current_tariff_record"] = "selected_current_tariff_record"
+    collected_at: AwareDatetime
+    tariff_name: str | None = Field(max_length=100, strict=True)
+    is_paid: bool | None = Field(strict=True)
+    valid_until: AwareDatetime | None
+    payment_date: AwareDatetime | None
+    agent_trial_used: bool | None = Field(strict=True)
+
+    @model_validator(mode="after")
+    def dated_payment(self) -> "ParentTariffContext":
+        if self.payment_date and self.payment_date > self.collected_at + timedelta(seconds=120):
+            raise ValueError("A tariff payment date cannot follow its collection")
+        return self
+
+
 class ParentChildContext(ChatContract):
     parent_id: ParentChatId
     children: list[ChatChild] = Field(max_length=20)
     collected_at: AwareDatetime
     limitations: list[str] = Field(max_length=5)
+    tariff: ParentTariffContext | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class StoredChatTurn(ChatContract):

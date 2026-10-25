@@ -33,7 +33,7 @@ from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
-from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext
+from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
     SafetyAssessmentPage,
@@ -154,19 +154,31 @@ class LabCatalog:
 
 
 class LabProfiles:
-    def __init__(self, clock: Clock) -> None:
+    def __init__(self, clock: Clock, *, tariff_context: bool = False) -> None:
         self._clock = clock
+        self._tariff_context = tariff_context
 
     async def read(self, parent_id: str) -> ParentChildContext:
         if parent_id != LAB_PARENT:
             raise ParentChatError("lab_family_not_allowed", 403)
+        now = self._clock.now()
         return ParentChildContext(
             parent_id=LAB_PARENT,
             children=[
                 ChatChild(child_id=LAB_CHILD, name="Тестовый ребёнок", age=8, connected=True)
             ],
-            collected_at=self._clock.now(),
+            collected_at=now,
             limitations=["Fictional lab family; no Manakids, Firebase or GA4 data."],
+            tariff=ParentTariffContext(
+                collected_at=now,
+                tariff_name="Fictional 1-Month",
+                is_paid=True,
+                valid_until=datetime(2026, 11, 23, 16, 0, tzinfo=ZoneInfo("Asia/Tashkent")),
+                payment_date=None,
+                agent_trial_used=True,
+            )
+            if self._tariff_context
+            else None,
         )
 
 
@@ -219,6 +231,29 @@ class SimulatedModel:
         return 100
 
     async def respond(self, prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
+        if (
+            self.role == "speaker"
+            and prompt.notice is None
+            and prompt.question is None
+            and any(
+                term in prompt.messages[-1][1].casefold()
+                for term in ("какой у меня тариф", "когда заканчивается", "mening tarifim")
+            )
+            and '"parent_tariff"' in prompt.messages[0][1]
+        ):
+            uz = "mening tarifim" in prompt.messages[-1][1].casefold()
+            return ChatModelReceipt(
+                usage=ChatTokens(input_tokens=100, output_tokens=50),
+                model="lab-simulated-not-billed",
+                answer=(
+                    "Ilovada Fictional 1-Month pullik tarifi ko‘rsatilgan; "
+                    "2026-11-23 soat 16:00 gacha, UTC+05:00."
+                    if uz
+                    else "В приложении указан оплаченный Fictional 1-Month, "
+                    "действующий до 2026-11-23 16:00, UTC+05:00."
+                ),
+                completed=True,
+            )
         question_id = notice_id = None
         if self.role == "safety":
             decision: SafetyModelDecision | SafetySourceReviewDecision
@@ -502,6 +537,7 @@ class LabOptions:
     reminders: bool = False
     retention: bool = False
     upsell: bool = False
+    tariff_context: bool = False
 
 
 class ChatLab:
@@ -561,6 +597,8 @@ class ChatLab:
             expected["retention"] = True
         if self.options.upsell:
             expected["upsell"] = True
+        if self.options.tariff_context:
+            expected["tariff_context"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -688,7 +726,7 @@ class ChatLab:
                 push_enabled=False,
             )
         await self.store.initialize()
-        profiles = LabProfiles(self.options.clock)
+        profiles = LabProfiles(self.options.clock, tariff_context=self.options.tariff_context)
         policy = SourceSafetyPolicy(timezone="Asia/Samarkand")
         source_class = (
             SqliteMultiFamilySourceStore

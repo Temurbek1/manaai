@@ -648,3 +648,18 @@ cache/read ledger bounds acquisition across parents; failures are not retried.
 Existing 2000 speaker/2000 global safety limits remain. Old captured turns do not
 upgrade. See [the implementation/evidence](mana-client-upsell.md) and run
 `make chat-lab-upsell` for fictional UI tests. These new paths are not released.
+
+## 19. Parent account context (local, not released)
+
+The same ownership-filtered Parent List response can now supply Parent-Touch with
+its selected current tariff, paid flag and expiration. The phone uses the existing
+message/status/history API; there is no new account-chat endpoint or extra billing
+read. Ask the agent which tariff the app shows or when it expires.
+
+A display name is not a feature entitlement, full payment history or renewal
+contract. Missing/malformed fields stay unknown and do not discard valid child
+profiles. Child-Safety receives no new profile billing fields. Existing chat/safety
+limits and action policies remain; nothing is purchased, granted or renewed.
+Use `make chat-lab-profile` for fictional RU/UZ tests. Evidence and the qualified
+real-parent/model checks are in [the account context checkpoint](mana-parent-account-context.md).
+These local changes are not a production release.

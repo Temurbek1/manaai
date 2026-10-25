@@ -5,9 +5,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+from pytest import MonkeyPatch
 
+from app.mana_ai.application.chat_ports import ParentChatError
 from app.services.lab_collection import LabCollectionClock
-from app.services.mana_chat_lab import LAB_PARENT, ChatLab, LabOptions
+from app.services.mana_chat_lab import LAB_PARENT, ChatLab, LabOptions, LabState
 from scripts.mana_chat_lab import create_app
 from tests.test_mana_chat_lab import BASE, session
 
@@ -25,6 +27,7 @@ def options(directory: Path, *, worker: bool = True) -> LabOptions:
 
 async def test_collection_initiates_chat_without_parent_message_and_deduplicates(
     tmp_path: Path,
+    monkeypatch: MonkeyPatch,
 ) -> None:
     app = create_app(options=options(tmp_path / "collection"))
     first = None
@@ -45,11 +48,31 @@ async def test_collection_initiates_chat_without_parent_message_and_deduplicates
         first = await client.post("/lab/collection", headers=headers, json=body)
         assert first.status_code == 200, first.text
         assert first.json()["status"] == "completed" and first.json()["targets"] == 2
+        original_state = lab.state
+        force_busy = True
+
+        async def busy_once() -> LabState:
+            nonlocal force_busy
+            if force_busy:
+                force_busy = False
+                raise ParentChatError("lab_state_busy", 409)
+            current = await original_state()
+            assert isinstance(current, LabState)
+            return current
+
+        monkeypatch.setattr(lab, "state", busy_once)
+        state = None
         for _ in range(100):
-            state = await lab.state()
-            if state.history.messages:
-                break
+            observed = await client.get("/lab/state")
+            if observed.status_code == 409:
+                assert observed.json()["detail"]["code"] == "lab_state_busy"
+            else:
+                assert observed.status_code == 200
+                state = LabState.model_validate(observed.json())
+                if state.history.messages:
+                    break
             await asyncio.sleep(0.03)
+        assert state is not None
         assert state.history.messages and all(m.role == "assistant" for m in state.history.messages)
         assert "12" in state.history.messages[0].content
         assert state.safety_budget.server_used_tokens > 0

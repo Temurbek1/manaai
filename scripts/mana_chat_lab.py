@@ -358,3 +358,38 @@ def create_upsell_live_app() -> FastAPI:
             upsell=True,
         )
     )
+
+
+def create_profile_app() -> FastAPI:
+    """Fictional current tariff in the same single-chat lab, without live providers."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/profile-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+        )
+    )
+
+
+def create_profile_live_app() -> FastAPI:
+    """Explicit paid inference with fictional account facts; no live source or write."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/profile-real-model",
+            real_model=True,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+        )
+    )

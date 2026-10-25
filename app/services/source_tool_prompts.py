@@ -5,7 +5,7 @@ from dataclasses import replace
 from app.mana_ai.application.child_safety_ports import SafetyPrompt
 from app.mana_ai.domain.chat import ParentChildContext
 from app.mana_ai.domain.child_safety import SafetyJob, SafetyJobView
-from app.services.child_safety_prompts import ChildSafetyPromptBuilder
+from app.services.child_safety_prompts import ACCOUNT_INTENT_GUIDANCE, ChildSafetyPromptBuilder
 
 NATIVE_REVIEW_INSTRUCTIONS = """You are MANA's internal Child-Safety specialist.
 Parent-Touch alone speaks
@@ -45,7 +45,8 @@ class SourceToolPromptBuilder(ChildSafetyPromptBuilder):
                 original.input,
                 instructions=(
                     NATIVE_REVIEW_INSTRUCTIONS if protocol == 1 else OBSERVATION_REVIEW_INSTRUCTIONS
-                ),
+                )
+                + ACCOUNT_INTENT_GUIDANCE,
             ),
         )
 

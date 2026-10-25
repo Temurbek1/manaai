@@ -2,6 +2,21 @@
 
 ## Repository expectations
 
+- The local current-account increment adds optional `ParentTariffContext` from the
+  same exact-parent profile GET, without another billing read, chat route, model
+  generation or schema migration (family/source stay v16/v4). Only Parent-Touch
+  receives fresh same-collection selected-tariff facts; ordinary/native safety
+  projections omit them. Unknown/malformed optional billing fields preserve child
+  ownership and never become paid/free, renewal, consent, referral or action grants.
+  Do not infer free-start meaning from `created_at`, which is omitted. Read
+  `docs/mana-parent-account-context.md`: preserve the qualified real-parent RU
+  response, its SQL-only harness reconciliation, and the distinct synthetic UZ
+  presentation pass. Neither proves native all-agent quality or release readiness.
+  The moving-clock lab regression and HTTP-only busy observation preserve the
+  original failed evidence; no paid/source request was repeated or quota reset.
+  Production, budgets, sources/schedules, SSH, keys and customer tariffs are unchanged.
+
+
 - The local Upsell increment uses private family v16/source v4 and default-disabled
   `MANA_CLIENT_UPSELL_ENABLED`. Only new eligible parent-message turns capture
   typed price/duration enquiry scope; old queued turns never upgrade. Parent-Touch

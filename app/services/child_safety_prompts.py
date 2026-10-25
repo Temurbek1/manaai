@@ -9,6 +9,11 @@ from app.services.mana_ai_prompts import BASE_INSTRUCTIONS, build_system_instruc
 from app.services.mana_ai_provider_payload import build_provider_payload
 from app.services.source_review_prompts import source_review_prompt
 
+ACCOUNT_INTENT_GUIDANCE = (
+    "\nAn account/tariff/payment/referral question belongs to Parent-Touch's account "
+    "context, not child evidence. Do not propose a child question or infer a risk "
+    "solely because those account facts are absent from your input."
+)
 PARENT_REVIEW_INSTRUCTIONS = """You are Child-Safety, the internal MANA family specialist.
 Read the latest parent message as conversation intent: understand what help they want about
 their own child using dated supplied context. It is not permission to query sources, execute
@@ -105,7 +110,7 @@ class ChildSafetyPromptBuilder:
             ]
             payload["conversation_needs_scope"] = "authorized_children_pending_and_recent_answers"
         instructions = (
-            PARENT_REVIEW_INSTRUCTIONS
+            PARENT_REVIEW_INSTRUCTIONS + ACCOUNT_INTENT_GUIDANCE
             if job.context.typed_parent_review and job.view.kind == "parent_message"
             else BASE_INSTRUCTIONS
         )

@@ -10,7 +10,33 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
 
 from app.mana_ai.application.chat_ports import ParentChatError
-from app.mana_ai.domain.chat import ChatChild, ParentChildContext
+from app.mana_ai.domain.chat import ChatChild, ParentChildContext, ParentTariffContext
+
+
+def _tariff_context(row: object, collected_at: datetime) -> ParentTariffContext | None:
+    """Optional billing failures must not discard valid child ownership evidence."""
+    if not isinstance(row, dict):
+        return None
+    try:
+        values = {
+            name: row[name]
+            for name in (
+                "tariff_name",
+                "is_paid",
+                "valid_until",
+                "payment_date",
+                "agent_trial_used",
+            )
+        }
+        for name in ("valid_until", "payment_date"):
+            raw = values[name]
+            if raw is not None:
+                if not isinstance(raw, str) or len(raw) > 80:
+                    return None
+                values[name] = datetime.fromisoformat(raw)
+        return ParentTariffContext.model_validate(values | {"collected_at": collected_at})
+    except (KeyError, ValueError, ValidationError):
+        return None
 
 
 class _Child(BaseModel):
@@ -160,6 +186,10 @@ class ManakidsChatChildrenSource:
             raise ParentChatError("child_context_invalid", 503)
         if parent.children_count is not None and parent.children_count != len(parent.children):
             raise ParentChatError("child_context_incomplete", 503)
+        collected_at = datetime.now(UTC)
+        # The raw row is considered only after exact parent and child coverage checks.
+        assert isinstance(payload, dict) and isinstance(payload["results"], list)
+        tariff = _tariff_context(payload["results"][0], collected_at)
         return ParentChildContext(
             parent_id=parent_id,
             children=[
@@ -171,7 +201,8 @@ class ManakidsChatChildrenSource:
                 )
                 for child in parent.children
             ],
-            collected_at=datetime.now(UTC),
+            collected_at=collected_at,
+            tariff=tariff,
             limitations=[
                 "Verified MANA parent-child profiles only, not behavioral or medical evidence.",
                 "Connection is not online status. This profile read contains no location, calls "
