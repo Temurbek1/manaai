@@ -474,3 +474,27 @@ def create_day_usage_app() -> FastAPI:
             day_usage=True,
         )
     )
+
+
+def create_day_collection_app() -> FastAPI:
+    """Shared dated windows -> specialist -> first chat message, fictional sources only."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/day-collection-simulation",
+            clock=LabCollectionClock(),
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            day_usage=True,
+            dated_reviews=True,
+            scheduled_collection=True,
+            collection_tariffs=True,
+            day_collection=True,
+        )
+    )

@@ -2,13 +2,19 @@
 
 import hashlib
 import json
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, Field, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
-from app.mana_ai.domain.family_sources import ChildSourceFacts, FamilySourceKey
+from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, day_child_fingerprint
+from app.mana_ai.domain.family_sources import (
+    ChildAppUsageFacts,
+    ChildSourceFacts,
+    ObservedSourceKey,
+)
 
 
 class SourceAnalysisOwner(ChatContract):
@@ -17,16 +23,29 @@ class SourceAnalysisOwner(ChatContract):
 
 
 class SourceReviewSnapshot(ChatContract):
-    source: FamilySourceKey
+    source: ObservedSourceKey
     snapshot_id: UUID
     fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     facts: ChildSourceFacts
+    requested_day: date | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_validator(mode="after")
     def verified_snapshot(self) -> "SourceReviewSnapshot":
         from app.mana_ai.domain.family_sources import ChildBatteryFacts
 
-        if self.facts.fingerprint() != self.fingerprint or (
+        expected = self.facts.fingerprint()
+        if self.source == DAY_USAGE_SOURCE:
+            if not isinstance(self.facts, ChildAppUsageFacts) or self.requested_day is None:
+                raise ValueError("Dated review snapshots require app facts and a query day")
+            expected = day_child_fingerprint(self.facts, self.requested_day)
+            if any(
+                not e.provider_recorded_at.startswith(self.requested_day.isoformat() + " ")
+                for e in self.facts.entries
+            ):
+                raise ValueError("Counter labels must match the exact query day")
+        elif self.requested_day is not None:
+            raise ValueError("Undated sources cannot acquire a query day")
+        if expected != self.fingerprint or (
             isinstance(self.facts, ChildBatteryFacts)
             != (self.source == "firebase.child_battery.v1")
         ):
@@ -37,8 +56,8 @@ class SourceReviewSnapshot(ChatContract):
 class SourceReviewBundle(ChatContract):
     parent_id: ParentChatId
     child_id: int = Field(gt=0, le=2**63 - 1, strict=True)
-    snapshots: tuple[SourceReviewSnapshot, ...] = Field(min_length=1, max_length=2)
-    changed_sources: tuple[FamilySourceKey, ...] = Field(min_length=1, max_length=2)
+    snapshots: tuple[SourceReviewSnapshot, ...] = Field(min_length=1, max_length=3)
+    changed_sources: tuple[ObservedSourceKey, ...] = Field(min_length=1, max_length=3)
     frozen_at: AwareDatetime
 
     @model_validator(mode="after")

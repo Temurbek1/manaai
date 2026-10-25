@@ -202,7 +202,10 @@ class FamilyNotice(ChatContract):
     assessment: ParentTouchAssessment
     expires_at: AwareDatetime
     source_observations: tuple[ChildBatteryFacts | ChildAppUsageFacts, ...] = Field(
-        default=(), max_length=2, exclude_if=lambda v: not v
+        default=(), max_length=3, exclude_if=lambda v: not v
+    )
+    query_calendar_days: tuple[date, ...] = Field(
+        default=(), max_length=1, exclude_if=lambda v: not v
     )
 
 

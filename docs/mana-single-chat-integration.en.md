@@ -734,3 +734,26 @@ one-shot source limits remain. The collector's schedules are unchanged.
 [complete implementation, negative diagnostics and acceptance limits](mana-dated-source-workflow.md)
 before enabling it anywhere. A narrow actual Uzbek model case passed after several
 retained budget failures; broader quality/capacity and production release remain open.
+
+## 24. Shared dated collection and proactive reports (local, not released)
+
+With the complete v19/source-v6/collection-v3 profile and explicit
+`MANA_FAMILY_DAY_REVIEWS_ENABLED` / `MANA_COLLECTION_DAY_USAGE_ENABLED`, newly
+captured 09:00/15:00 Asia/Tashkent windows read one preceding-day family app page
+and share it with sibling/native consumers. Existing battery collection remains.
+Only changed child/day facts reach the existing Child-Safety review queue;
+Parent-Touch can publish one assistant-only report before the parent writes.
+
+Use the same message POST, message-status GET and single history GET. No new
+phone route, username, cloud query, model tool payload or fabricated user message
+is needed. Continue observing history for later specialist messages and separately
+permitted neutral notifications. The query date is not a verified measurement
+period or timezone; missing child data never means zero activity.
+
+All flags default off, budgets/consent/quiet hours remain unchanged, and old
+windows/claims/turns never upgrade. No ordinary customer tariff is granted.
+`make chat-lab-day-collection` exercises fictional fixed-clock windows and cache
+reuse, not live cloud acquisition or model quality. Read
+[the implementation, exact engineering/model/browser evidence and limits](mana-dated-collection.md).
+These additions have not been deployed. Keep using the released API until its
+separate scoped rollout is confirmed.

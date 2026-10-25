@@ -12,9 +12,9 @@ from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.domain.family_sources import (
     FamilySourceChange,
     FamilySourceClaim,
-    FamilySourceKey,
     FamilySourceLimits,
     FamilySourceTarget,
+    ObservedSourceKey,
     source_facts,
 )
 from app.mana_ai.domain.source_reviews import (
@@ -77,6 +77,31 @@ class SqliteSourceReviewCache(SqliteMultiFamilySourceStore):
         if old is not None and old[0] != payload:
             raise ValueError("Captured source-review policy cannot change")
         connection.execute("INSERT OR IGNORE INTO review_policy VALUES(1,?)", (payload,))
+
+    def _review_sources(self) -> tuple[ObservedSourceKey, ...]:
+        return ("firebase.child_battery.v1", "manakids.child_app_usage.v1")
+
+    def _review_snapshot(
+        self, db: sqlite3.Connection, parent: str, child: int, source: ObservedSourceKey
+    ) -> tuple[SourceReviewSnapshot, datetime] | None:
+        if source == "manakids.family_day_app_usage.v1":
+            raise ParentChatError("source_review_state_invalid", 503)
+        head = db.execute(
+            f"SELECT s.*,h.checked_at FROM {self._heads(source)} h "
+            f"JOIN {self._snapshots(source)} s ON s.snapshot_id=h.snapshot_id "
+            "AND s.parent_id=h.parent_id AND s.child_id=h.child_id "
+            "WHERE h.parent_id=? AND h.child_id=?",
+            (parent, child),
+        ).fetchone()
+        if head is None:
+            return None
+        snapshot = SourceReviewSnapshot(
+            source=source,
+            snapshot_id=head["snapshot_id"],
+            fingerprint=head["fingerprint"],
+            facts=source_facts(json.loads(head["payload"]), source),
+        )
+        return snapshot, datetime.fromisoformat(head["checked_at"])
 
     def _source_changed(self, connection: sqlite3.Connection, event: FamilySourceChange) -> None:
         # New v4 events belong to this consumer. Historical v2 dispatches retain
@@ -255,25 +280,16 @@ class SqliteSourceReviewCache(SqliteMultiFamilySourceStore):
                 return None
             changed = {FamilySourceChange.model_validate_json(e["payload"]).source for e in events}
             snapshots = []
-            registered: tuple[FamilySourceKey, ...] = (
-                "firebase.child_battery.v1",
-                "manakids.child_app_usage.v1",
-            )
-            for source in registered:
-                head = db.execute(
-                    f"SELECT s.*,h.checked_at FROM {self._heads(source)} h JOIN "
-                    f"{self._snapshots(source)} s ON s.snapshot_id=h.snapshot_id "
-                    "AND s.parent_id=h.parent_id AND s.child_id=h.child_id "
-                    "WHERE h.parent_id=? AND h.child_id=?",
-                    (parent, child),
-                ).fetchone()
-                if head is None:
+            for source in self._review_sources():
+                loaded = self._review_snapshot(db, parent, child, source)
+                if loaded is None:
                     if source not in changed:
                         continue
                     raise ParentChatError("source_review_state_invalid", 503)
+                snapshot, checked_at = loaded
                 if (
                     not now - timedelta(seconds=self._review_policy.maximum_collection_age_seconds)
-                    <= (datetime.fromisoformat(head["checked_at"]))
+                    <= checked_at
                     <= now
                 ):
                     if source not in changed:
@@ -284,14 +300,7 @@ class SqliteSourceReviewCache(SqliteMultiFamilySourceStore):
                         (parent, child),
                     )
                     return None
-                snapshots.append(
-                    SourceReviewSnapshot(
-                        source=source,
-                        snapshot_id=head["snapshot_id"],
-                        fingerprint=head["fingerprint"],
-                        facts=source_facts(json.loads(head["payload"]), source),
-                    )
-                )
+                snapshots.append(snapshot)
             bundle = SourceReviewBundle(
                 parent_id=parent,
                 child_id=child,

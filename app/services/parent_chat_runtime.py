@@ -40,6 +40,10 @@ from app.services.conversion_account_store import (
     SqliteConversionAccountStore,
 )
 from app.services.conversion_store import SqliteClosedConversionStore, SqliteConversionStore
+from app.services.dated_review_safety_store import (
+    SqliteClosedDatedReviewSafetyStore,
+    SqliteDatedReviewSafetyStore,
+)
 from app.services.dated_source_safety_store import (
     SqliteClosedDatedSourceSafetyStore,
     SqliteDatedSourceSafetyStore,
@@ -104,7 +108,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
-        version in {17, 18}
+        version in {17, 18, 19}
         and settings.mana_child_safety_enabled
         and not settings.mana_client_upsell_enabled
     ):
@@ -170,8 +174,10 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         )
         native_store = (
             (
-                SqliteDatedSourceSafetyStore
-                if settings.mana_family_day_usage_enabled or version == 18
+                SqliteDatedReviewSafetyStore
+                if settings.mana_family_day_reviews_enabled or version == 19
+                else SqliteDatedSourceSafetyStore
+                if settings.mana_family_day_usage_enabled or version in {18, 19}
                 else SqliteRetentionExpiryStore
             )(
                 settings.mana_parent_chat_database_path,
@@ -183,14 +189,19 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 expiry_enabled=settings.mana_retention_expiry_enabled,
                 **(
                     {"day_tools_enabled": settings.mana_family_day_usage_enabled}
-                    if settings.mana_family_day_usage_enabled or version == 18
+                    if settings.mana_family_day_usage_enabled or version in {18, 19}
+                    else {}
+                ),
+                **(
+                    {"dated_reviews_enabled": settings.mana_family_day_reviews_enabled}
+                    if settings.mana_family_day_reviews_enabled or version == 19
                     else {}
                 ),
                 profile_binding=settings.manakids_api_base_url
                 + "/api/v1/admin-panel-parent/parent-list/",
                 **native_options,
             )
-            if settings.mana_retention_expiry_enabled or version in {17, 18}
+            if settings.mana_retention_expiry_enabled or version in {17, 18, 19}
             else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
@@ -216,11 +227,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15, 16, 17, 18}:
+    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedDatedSourceSafetyStore
+            SqliteClosedDatedReviewSafetyStore
+            if version == 19
+            else SqliteClosedDatedSourceSafetyStore
             if version == 18
             else SqliteClosedRetentionExpiryStore
             if version == 17

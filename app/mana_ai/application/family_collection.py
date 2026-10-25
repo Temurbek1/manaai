@@ -13,6 +13,7 @@ from app.mana_ai.domain.family_collection import (
     FamilyCollectionWork,
     FamilyInventoryPage,
 )
+from app.mana_ai.domain.family_day_usage import DayUsageReceipt, DayUsageTarget
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 
 
@@ -35,7 +36,7 @@ class CollectionStore(Protocol):
     async def finish_source(
         self,
         work: FamilyCollectionWork,
-        receipt: FamilySourceReceipt | None,
+        receipt: FamilySourceReceipt | DayUsageReceipt | None,
         now: datetime,
         *,
         refusal: str | None = None,
@@ -69,6 +70,20 @@ class FamilyCollectionService:
 
     async def windows(self, limit: int = 10) -> tuple[FamilyCollectionWindow, ...]:
         return await self._store.latest(limit)
+
+    async def _read_source(
+        self, target: FamilySourceTarget | DayUsageTarget
+    ) -> FamilySourceReceipt | DayUsageReceipt:
+        if isinstance(target, DayUsageTarget):
+            raise ParentChatError("family_source_not_enabled", 503)
+        return await self._sources.read(target)
+
+    async def _observe_source(
+        self, target: FamilySourceTarget | DayUsageTarget
+    ) -> FamilySourceReceipt | DayUsageReceipt:
+        if isinstance(target, DayUsageTarget):
+            raise ParentChatError("family_source_not_enabled", 503)
+        return await self._observations.observation(target)
 
     async def process_one(self) -> FamilyCollectionWindow | None:
         work = await self._store.claim_next(self._clock())
@@ -106,7 +121,7 @@ class FamilyCollectionService:
                 await self._observe(work)
             else:
                 try:
-                    receipt = await self._sources.read(work.target)
+                    receipt = await self._read_source(work.target)
                     await self._store.finish_source(work, receipt, self._clock())
                 except asyncio.CancelledError:
                     await asyncio.shield(self._observe(work))
@@ -138,7 +153,7 @@ class FamilyCollectionService:
     async def _observe(self, work: FamilyCollectionWork) -> None:
         assert work.target is not None
         try:
-            receipt = await self._observations.observation(work.target)
+            receipt = await self._observe_source(work.target)
         except ParentChatError as error:
             if error.code != "family_source_request_not_found":
                 raise

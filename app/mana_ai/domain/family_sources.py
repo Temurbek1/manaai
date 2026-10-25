@@ -1,6 +1,7 @@
 """Private, ownership-scoped source facts; never arbitrary queries or credentials."""
 
 import hashlib
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
@@ -15,6 +16,7 @@ from pydantic import (
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
 
 FamilySourceKey = Literal["firebase.child_battery.v1", "manakids.child_app_usage.v1"]
+ObservedSourceKey = FamilySourceKey | Literal["manakids.family_day_app_usage.v1"]
 
 
 class AppUsageCounter(ChatContract):
@@ -170,7 +172,14 @@ class FamilySourceChange(ChatContract):
     snapshot_id: UUID
     fingerprint: str
     recorded_at: AwareDatetime
-    source: FamilySourceKey = "firebase.child_battery.v1"
+    source: ObservedSourceKey = "firebase.child_battery.v1"
+    requested_day: date | None = Field(default=None, exclude_if=lambda v: v is None)
+
+    @model_validator(mode="after")
+    def dated_source(self) -> "FamilySourceChange":
+        if (self.source == "manakids.family_day_app_usage.v1") != (self.requested_day is not None):
+            raise ValueError("Only dated source changes carry a query-calendar day")
+        return self
 
     @model_serializer(mode="wrap")
     def legacy_battery_event(self, handler: SerializerFunctionWrapHandler) -> object:

@@ -1,5 +1,9 @@
 # Completed-day counters in the single chat — local checkpoint, 2026-10-25
 
+The subsequent [scheduled dated collection checkpoint](mana-dated-collection.md)
+adds family v19/source-cache v6/collection v3 and shared 09:00/15:00 consumers.
+This document retains the original manual v18 workflow and its qualified receipts.
+
 The new default-disabled `MANA_FAMILY_DAY_USAGE_ENABLED` connects the qualified
 [family/day source](mana-family-day-usage-source.md) to the existing Child-Safety
 review and Parent-Touch chat. This is local implementation, not production activation,

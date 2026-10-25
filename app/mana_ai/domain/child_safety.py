@@ -67,7 +67,7 @@ class SafetyConversationNeed(ChatContract):
 
 
 class SafetyContextSnapshot(ChatContract):
-    version: Literal[1, 2, 3] = 1
+    version: Literal[1, 2, 3, 4] = 1
     chat_turn_cutoff: int = Field(ge=0, strict=True)
     messages: list[SafetyChatMessage] = Field(max_length=20)
     saved_assessment_ids: list[UUID] = Field(max_length=20)
@@ -83,8 +83,13 @@ class SafetyContextSnapshot(ChatContract):
             raise ValueError("Historical v1 contexts cannot acquire conversation needs")
         if self.review_first and (self.version != 2 or not self.typed_parent_review):
             raise ValueError("Review-first requires the captured typed-review protocol")
-        if (self.version == 3) != (self.source_review is not None):
+        if (self.version in {3, 4}) != (self.source_review is not None):
             raise ValueError("Only source-review v3 contexts contain frozen source snapshots")
+        dated = self.source_review is not None and any(
+            s.requested_day is not None for s in self.source_review.snapshots
+        )
+        if dated != (self.version == 4):
+            raise ValueError("Dated source reviews need their new immutable v4 context")
         if len(set(self.saved_assessment_ids)) != len(self.saved_assessment_ids):
             raise ValueError("Frozen assessment identities must be unique")
         if self.saved_assessment_total < len(self.saved_assessment_ids):

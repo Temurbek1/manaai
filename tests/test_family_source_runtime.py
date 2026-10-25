@@ -530,15 +530,17 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
 
 
 @pytest.mark.parametrize(
-    "reminders,retention,upsell,expiry,inventory_tariffs,day_usage",
+    "reminders,retention,upsell,expiry,inventory_tariffs,day_usage,dated_reviews,day_collection",
     [
-        (False, False, False, False, False, False),
-        (True, False, False, False, False, False),
-        (True, True, False, False, False, False),
-        (True, True, True, False, False, False),
-        (True, True, True, True, False, False),
-        (True, True, True, True, True, False),
-        (True, True, True, True, False, True),
+        (False, False, False, False, False, False, False, False),
+        (True, False, False, False, False, False, False, False),
+        (True, True, False, False, False, False, False, False),
+        (True, True, True, False, False, False, False, False),
+        (True, True, True, True, False, False, False, False),
+        (True, True, True, True, True, False, False, False),
+        (True, True, True, True, False, True, False, False),
+        (True, True, True, True, False, True, True, False),
+        (True, True, True, True, True, True, True, True),
     ],
 )
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
@@ -551,6 +553,8 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
     expiry: bool,
     inventory_tariffs: bool,
     day_usage: bool,
+    dated_reviews: bool,
+    day_collection: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
@@ -586,6 +590,8 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_family_collection_enabled=inventory_tariffs,
         mana_collection_tariffs_enabled=inventory_tariffs,
         mana_family_day_usage_enabled=day_usage,
+        mana_family_day_reviews_enabled=dated_reviews,
+        mana_collection_day_usage_enabled=day_collection,
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -606,6 +612,13 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
 
         assert isinstance(service.safety._native_sources, SourceToolWorkflow)
         assert (service.safety._native_sources._day_usage is not None) is day_usage
+        from app.mana_ai.application.dated_collection import DatedCollectionService
+        from app.services.dated_review_safety_store import SqliteDatedReviewSafetyStore
+        from app.services.day_review_cache import SqliteDayReviewCache
+
+        assert isinstance(service.sources._store, SqliteDayReviewCache) is dated_reviews
+        assert isinstance(service.store, SqliteDatedReviewSafetyStore) is dated_reviews
+        assert isinstance(service.collection, DatedCollectionService) is day_collection
         if expiry:
             assert service.sources and service.sources._children is service._children
         if inventory_tariffs:
@@ -629,6 +642,8 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
                 "mana_retention_expiry_enabled": False,
                 "mana_collection_tariffs_enabled": False,
                 "mana_family_day_usage_enabled": False,
+                "mana_family_day_reviews_enabled": False,
+                "mana_collection_day_usage_enabled": False,
             }
         )
         async with runtime_module.parent_chat_runtime(stopped) as service:

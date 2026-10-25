@@ -8,7 +8,8 @@ from zoneinfo import ZoneInfo
 from pydantic import AwareDatetime, Field, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
-from app.mana_ai.domain.family_sources import FamilySourceKey, FamilySourceTarget
+from app.mana_ai.domain.family_day_usage import DayUsageTarget
+from app.mana_ai.domain.family_sources import FamilySourceTarget, ObservedSourceKey
 
 
 class FamilyCollectionPolicy(ChatContract):
@@ -82,7 +83,11 @@ class FamilyInventoryPage(ChatContract):
 
 
 class CollectionSourceCounts(ChatContract):
-    source: FamilySourceKey
+    source: ObservedSourceKey
+    target_scope: Literal["child", "family"] = Field(
+        default="child", exclude_if=lambda v: v == "child"
+    )
+    unavailable: int = Field(default=0, ge=0, strict=True, exclude_if=lambda v: v == 0)
     target_reads: int = 0
     completed: int = 0
     cache_hits: int = 0
@@ -131,5 +136,5 @@ class FamilyCollectionWork(ChatContract):
     kind: Literal["inventory", "source", "observe_source"]
     position: int
     offset: int = 0
-    target: FamilySourceTarget | None = None
+    target: DayUsageTarget | FamilySourceTarget | None = None
     deadline: AwareDatetime

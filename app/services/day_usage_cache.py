@@ -48,6 +48,19 @@ class SqliteDayUsageCache(SqliteSourceReviewCache):
         }
     )
 
+    def _day_admitted(self, db: sqlite3.Connection, target: DayUsageTarget) -> None:
+        """Optional consumers capture new admission policy before external I/O."""
+
+    def _day_finalized(
+        self,
+        db: sqlite3.Connection,
+        target: DayUsageTarget,
+        result: DayUsageReceipt,
+        page: FamilyDayUsagePage | None,
+        checked_at: datetime | None,
+    ) -> None:
+        """Optional change journal shares the verified source completion transaction."""
+
     def _upgrade_versions(self) -> set[int]:
         return super()._upgrade_versions() | {4}
 
@@ -285,6 +298,7 @@ class SqliteDayUsageCache(SqliteSourceReviewCache):
                     "INSERT INTO day_usage_owners VALUES(?,?,?)",
                     (target.parent_id, str(target.request_id), str(owner.job_id)),
                 )
+            self._day_admitted(db, target)
             return DayUsageClaim(receipt=receipt, admitted=True, read_provider=not cache)
 
     async def complete_day(
@@ -307,6 +321,7 @@ class SqliteDayUsageCache(SqliteSourceReviewCache):
                 if page is not None:
                     raise ValueError("Cached family facts must retain their original snapshot")
                 facts, family_id = receipt.facts, receipt.family_snapshot_id
+                checked_at = None
             else:
                 if page is None:
                     raise ValueError("A submitted family read needs its verified page")
@@ -369,6 +384,7 @@ class SqliteDayUsageCache(SqliteSourceReviewCache):
                 }
             )
             self._save_day(db, result)
+            self._day_finalized(db, target, result, page, checked_at)
             db.execute(
                 "UPDATE day_usage_ownership SET status='closed' WHERE parent_id=? AND request_id=?",
                 (target.parent_id, str(target.request_id)),

@@ -2,9 +2,11 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from app.mana_ai.application.chat_ports import ParentChatError
+from app.mana_ai.application.dated_collection import DatedCollectionService
+from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.inventory_tariffs import InventoryTariffSink, TariffCollectionService
@@ -16,6 +18,8 @@ from app.mana_ai.domain.family_collection import (
 )
 from app.mana_ai.domain.inventory_tariffs import InventoryTariffPolicy, TariffInventoryPage
 from app.mana_ai.domain.retention_expiry import RetentionTariffFact
+from app.services.dated_collection_store import SqliteDatedCollectionStore
+from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_collection_store import SqliteFamilyCollectionStore
 from app.services.inventory_tariff_store import SqliteInventoryTariffStore
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
@@ -44,19 +48,23 @@ class LabCollectionClock:
 
 
 async def lab_collection_store(
-    directory: Path, clock: LabCollectionClock, *, tariffs: bool = False
+    directory: Path, clock: LabCollectionClock, *, tariffs: bool = False, dated: bool = False
 ) -> SqliteFamilyCollectionStore:
+    dated_options: dict[str, Any] = (
+        {"dated_enabled": True, "source_binding": "fictional-dated-source-v1"} if dated else {}
+    )
     store = (
-        SqliteInventoryTariffStore(
+        (SqliteDatedCollectionStore if dated else SqliteInventoryTariffStore)(
             directory / "collection.sqlite3",
             binding="fake-lab-mana",
             policy=FamilyCollectionPolicy(page_size=1, reads_per_window=4),
             sources=("firebase.child_battery.v1", "manakids.child_app_usage.v1"),
             tariff_policy=InventoryTariffPolicy(),
             recipient_binding="fictional-family-v17",
-            tariffs_enabled=True,
+            tariffs_enabled=tariffs,
+            **dated_options,
         )
-        if tariffs
+        if tariffs or dated
         else SqliteFamilyCollectionStore(
             directory / "collection.sqlite3",
             binding="fake-lab-mana",
@@ -79,10 +87,12 @@ class LabInventory:
         child_id: int,
         *,
         tariff_deadline: datetime | None = None,
+        include_children: bool = False,
     ) -> None:
         self._clock, self._parent, self._child = clock, parent_id, child_id
         self.calls = 0
         self._tariff_deadline = tariff_deadline
+        self._include_children = include_children
 
     async def read(self, offset: int, limit: int) -> FamilyInventoryPage:
         self.calls += 1
@@ -91,7 +101,12 @@ class LabInventory:
                 offset=offset,
                 limit=limit,
                 total_parents=1,
-                families=(InventoryFamily(parent_id=self._parent, connected_child_ids=()),)
+                families=(
+                    InventoryFamily(
+                        parent_id=self._parent,
+                        connected_child_ids=(self._child,) if self._include_children else (),
+                    ),
+                )
                 if offset == 0
                 else (),
                 collected_at=self._clock.now(),
@@ -129,11 +144,30 @@ class LabCollection:
         child_id: int,
         tariff_receiver: InventoryTariffSink | None = None,
         tariff_deadline: datetime | None = None,
+        day_usage: FamilyDayUsageService | None = None,
     ) -> None:
         self.store, self.clock = store, clock
-        self.inventory = LabInventory(clock, parent_id, child_id, tariff_deadline=tariff_deadline)
+        self.inventory = LabInventory(
+            clock,
+            parent_id,
+            child_id,
+            tariff_deadline=tariff_deadline,
+            include_children=isinstance(store, SqliteDatedCollectionStore),
+        )
         self.service = (
-            TariffCollectionService(
+            DatedCollectionService(
+                store=store,
+                inventory=self.inventory,
+                sources=reads,
+                observations=observations,
+                receiver=tariff_receiver,
+                clock=clock.now,
+                day_usage=day_usage,
+                day_observations=observations,
+            )
+            if isinstance(store, SqliteDatedCollectionStore)
+            and isinstance(observations, SqliteDayUsageCache)
+            else TariffCollectionService(
                 store,
                 self.inventory,
                 reads,

@@ -97,7 +97,12 @@ class SqliteInventoryTariffStore(SqliteFamilyCollectionStore):
         return super()._validated_page(page)
 
     def _page_recorded(
-        self, db: sqlite3.Connection, work: FamilyCollectionWork, page: FamilyInventoryPage
+        self,
+        db: sqlite3.Connection,
+        work: FamilyCollectionWork,
+        page: FamilyInventoryPage,
+        *,
+        recorded_at: datetime,
     ) -> None:
         captured = db.execute(
             "SELECT enabled FROM collection_tariff_captures WHERE page_id=?", (work.position,)

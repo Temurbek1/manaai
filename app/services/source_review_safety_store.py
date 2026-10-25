@@ -143,7 +143,9 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
                 snapshot = SafetyContextSnapshot.model_validate(
                     context.model_dump()
                     | {
-                        "version": 3,
+                        "version": 4
+                        if any(s.requested_day is not None for s in bundle.snapshots)
+                        else 3,
                         "review_first": False,
                         "source_review": bundle.model_dump(mode="json"),
                     }
@@ -265,6 +267,9 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
             assessment=report,
             expires_at=now + timedelta(days=1),
             source_observations=tuple(s.facts for s in bundle.snapshots),
+            query_calendar_days=tuple(
+                s.requested_day for s in bundle.snapshots if s.requested_day is not None
+            ),
         )
         connection.execute(
             "UPDATE family_notices SET status='superseded' WHERE parent_id=? AND child_id=? "

@@ -37,6 +37,11 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
         raise ParentChatError("source_review_ownership_denied", 403)
     snapshots = [
         {"source": s.source, "facts": s.facts.model_dump(mode="json", exclude={"child_id"})}
+        | (
+            {"query_calendar_day": s.requested_day.isoformat()}
+            if s.requested_day is not None
+            else {}
+        )
         for s in bundle.snapshots
     ]
     payload = {
@@ -56,7 +61,13 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
     }
     return SafetyPrompt(
         input=ChatPrompt(
-            INSTRUCTIONS,
+            INSTRUCTIONS
+            + (
+                "\nPreserve query_calendar_day as the requested API filter label, "
+                "not a verified measurement day, timezone or screen-time period."
+                if any(s.requested_day is not None for s in bundle.snapshots)
+                else ""
+            ),
             (("user", json.dumps(payload, ensure_ascii=False)),),
             safety_source_review=True,
         ),

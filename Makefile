@@ -12,6 +12,10 @@ CHAT_LAB_ENV_FILE ?=
 chat-lab-day-usage:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_day_usage_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 
+.PHONY: chat-lab-day-collection
+chat-lab-day-collection:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_day_collection_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 .PHONY: install run up down mana-ai-run mana-ai-docker mana-ai-live-eval admin-dev admin-start admin-format-check admin-no-vite admin-bundle-scan admin-production-smoke admin-docker admin-verify auth-backend-tests auth-frontend-tests auth-security auth-docker auth-verify telegram-auth-smoke migrate migration format-check lint typecheck test demo openapi verify meta-readonly-smoke meta-live-readonly-verify product-activity-live-verify audit-migrations audit-focused audit-security audit-schema audit-dependencies audit-browser audit-postgres audit-verify
 
 install:

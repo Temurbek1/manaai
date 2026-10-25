@@ -1,5 +1,7 @@
 """A requested calendar label is not a verified screen-time measurement period."""
 
+import hashlib
+import json
 from datetime import date, datetime
 from typing import Final, Literal
 from uuid import UUID
@@ -161,3 +163,17 @@ class DayUsageClaim(ChatContract):
     receipt: DayUsageReceipt
     admitted: bool
     read_provider: bool
+
+
+def day_child_fingerprint(facts: ChildAppUsageFacts, requested_day: date) -> str:
+    value = facts.model_dump(mode="json", exclude={"collected_at"})
+    value["entries"] = sorted(
+        value["entries"], key=lambda e: (e["app_name"], e["provider_recorded_at"])
+    )
+    return hashlib.sha256(
+        json.dumps(
+            {"day": requested_day.isoformat(), "facts": value},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()

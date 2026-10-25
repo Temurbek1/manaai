@@ -3,11 +3,13 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import httpx
 
 from app.core.config import Settings
 from app.mana_ai.application.chat_ports import ParentChildrenSource
+from app.mana_ai.application.dated_collection import DatedCollectionService
 from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_day_usage import ParentUsageIdentitySource
@@ -15,6 +17,8 @@ from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.inventory_tariffs import InventoryTariffSink, TariffCollectionService
 from app.mana_ai.domain.family_sources import FamilySourceKey
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy
+from app.services.dated_collection_store import SqliteDatedCollectionStore
+from app.services.day_review_cache import SqliteDayReviewCache
 from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_collection_store import (
     SqliteFamilyCollectionStore,
@@ -74,11 +78,17 @@ async def family_source_runtime(
         if settings.mana_family_app_usage_enabled
         else SqliteSourceSafetyStore
     )
-    day_reader = settings.mana_family_day_usage_enabled or (
-        await collection_storage_version(settings.mana_family_source_database_path) == 5
-    )
+    source_version = await collection_storage_version(settings.mana_family_source_database_path)
+    day_review_reader = settings.mana_family_day_reviews_enabled or source_version == 6
+    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6}
     store = (
-        (SqliteDayUsageCache if day_reader else SqliteSourceReviewCache)(
+        (
+            SqliteDayReviewCache
+            if day_review_reader
+            else SqliteDayUsageCache
+            if day_reader
+            else SqliteSourceReviewCache
+        )(
             settings.mana_family_source_database_path,
             binding=(
                 f"mana:firebase:{settings.firebase_project_id}:"
@@ -89,6 +99,11 @@ async def family_source_runtime(
             enabled=settings.mana_family_source_safety_enabled
             and settings.mana_family_source_reviews_enabled,
             review_policy=settings.mana_family_source_review_policy,
+            **(
+                {"dated_reviews_enabled": settings.mana_family_day_reviews_enabled}
+                if day_review_reader
+                else {}
+            ),
         )
         if settings.mana_family_source_reviews_enabled or day_reader
         else store_class(
@@ -160,14 +175,26 @@ async def family_source_runtime(
             if settings.mana_family_app_usage_enabled
             else ("firebase.child_battery.v1",)
         )
-        tariff_reader = settings.mana_collection_tariffs_enabled or (
-            await collection_storage_version(settings.mana_family_collection_database_path) == 2
+        collection_version = await collection_storage_version(
+            settings.mana_family_collection_database_path
+        )
+        dated_reader = settings.mana_collection_day_usage_enabled or collection_version == 3
+        tariff_reader = (
+            settings.mana_collection_tariffs_enabled or collection_version in {2, 3} or dated_reader
         )
         collection_binding = (
             f"mana:{settings.firebase_project_id}:{settings.firebase_database_id}:manakids-v1"
         )
+        dated_options: dict[str, Any] = (
+            {
+                "dated_enabled": settings.mana_collection_day_usage_enabled,
+                "source_binding": str(settings.mana_family_source_database_path.resolve()),
+            }
+            if dated_reader
+            else {}
+        )
         collection_store = (
-            SqliteInventoryTariffStore(
+            (SqliteDatedCollectionStore if dated_reader else SqliteInventoryTariffStore)(
                 settings.mana_family_collection_database_path,
                 tariff_policy=settings.mana_collection_tariff_policy,
                 tariffs_enabled=settings.mana_collection_tariffs_enabled,
@@ -175,6 +202,7 @@ async def family_source_runtime(
                 binding=collection_binding,
                 policy=settings.mana_family_collection_policy,
                 sources=registered,
+                **dated_options,
             )
             if tariff_reader
             else SqliteFamilyCollectionStore(
@@ -194,7 +222,19 @@ async def family_source_runtime(
             include_tariffs=settings.mana_collection_tariffs_enabled,
         )
         collection = (
-            TariffCollectionService(
+            DatedCollectionService(
+                store=collection_store,
+                inventory=inventory,
+                sources=reads,
+                observations=store,
+                receiver=tariff_receiver if settings.mana_collection_tariffs_enabled else None,
+                clock=clock,
+                day_usage=day_usage if settings.mana_collection_day_usage_enabled else None,
+                day_observations=store,
+            )
+            if isinstance(collection_store, SqliteDatedCollectionStore)
+            and isinstance(store, SqliteDayUsageCache)
+            else TariffCollectionService(
                 collection_store,
                 inventory,
                 reads,

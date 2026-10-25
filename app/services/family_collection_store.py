@@ -21,12 +21,14 @@ from app.mana_ai.domain.family_collection import (
     FamilyInventoryPage,
     next_family_collection_window,
 )
+from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, DayUsageReceipt, DayUsageTarget
 from app.mana_ai.domain.family_sources import (
     ChildAppUsageFacts,
     ChildBatteryFacts,
     FamilySourceKey,
     FamilySourceReceipt,
     FamilySourceTarget,
+    ObservedSourceKey,
 )
 
 _TABLES = {
@@ -78,9 +80,62 @@ class SqliteFamilyCollectionStore:
         return FamilyInventoryPage.model_validate(page.model_dump())
 
     def _page_recorded(
-        self, db: sqlite3.Connection, work: FamilyCollectionWork, page: FamilyInventoryPage
+        self,
+        db: sqlite3.Connection,
+        work: FamilyCollectionWork,
+        page: FamilyInventoryPage,
+        *,
+        recorded_at: datetime,
     ) -> None:
         pass
+
+    def _window_claimed(self, db: sqlite3.Connection, identity: str) -> None:
+        """Additional sources capture eligibility only on new occurrences."""
+
+    def _manifest_sources(
+        self, db: sqlite3.Connection, identity: str
+    ) -> tuple[ObservedSourceKey, ...]:
+        return self.sources
+
+    def _dispatch_sources(
+        self, db: sqlite3.Connection, identity: str
+    ) -> tuple[ObservedSourceKey, ...]:
+        return self.sources
+
+    def _inventory_sources(
+        self, db: sqlite3.Connection, work: FamilyCollectionWork
+    ) -> tuple[FamilySourceKey, ...]:
+        return self.sources
+
+    def _pending_targets(self, db: sqlite3.Connection, identity: str) -> int:
+        permitted = self._manifest_sources(db, identity)
+        placeholders = ",".join("?" for _ in permitted)
+        return int(
+            db.execute(
+                f"SELECT COUNT(*) FROM collection_queue WHERE source IN ({placeholders})", permitted
+            ).fetchone()[0]
+        )
+
+    def _source_target(
+        self, db: sqlite3.Connection, queued: sqlite3.Row, active: sqlite3.Row
+    ) -> FamilySourceTarget | DayUsageTarget:
+        return FamilySourceTarget(
+            parent_id=queued["parent_id"],
+            child_id=queued["child_id"],
+            source=queued["source"],
+            request_id=uuid5(
+                UUID(active["window_id"]),
+                f"{queued['parent_id']}:{queued['child_id']}:{queued['source']}",
+            ),
+        )
+
+    @staticmethod
+    def _stored_target(payload: str) -> FamilySourceTarget | DayUsageTarget:
+        return (
+            DayUsageTarget
+            if json.loads(payload).get("source") == DAY_USAGE_SOURCE
+            else FamilySourceTarget
+        ).model_validate_json(payload)
 
     def __init__(
         self,
@@ -254,8 +309,10 @@ class SqliteFamilyCollectionStore:
         if row["publication"] is not None:
             return FamilyCollectionWindow.model_validate_json(row["publication"])
         counts = []
-        for source in self.sources:
+        for source in self._manifest_sources(db, identity):
             values: dict[str, Any] = {"source": source}
+            if source == DAY_USAGE_SOURCE:
+                values["target_scope"] = "family"
             records = db.execute(
                 "SELECT phase,result FROM collection_work WHERE window_id=? AND source=?",
                 (identity, source),
@@ -268,7 +325,9 @@ class SqliteFamilyCollectionStore:
                     "unknown" if record["phase"] in {"claimed", "unknown"} else record["phase"],
                 )
                 key = (
-                    "completed"
+                    "unavailable"
+                    if status == "unavailable"
+                    else "completed"
                     if status == "completed"
                     else "unknown"
                     if status in {"pending", "unknown"}
@@ -313,7 +372,7 @@ class SqliteFamilyCollectionStore:
             published_at=row["published_at"],
             inventory_start_offset=row["started_offset"],
             total_parents_reported=row["last_total"],
-            pending_targets=db.execute("SELECT COUNT(*) FROM collection_queue").fetchone()[0],
+            pending_targets=self._pending_targets(db, identity),
             pages=db.execute(
                 "SELECT COUNT(*) FROM collection_pages WHERE window_id=?", (identity,)
             ).fetchone()[0],
@@ -388,7 +447,7 @@ class SqliteFamilyCollectionStore:
                     claim_id=unknown["claim_id"],
                     kind="observe_source",
                     position=unknown["id"],
-                    target=FamilySourceTarget.model_validate_json(unknown["target"]),
+                    target=self._stored_target(unknown["target"]),
                     deadline=unknown["deadline"],
                 )
             active = db.execute(
@@ -417,6 +476,7 @@ class SqliteFamilyCollectionStore:
                     "UPDATE collection_policy SET next_due=? WHERE id=1",
                     (next_family_collection_window(now).isoformat(),),
                 )
+                self._window_claimed(db, identity)
                 if late:
                     return self._publish(db, identity, now)
                 active = db.execute(
@@ -428,14 +488,18 @@ class SqliteFamilyCollectionStore:
             reads = db.execute(
                 "SELECT COUNT(*) FROM collection_work WHERE window_id=?", (identity,)
             ).fetchone()[0]
+            permitted = self._dispatch_sources(db, identity)
+            placeholders = ",".join("?" for _ in permitted)
             queued = db.execute(
-                "SELECT q.* FROM collection_queue q WHERE NOT EXISTS(SELECT 1 FROM "
+                f"SELECT q.* FROM collection_queue q WHERE q.source IN ({placeholders}) "
+                "AND NOT EXISTS(SELECT 1 FROM "
                 "collection_work w "
-                "WHERE w.parent_id=q.parent_id AND w.child_id=q.child_id AND "
+                "WHERE w.parent_id=q.parent_id AND "
+                "(w.child_id=q.child_id OR q.source='manakids.family_day_app_usage.v1') AND "
                 "w.source=q.source AND "
                 "(w.window_id=? OR w.phase IN ('claimed','unknown'))) ORDER BY "
                 "q.id LIMIT 1",
-                (identity,),
+                (*permitted, identity),
             ).fetchone()
             expires = min(
                 now + timedelta(seconds=self.policy.claim_seconds),
@@ -445,15 +509,7 @@ class SqliteFamilyCollectionStore:
             if queued:
                 if reads >= self.policy.reads_per_window:
                     return self._stop(db, identity, "read_capacity", now)
-                target = FamilySourceTarget(
-                    parent_id=queued["parent_id"],
-                    child_id=queued["child_id"],
-                    source=queued["source"],
-                    request_id=uuid5(
-                        UUID(identity),
-                        f"{queued['parent_id']}:{queued['child_id']}:{queued['source']}",
-                    ),
-                )
+                target = self._source_target(db, queued, active)
                 cursor = db.execute(
                     "INSERT INTO collection_work(window_id,parent_id,child_id,source,ta"
                     "rget,claim_id,phase,claimed_at,expires_at) "
@@ -495,7 +551,7 @@ class SqliteFamilyCollectionStore:
                     "SELECT 1 FROM collection_work WHERE window_id=? AND phase='unknown'",
                     (identity,),
                 ).fetchone()
-                pending = db.execute("SELECT 1 FROM collection_queue LIMIT 1").fetchone()
+                pending = self._pending_targets(db, identity) > 0
                 refused = db.execute(
                     "SELECT 1 FROM collection_work WHERE window_id=? AND "
                     "(phase='skipped' OR json_extract(result,'$.status')='failed')",
@@ -633,12 +689,12 @@ class SqliteFamilyCollectionStore:
                     "AND inventory_blocked='inventory_unknown'"
                 )
                 return
-            self._page_recorded(db, work, checked)
+            self._page_recorded(db, work, checked, recorded_at=now)
             targets = {
                 (p.parent_id, c, s)
                 for p in checked.families
                 for c in p.connected_child_ids
-                for s in self.sources
+                for s in self._inventory_sources(db, work)
             }
             size = db.execute("SELECT COUNT(*) FROM collection_queue").fetchone()[0]
             if size + len(targets) > self.policy.maximum_queued_targets:
@@ -718,7 +774,7 @@ class SqliteFamilyCollectionStore:
     async def finish_source(
         self,
         work: FamilyCollectionWork,
-        receipt: FamilySourceReceipt | None,
+        receipt: FamilySourceReceipt | DayUsageReceipt | None,
         now: datetime,
         *,
         refusal: str | None = None,
@@ -731,7 +787,9 @@ class SqliteFamilyCollectionStore:
             "refusal": refusal,
         }
         if receipt is not None:
-            checked = FamilySourceReceipt.model_validate(receipt.model_dump())
+            checked = (
+                DayUsageReceipt if isinstance(receipt, DayUsageReceipt) else FamilySourceReceipt
+            ).model_validate(receipt.model_dump())
             if (checked.parent_id, checked.child_id, checked.source, checked.request_id) != (
                 work.target.parent_id,
                 work.target.child_id,
@@ -739,6 +797,10 @@ class SqliteFamilyCollectionStore:
                 work.target.request_id,
             ):
                 raise ValueError("Collection receipt does not match its original source claim")
+            if getattr(checked, "requested_day", None) != getattr(
+                work.target, "requested_day", None
+            ):
+                raise ValueError("Collection must retain the exact query day")
             facts = checked.facts if checked.status == "completed" else None
             result = {
                 "status": checked.status,
@@ -770,11 +832,14 @@ class SqliteFamilyCollectionStore:
         def finish() -> None:
             with self._connection() as db:
                 row = db.execute(
-                    "SELECT phase FROM collection_work WHERE id=? AND window_id=? AND claim_id=?",
+                    "SELECT phase,target FROM collection_work WHERE id=? "
+                    "AND window_id=? AND claim_id=?",
                     (work.position, str(work.window_id), str(work.claim_id)),
                 ).fetchone()
                 if row is None:
                     raise ValueError("Unknown collection source claim")
+                if self._stored_target(row["target"]) != work.target:
+                    raise ValueError("Collection work must retain its frozen source target")
                 if row[0] not in {"claimed", "unknown"}:
                     return
                 phase = (

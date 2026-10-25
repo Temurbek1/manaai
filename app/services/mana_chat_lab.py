@@ -85,7 +85,9 @@ from app.services.child_source_model import OpenAIChildSourceModel
 from app.services.client_retention_store import SqliteClientRetentionStore
 from app.services.client_upsell_store import SqliteClientUpsellStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
+from app.services.dated_review_safety_store import SqliteDatedReviewSafetyStore
 from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
+from app.services.day_review_cache import SqliteDayReviewCache
 from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
@@ -526,6 +528,12 @@ class SimulatedModel:
                         "и часовой пояс неизвестны; это не экранное время за день. "
                         "Проверьте заряд телефона."
                     )
+                if prompt.notice.query_calendar_days:
+                    answer = (
+                        ", ".join(d.isoformat() for d in prompt.notice.query_calendar_days)
+                        + ": "
+                        + answer
+                    )
             else:
                 guidance = json.loads(prompt.messages[0][1]).get("specialist_guidance", {})
                 sources = guidance.get("source_observations", [])
@@ -632,10 +640,16 @@ class LabOptions:
     expiry: bool = False
     collection_tariffs: bool = False
     day_usage: bool = False
+    dated_reviews: bool = False
+    day_collection: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.dated_reviews and not options.day_usage:
+            raise ValueError("Dated reviews require the captured day source")
+        if options.day_collection and not (options.dated_reviews and options.scheduled_collection):
+            raise ValueError("Dated collection requires its source reviews and fictional windows")
         if options.day_usage and not options.expiry:
             raise ValueError("Dated usage lab requires the full current family profile")
         if options.collection_tariffs and not (options.expiry and options.scheduled_collection):
@@ -647,7 +661,7 @@ class ChatLab:
         if options.source_reviews and (
             not options.native_observations
             or options.scheduled_collection
-            and not options.collection_tariffs
+            and not (options.collection_tariffs or options.day_collection)
         ):
             raise ValueError("Source-review lab requires native observations and its own directory")
         if options.scheduled_collection and (
@@ -705,6 +719,10 @@ class ChatLab:
             expected["expiry"] = True
         if self.options.day_usage:
             expected["day_usage"] = True
+        if self.options.dated_reviews:
+            expected["dated_reviews"] = True
+        if self.options.day_collection:
+            expected["day_collection"] = True
         if self.options.collection_tariffs:
             expected["collection_tariffs"] = True
         if (
@@ -758,7 +776,10 @@ class ChatLab:
         if self.options.scheduled_collection:
             assert isinstance(self.options.clock, LabCollectionClock)
             collection_store = await lab_collection_store(
-                directory, self.options.clock, tariffs=self.options.collection_tariffs
+                directory,
+                self.options.clock,
+                tariffs=self.options.collection_tariffs,
+                dated=self.options.day_collection,
             )
         now = self.options.clock.now()
         limits = ChildSafetyLimits(
@@ -808,7 +829,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteDatedSourceSafetyStore
+                SqliteDatedReviewSafetyStore
+                if self.options.dated_reviews
+                else SqliteDatedSourceSafetyStore
                 if self.options.day_usage
                 else SqliteRetentionExpiryStore
                 if self.options.expiry
@@ -844,6 +867,8 @@ class ChatLab:
                 )
             if self.options.day_usage:
                 reminder_options["day_tools_enabled"] = True
+            if self.options.dated_reviews:
+                reminder_options["dated_reviews_enabled"] = True
             self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
@@ -887,13 +912,22 @@ class ChatLab:
             else SqliteSourceSafetyStore
         )
         self.source_store = (
-            (SqliteDayUsageCache if self.options.day_usage else SqliteSourceReviewCache)(
+            (
+                SqliteDayReviewCache
+                if self.options.dated_reviews
+                else SqliteDayUsageCache
+                if self.options.day_usage
+                else SqliteSourceReviewCache
+            )(
                 directory / "sources.sqlite3",
                 binding="fake-lab-mana-battery-v1",
                 limits=FamilySourceLimits(),
                 policy=policy,
                 enabled=True,
-                review_policy=SourceReviewPolicy(),
+                review_policy=SourceReviewPolicy(coalesce_seconds=0)
+                if self.options.day_collection
+                else SourceReviewPolicy(),
+                **({"dated_reviews_enabled": True} if self.options.dated_reviews else {}),
             )
             if self.options.source_reviews
             else source_class(
@@ -996,6 +1030,7 @@ class ChatLab:
                 if isinstance(self.store, SqliteRetentionExpiryStore)
                 else None,
                 tariff_deadline=tariff_until if self.options.collection_tariffs else None,
+                day_usage=self.day_usage if self.options.day_collection else None,
             )
             self.touch.collection = self.collection.service
         if await self.store.contact_context(LAB_PARENT, now) is None:

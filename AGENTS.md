@@ -2,6 +2,23 @@
 
 ## Repository expectations
 
+- The subsequent local dated collector uses family v19/source-cache v6/collection
+  v3. Read `docs/mana-dated-collection.md`. New default-disabled
+  `MANA_FAMILY_DAY_REVIEWS_ENABLED` / `MANA_COLLECTION_DAY_USAGE_ENABLED` capture
+  only new source admissions/review jobs/windows/page claims. One preceding-day
+  family page replaces new undated app collection in captured windows and shares
+  existing source budgets, cache and coalesced Child-Safety/Parent-Touch workflow.
+  Old pending/unknown captures never upgrade; missing rows are unavailable, not
+  zero screen time. Preserve exact query/observation dates, sibling fingerprints,
+  source bindings, all original history and unknown holds. Disabling fences late
+  publication after cost accounting. Current closed v19/v6/v3 readers retain state;
+  actual previous v18/v5/v2 refusal is not working rollback. One actual-model
+  fictional first contact passed mechanically with RU wording negatives; fake
+  mobile/restart checks are not fleet/source/language/production acceptance.
+  No production/source schedule, key/SSH, contact/grant/payment or budget change
+  follows. Keep the full objective open, including GPS/referral/commercial/admin
+  and capacity acceptance.
+
 - The subsequent local dated-source increment uses family v18/source-cache v5,
   default-disabled `MANA_FAMILY_DAY_USAGE_ENABLED`, and unchanged collection v2.
   Read `docs/mana-dated-source-workflow.md`. New protocol-3 turns freeze query-calendar
@@ -19,7 +36,8 @@
   refusal is not a working rollback. No new bulk schedule, source activation,
   contact/payment/grant, production, SSH/key or quota change follows.
 
-- The subsequent local completed-day usage **source port** is not runtime-wired:
+- At the historical `cb54a9c` checkpoint the completed-day usage **source port**
+  was not runtime-wired; subsequent v18/v19 increments above add the runtime:
   read `docs/mana-family-day-usage-source.md` before extending it. One fresh MANA
   ownership/username lookup and one filtered family page cover at most ten children,
   retaining exact requested calendar labels and per-child app-page qualifications.

@@ -90,6 +90,8 @@ class Settings(BaseSettings):
     mana_family_collection_enabled: bool = False
     mana_family_source_reviews_enabled: bool = False
     mana_family_day_usage_enabled: bool = False
+    mana_family_day_reviews_enabled: bool = False
+    mana_collection_day_usage_enabled: bool = False
     mana_parent_reminders_enabled: bool = False
     mana_client_retention_enabled: bool = False
     mana_client_upsell_enabled: bool = False
@@ -443,6 +445,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_day_reviews_enabled and not self.mana_family_day_usage_enabled:
+            raise ValueError("Dated source reviews require the governed day-usage runtime")
+        if self.mana_collection_day_usage_enabled and not (
+            self.mana_family_day_reviews_enabled and self.mana_family_collection_enabled
+        ):
+            raise ValueError(
+                "Dated collection requires enabled shared collection and source reviews"
+            )
         if self.mana_family_day_usage_enabled and not self.mana_retention_expiry_enabled:
             raise ValueError("Dated usage tools require the complete current parent-chat profile")
         if self.mana_collection_tariffs_enabled and not (
@@ -480,8 +490,11 @@ class Settings(BaseSettings):
             if not self.mana_family_sources_enabled:
                 raise ValueError("Collection requires the governed family source runtime")
             if self.mana_family_collection_policy.claim_seconds <= (
-                self.mana_parent_chat_source_timeout_seconds
-                + self.mana_family_source_timeout_seconds
+                max(
+                    self.mana_parent_chat_source_timeout_seconds
+                    + self.mana_family_source_timeout_seconds,
+                    60 if self.mana_collection_day_usage_enabled else 0,
+                )
                 + 30
             ):
                 raise ValueError("Collection request timeouts must fit inside its durable claim")

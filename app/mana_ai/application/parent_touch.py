@@ -411,6 +411,10 @@ class ParentTouchService(ParentChatService):
                         facts.model_dump(mode="json", exclude={"child_id"})
                         for facts in evidence.notice.source_observations
                     ]
+                if evidence.notice.query_calendar_days:
+                    data["assessments"]["query_calendar_days"] = [
+                        d.isoformat() for d in evidence.notice.query_calendar_days
+                    ]
         reference = await self._touch_store.language_reference(request.parent_id, turn.turn_id)
         response_language = await self._touch_store.language_hint(request.parent_id, turn.turn_id)
         if response_language is None:
@@ -555,7 +559,17 @@ class ParentTouchService(ParentChatService):
                 "timezone are unverified; never sum them into daily screen time or infer a "
                 "complete ranking/trend. Battery connectivity/current danger remain unknown."
             )
-        source_dates: tuple[str, ...] = ()
+        source_dates: tuple[str, ...] = (
+            tuple(d.isoformat() for d in evidence.notice.query_calendar_days)
+            if evidence and evidence.notice
+            else ()
+        )
+        if source_dates:
+            instructions += (
+                "\nState every query_calendar_days value as YYYY-MM-DD: requested API filter "
+                "labels, not verified measurement days, timezone or screen time. "
+                "Preserve partial coverage; missing rows are not zero use."
+            )
         commercial = await self._touch_store.commercial_context(request.parent_id, turn.turn_id)
         if commercial is not None:
             data["commercial_context"] = commercial.presentation()
