@@ -2,6 +2,56 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Dated usage -> Child-Safety -> Parent-Touch — 2026-10-25, `e9b33bf`
+
+Authoritative family checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
+[Implementation, real negative results and acceptance](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-dated-source-workflow.md)
+and English integration section 23 describe family v18/source-cache v5, unchanged
+collection v2. Default-disabled `MANA_FAMILY_DAY_USAGE_ENABLED` captures a new
+dated native tool only on new eligible turns. One shared family/day page serves
+permitted children under fresh ownership, shared admissions, parent six-hour
+cooldown and durable unknown holds. Exact replay observes original SQL, never
+rereads. Missing children are unavailable evidence, not zero use or screen time.
+Old native v1/v2/profile digests never upgrade; existing collector windows stay
+unchanged and do not yet acquire this dated source.
+
+The actual SDK/application/source/cache/chat path is wired locally. Parent-Touch
+retains every original parent word/fact and reminder/upsell scopes while concise
+dated-result instructions reduce duplicated overhead. V3 final requests omit
+callable tool schemas but retain original scope/call/result pairing and opaque
+continuation. Both original 2000-token limits remain. Four separately admitted
+fictional real-model parties stopped on budget/output limits and retain negative
+receipts. A fifth new small Uzbek full loop passed: **1920 safety /1964 speaker
+tokens**, zero holds, three generations/six HTTP attempts, exact requested date,
+partial coverage and unknown period/timezone. Replay adds zero HTTP. Across all
+five: 23 OpenAI attempts/10 generations/10537 raw tokens, no real family/source,
+Firestore/GA4, push/grant/payment or production action. This is not broad model,
+long-history, RU/EN post-fix, fleet or real-family E2E acceptance.
+
+Final `make verify` **94904** exited 0: **1386 backend /26 admin /10 lab cases**,
+mypy **396**, lint/format/types/build/npm zero; API sync/marker/secret scans pass.
+Initial dummy-key collection and request-field/failed-review harness failures stay
+recorded, not counted as passes. Candidate `c92073bc996c` retains all old table
+fingerprints and **150 known/1850 unknown** tokens through upgrade. A new packaged
+loop/unknown receipt retains three messages and **300 known/1700 unknown** tokens
+through closed v18; deactivated v5 preserves source ownership holds. Its isolated
+production-env probe explicitly disables unrelated Telegram auth; the first
+incomplete fixture failed and remains recorded. All 19 critical Python hashes
+match. Actual old image `8791d2946969` refuses v18/v5 unchanged; no working execution
+or production rollback is claimed. Never downgrade populated SQL.
+
+Owned 390px Chromium exercised RU/UZ dated requests, one provider page followed
+by cache reuse and one existing fictional zero-model Retention expiry notice in
+the same chat: five messages, 300/600 simulated tokens. Reload and actual server
+restart preserve every family/source table fingerprint. Screenshots inspected,
+no page overflow/browser errors; owned browser/server closed. No mobile route,
+source schedule, quota, production, main/audio, SSH/key or customer state change.
+
+The full goal remains active. Next work includes shared dated bulk collection,
+broader source/GPS identity, referral contracts, commercial eligibility and
+capacity/quality acceptance. Root unrelated changes retain `f4b205e5...`; this
+handoff is a local checkpoint, not a release.
+
 ### Completed-day usage source port — 2026-10-25, `cb54a9c`
 
 Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
