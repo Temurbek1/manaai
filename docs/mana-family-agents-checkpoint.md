@@ -2,6 +2,55 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Source-driven expiry reminder — 2026-10-25, `e819dc9`
+
+Authoritative checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
+[Implementation and evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-retention-expiry.md)
+and English integration section 20 describe a new supported Retention flow:
+successful existing exact-parent profile read -> minimized paid/end-time cache ->
+one dated assistant-only Parent-Touch notice before the parent writes -> normal
+reviewed parent reply. The exact reminder uses zero model tokens and adds no
+profile/Firebase/GA4 request. No payment, renewal, grant, discount or feature loss
+is asserted. Paid status grants no contact permissions.
+
+Default-disabled `MANA_RETENTION_EXPIRY_ENABLED` adds family schema v17, retaining
+source v4/collection v1 and all original history/holds. Separate fresh Retention
+consent/language/timezone, quiet hours, opt-out, safety priority and the existing
+shared 20/day outreach cap plus parent 24-hour gap apply. Same-term refresh/replay,
+concurrent workers, restart and lost local acknowledgement cannot duplicate it.
+Invalid/stale/foreign source facts suppress eligibility; changed facts suppress
+outdated queued pushes. Auth/capacity/integrity close this consumer durably.
+Turning only expiry off retains the compatible core chat services; no observer,
+expiry publication or pending expiry push proceeds. Re-enable resets no state.
+
+One actual-model fictional v17 loop completed with **1902 speaker /935 safety
+tokens**, zero holds, two generations/four OpenAI attempts, one reminder and three
+history messages. The response retained the exact term, unknown auto-charge and
+the parent's request to connect nothing. Estimate **$0.0068975**, not an invoice;
+not broad language/model/fleet quality. A distinct designated test-parent 4 login
++filtered GET saved one minimized head/change with zero contact/model/source-write
+calls. Neither original paid/live-source party was repeated for later checks.
+
+Final `make verify` **93346**, exit 0: **1307 backend /26 admin /10 lab cases**,
+mypy **383**, formatting/lint/types/build/npm zero; schema/marker/secret scans pass.
+Twenty-four fake expiry cases include independent stop and retained deadline
+deduplication. Owned 390px RU/UZ browser/reload/server restart retained three
+messages, 150 simulated speaker/150 safety tokens and one notice; screenshot
+inspected, browser/port closed. Final candidate `8791d2946969` passed networkless
+v13 -> v17/closed-reader checks, preserving every old table fingerprint and
+150 known/1850 unknown safety tokens; critical source hashes match. Actual v16
+`658b61059504` refuses v17 unchanged, not a working execution rollback.
+
+Bulk Parent List inventory pages are not yet a durable billing fan-out producer;
+only already occurring targeted reads feed this cache. Do not claim all-parent
+coverage. Actual referral contracts, wider supported specialists/sources, fleet
+capacity/quality and a separately scoped release remain open. The supplied Parent/
+grant files were rechecked and retain the hashes in the referral record; neither
+documents referral methods. The full goal remains active. Production, source
+schedules, main/audio, customer tariffs, SSH, keys and the root unrelated diff
+remain unchanged.
+
+
 ### Current account context — 2026-10-25, `8fe07da`
 
 The authoritative family checkout `/mnt/ssd2/mana-conversion-agent-20261021` now
