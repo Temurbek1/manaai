@@ -530,17 +530,19 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
 
 
 @pytest.mark.parametrize(
-    "reminders,retention,upsell,expiry,inventory_tariffs,day_usage,dated_reviews,day_collection",
+    "reminders,retention,upsell,expiry,inventory_tariffs,day_usage,dated_reviews,day_collection,shared",
     [
-        (False, False, False, False, False, False, False, False),
-        (True, False, False, False, False, False, False, False),
-        (True, True, False, False, False, False, False, False),
-        (True, True, True, False, False, False, False, False),
-        (True, True, True, True, False, False, False, False),
-        (True, True, True, True, True, False, False, False),
-        (True, True, True, True, False, True, False, False),
-        (True, True, True, True, False, True, True, False),
-        (True, True, True, True, True, True, True, True),
+        (False, False, False, False, False, False, False, False, False),
+        (True, False, False, False, False, False, False, False, False),
+        (True, True, False, False, False, False, False, False, False),
+        (True, True, True, False, False, False, False, False, False),
+        (True, True, True, True, False, False, False, False, False),
+        (True, True, True, True, True, False, False, False, False),
+        (True, True, True, True, False, True, False, False, False),
+        (True, True, True, True, False, True, True, False, False),
+        (True, True, True, True, True, True, True, True, False),
+        (True, True, True, True, False, False, False, False, True),
+        (True, True, True, True, True, True, True, True, True),
     ],
 )
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
@@ -555,12 +557,14 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
     day_usage: bool,
     dated_reviews: bool,
     day_collection: bool,
+    shared: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
     from app.services.parent_reminder_store import SqliteParentReminderStore
     from app.services.source_review_cache import SqliteSourceReviewCache
     from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
+    from tests.test_conversion_agent import paid_offer
 
     class ClosedModel(Model):
         async def close(self) -> None:
@@ -592,6 +596,9 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_family_day_usage_enabled=day_usage,
         mana_family_day_reviews_enabled=dated_reviews,
         mana_collection_day_usage_enabled=day_collection,
+        mana_conversion_enabled=shared,
+        mana_conversion_shared_profile_enabled=shared,
+        mana_conversion_offers=(paid_offer(),) if shared else (),
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
             parent_daily_tokens=2000,
@@ -617,7 +624,10 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         from app.services.day_review_cache import SqliteDayReviewCache
 
         assert isinstance(service.sources._store, SqliteDayReviewCache) is dated_reviews
-        assert isinstance(service.store, SqliteDatedReviewSafetyStore) is dated_reviews
+        assert isinstance(service.store, SqliteDatedReviewSafetyStore) is (dated_reviews or shared)
+        from app.services.shared_conversion_profile_store import SqliteSharedConversionProfileStore
+
+        assert isinstance(service.store, SqliteSharedConversionProfileStore) is shared
         assert isinstance(service.collection, DatedCollectionService) is day_collection
         if expiry:
             assert service.sources and service.sources._children is service._children
@@ -643,6 +653,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
                 "mana_collection_tariffs_enabled": False,
                 "mana_family_day_usage_enabled": False,
                 "mana_family_day_reviews_enabled": False,
+                "mana_conversion_shared_profile_enabled": False,
                 "mana_collection_day_usage_enabled": False,
             }
         )

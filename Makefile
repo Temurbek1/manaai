@@ -8,6 +8,10 @@ ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 CHAT_LAB_PORT ?= 8092
 CHAT_LAB_ENV_FILE ?=
 
+.PHONY: chat-lab-shared-conversion
+chat-lab-shared-conversion:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_shared_conversion_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 .PHONY: chat-lab-day-usage
 chat-lab-day-usage:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_day_usage_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

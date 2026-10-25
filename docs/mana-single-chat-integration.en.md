@@ -757,3 +757,25 @@ reuse, not live cloud acquisition or model quality. Read
 [the implementation, exact engineering/model/browser evidence and limits](mana-dated-collection.md).
 These additions have not been deployed. Keep using the released API until its
 separate scoped rollout is confirmed.
+
+## 25. Shared profile changes can stop commercial contact (local, not released)
+
+With the explicit family-v20 `MANA_CONVERSION_SHARED_PROFILE_ENABLED` profile,
+existing profile reads and known inventory tariff batches also check newly
+captured conversion events. No additional phone operation, backend event or
+source query is needed to stop an offer after a paid/unknown/changed tariff is
+observed. Missing/stale/closed source evidence also refuses captured work.
+
+Only Parent-Touch publishes. A saved chat message stays in history; an unsubmitted
+marketing push is checked separately against the original proposal and current
+permissions. The original conversion-event replay returns its original receipt,
+so use the existing proposal GET for current lifecycle status. Replay must not
+reopen a cancelled offer or trigger another read/send.
+
+This shared cache is a veto, not proof of free use, consent, activity, all active
+entitlements or payment. The existing authoritative eligibility and approved
+billing terms are still required. A paid source record is not a measured payment
+outcome. Defaults/budgets remain unchanged; old events never acquire new checks.
+Run `make chat-lab-shared-conversion` for fictional profile/offer/paid-veto examples.
+Read [the exact implementation, compatibility and acceptance limits](mana-shared-conversion-profile.md).
+This increment has not been deployed.

@@ -15,7 +15,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
@@ -36,6 +36,12 @@ from app.services.mana_chat_lab import (
     LabOptions,
     LabState,
 )
+
+
+class LabConversionProfileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    parent_id: Literal["900001"]
+    is_paid: bool | None = Field(strict=True)
 
 
 class LabCollectionRequest(BaseModel):
@@ -182,6 +188,14 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     @app.post("/lab/expiry-profile", include_in_schema=False)
     async def expiry_profile() -> dict[str, str]:
         return await mana_family_agents.controlled(lab.prepare_expiry_scenario())
+
+    @app.post(
+        "/lab/conversion-profile",
+        dependencies=[Depends(local_session)],
+        response_model=dict[str, str],
+    )
+    async def conversion_profile(payload: LabConversionProfileRequest) -> dict[str, str]:
+        return await mana_family_agents.controlled(lab.prepare_conversion_profile(payload.is_paid))
 
     for router in (mana_family_agents.router, mana_child_safety.router, mana_conversion.router):
         app.include_router(router, prefix="/api/v1/mana-ai")
@@ -472,6 +486,28 @@ def create_day_usage_app() -> FastAPI:
             tariff_context=True,
             expiry=True,
             day_usage=True,
+        )
+    )
+
+
+def create_shared_conversion_app() -> FastAPI:
+    """Fictional profile changes veto an existing conversion without provider I/O."""
+    root = Path(__file__).resolve().parents[1]
+    clock = LabCollectionClock()
+    clock.advance(9)
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/shared-conversion-simulation",
+            clock=clock,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            shared_conversion_profile=True,
         )
     )
 

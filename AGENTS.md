@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The subsequent local `MANA_CONVERSION_SHARED_PROFILE_ENABLED` consumer defaults
+  off and uses family v20, with no source/collection schema change. Read
+  `docs/mana-shared-conversion-profile.md`. Only new conversion events capture
+  the stricter check; old profiles/events never recapture on enable/replay.
+  Existing known profile/inventory acquisition feeds Retention and a minimized
+  Conversion veto atomically, with no additional I/O/model/grant. Paid/unknown/
+  stale/conflicting/changed-term facts or a disabled source cancel captured work
+  and suppress unsubmitted marketing pushes, preserving saved messages and unknown
+  receipts. Non-paid selection never proves free-start, full entitlement, activity,
+  consent, an approved offer or a payment outcome. No automatic eligibility is
+  implemented by this veto. Equal-time contradictions/capacity/corruption close
+  this consumer without resetting Retention. Current closed v20 retains state;
+  actual v19 refusal is not working rollback. Fake/browser/image acceptance is
+  not a production release or new real-model/source/channel quality acceptance.
+  Keep the complete objective and missing commercial/referral/admin scope open.
+
 - The subsequent local dated collector uses family v19/source-cache v6/collection
   v3. Read `docs/mana-dated-collection.md`. New default-disabled
   `MANA_FAMILY_DAY_REVIEWS_ENABLED` / `MANA_COLLECTION_DAY_USAGE_ENABLED` capture

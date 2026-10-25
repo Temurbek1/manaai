@@ -85,6 +85,11 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
         """Captured source protocols may veto, never invent eligibility or grants."""
         return None
 
+    def _capture_conversion_source(
+        self, connection: sqlite3.Connection, snapshot: ConversionSnapshot
+    ) -> None:
+        """New compatible readers may freeze a stricter source check, never a grant."""
+
     def _reason_eligible(self, reason: str) -> bool:
         return reason in {"seven_day_free_use", "hot_free_account"}
 
@@ -257,6 +262,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
             known = self._event(connection, snapshot, "snapshot")
             if known:
                 return ConversionAdmission.model_validate_json(known)
+            self._capture_conversion_source(connection, snapshot)
             previous = connection.execute(
                 "SELECT * FROM conversion_accounts WHERE parent_id=?", (snapshot.parent_id,)
             ).fetchone()

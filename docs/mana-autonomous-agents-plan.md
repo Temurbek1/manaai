@@ -34,7 +34,7 @@ keys, SSH settings and source schedules remain outside local changes.
 | One shared collection, consumers reuse snapshots; changes create internal events | Local collector now shares dated family pages with sibling/native consumers, semantic change events and existing Child-Safety/Parent-Touch reviews (v19/v6/v3); see `mana-dated-collection.md`. Real-fleet capacity/timing and cross-context aggregate publication remain incomplete |
 | New child data/new parent text triggers Child-Safety without unchanged-context inference | Source-to-safety-to-Parent-Touch fake path and existing message workflow pass; independent real-model/source loop and remaining automatic feeds still required, with retained dedup/unknown/date limits |
 | Behavioral changes, screen time, routes, reports and clarifications | Ten analysis contracts plus a live-compatible partial app-counter source; no verified screen-time interval. The completed-day family source connects through captured native tools, a shared family/day cache and same-chat delivery; one small Uzbek loop passed after retained budget failures. New scheduled dated reviews also pass one qualified real-model fictional first contact; see `mana-dated-source-workflow.md` and `mana-dated-collection.md`. GPS identity, broader source semantics/quality, capacity and release remain unverified |
-| Timely paid conversion | Local commercial lifecycle/account/catalog adapters exist; replace missing-webhook dependency with source-derived observations without inventing free-start/consent/offer terms |
+| Timely paid conversion | Local commercial lifecycle/account/catalog adapters exist. The subsequent v20 shared profile consumer now reuses known profile/inventory facts to cancel captured queued offers and suppress unsubmitted marketing pushes without another event/read; see `mana-shared-conversion-profile.md`. It is a veto, not source-derived eligibility: authoritative free-start/activity/consent/approved terms and real paid outcomes still require integration/proof |
 | Churn detection, retention, win-back | Local v15 chat-inactivity -> Parent-Touch check-in -> reply workflow is implemented and passed one real-model fictional loop; see `mana-client-retention.md`. Local v17 reuses fresh profile observations for exact consented expiry reminders with zero initial inference; see `mana-retention-expiry.md`. The subsequent collection-v2 consumer also shares known bulk-page tariff facts without another read; see `mana-inventory-tariffs.md`. App churn, renewal, pause/discount, whole-fleet capacity and further supported commercial actions remain incomplete |
 | Real eligible upsell; referral and loyalty using confirmed mechanisms only | Local v16 explicit price/duration enquiry -> real shared catalog -> exact same-chat quote is implemented; see `mana-client-upsell.md`. Proactive upgrade eligibility remains incomplete. Owner confirms an existing referral mechanism; supplied Parent/grant docs do not describe it. Fresh test-parent read confirms account fields but no referral contract; see `mana-referral-integration-status.md`. No invented rewards/discounts/billing |
 | Parent assistance and supported reminders | Local current-account context reuses the existing profile GET for tariff/expiry answers without new billing/source authority; see `mana-parent-account-context.md`. Local v14 reminder drafts, parent confirmation, cancellation and one-shot SQL delivery now exist; see `mana-parent-reminders.md`. Broader assistant/model/real-channel acceptance remains open; no calls/orders |
@@ -55,6 +55,13 @@ zero, a fabricated offer, a smaller replacement objective or an excuse to stop
 other implementable work.
 
 ## Subsequent local source-to-chat increment
+
+The [shared conversion-profile increment](mana-shared-conversion-profile.md) wires
+the already acquired selected-tariff facts to newly captured commercial checks.
+Paid/unknown/stale/changed facts stop work without another profile/source/model
+call; saved messages and unknown holds are retained. The current v20 closed reader
+preserves all state; actual v19 refusal is not an execution rollback. This does not
+manufacture autonomous eligibility or complete the original paid-conversion scope.
 
 The [dated collection increment](mana-dated-collection.md) connects new scheduled
 preceding-day family reads to the shared source cache, coalesced specialist review

@@ -76,7 +76,7 @@ from app.mana_ai.domain.family_sources import (
 from app.mana_ai.domain.parent_reminders import ReminderCandidate, ReminderPolicy
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
-from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
+from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy, RetentionTariffFact
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy, SourceReviewWork
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
 from app.services.child_safety_model import OpenAIChildSafetyModel
@@ -97,6 +97,7 @@ from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_reminder_store import SqliteParentReminderStore
 from app.services.retention_expiry_store import SqliteRetentionExpiryStore
+from app.services.shared_conversion_profile_store import SqliteSharedConversionProfileStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
 from app.services.source_safety_store import SqliteSourceSafetyStore
@@ -642,10 +643,13 @@ class LabOptions:
     day_usage: bool = False
     dated_reviews: bool = False
     day_collection: bool = False
+    shared_conversion_profile: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.shared_conversion_profile and (not options.expiry or options.real_model):
+            raise ValueError("Shared conversion lab requires the existing profile observer")
         if options.dated_reviews and not options.day_usage:
             raise ValueError("Dated reviews require the captured day source")
         if options.day_collection and not (options.dated_reviews and options.scheduled_collection):
@@ -725,6 +729,8 @@ class ChatLab:
             expected["day_collection"] = True
         if self.options.collection_tariffs:
             expected["collection_tariffs"] = True
+        if self.options.shared_conversion_profile:
+            expected["shared_conversion_profile"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -829,7 +835,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteDatedReviewSafetyStore
+                SqliteSharedConversionProfileStore
+                if self.options.shared_conversion_profile
+                else SqliteDatedReviewSafetyStore
                 if self.options.dated_reviews
                 else SqliteDatedSourceSafetyStore
                 if self.options.day_usage
@@ -869,6 +877,8 @@ class ChatLab:
                 reminder_options["day_tools_enabled"] = True
             if self.options.dated_reviews:
                 reminder_options["dated_reviews_enabled"] = True
+            if self.options.shared_conversion_profile:
+                reminder_options["shared_profile_enabled"] = True
             self.store = native_store_class(
                 directory / "family.sqlite3",
                 native_model=profile.model_name,
@@ -897,6 +907,16 @@ class ChatLab:
                 push_enabled=False,
             )
         await self.store.initialize()
+        if self.options.shared_conversion_profile and isinstance(
+            self.options.clock, LabCollectionClock
+        ):
+            with self.store._connect() as db:
+                latest = db.execute(
+                    "SELECT MAX(collected_at) FROM conversion_profile_heads"
+                ).fetchone()[0]
+            if latest:
+                self.options.clock.restore(datetime.fromisoformat(latest))
+                now = self.options.clock.now()
         profiles: ParentChildrenSource = LabProfiles(
             self.options.clock,
             tariff_context=self.options.tariff_context,
@@ -1162,6 +1182,26 @@ class ChatLab:
         await self._profiles.read(LAB_PARENT)
         return {"status": "completed"}
 
+    async def prepare_conversion_profile(self, is_paid: bool | None) -> dict[str, str]:
+        if not self.options.shared_conversion_profile:
+            raise ParentChatError("lab_shared_conversion_profile_disabled", 409)
+        assert isinstance(self.store, SqliteSharedConversionProfileStore)
+        if isinstance(self.options.clock, LabCollectionClock) and is_paid is True:
+            self.options.clock.advance(15)
+        now = self.options.clock.now()
+        await self.store.observe_inventory_tariffs(
+            (
+                RetentionTariffFact(
+                    parent_id=LAB_PARENT,
+                    collected_at=now,
+                    is_paid=is_paid,
+                    valid_until=now + timedelta(days=1),
+                ),
+            ),
+            now,
+        )
+        return {"status": "observed", "mode": "simulation"}
+
     def bootstrap(self) -> LabBootstrap:
         now = self.options.clock.now()
         needs = AgentQuestionRequest(
@@ -1200,6 +1240,24 @@ class ChatLab:
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="conversion-profile-" + key,
+                            title=title,
+                            path="/lab/conversion-profile",
+                            local=True,
+                            body={"parent_id": LAB_PARENT, "is_paid": paid},
+                        )
+                        for key, title, paid in (
+                            ("free", "Профиль: не оплачен (симуляция)", False),
+                            ("paid", "Профиль: оплачен (симуляция)", True),
+                            ("unknown", "Профиль: статус неизвестен (симуляция)", None),
+                        )
+                    ]
+                    if self.options.shared_conversion_profile
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

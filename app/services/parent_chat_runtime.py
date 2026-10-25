@@ -81,6 +81,10 @@ from app.services.reviewed_message_store import (
     SqliteClosedReviewedBrokerStore,
     SqliteReviewedMessageStore,
 )
+from app.services.shared_conversion_profile_store import (
+    SqliteClosedSharedConversionProfileStore,
+    SqliteSharedConversionProfileStore,
+)
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_review_safety_store import (
     SqliteClosedSourceReviewSafetyStore,
@@ -108,7 +112,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
-        version in {17, 18, 19}
+        version in {17, 18, 19, 20}
         and settings.mana_child_safety_enabled
         and not settings.mana_client_upsell_enabled
     ):
@@ -172,9 +176,21 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             account_read_limits=settings.mana_conversion_account_read_limits,
             **store_arguments,
         )
+        profile_options: dict[str, Any] = {}
+        if settings.mana_conversion_shared_profile_enabled or version == 20:
+            profile_options.update(
+                shared_profile_enabled=settings.mana_conversion_shared_profile_enabled,
+                shared_profile_policy=settings.mana_conversion_shared_profile_policy,
+            )
+        if settings.mana_family_day_usage_enabled or version in {18, 19, 20}:
+            profile_options["day_tools_enabled"] = settings.mana_family_day_usage_enabled
+        if settings.mana_family_day_reviews_enabled or version in {19, 20}:
+            profile_options["dated_reviews_enabled"] = settings.mana_family_day_reviews_enabled
         native_store = (
             (
-                SqliteDatedReviewSafetyStore
+                SqliteSharedConversionProfileStore
+                if settings.mana_conversion_shared_profile_enabled or version == 20
+                else SqliteDatedReviewSafetyStore
                 if settings.mana_family_day_reviews_enabled or version == 19
                 else SqliteDatedSourceSafetyStore
                 if settings.mana_family_day_usage_enabled or version in {18, 19}
@@ -187,21 +203,12 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 catalog_binding=settings.manakids_api_base_url + "/api/v1/tariffs/",
                 expiry_policy=settings.mana_retention_expiry_policy,
                 expiry_enabled=settings.mana_retention_expiry_enabled,
-                **(
-                    {"day_tools_enabled": settings.mana_family_day_usage_enabled}
-                    if settings.mana_family_day_usage_enabled or version in {18, 19}
-                    else {}
-                ),
-                **(
-                    {"dated_reviews_enabled": settings.mana_family_day_reviews_enabled}
-                    if settings.mana_family_day_reviews_enabled or version == 19
-                    else {}
-                ),
+                **profile_options,
                 profile_binding=settings.manakids_api_base_url
                 + "/api/v1/admin-panel-parent/parent-list/",
                 **native_options,
             )
-            if settings.mana_retention_expiry_enabled or version in {17, 18, 19}
+            if settings.mana_retention_expiry_enabled or version in {17, 18, 19, 20}
             else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
@@ -227,11 +234,13 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19}:
+    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19, 20}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedDatedReviewSafetyStore
+            SqliteClosedSharedConversionProfileStore
+            if version == 20
+            else SqliteClosedDatedReviewSafetyStore
             if version == 19
             else SqliteClosedDatedSourceSafetyStore
             if version == 18

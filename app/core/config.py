@@ -18,6 +18,7 @@ from app.mana_ai.domain.family_sources import FamilySourceLimits
 from app.mana_ai.domain.inventory_tariffs import InventoryTariffPolicy
 from app.mana_ai.domain.parent_reminders import ReminderPolicy
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
+from app.mana_ai.domain.shared_conversion_profile import SharedConversionProfilePolicy
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy
 
 
@@ -92,6 +93,10 @@ class Settings(BaseSettings):
     mana_family_day_usage_enabled: bool = False
     mana_family_day_reviews_enabled: bool = False
     mana_collection_day_usage_enabled: bool = False
+    mana_conversion_shared_profile_enabled: bool = False
+    mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
+        default_factory=SharedConversionProfilePolicy
+    )
     mana_parent_reminders_enabled: bool = False
     mana_client_retention_enabled: bool = False
     mana_client_upsell_enabled: bool = False
@@ -445,6 +450,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_conversion_shared_profile_enabled and not (
+            self.mana_conversion_enabled and self.mana_retention_expiry_enabled
+        ):
+            raise ValueError("Shared conversion checks require conversion and profile observations")
         if self.mana_family_day_reviews_enabled and not self.mana_family_day_usage_enabled:
             raise ValueError("Dated source reviews require the governed day-usage runtime")
         if self.mana_collection_day_usage_enabled and not (
