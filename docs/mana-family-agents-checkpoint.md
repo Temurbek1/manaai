@@ -2,6 +2,62 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Scheduled dated collection to proactive chat — 2026-10-25, `5b48008`
+
+Authoritative implementation remains in
+`/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`. Read
+[the dated collection implementation/evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-dated-collection.md)
+and English integration section 24. No root application code was swept into it.
+
+New default-disabled `MANA_FAMILY_DAY_REVIEWS_ENABLED` and
+`MANA_COLLECTION_DAY_USAGE_ENABLED` capture only new windows/page claims/source
+admissions/review jobs. One preceding-day family app page in each new 09:00/15:00
+Asia/Tashkent window replaces new undated app collection and shares its facts with
+siblings/native consumers. Semantic child/day changes reach the existing
+Child-Safety review and sole-speaker Parent-Touch; the parent need not write first.
+Missing rows remain unavailable, not zero screen time. Original date qualifications,
+ownership, purpose consent, quiet hours, priority and source/model budgets remain.
+
+Private versions are **family 19/source 6/collection 3**. Old pending/unknown
+captures never upgrade or redispatch. Stopping fences late publication after
+verified cost accounting. Current closed readers preserve history and unknown
+holds; actual prior v18/v5/v2 readers refuse newer databases unchanged. This is
+not an execution/production rollback; never downgrade populated SQL.
+
+Full `make verify` **66213** exited **0**: **1404 backend**, one skip/two excluded
+live opt-ins, **26 admin/11 suites**, **10 lab-controller cases**, mypy **403 files**,
+lint/types/build and zero npm vulnerabilities. Schema/marker/secret checks passed.
+Tests use fakes; the earlier harness/static failures remain recorded separately.
+
+One new actual-model fictional first-contact party produced one assistant message
+with **913 safety/1219 speaker tokens**, zero holds, four OpenAI HTTP attempts/two
+generations. SQL observation made no additional call/job/delivery. Date/partial
+qualifications survive, but awkward Russian name inflection and “фильтр” remain
+presentation negatives. Do not replay the party or claim broad RU/UZ/fleet quality.
+There was no live family/Firebase/GA4/push/grant/payment request.
+
+Candidate `8ed752964ac3…` matches all **24** changed application Python hashes and
+contains no `.env`. Networkless/read-only-root/user-1000 probes preserve every
+old table on v18/v5/v2 upgrades, including historical **300 known/1700 unknown**
+safety tokens. New packaged work retains **two messages/150 known/1850 unknown**
+through current closure plus unknown source/collection holds. Actual old image
+`c92073bc996c` refuses v19/v6/v3 without changing bytes. Production-mode fixtures
+explicitly disable unrelated Telegram auth; this is not complete production setup
+acceptance. Original negative probe harnesses are retained, not rewritten passes.
+
+Owned **390 px** Chromium exercised 09:00 first contact, Uzbek dated cache reuse,
+unchanged 15:00 collection and an actual server restart. The independent fictional
+zero-model Retention expiry notice also ran. Final **four messages/300 simulated
+speaker/450 simulated safety tokens**, two changes/two jobs/two windows survived
+with all three ledger fingerprints unchanged. No afternoon inference/duplicate,
+page overflow or browser errors. The owned browser/server were closed.
+
+Production remains unchanged. No quota, source schedule, SSH/key, main/audio,
+cloud data, customer tariff or real contact was changed. Full goal remains active:
+GPS/referral/commercial/admin scope, real timing/coalescing, global-budget capacity,
+broader language quality and separately approved release/rollback remain open.
+
 ### Dated usage -> Child-Safety -> Parent-Touch — 2026-10-25, `e9b33bf`
 
 Authoritative family checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
