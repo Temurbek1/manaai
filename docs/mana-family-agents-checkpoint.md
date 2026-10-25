@@ -2,6 +2,52 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Client Upsell — 2026-10-25, `2d88696`
+
+Authoritative family checkout remains `/mnt/ssd2/mana-conversion-agent-20261021`.
+[Upsell implementation/evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-client-upsell.md)
+and English integration section 18 cover the first supported price/duration flow:
+explicit parent request -> model-selected typed enquiry -> shared MANA catalog
+claim/cache -> exact dated quote in the same chat. Parent-Touch alone speaks.
+No payment, trial grant, discount, feature entitlement or push is created. This
+is not full proactive Basic-to-Premium eligibility or measured paid conversion.
+
+Default-disabled `MANA_CLIENT_UPSELL_ENABLED` uses private family v16/source v4.
+New turns only; frozen language, fresh exact-parent profile, specialist priority,
+late-parent-text fences and unknown holds survive. One shared catalog login/GET
+is durably claimed before HTTP, at most four reads/rolling day and six-hour cache;
+unknown source calls block, while lost local acknowledgements observe SQL only.
+No new LLM budget: existing 2000 speaker/2000 global safety limits stay unchanged.
+
+A new RU actual-model + actual-catalog party completed the full flow and selected
+real tariff 8, **162,000 UZS /90 days**. **1565 speaker /837 safety tokens**, zero
+holds; four OpenAI/two catalog HTTP attempts, no duplicate on original replay.
+Uncached generation estimate **$0.00597275**, not invoice/counting-billing proof.
+The preceding failed strict-schema party remains unchanged: 828 safety tokens,
+zero speaker generations/catalog reads. Its nullable-required defect was fixed
+before the separate postfix diagnostic; it was not replayed or relabeled a pass.
+
+Full fake-only `make verify` **63401** exited 0: **1270 backend /26 admin /10 lab
+controller cases**, mypy **378 files**, formatting/lint/types/build, npm zero.
+SDK/schema regressions, API sync and secret/marker scans pass. Owned 390px RU/UZ
+browser selection/cache/reload/server restart retained six messages/four SQL turns,
+two intents, one catalog read and 300 simulated speaker/300 safety tokens. The
+screenshot was inspected; browser and owned 8097 servers are closed.
+
+Local candidate `658b61059504` passed networkless v13 -> v16 upgrade and current
+closed-history probes, preserving every old table fingerprint, 150 known/1850
+unknown safety tokens and the new actual-model party's three messages. Source
+hashes match. Actual v15 `5bd40d810980` refuses v16 unchanged; not a working old-image
+rollback. Initial isolated container path/permission harness failures are retained.
+No production, source schedule, SSH/key, main/audio or customer state changed.
+
+The full original goal remains active. Retention's first check-in/return workflow
+and Upsell's first catalog workflow are implemented locally; next is referral/
+loyalty against supported real mechanisms, not another general infrastructure lane.
+Broad proactive upgrade/retention/referral, GPS, fleet budgets, independent quality
+and phased rollout acceptance remain incomplete. Preserve the root unrelated diff.
+
+
 ### Client Retention / Win-back — 2026-10-25, `a27b673`
 
 Authoritative family checkout is `/mnt/ssd2/mana-conversion-agent-20261021`.
