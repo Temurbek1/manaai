@@ -2,6 +2,50 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Actual production-copy upgrade and source checks — 2026-10-25, `c0587eb`
+
+Read [the v6-to-v21 rehearsal](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-production-upgrade-rehearsal.md)
+and [bounded source observations](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-source-access-20261025.md),
+plus English integration section 27. Application code remains `ced2964`; this is
+an evidence/docs increment, not new agent functionality or a release.
+
+Actual production inspection confirmed **all six containers healthy**, with the
+same family `f8d095e`, main/audio `e73c10a`, operational `38cdac4`, UI `faf0a78`,
+independent worker `2ea7b9a` and PostgreSQL images/IDs/start times. The real family
+database was opened read-only, consistently backed into remote memory and streamed
+to one protected local **217088-byte** v6 copy. No remote backup/config file was
+created. The original obsolete `/data/...` path failed before SQL open; the
+corrected attempt used the actually inspected `/app/data/...` setting. Preserve
+both receipts; do not automatically repeat either attempt or print private history.
+
+The actual current candidate image upgraded that copy through the production
+FastAPI/runtime factory **v6 -> v21**, retaining every original cell in **16 tables**.
+Liveness/history/directory/legacy exact replay returned **200**, missing backend
+authentication **401**. Five agents/components were wired in the selected profile;
+Conversion remained disabled without an approved offer. Current closed v21 returned
+the same two historical messages and preserved every table fingerprint. **Zero
+model/source/contact/grant calls**, no historical recapture, network disabled and
+only synthetic keys. This small actual history is not load/native-unknown proof;
+the separate earlier synthetic unknown-hold results remain qualified evidence.
+Full dated profiles require explicit native lease **360 seconds** under current
+timeouts; financial limits stay 2000 per parent/global safety. No production timing
+was changed. Current closed-reader preservation is not working old-image rollback.
+
+Separately, two exclusive test-family source observations each made three MANA
+HTTP attempts: fresh ownership succeeded; exact-child location GET returned **403**,
+and documented camera/audio/screen-log GET returned **200 /empty list**. No alternate
+route, pagination, Firestore/GA4/model call or test grant followed. Do not infer a
+GPS document join or populated monitoring semantics from those facts. The owner
+has a pending optional question about the actual location binding/source code.
+
+Afterwards the actual six-container/runtime-configuration snapshot matched exactly.
+The owned SSH control session was closed; no deployment/restart, SSH/key, source
+schedule or customer-state change occurred. SQL/config artifacts stay mode 0700/
+0600 outside Git/images/model parties. Code remains the preceding fully verified
+`ced2964`; diff, secret and quality-marker checks pass. All complete-objective gaps
+listed below remain open, including real source coverage, referral/commercial
+contracts, capacity, broader quality, administrative owners and scoped release.
+
 ### Parent-Touch chooses its owning specialist — 2026-10-25, `ced2964`
 
 Implementation is committed in `/mnt/ssd2/mana-conversion-agent-20261021`, branch
