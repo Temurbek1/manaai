@@ -257,3 +257,32 @@ def create_source_review_live_app() -> FastAPI:
             real_model=True,
         )
     )
+
+
+def create_reminder_app() -> FastAPI:
+    """Fictional reminder chat, real wall clock, no paid/provider/write adapters."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/reminder-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+        )
+    )
+
+
+def create_reminder_live_app() -> FastAPI:
+    """Separate explicit paid opt-in; only the single fictional family is exposed."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/reminder-real-model",
+            real_model=True,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+        )
+    )

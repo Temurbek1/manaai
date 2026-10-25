@@ -37,7 +37,7 @@ keys, SSH settings and source schedules remain outside local changes.
 | Timely paid conversion | Local commercial lifecycle/account/catalog adapters exist; replace missing-webhook dependency with source-derived observations without inventing free-start/consent/offer terms |
 | Churn detection, retention, win-back | Implement authoritative account/activity observations, eligibility, communication and supported actions |
 | Real eligible upsell; referral and loyalty using confirmed mechanisms only | Implement supported catalog/benefit contracts and owning policies; no invented discounts, rewards or billing API |
-| Parent assistance and supported reminders | Existing chat; add durable reminders with dates/timezone, cancellation and one-shot delivery, no invented calls/orders |
+| Parent assistance and supported reminders | Local v14 reminder drafts, parent confirmation, cancellation and one-shot SQL delivery now exist; see `mana-parent-reminders.md`. Broader assistant/model/real-channel acceptance remains open; no calls/orders |
 | Four OPERATION owners, not more top-level administrative agents | Preserve canonical model: Growth (ads/SMM/conversion/upsell), Retention (loyalty/referral/win-back), Orchestrator (admin analysis/delegation), Technical last; full handlers/actions still need implementation/acceptance |
 | MANA/360REC and parent/child populations remain separate | Every new binding/snapshot/tool must carry enforceable scope; GA4 aggregates are not a per-parent identity join or child telemetry |
 | Shared bulk windows 09:00 and 15:00, plus bounded targeted reads | Implement durable occurrences in explicit Asia/Tashkent timezone; no hourly full scan, catch-up loop or Goal/UI-triggered bulk refresh |

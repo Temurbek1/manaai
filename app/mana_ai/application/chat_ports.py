@@ -25,6 +25,7 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchNotice,
     ParentTouchQuestion,
 )
+from app.mana_ai.domain.parent_reminders import ReminderCandidate, ReminderScope
 
 ChatDecisionFailure = Literal[
     "provider_output_invalid", "reply_schema_invalid", "reply_language_mismatch"
@@ -57,6 +58,7 @@ class ChatPrompt:
     safety_parent_review: bool = False
     response_language: ResponseLanguage | None = None
     required_observation_dates: tuple[str, ...] = ()
+    reminder_scope: ReminderScope | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,8 @@ class ChatModelReceipt:
     question_id: UUID | None = None
     notice_id: UUID | None = None
     failure_code: ChatDecisionFailure | None = None
+    reminder_candidate: ReminderCandidate | None = None
+    reminder_question_text: str | None = None
 
 
 class ParentChatModel(Protocol):

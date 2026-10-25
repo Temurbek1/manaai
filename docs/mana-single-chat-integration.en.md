@@ -570,3 +570,39 @@ partial/unknown app-counter periods, consent, raw token limits, idempotency and
 unknown holds remain enforced. Ordinary source-review pushes respect quiet hours.
 See [the source-review checkpoint](mana-source-reviews.md) for private v13/v4
 storage, real-model receipts, corrected cost calculation and remaining acceptance.
+
+## 16. Parent assistant reminders (local, default disabled)
+
+With the complete family profile and `MANA_PARENT_REMINDERS_ENABLED`, the same
+chat supports reminder drafts, date clarification, explicit confirmation,
+cancellation and a later agent message. No new public endpoint or second chat
+is needed. This has not been released to production.
+
+When history exposes `active_confirmation`, bind the parent's real answer:
+
+```json
+{
+  "parent_id": "900001",
+  "request_id": "a65dc5a1-30c3-4c2a-bf53-06ee8eb79ae7",
+  "message": "Да",
+  "reply_to_confirmation_id": "4c20aabf-a16b-4ca0-b790-b8ef2e98ede7"
+}
+```
+
+Use the actual active ID from that parent's history, not these fictional values.
+Keep `reply_to_question_id` for child questions; an active child question has
+priority and the two bindings must not be combined. The host preview displays the
+exact task, date/time and timezone. A model draft alone schedules nothing.
+Only an affirmative reply to that exact active preview schedules the reminder.
+History also exposes bounded active `reminders` with explicit lifecycle status.
+
+Supported confirmation/date/list/cancel controls need no additional model call,
+including after chat quota exhaustion. The later message uses the same history;
+observe it through the existing history GET. A host-only response has zero model
+usage and may omit `child_context_collected_at`; do not invent a source date.
+
+Push permission is separate: backend-verified contact context adds optional
+`assistant_chat_consent` and default-false `assistant_push_consent`. Do not infer
+these from safety/marketing settings or from the AI's text. A confirmed timer
+permits its specific chat reminder; an explicit current chat veto cancels delivery.
+See [ownership, limits, storage and actual evidence](mana-parent-reminders.md).

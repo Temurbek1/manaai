@@ -54,7 +54,11 @@ class SqliteParentChatStore:
         receipt: ChatModelReceipt,
         now: datetime,
     ) -> bool:
-        return receipt.question_id is None and receipt.notice_id is None
+        return (
+            receipt.question_id is None
+            and receipt.notice_id is None
+            and receipt.reminder_candidate is None
+        )
 
     def _on_settled(
         self,
@@ -460,6 +464,15 @@ class SqliteParentChatStore:
                     (receipt.answer, result.model_dump_json(), turn.turn_id),
                 )
             self._on_settled(connection, turn, receipt, valid=bool(valid))
+            if result is not None:
+                # Owning host protocols may replace wording after verified usage
+                # and local action validation, within the same SQL transaction.
+                result = ParentChatResponse.model_validate_json(
+                    connection.execute(
+                        "SELECT result FROM parent_chat_turns WHERE id=? AND parent_id=?",
+                        (turn.turn_id, turn.parent_id),
+                    ).fetchone()[0]
+                )
         if result is None:
             raise ParentChatError(code, 502)
         return result

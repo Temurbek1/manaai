@@ -6725,11 +6725,8 @@ export interface components {
         ParentChatResponse: {
             /** Answer */
             answer: string;
-            /**
-             * Child Context Collected At
-             * Format: date-time
-             */
-            child_context_collected_at: string;
+            /** Child Context Collected At */
+            child_context_collected_at?: string | null;
             /** History Turns Included */
             history_turns_included: number;
             /** Model */
@@ -6749,6 +6746,13 @@ export interface components {
          * @description Backend-verified presentation and independently granted contact permissions.
          */
         ParentContactContext: {
+            /** Assistant Chat Consent */
+            assistant_chat_consent?: boolean | null;
+            /**
+             * Assistant Push Consent
+             * @default false
+             */
+            assistant_push_consent: boolean;
             /**
              * Event Id
              * Format: uuid
@@ -6913,7 +6917,7 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "safety" | "marketing";
+            purpose: "safety" | "marketing" | "assistant";
             /**
              * Push Id
              * Format: uuid
@@ -6934,6 +6938,57 @@ export interface components {
              */
             updated_at: string;
         };
+        /** ParentReminder */
+        ParentReminder: {
+            candidate: components["schemas"]["ReminderCandidate"];
+            /**
+             * Confirmation Expires At
+             * Format: date-time
+             */
+            confirmation_expires_at: string;
+            /**
+             * Confirmation Id
+             * Format: uuid
+             */
+            confirmation_id: string;
+            /** Confirmation Turn Id */
+            confirmation_turn_id?: number | null;
+            /** Confirmed Turn Id */
+            confirmed_turn_id?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered Turn Id */
+            delivered_turn_id?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "ru" | "uz-Latn" | "uz-Cyrl" | "en";
+            /** Origin Turn Id */
+            origin_turn_id: number;
+            /** Parent Id */
+            parent_id: string;
+            /**
+             * Reminder Id
+             * Format: uuid
+             */
+            reminder_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "scheduled" | "checking" | "ready" | "delivered" | "cancelled" | "expired" | "unknown";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** ParentTouchDeliveryRequest */
         ParentTouchDeliveryRequest: {
             /** Parent Id */
@@ -6948,6 +7003,7 @@ export interface components {
         };
         /** ParentTouchHistory */
         ParentTouchHistory: {
+            active_confirmation?: components["schemas"]["ReminderConfirmation"] | null;
             active_question: components["schemas"]["ParentTouchQuestion"] | null;
             /** Latest Error Code */
             latest_error_code?: string | null;
@@ -6972,6 +7028,11 @@ export interface components {
             pending_notices: number;
             quota: components["schemas"]["ChatQuota"];
             /**
+             * Reminders
+             * @default []
+             */
+            reminders: components["schemas"]["ParentReminder"][];
+            /**
              * Speaker
              * @default parent-touch
              * @constant
@@ -6987,6 +7048,8 @@ export interface components {
             message: string;
             /** Parent Id */
             parent_id: string;
+            /** Reply To Confirmation Id */
+            reply_to_confirmation_id?: string | null;
             /** Reply To Question Id */
             reply_to_question_id?: string | null;
             /**
@@ -7052,6 +7115,8 @@ export interface components {
             message: string;
             /** Parent Id */
             parent_id: string;
+            /** Reply To Confirmation Id */
+            reply_to_confirmation_id?: string | null;
             /** Reply To Question Id */
             reply_to_question_id?: string | null;
             /**
@@ -7065,11 +7130,8 @@ export interface components {
             /** Answer */
             answer: string;
             asked_question: components["schemas"]["ParentTouchQuestion"] | null;
-            /**
-             * Child Context Collected At
-             * Format: date-time
-             */
-            child_context_collected_at: string;
+            /** Child Context Collected At */
+            child_context_collected_at?: string | null;
             delivered_notice?: components["schemas"]["ParentTouchNotice"] | null;
             /** History Turns Included */
             history_turns_included: number;
@@ -7497,6 +7559,42 @@ export interface components {
             risks: string[];
             /** Run Id */
             run_id: string;
+        };
+        /**
+         * ReminderCandidate
+         * @description Content must be a parent's exact quote, or the frozen pending reminder text.
+         */
+        ReminderCandidate: {
+            /** Content */
+            content: string;
+            /** Due At */
+            due_at: string | null;
+            /** Timezone */
+            timezone: string;
+        };
+        /** ReminderConfirmation */
+        ReminderConfirmation: {
+            candidate: components["schemas"]["ReminderCandidate"];
+            /**
+             * Confirmation Id
+             * Format: uuid
+             */
+            confirmation_id: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "details" | "approval";
+            /**
+             * Reminder Id
+             * Format: uuid
+             */
+            reminder_id: string;
         };
         /**
          * ReputationVerdict

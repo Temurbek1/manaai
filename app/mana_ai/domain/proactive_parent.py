@@ -24,6 +24,10 @@ class ParentContactContext(ChatContract):
     safety_chat_consent: bool = Field(strict=True)
     safety_push_consent: bool = Field(strict=True)
     marketing_push_consent: bool = Field(strict=True)
+    assistant_chat_consent: bool | None = Field(
+        default=None, strict=True, exclude_if=lambda v: v is None
+    )
+    assistant_push_consent: bool = Field(default=False, strict=True, exclude_if=lambda v: not v)
 
     @field_validator("parent_id")
     @classmethod
@@ -48,7 +52,7 @@ class ParentContactContext(ChatContract):
         return self
 
 
-ParentPushPurpose = Literal["safety", "marketing"]
+ParentPushPurpose = Literal["safety", "marketing", "assistant"]
 ParentPushStatus = Literal[
     "queued", "submitting", "queued_by_provider", "not_queued", "unknown", "suppressed"
 ]

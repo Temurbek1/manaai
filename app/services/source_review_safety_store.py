@@ -7,6 +7,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from app.mana_ai.application.chat_ports import ParentChatError
+from app.mana_ai.domain.chat import ParentChatRequest
 from app.mana_ai.domain.child_safety import (
     SafetyContextSnapshot,
     SafetyJob,
@@ -74,11 +75,12 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
         )
 
     def _on_admitted(
-        self, connection: sqlite3.Connection, request: object, turn_id: int, now: datetime
+        self,
+        connection: sqlite3.Connection,
+        request: ParentChatRequest,
+        turn_id: int,
+        now: datetime,
     ) -> None:
-        from app.mana_ai.domain.chat import ParentChatRequest
-
-        assert isinstance(request, ParentChatRequest)
         super()._on_admitted(connection, request, turn_id, now)
         if request.message:
             connection.execute(

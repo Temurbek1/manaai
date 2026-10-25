@@ -4,6 +4,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from app.mana_ai.application.chat_ports import (
     ChatPrompt,
@@ -19,6 +20,7 @@ from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
+from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch_offers import render_parent_offer
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
@@ -85,8 +87,10 @@ class ParentTouchService(ParentChatService):
         proactive: ProactiveParentService | None = None,
         sources: FamilySourceService | None = None,
         collection: FamilyCollectionService | None = None,
+        reminders: ParentReminderService | None = None,
     ) -> None:
         self.collection = collection
+        self.reminders = reminders
         super().__init__(
             store=store,
             children=children,
@@ -108,6 +112,9 @@ class ParentTouchService(ParentChatService):
             return False
         return await self.proactive.process_one() is not None
 
+    async def process_reminders(self) -> bool:
+        return await self.reminders.process_one() if self.reminders else False
+
     async def process_conversion(self) -> bool:
         """Only Parent-Touch may publish an approved, account-scoped promotion."""
         if self.conversion is None:
@@ -115,6 +122,10 @@ class ParentTouchService(ParentChatService):
         return await self.conversion.communicate(render_parent_offer)
 
     async def admit_message(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState:
+        if self.reminders is not None:
+            controlled = await self.reminders.control(request)
+            if controlled is not None:
+                return controlled
         reviewed_request = ParentTouchReviewedTurn(**request.model_dump())
         if self.conversion is not None:
             await self.conversion.observe_parent_message(reviewed_request)
@@ -194,6 +205,17 @@ class ParentTouchService(ParentChatService):
                     else "unavailable",
                 )
             )
+        if self.reminders is not None:
+            directory.agents.append(
+                FamilyAgentAvailability(
+                    definition=FamilyAgentDefinition(
+                        agent_id="parent-assistant",
+                        title="Parent Assistant",
+                        speaks_to_parent=False,
+                    ),
+                    status="available",
+                )
+            )
         return directory
 
     async def read_touch_history(
@@ -203,9 +225,15 @@ class ParentTouchService(ParentChatService):
         before: int | None,
         limit: int,
     ) -> ParentTouchHistory:
-        return await self._touch_store.touch_history(
+        history = await self._touch_store.touch_history(
             parent_id, before=before, limit=limit, now=self._clock()
         )
+        if self.reminders is not None:
+            values, pending = await self.reminders.history_metadata(parent_id)
+            history = history.model_copy(
+                update={"reminders": values, "active_confirmation": pending}
+            )
+        return history
 
     async def send_touch(self, request: ParentTouchRequest) -> ParentTouchResponse:
         return await self._touch_response(await self.send(request))
@@ -340,6 +368,48 @@ class ParentTouchService(ParentChatService):
                 "observed_at": question.observed_at.isoformat(),
             }
         instructions = PARENT_TOUCH_INSTRUCTIONS
+        reminder_scope = (
+            await self.reminders.scope(request.parent_id, turn.turn_id) if self.reminders else None
+        )
+        if reminder_scope is not None:
+            data["assistant_reminders"] = {
+                "now_local": reminder_scope.now.astimezone(
+                    ZoneInfo(reminder_scope.default_timezone)
+                ).isoformat(),
+                "default_timezone": reminder_scope.default_timezone,
+                "timezone_basis": reminder_scope.timezone_basis,
+                "active": [
+                    {
+                        "content": r.candidate.content,
+                        "due_at": r.candidate.due_at.isoformat() if r.candidate.due_at else None,
+                        "timezone": r.candidate.timezone,
+                        "status": r.status,
+                    }
+                    for r in reminder_scope.active
+                ],
+                "pending": reminder_scope.pending.model_dump(
+                    mode="json", exclude={"confirmation_id", "reminder_id"}
+                )
+                if reminder_scope.pending
+                else None,
+            }
+            instructions += (
+                "\nYou may propose one parent-assistant reminder only for the latest parent's "
+                "explicit request. This is a draft, never execution: the host separately asks "
+                "for exact human confirmation. reminder.content must be an EXACT task quote "
+                "from that parent message, or the frozen pending task when they answer its "
+                "date question. Quote the shortest exact action phrase, not the whole request: "
+                "omit the reminder command, date and time. Never invent a task, dose, call, order, "
+                "subscription or payment. "
+                "Use the supplied local clock/timezone for relative dates, never a guessed year. "
+                "due_at must express the selected IANA timezone's correct UTC offset; if date/time "
+                "is missing, use due_at=null. A default timezone is a proposal to be confirmed, "
+                "not a verified personal fact. With a reminder draft use body='' and "
+                "notice_communicated=false; retain only an already admitted question if present. "
+                "Urgent notices take precedence: reminder=null then. Otherwise reminder=null "
+                "for ordinary conversation or source reports. Only a host receipt "
+                "proves scheduling."
+            )
         if evidence and evidence.notice and evidence.notice.source_observations:
             instructions += (
                 "\nThis notice reviews partial source snapshots, not a fresh sensor alert. "
@@ -455,6 +525,7 @@ class ParentTouchService(ParentChatService):
             question=question,
             evidence_reply=evidence is not None,
             notice=evidence.notice if evidence else None,
+            reminder_scope=reminder_scope,
             slot_reply=True,
             response_language=response_language,
             required_observation_dates=source_dates,

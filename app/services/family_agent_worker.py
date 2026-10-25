@@ -58,6 +58,7 @@ class FamilyAgentWorker:
                     with suppress(ParentChatError):
                         await self._touch.deliver(delivery)
                 if not self._stop.is_set():
+                    await self._touch.process_reminders()
                     await self._touch.process_conversion()
                     await self._touch.process_push()
                 if processed is None:

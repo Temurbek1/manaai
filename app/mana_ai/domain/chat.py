@@ -100,7 +100,9 @@ class ParentChatResponse(ChatContract):
     usage: ChatTokens
     quota: ChatQuota
     history_turns_included: int
-    child_context_collected_at: AwareDatetime
+    child_context_collected_at: AwareDatetime | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ParentChatHistory(ChatContract):

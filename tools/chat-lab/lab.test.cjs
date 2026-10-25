@@ -42,6 +42,8 @@ async function environment({
   phase = "completed",
   scenarios = [],
   sourceStatus = "completed",
+  confirmation = null,
+  question = null,
 } = {}) {
   const elements = new Map();
   const element = (id) => {
@@ -57,7 +59,8 @@ async function environment({
     mode: "simulation",
     history: {
       messages: [],
-      active_question: null,
+      active_question: question,
+      active_confirmation: confirmation,
       quota: { used_tokens: 0, daily_limit: 2000, reserved_tokens: 0 },
     },
     safety_budget: {
@@ -220,4 +223,29 @@ test("reload with a pending identity only reads its status", async () => {
   );
   assert.equal(env.saved.has("mana-lab-pending"), false);
   assert.equal(env.element("send").disabled, false);
+});
+
+test("the single composer binds a parent confirmation separately from child questions", async () => {
+  const env = await environment({
+    confirmation: { confirmation_id: "parent-confirmation" },
+  });
+  await env.submit();
+  const body = JSON.parse(
+    env.requests.find((r) => r.options.method === "POST").options.body,
+  );
+  assert.equal(body.reply_to_confirmation_id, "parent-confirmation");
+  assert.equal(body.reply_to_question_id, undefined);
+});
+
+test("an active child question has priority over an assistant confirmation", async () => {
+  const env = await environment({
+    confirmation: { confirmation_id: "parent-confirmation" },
+    question: { question_id: "child-question" },
+  });
+  await env.submit();
+  const body = JSON.parse(
+    env.requests.find((r) => r.options.method === "POST").options.body,
+  );
+  assert.equal(body.reply_to_question_id, "child-question");
+  assert.equal(body.reply_to_confirmation_id, undefined);
 });

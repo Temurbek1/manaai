@@ -2,6 +2,21 @@
 
 ## Repository expectations
 
+- The local default-disabled parent-assistant increment uses private family v14
+  with unchanged source-cache v4. Only new eligible Parent-Touch turns capture
+  reminder scope; only a real parent reply to the exact parent-level preview
+  schedules it. Do not reuse child question IDs, let the model approve its draft,
+  invent orders/calls/payments or infer assistant push consent from other purposes.
+  Due ownership claims are one-shot; verified ready continuations use SQL only,
+  respect urgent/in-flight/cancel fences and expire without rereading. Unknown
+  model/source holds survive. Host templates carry no invented collection date.
+  The real party got the date right but quoted the full command; preserve that
+  negative result and its separate zero-inference same-party timer continuation.
+  The subsequent wording change is not paid-model acceptance. Read
+  `docs/mana-parent-reminders.md`; the prior v13 image refuses v14 unchanged and
+  is not a working fallback. No activation, deployment or budget increase follows.
+
+
 - The subsequent local source-review increment uses family v13/source-cache v4.
   `MANA_FAMILY_SOURCE_REVIEWS_ENABLED` stays default off. New admitted battery/app
   changes coalesce into one immutable qualified snapshot review through the same

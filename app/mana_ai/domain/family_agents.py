@@ -22,6 +22,11 @@ from app.mana_ai.domain.enums import (
     RiskLevel,
 )
 from app.mana_ai.domain.family_sources import ChildAppUsageFacts, ChildBatteryFacts
+from app.mana_ai.domain.parent_reminders import (
+    ParentReminder,
+    ReminderCandidate,
+    ReminderConfirmation,
+)
 
 FamilyAgentId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{1,63}$", strict=True)]
 InformationKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_.-]{0,99}$", strict=True)]
@@ -89,6 +94,7 @@ class AgentQuestionPage(ChatContract):
 
 class ParentTouchRequest(ParentChatRequest):
     reply_to_question_id: UUID | None = None
+    reply_to_confirmation_id: UUID | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class ParentTouchMessageRequest(ChatContract):
@@ -98,6 +104,7 @@ class ParentTouchMessageRequest(ChatContract):
     request_id: UUID
     message: str = Field(min_length=1, max_length=2000, pattern=r"\S")
     reply_to_question_id: UUID | None = None
+    reply_to_confirmation_id: UUID | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class ParentTouchReviewedTurn(ParentTouchRequest):
@@ -215,6 +222,10 @@ class ParentTouchHistory(ParentChatHistory):
     message_questions: list[ParentTouchQuestion]
     message_notices: list[ParentTouchNotice] = Field(default_factory=list)
     pending_notices: int = 0
+    active_confirmation: ReminderConfirmation | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    reminders: tuple[ParentReminder, ...] = Field(default=(), exclude_if=lambda v: not v)
 
 
 class FamilyAgentAvailability(ChatContract):
@@ -252,7 +263,11 @@ class ParentTouchText(ChatContract):
                 raise ValueError("A turn may contain only one explicit question")
             if not self.question.rstrip().endswith(("?", "؟", "？")):
                 raise ValueError("The question must end at the question boundary")
-        if not self.body.strip() and self.question is None:
+        if (
+            not self.body.strip()
+            and self.question is None
+            and getattr(self, "reminder", None) is None
+        ):
             raise ValueError("A parent-facing reply cannot be empty")
         return self
 
@@ -275,3 +290,13 @@ class ParentTouchSlotReply(ParentTouchText):
     """Language generation cannot choose identities; the host owns the sole admitted slots."""
 
     notice_communicated: bool = Field(strict=True)
+
+
+class ParentTouchReminderReply(ParentTouchSlotReply):
+    reminder: ReminderCandidate | None
+
+    @model_validator(mode="after")
+    def host_owned_confirmation(self) -> "ParentTouchReminderReply":
+        if self.reminder is not None and (self.body.strip() or self.notice_communicated):
+            raise ValueError("Reminder proposals reserve no model execution claim or notice")
+        return self

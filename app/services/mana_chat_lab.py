@@ -8,8 +8,9 @@ from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict
 
@@ -23,6 +24,7 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_sources import FamilySourceService
+from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.proactive_parent import ProactiveParentService
@@ -55,6 +57,7 @@ from app.mana_ai.domain.family_sources import (
     FamilySourceChange,
     FamilySourceLimits,
 )
+from app.mana_ai.domain.parent_reminders import ReminderCandidate, ReminderPolicy
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy, SourceReviewWork
@@ -69,6 +72,7 @@ from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
+from app.services.parent_reminder_store import SqliteParentReminderStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
 from app.services.source_safety_store import SqliteSourceSafetyStore
@@ -265,6 +269,32 @@ class SimulatedModel:
             answer = decision.model_dump_json()
         else:
             uzbek = prompt.response_language == "uz-Latn"
+            if prompt.reminder_scope:
+                latest = prompt.messages[-1][1].casefold()
+                task = next(
+                    (
+                        q
+                        for q in ("купить тетради", "daftar sotib olish", "buy notebooks")
+                        if q in latest
+                    ),
+                    None,
+                )
+                if task is not None:
+                    scope = prompt.reminder_scope
+                    due = (
+                        scope.now.astimezone(ZoneInfo(scope.default_timezone)) + timedelta(days=1)
+                    ).replace(hour=9, minute=0, second=0, microsecond=0)
+                    return ChatModelReceipt(
+                        usage=ChatTokens(input_tokens=100, output_tokens=50),
+                        model="lab-simulated-not-billed",
+                        answer="Reminder draft pending host validation.",
+                        completed=True,
+                        reminder_candidate=ReminderCandidate(
+                            content=task,
+                            due_at=None if "позже" in latest else due,
+                            timezone=scope.default_timezone,
+                        ),
+                    )
             if prompt.question is not None:
                 answer = (
                     "Farzandingiz odatda soat nechada uxlaydi?"
@@ -396,6 +426,7 @@ class LabOptions:
     native_observations: bool = False
     scheduled_collection: bool = False
     source_reviews: bool = False
+    reminders: bool = False
 
 
 class ChatLab:
@@ -413,6 +444,8 @@ class ChatLab:
         ):
             raise ValueError("Collection lab requires fictional time, sources and model")
         self.options = options
+        if options.reminders and not options.source_reviews:
+            raise ValueError("The assistant lab requires the complete source-review profile")
         self.mode: Literal["simulation", "real-model"] = (
             "real-model" if options.real_model else "simulation"
         )
@@ -443,6 +476,8 @@ class ChatLab:
             expected["scheduled_collection"] = True
         if self.options.source_reviews:
             expected["source_reviews"] = True
+        if self.options.reminders:
+            expected["reminders"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -517,13 +552,20 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteSourceReviewSafetyStore
-                if self.options.source_reviews
+                SqliteParentReminderStore
+                if self.options.reminders
                 else (
-                    SqliteObservationToolSafetyStore
-                    if self.options.native_observations
-                    else SqliteSourceToolSafetyStore
+                    SqliteSourceReviewSafetyStore
+                    if self.options.source_reviews
+                    else (
+                        SqliteObservationToolSafetyStore
+                        if self.options.native_observations
+                        else SqliteSourceToolSafetyStore
+                    )
                 )
+            )
+            reminder_options: dict[str, Any] = (
+                {"reminder_policy": ReminderPolicy()} if self.options.reminders else {}
             )
             self.store = native_store_class(
                 directory / "family.sqlite3",
@@ -540,6 +582,7 @@ class ChatLab:
                 proactive_enabled=True,
                 conversation_enabled=True,
                 account_read_limits=ConversionAccountReadLimits(),
+                **reminder_options,
             )
         else:
             self.store = SqliteCommercialConversationStore(
@@ -624,6 +667,9 @@ class ChatLab:
             conversion=ConversionService(self.store, clock=self.options.clock.now),
             proactive=proactive,
             sources=self.sources,
+            reminders=ParentReminderService(self.store, profiles, clock=self.options.clock.now)
+            if isinstance(self.store, SqliteParentReminderStore)
+            else None,
         )
         self.source_safety = SourceSafetyService(
             self.source_store, self.safety, profiles, policy=policy, clock=self.options.clock.now

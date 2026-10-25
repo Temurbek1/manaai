@@ -163,3 +163,18 @@ another overview. A later RU/Uzbek message is a separate conversational request.
 See [source-review semantics and evidence](mana-source-reviews.md). The `-live`
 variant explicitly uses paid configured models with fictional sources, never a
 real family data, push or tariff adapter. Neither variant belongs on production.
+
+### Parent assistant reminders
+
+`make chat-lab-reminders` runs the fictional family with reminders and the full
+native/source-review profile. Write `Напомни позже купить тетради`, answer the
+pending date question with `YYYY-MM-DD HH:mm`, then confirm `Да`. The browser binds
+that parent-level confirmation automatically. Choose a time at least one minute
+ahead; the worker uses the real clock. Use `отмени последнее напоминание` to cancel.
+
+`make chat-lab-reminders-live CHAT_LAB_ENV_FILE=/path/to/server.env` is a separate,
+explicit paid-model mode with its own durable directory. It still cannot access
+live family data, send push or grant tariffs. Never reset its quotas/history to
+repeat diagnostics or run a paid model with an artificial clock. The simulator's
+known notebook phrases are fixtures, not evidence of general language quality.
+See [the actual qualified model and lifecycle checkpoint](mana-parent-reminders.md).

@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -10,6 +11,7 @@ from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.conversion_accounts import ConversionAccountVerifier
 from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.application.parent_chat import ParentChatService
+from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
@@ -45,6 +47,10 @@ from app.services.manakids_trial_grants import ManakidsTrialGrantGateway
 from app.services.parent_chat_children import ManakidsChatChildrenSource
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_chat_store import SqliteParentChatStore
+from app.services.parent_reminder_store import (
+    SqliteClosedParentReminderStore,
+    SqliteParentReminderStore,
+)
 from app.services.proactive_parent_store import (
     SqliteClosedProactiveParentStore,
     SqliteProactiveParentStore,
@@ -80,6 +86,12 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
+        version == 14
+        and settings.mana_child_safety_enabled
+        and not settings.mana_parent_reminders_enabled
+    ):
+        raise RuntimeError("V14 execution requires its captured parent-assistant runtime")
+    if (
         version == 13
         and settings.mana_child_safety_source_tools_enabled
         and not (settings.mana_family_source_reviews_enabled)
@@ -99,8 +111,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 else SqliteSourceToolSafetyStore
             )
         )
-        native_store = native_class(
-            settings.mana_parent_chat_database_path,
+        native_options: dict[str, Any] = dict(
             native_model=settings.mana_child_safety_model or settings.openai_model,
             native_reasoning_effort=settings.openai_reasoning_effort,
             native_verbosity=settings.openai_verbosity,
@@ -121,17 +132,30 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             account_read_limits=settings.mana_conversion_account_read_limits,
             **store_arguments,
         )
+        native_store = (
+            SqliteParentReminderStore(
+                settings.mana_parent_chat_database_path,
+                reminder_policy=settings.mana_parent_reminder_policy,
+                **native_options,
+            )
+            if settings.mana_parent_reminders_enabled
+            else native_class(settings.mana_parent_chat_database_path, **native_options)
+        )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13}:
+    elif version in {11, 12, 13, 14}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedSourceReviewSafetyStore
-            if version == 13
+            SqliteClosedParentReminderStore
+            if version == 14
             else (
-                SqliteClosedObservationToolSafetyStore
-                if version == 12
-                else SqliteClosedSourceToolSafetyStore
+                SqliteClosedSourceReviewSafetyStore
+                if version == 13
+                else (
+                    SqliteClosedObservationToolSafetyStore
+                    if version == 12
+                    else SqliteClosedSourceToolSafetyStore
+                )
             )
         )
         closed_native = closed_class(
@@ -408,6 +432,11 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     reviewed=reviewed,
                     sources=sources.reads if sources else None,
                     collection=sources.collection if sources else None,
+                    reminders=ParentReminderService(
+                        store, children, clock=lambda: datetime.now(UTC)
+                    )
+                    if isinstance(store, SqliteParentReminderStore)
+                    else None,
                     proactive=(
                         ProactiveParentService(
                             store,

@@ -97,7 +97,9 @@ function draw() {
   rendered = fingerprint;
   $("reply-label").textContent = history.active_question
     ? "Ответ будет привязан к вопросу агента"
-    : "";
+    : history.active_confirmation
+      ? "Подтверждение напоминания"
+      : "";
   const quota = history.quota;
   $("usage").textContent =
     `${state.mode === "simulation" ? "Симуляция токенов" : "Токены чата"}: ${quota.used_tokens} / ${quota.daily_limit} · Child-Safety: ${state.safety_budget.server_used_tokens} / ${state.safety_budget.server_daily_limit}`;
@@ -198,6 +200,9 @@ $("composer").addEventListener("submit", async (event) => {
   };
   if (state?.history.active_question)
     body.reply_to_question_id = state.history.active_question.question_id;
+  else if (state?.history.active_confirmation)
+    body.reply_to_confirmation_id =
+      state.history.active_confirmation.confirmation_id;
   controls(true);
   $("error").hidden = true;
   $("status").textContent = "Отправляем…";

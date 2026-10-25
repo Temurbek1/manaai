@@ -13,6 +13,7 @@ from app.mana_ai.domain.conversion import ConversionOffer, ConversionPolicy
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_collection import FamilyCollectionPolicy
 from app.mana_ai.domain.family_sources import FamilySourceLimits
+from app.mana_ai.domain.parent_reminders import ReminderPolicy
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy
 
 
@@ -84,6 +85,8 @@ class Settings(BaseSettings):
     mana_family_source_maximum_age_seconds: int = Field(default=21600, ge=60, le=86400)
     mana_family_collection_enabled: bool = False
     mana_family_source_reviews_enabled: bool = False
+    mana_parent_reminders_enabled: bool = False
+    mana_parent_reminder_policy: ReminderPolicy = Field(default_factory=ReminderPolicy)
     mana_family_source_review_policy: SourceReviewPolicy = Field(default_factory=SourceReviewPolicy)
     mana_family_collection_database_path: Path = Path("data/mana-family-collection.sqlite3")
     mana_family_collection_policy: FamilyCollectionPolicy = Field(
@@ -421,6 +424,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_parent_reminders_enabled:
+            if not self.mana_family_source_reviews_enabled:
+                raise ValueError(
+                    "The assistant profile requires the complete native family runtime"
+                )
+            if (
+                self.mana_parent_reminder_policy.ownership_lease_seconds
+                <= self.mana_parent_chat_source_timeout_seconds + 10
+            ):
+                raise ValueError("Reminder ownership lookup must fit inside its durable claim")
         if self.mana_family_source_reviews_enabled and not (
             self.mana_family_app_usage_enabled and self.mana_family_source_safety_enabled
         ):

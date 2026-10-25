@@ -16,6 +16,52 @@ from app.services.parent_chat_model import OpenAIParentChatModel
 PROMPT = ChatPrompt("Synthetic instructions", (("user", "Farzandimga qanday yordam beraman?"),))
 
 
+@pytest.mark.parametrize("zone,valid", [("Asia/Tashkent", True), ("No/SuchZone", False)])
+async def test_reminder_arguments_preserve_verified_usage_without_model_self_approval(
+    zone: str, valid: bool
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.mana_ai.domain.parent_reminders import ReminderScope
+
+    payload = model_payload()
+    payload["output"][0]["content"][0]["text"] = json.dumps(
+        {
+            "body": "",
+            "question": None,
+            "notice_communicated": False,
+            "reminder": {
+                "content": "buy notebooks",
+                "due_at": "2026-10-26T09:00:00+05:00",
+                "timezone": zone,
+            },
+        }
+    )
+    prompt = replace(
+        PROMPT,
+        structured_reply=True,
+        slot_reply=True,
+        reminder_scope=ReminderScope(
+            now=datetime(2026, 10, 25, tzinfo=UTC),
+            default_timezone="Asia/Tashkent",
+            timezone_basis="application_default_requires_confirmation",
+            active=(),
+            pending=None,
+        ),
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as http:
+        adapter = OpenAIParentChatModel(
+            settings(), client=AsyncOpenAI(api_key="fake-key", max_retries=0, http_client=http)
+        )
+        receipt = await adapter.respond(prompt, max_output_tokens=512)
+    assert receipt.usage.total == 150 and receipt.completed is valid
+    assert (receipt.reminder_candidate is not None) is valid
+    if not valid:
+        assert receipt.answer is None and receipt.failure_code == "reply_schema_invalid"
+
+
 @pytest.mark.parametrize("preserved", [False, True])
 async def test_source_observation_date_is_required_after_verified_usage(preserved: bool) -> None:
     payload = model_payload()

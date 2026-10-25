@@ -12908,9 +12908,16 @@
             "type": "string"
           },
           "child_context_collected_at": {
-            "format": "date-time",
-            "title": "Child Context Collected At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Context Collected At"
           },
           "history_turns_included": {
             "title": "History Turns Included",
@@ -12944,8 +12951,7 @@
           "model",
           "usage",
           "quota",
-          "history_turns_included",
-          "child_context_collected_at"
+          "history_turns_included"
         ],
         "title": "ParentChatResponse",
         "type": "object"
@@ -12954,6 +12960,22 @@
         "additionalProperties": false,
         "description": "Backend-verified presentation and independently granted contact permissions.",
         "properties": {
+          "assistant_chat_consent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistant Chat Consent"
+          },
+          "assistant_push_consent": {
+            "default": false,
+            "title": "Assistant Push Consent",
+            "type": "boolean"
+          },
           "event_id": {
             "format": "uuid",
             "title": "Event Id",
@@ -13377,7 +13399,8 @@
           "purpose": {
             "enum": [
               "safety",
-              "marketing"
+              "marketing",
+              "assistant"
             ],
             "title": "Purpose",
             "type": "string"
@@ -13434,6 +13457,131 @@
         "title": "ParentPushState",
         "type": "object"
       },
+      "ParentReminder": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/ReminderCandidate"
+          },
+          "confirmation_expires_at": {
+            "format": "date-time",
+            "title": "Confirmation Expires At",
+            "type": "string"
+          },
+          "confirmation_id": {
+            "format": "uuid",
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "confirmation_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Turn Id"
+          },
+          "confirmed_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Turn Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "delivered_turn_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered Turn Id"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "language": {
+            "enum": [
+              "ru",
+              "uz-Latn",
+              "uz-Cyrl",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "origin_turn_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Origin Turn Id",
+            "type": "integer"
+          },
+          "parent_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "scheduled",
+              "checking",
+              "ready",
+              "delivered",
+              "cancelled",
+              "expired",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reminder_id",
+          "parent_id",
+          "origin_turn_id",
+          "candidate",
+          "status",
+          "created_at",
+          "updated_at",
+          "language",
+          "confirmation_id",
+          "confirmation_expires_at"
+        ],
+        "title": "ParentReminder",
+        "type": "object"
+      },
       "ParentTouchDeliveryRequest": {
         "additionalProperties": false,
         "properties": {
@@ -13470,6 +13618,16 @@
       "ParentTouchHistory": {
         "additionalProperties": false,
         "properties": {
+          "active_confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReminderConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "active_question": {
             "anyOf": [
               {
@@ -13566,6 +13724,14 @@
           "quota": {
             "$ref": "#/components/schemas/ChatQuota"
           },
+          "reminders": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ParentReminder"
+            },
+            "title": "Reminders",
+            "type": "array"
+          },
           "speaker": {
             "const": "parent-touch",
             "default": "parent-touch",
@@ -13599,6 +13765,18 @@
             "pattern": "^[1-9][0-9]{0,18}$",
             "title": "Parent Id",
             "type": "string"
+          },
+          "reply_to_confirmation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To Confirmation Id"
           },
           "reply_to_question_id": {
             "anyOf": [
@@ -13771,6 +13949,18 @@
             "title": "Parent Id",
             "type": "string"
           },
+          "reply_to_confirmation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To Confirmation Id"
+          },
           "reply_to_question_id": {
             "anyOf": [
               {
@@ -13815,9 +14005,16 @@
             ]
           },
           "child_context_collected_at": {
-            "format": "date-time",
-            "title": "Child Context Collected At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Context Collected At"
           },
           "delivered_notice": {
             "anyOf": [
@@ -13868,7 +14065,6 @@
           "usage",
           "quota",
           "history_turns_included",
-          "child_context_collected_at",
           "asked_question"
         ],
         "title": "ParentTouchResponse",
@@ -15000,6 +15196,84 @@
           "created_at"
         ],
         "title": "Recommendation",
+        "type": "object"
+      },
+      "ReminderCandidate": {
+        "additionalProperties": false,
+        "description": "Content must be a parent's exact quote, or the frozen pending reminder text.",
+        "properties": {
+          "content": {
+            "maxLength": 250,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Content",
+            "type": "string"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "timezone": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "due_at",
+          "timezone"
+        ],
+        "title": "ReminderCandidate",
+        "type": "object"
+      },
+      "ReminderConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/ReminderCandidate"
+          },
+          "confirmation_id": {
+            "format": "uuid",
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "details",
+              "approval"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reminder_id": {
+            "format": "uuid",
+            "title": "Reminder Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation_id",
+          "reminder_id",
+          "kind",
+          "candidate",
+          "expires_at"
+        ],
+        "title": "ReminderConfirmation",
         "type": "object"
       },
       "ReputationVerdict": {

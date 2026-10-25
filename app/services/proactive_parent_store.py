@@ -478,7 +478,11 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
             return
         context = _current_context(connection, parent_id, now)
         if context is None or not (
-            context.safety_push_consent if purpose == "safety" else context.marketing_push_consent
+            context.safety_push_consent
+            if purpose == "safety"
+            else context.assistant_push_consent
+            if purpose == "assistant"
+            else context.marketing_push_consent
         ):
             return  # Notification permission is independent of durable chat publication.
         title, description = _notification(context.language)
@@ -555,6 +559,8 @@ class SqliteProactiveParentStore(SqliteConversionStore, _ProactiveReadAccess):
                         if not (
                             context.safety_push_consent
                             if row["purpose"] == "safety"
+                            else context.assistant_push_consent
+                            if row["purpose"] == "assistant"
                             else context.marketing_push_consent
                         )
                         else None
