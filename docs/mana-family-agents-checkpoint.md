@@ -2,6 +2,54 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Reuse shared collection in administrative Retention — 2026-10-26, `a3c1a12`
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, documentation HEAD **`e4827e1`**.
+Read [the saved-aggregate checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-saved-collection-analytics.md)
+and English integration section 37. The existing collector publication had no
+administrative consumer. New default-disabled `OPERATION_FAMILY_COLLECTION_ENABLED`
+registers manual-only **`retention.family_collection.analyze`** within Retention &
+Loyalty; it creates no new top-level agent, mobile operation or parent message.
+An explicitly bound absolute collection path is read-only. The adapter reads only
+the latest terminal minimized publication, never initializes/migrates its source,
+refreshes a provider or falls back from bad/stale latest data. Startup, health,
+report viewing and exact run replay do not even open that source file.
+
+The saved report/snapshot contains typed counts, qualifications and original
+observation/provider-check/collection/publication dates, not family/device IDs,
+coordinates, phone/chat/raw source prose. Validation errors suppress private
+context. Source targets/low-battery counts are not parent activity, danger,
+retention or paid conversion. Population completeness remains unproven; the
+inspection timestamp grants no freshness. No model budget or source/contact/
+action authority is added. No schedule is created; scheduled execution is refused.
+
+Final **`make verify` exited 0**: **1613 backend**, one skipped/two opt-in live
+excluded, **26 admin/11 suites**, **15 lab**, mypy **447 files**, lint/types/build,
+zero npm vulnerabilities. Sequential OpenAPI/TypeScript sync passed unchanged.
+Fifteen new cases exercise actual fictional collection -> existing operation HTTP
+-> saved report, role denial, restart/replay with one SQL read, private-cell
+preservation, invalid/stale/foreign/symlink/missing/future-version refusal and
+invalid-latest no-fallback/error suppression. Preserve the initial lint/test-kwargs
+typing and missing-synthetic-key harness failures as earlier evidence.
+
+The external clean `a3c1a12` archive builds
+`mana-ai-operation:saved-collection-local-20261026`, ID
+`sha256:77131d80f10a8269d55ab220deda6689e2d4cf2b7d1b23e32fd69c75e93921fd`;
+all **280 application Python hashes** match, no `.env`/private SQL is included.
+Its actual Python 3.12 production-configured API passes networkless/nonroot/
+read-only-root acceptance: anonymous 401, viewer write 403, operator run 202,
+viewer report 200, one identical report after reconstruction/replay, one source
+SQL read, **zero external requests**, all six original collection tables unchanged.
+Only a fictional v1 source is mounted read-only; this is not v2–v4 combination,
+production-history upgrade/rollback, native Goal registration or browser acceptance.
+
+This first shared administrative consumer does not complete Admin Analysis,
+Orchestrator or the full original AI KOMANDA goal. Further source coverage,
+commercial/referral contracts and owning actions/real quality/scoped production
+release remain open. Root unrelated dirt, production, main/audio, SSH/key,
+existing schedules, source cloud data and customer state are unchanged.
+
 ### Reactive Parent-Touch clarifications — 2026-10-26, application `7b64a05`
 
 Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
