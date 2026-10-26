@@ -100,10 +100,31 @@ found test kwargs typing errors, corrected before the full gate. Preserve those
 earlier logs; they are not the final gate. Evidence:
 `output/saved-collection-verify-20261026.log` and related focused/type logs.
 
-Packaged acceptance is recorded after completion. The unchanged quotas remain
-2000 raw Parent-Touch tokens per
-parent/day and 2000 global Child-Safety/day; this deterministic report consumes
-neither budget and creates no contact authority.
+Application **`a3c1a12`** is packaged from the external clean archive
+`/mnt/ssd2/mana-saved-collection-source-a3c1a12` as
+`mana-ai-operation:saved-collection-local-20261026`, ID
+`sha256:77131d80f10a8269d55ab220deda6689e2d4cf2b7d1b23e32fd69c75e93921fd`.
+All **280 application Python files** match that archive; no `.env` or private SQL
+is included. The actual Python 3.12 production-configured API passes a networkless,
+nonroot, read-only-root probe using synthetic keys and only a read-only fictional
+collection-file mount. Anonymous report GET is 401, viewer run POST 403, operator
+run POST 202 and viewer report GET 200. One report survives actual runtime
+reconstruction/exact replay, with only **one source SQL read**, **zero external
+requests**, no default schedule and all original cells in the **six collection
+tables unchanged**. The operational schema is initialized only in an empty private
+tmpfs fixture; no existing family/operational schema is migrated by this feature.
+Evidence: `output/saved-collection-candidate-20261026/`, including source/image
+hashes, probe, minimized report and log. The initial host fixture import lacked
+its required synthetic inference key and refused before creating any fixture or
+making a request; the subsequent explicitly configured local fixture succeeded.
+That harness correction is not a model/source retry or production acceptance.
+No browser/UI, v2–v4 source-combination, existing production operational-history
+upgrade, release rollback or real-source/model acceptance is claimed here.
+
+The unchanged quotas remain **2000 raw Parent-Touch tokens per parent/day** and
+**2000 global Child-Safety/day**; this deterministic report consumes neither
+budget and creates no contact authority. Sequential final OpenAPI/TypeScript
+synchronization passed without a public schema/route change.
 
 This is a first shared administrative consumer, not complete Admin Analysis,
 Orchestrator, GA4 integration, a source refresh, native Goal-tool registration,
