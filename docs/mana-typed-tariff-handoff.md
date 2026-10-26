@@ -87,8 +87,47 @@ collection; it made no model request and is not a passing gate. Both original
 logs remain. The accepted run explicitly supplied a non-issued test key, with
 fake providers; no credential/configuration validation was weakened.
 
-Browser and packaged compatibility evidence is recorded below only once actually
-complete.
+## Browser and packaged compatibility
+
+Application **`bfa7e11`** was exported into a clean external context
+`/mnt/ssd2/mana-tariff-handoff-source-bfa7e11`. Image
+`mana-ai-family:tariff-handoff-local-20261027`, ID
+`sha256:4f9d1aa4d46eab4d3728748cbdeaf4cc8b61e2daee3b321bfc6856d8226d201f`,
+matches all **287 application Python hashes**, without developer `.env` or private
+SQL. The probes run Python 3.12/user 1000 with no network/capabilities, a read-only
+root and private temporary/artifact mounts. An initial harness invocation omitted
+`PYTHONPATH=/app` and failed before importing the app; its log remains separate.
+
+The packaged combined profile completes the fictional missing-currency question,
+exact answer and original-turn quote with **four messages/150 simulated parent
+tokens/zero Safety**. Replay performs no inference/catalogue read. A separate lost
+model call retains its **612-token unknown hold**; a lost catalogue claim remains
+blocked. Current closed v33, reconstruction and midnight retain all cells in
+**75 family/27 source tables**, without replay/refund. The actual prior v32 image's
+closed reader refuses v33 with unchanged cells/version; it is not a working
+execution rollback.
+
+The actual product factory upgrades the already retained private v6 production
+copy to v33 locally, preserving every original column/cell in **16 tables**, both
+messages and exact historical replay. Live/history/directory/replay return 200,
+anonymous history 401 and lab-only action cards 404. New captured tables stay
+empty. Current closed v33 retains the same history, with zero model/source/
+contact/grant calls. No new production copy or SSH access was obtained. Artifacts:
+`output/tariff-handoff-candidate-20261027/`.
+
+The isolated browser run completes RU price enquiry, Uzbek missing-currency
+question/UZS answer and native saved battery request in the same chat: **eight
+messages/600 simulated parent tokens/300 Safety tokens**, no reserves, unknown
+holds, push or grant. The 390px screenshot was visually inspected with no page
+errors or horizontal document overflow. An initial observation mistakenly awaited
+18% while the fixture was 12%; it timed out without repeating any action. The
+actual dated 12% answer was then inspected. After an explicitly guarded SIGINT,
+confirmed process termination and same-file restart, SQL/public state is exactly
+unchanged across all 75/27 tables. Browser automation is closed; the fictional
+server remains at `http://127.0.0.1:8110`. Artifacts:
+`output/tariff-handoff-browser-20261027/`. These fake browser/package checks are
+distinct from the real-model synthetic party above and establish no real-family,
+catalogue, commercial outcome or production rollout acceptance.
 
 This remains local and default disabled. Referral is deferred pending its real
 API. Wider business/source/model quality, other unfinished AI KOMANDA scenarios
