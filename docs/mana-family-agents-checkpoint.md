@@ -2,6 +2,62 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Observation Safety remainder — 2026-10-26, application `a6f5153`
+
+Read [the v27 checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-safety-remainder.md)
+and English integration section 34. Native parent reviews already reused a bounded
+remainder; the full-reservation bottleneck concerned ordinary observation jobs.
+Default-disabled `MANA_CHILD_SAFETY_REMAINDER_ENABLED` captures only new child-data/
+source-review jobs, atomically with their insert. One indexed metadata row freezes
+parent/job/original ceiling. Old/disabled/content-replayed jobs never backfill.
+Reuse the remaining 2000-global/2000-parent Safety allowance under existing queue,
+attempt, ownership, preflight and unknown-hold rules. No smaller objective, model,
+source/schedule activation, retry, payment/grant/contact or extra budget is added.
+
+Final one-table-ledger **`make verify` exited 0**: **1568 backend**, **26 admin/11
+suites**, **15 lab tests**, mypy **439 files**, lint/typecheck/build/audit with zero
+npm vulnerabilities; one skip/two excluded live cases are not passes. Schema sync
+passed unchanged. The earlier 1569-case gate included an unsolicited lifetime
+counter, removed before freeze; its prototype files are not this artifact.
+New tests cover sequential/coalesced jobs, exact source-review delivery, concurrency,
+unknown cross-day holds, 64-token floor, whole-context budget refusal before model,
+old/disabled no-backfill, replay, atomic rollback, current closed state and idle
+runtime. Initial ledger tests omitted required child authorization, then a stronger
+notice assertion found the earlier queued battery notice; corrected fixtures retain
+those owning checks and deliver the earlier notice before the exact later review.
+
+Browser/API/SQL passed battery context -> separate synthetic threat -> two assistant
+messages in one chat, **300 simulated parent/300 Safety tokens**, zero holds.
+Reload/actual restart preserve every cell in **65 family /15 source tables** and
+two captures/completed jobs; 390px inspected without overflow/script errors. No
+paid model/source party was repeated. Fake lab **http://127.0.0.1:8102**, PID
+**258559**, tool session **6639** at handoff; verify cwd/command before control.
+Existing 8098/8099/8100/8101 were untouched; automation browser closed.
+
+Clean image `mana-ai-family:safety-remainder-local-20261026`, ID
+`sha256:a810467eeafcecdffbce17c82ee5f6053f180323198c81677938f218af3bfcc3`,
+matches **275 app Python files**, no `.env`/private SQL. Networkless Python 3.12
+verified two known jobs/300 raw tokens, the second 1850-token initial reserve,
+and a third unknown **612-token hold** preserved across current closed observation
+and reconstruction without replay. Actual preceding fc4846a v26 refuses populated
+v27 unchanged: this is not working execution rollback. Use current closed v27.
+The same image's production factory passes retained real-copy **6 -> 27**, every
+original cell/column in 16 tables, two messages/exact replay, current closed state,
+zero external attempts or historical recapture. No SSH/new live copy; protected
+artifacts stay 0700/0600. Export: `/mnt/ssd2/mana-safety-remainder-source-a6f5153`.
+
+Evidence: feature `output/safety-remainder-{browser,candidate}-20261026/` and final
+gate/schema logs. Current GitHub source checks for Bosstracker-Team/bosstracker_parent
+return 404 through connector and existing gh account; scoped referral search is
+empty. That does not prove the private repository/mechanism absent. The supplied
+archive remains historical; no new reward contract was obtained. See the referral
+status/minimized access evidence, with no app/Firebase/GA4/model/grant/contact read.
+
+Production remains last confirmed family `f8d095e`; sources, schedules, keys/SSH,
+UI/audio, real grants and contacts are unchanged. The full objective remains active,
+including real source/model/fleet/channel acceptance, supported commercial/referral
+contracts, scoped release and administrative owning-domain work; Technical last.
+
 ### Independent family workflows — 2026-10-26, application `fc4846a`
 
 Read [the worker checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parallel-family-worker.md)
