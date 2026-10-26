@@ -102,8 +102,42 @@ Evidence: `output/family-parallel-browser-20261026/`.
 
 No paid model party is repeated for this scheduler-only change. The earlier
 catalog diagnostic remains negative with its original unknown source hold.
-Packaged checks are recorded separately when completed. The full agent objective
-remains open, including supported commercial/referral
+
+## Exact packaged checks
+
+Clean source **fc4846a** built `mana-ai-family:parallel-local-20261026`, ID
+`sha256:e547de3be43d4a8e222af2bdef1e6b36ad02446515c42f25f9c1dc36fa1f2f2b`.
+All **274 Python application files** match that `git archive`; no `.env` or private
+SQL is in the image. Its source export is outside the checkout at
+`/mnt/ssd2/mana-family-parallel-source-fc4846a`. The digest identifies this actual
+build, not a guarantee about later builds from a mutable base tag.
+
+- Networkless Python 3.12 ran the two-fictional-family worker story. Parent 456
+  completed one 150-token simulated reply while parent 123's fake safety model
+  was blocked. Graceful shutdown/reconstruction retained **all 56 tables** and
+  the **612-token unknown safety hold**, with one fake model attempt and no replay.
+- The first probe omitted required profile `limitations`, so ownership/context
+  validation correctly refused the fixture before inference; its wait timed out
+  and the unclosed harness produced shutdown noise. The original script/log
+  remain. The corrected complete fixture prevalidates before starting the worker;
+  application validation was not relaxed.
+- The actual preceding **1ab7afe** image's closed v21 reader observed the new
+  fixture, returned the two messages and preserved every cell/unknown hold. This
+  checks old-image **closed observation**, not full old-image execution rollback.
+- The current image's production factory explicitly enabled parallel processing
+  against the retained October-25 production-v6 copy, locally with synthetic keys.
+  It migrated 6 -> 26, retained every original cell/column in 16 tables, two
+  messages and exact legacy replay. Live/history/directory/replay were 200;
+  missing auth 401; lab-card path 404 and absent from public OpenAPI. Independent
+  worker tasks were live and **zero external attempts/historical captures** were
+  observed. The current closed v26 profile retained the complete resulting state.
+  No new server copy or SSH was needed.
+
+Evidence: `output/family-parallel-candidate-20261026/` (0700); SQL artifacts 0600.
+No key, private database or diagnostic output belongs in Git/images. These small
+fixtures are not population load, real-source/model quality or release acceptance.
+
+The full agent objective remains open, including supported commercial/referral
 contracts and broader source/model/capacity/administrative acceptance; Technical
 remains last. Production, keys/SSH, real grants/contacts, sources and schedules
 are unchanged by this local increment.
