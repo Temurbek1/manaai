@@ -26,7 +26,7 @@ never recapture. Parent-message protocols retain their original native/legacy
 rules. Disabling this flag stops new remainder claims; the existing full-job path
 and already submitted work retain their original lifecycle.
 
-SQL atomically reserves at most the minimum of the global remainder, parent's
+For the additional path, SQL atomically reserves at most the minimum of the global remainder, parent's
 remainder, current job ceiling and captured original ceiling. Eligibility and
 attempt limits are applied before the bounded candidate page. The existing
 64-token admission floor, same-parent pending exclusion, ownership, observation
@@ -86,7 +86,34 @@ tokens**, zero holds. Reload and actual server restart preserved every cell in
 The 390px screenshot was inspected without overflow/script errors. This uses
 fictional data/models; no actual Firebase, GA4, OpenAI, push or grant request.
 Evidence: `output/safety-remainder-browser-20261026/` and final verify/schema logs.
-Packaged/migration checks are recorded separately when completed.
+
+## Exact packaged acceptance
+
+Clean source **a6f5153** built `mana-ai-family:safety-remainder-local-20261026`,
+ID `sha256:a810467eeafcecdffbce17c82ee5f6053f180323198c81677938f218af3bfcc3`.
+All **275 Python app files** match that `git archive`; no `.env`/private SQL is in
+the image. Export: `/mnt/ssd2/mana-safety-remainder-source-a6f5153`, outside the
+checkout/mypy module tree. The digest identifies the actual build, not a promise
+about future mutable-base rebuilds.
+
+Networkless Python 3.12 ran two new known observation jobs (300 simulated raw
+tokens), verified the second **1850-token** initial reservation, and cancelled a
+third submitted fake call. The **612-token unknown hold**, three captures and
+every cell in **65 tables** survived current closed observation and reconstruction;
+no unknown call was replayed. The actual preceding **fc4846a** v26 image refused
+the populated v27 file without changing a cell. That refusal is **not working
+old-image execution rollback**; use the current closed v27 profile.
+
+The exact image's production HTTP/runtime factory also upgraded the retained
+October-25 production-v6 copy **6 -> 27** with the flag enabled. Every original
+cell/column in 16 tables, original two messages and exact legacy replay remained.
+Live/history/directory/replay returned 200, missing auth 401, lab-card path 404 and
+absent from product OpenAPI. No old turn/job acquired a capture, and external
+attempts were zero. Current closed v27 retained the complete resulting state.
+No SSH/new production copy or real credential mount was needed. Private artifacts
+are 0600 within 0700 storage: `output/safety-remainder-candidate-20261026/`.
+These are small migration/synthetic workflow checks, not population capacity,
+real-model quality or production-release acceptance.
 
 The full original goal remains open: supported referral/commercial mechanisms,
 broader source/model/channel/capacity acceptance and administrative owning-domain
