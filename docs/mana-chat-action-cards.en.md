@@ -130,6 +130,12 @@ unknown-outcome recovery. A generic confirmation button is not permission to
 grant a tariff, perform payments or execute an arbitrary provider payload. That
 integration and mobile/production release remain separate work.
 
+A subsequent **separate fictional profile** attaches host-owned trial confirmation
+cards to new approved offers and delegates to the existing owning grant lifecycle:
+see [trial button integration](mana-trial-action-cards.en.md). The original
+`make chat-lab-actions` demo and its custom creation payload remain simulation-only;
+they cannot create a trial. The new profile is not a production release.
+
 ## Verification — 2026-10-26
 
 `make verify` passed with an explicit dummy inference key: Ruff/format/lint,

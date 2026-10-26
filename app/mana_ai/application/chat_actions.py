@@ -13,6 +13,7 @@ from app.mana_ai.domain.chat_actions import (
     ChatActionCreate,
     ChatActionPage,
     ChatActionResult,
+    TrialChatActionResult,
 )
 
 
@@ -30,12 +31,15 @@ class ChatActionStore(Protocol):
     ) -> ChatActionCard | ChatActionClaim: ...
 
     async def finish_card(
-        self, claim: ChatActionClaim, result: ChatActionResult | None, now: datetime
+        self,
+        claim: ChatActionClaim,
+        result: ChatActionResult | TrialChatActionResult | None,
+        now: datetime,
     ) -> ChatActionCard: ...
 
 
 class ChatActionExecutor(Protocol):
-    async def execute(self, claim: ChatActionClaim) -> ChatActionResult: ...
+    async def execute(self, claim: ChatActionClaim) -> ChatActionResult | TrialChatActionResult: ...
 
 
 class ChatActionService:

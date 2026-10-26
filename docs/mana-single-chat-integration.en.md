@@ -888,3 +888,18 @@ The test-only API and examples are documented in
 [Confirmation cards](mana-chat-action-cards.en.md). Only `sandbox_demo` is wired.
 This is not a production path, actual trial activation, payment or push. Real
 action kinds must use their owning domain lifecycle and separately scoped release.
+
+## 31. Trial offers with confirmation buttons (local lab only)
+
+`make chat-lab-trial-actions CHAT_LAB_PORT=8099` demonstrates a newly admitted
+trial offer, explicit parent button confirmation, the existing owning one-time
+grant lifecycle and a dated Parent-Touch result in the same chat. It uses a
+fictional one-day gateway; no real tariffs or customers are changed. Generic
+card payloads cannot choose grant days or create trial actions.
+
+Use the same card list/GET/click endpoints from section 30 and render the card
+beside its existing offer `turn_id`. `trial_granted`, `trial_rejected` and
+`trial_unknown` outcomes are distinct. Do not turn a click into a fabricated parent
+message or call the legacy text-based acceptance endpoint. Replays, new nonces,
+restart and unknown outcomes never redispatch. Existing quotas remain unchanged.
+Read [the typed lifecycle and compatibility details](mana-trial-action-cards.en.md).

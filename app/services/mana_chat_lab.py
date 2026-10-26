@@ -38,6 +38,7 @@ from app.mana_ai.application.retention_expiry import RetentionExpiryService, Ret
 from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
+from app.mana_ai.application.trial_action_cards import TrialButtonGrantService
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
 from app.mana_ai.domain.chat_actions import ChatActionCard, ChatActionCreate
 from app.mana_ai.domain.child_location import ChildLocationFacts
@@ -101,7 +102,8 @@ from app.services.lab_chat_action_store import SimulatedChatActionExecutor, Sqli
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_location import LabLocationSource
 from app.services.lab_native_source_model import LabNativeSourceModel
-from app.services.lab_trial_period import LabTrialProfiles, seed_trial_history
+from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLabTrialActionStore
+from app.services.lab_trial_period import LabTrialGrantGateway, LabTrialProfiles, seed_trial_history
 from app.services.location_safety_store import SqliteLocationSafetyStore
 from app.services.location_source_cache import SqliteLocationSourceCache
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
@@ -696,6 +698,7 @@ class LabBootstrap(BaseModel):
     scenarios: list[LabScenario]
     scheduled_collection: bool = False
     action_cards_enabled: bool = False
+    trial_action_cards_enabled: bool = False
     seeded_history: Literal["fictional_trial_grant"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -738,11 +741,14 @@ class LabOptions:
     trial_periods: bool = False
     location: bool = False
     action_cards: bool = False
+    trial_action_cards: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.trial_action_cards and (not options.action_cards or options.trial_periods):
+            raise ValueError("Trial-action lab requires buttons without a pre-granted fixture")
         if options.action_cards and (not options.manager or options.real_model):
             raise ValueError("Action-card lab requires the fictional manager profile")
         if type(options.expiry_fixture_days) is not int or options.expiry_fixture_days not in {
@@ -803,6 +809,8 @@ class ChatLab:
         self.battery: LabBatterySource
         self.collection: LabCollection | None = None
         self.action_cards: ChatActionService | None = None
+        self.trial_grants: TrialButtonGrantService | None = None
+        self.trial_gateway: LabTrialGrantGateway | None = None
 
     def _directory(self) -> Path:
         directory = self.options.directory
@@ -850,6 +858,8 @@ class ChatLab:
             expected["location"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
+        if self.options.trial_action_cards:
+            expected["trial_action_cards"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -927,7 +937,7 @@ class ChatLab:
             auto_renew=False,
             checkout_path="/subscriptions/lab-only",
         )
-        if self.options.trial_periods:
+        if self.options.trial_periods or self.options.trial_action_cards:
             offer = TrialConversionOffer(
                 offer_id="lab-only",
                 approval_reference="fictional-one-day-fixture-never-a-customer-offer",
@@ -964,7 +974,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteLabChatActionStore
+                SqliteLabTrialActionStore
+                if self.options.trial_action_cards
+                else SqliteLabChatActionStore
                 if self.options.action_cards
                 else SqliteLocationSafetyStore
                 if self.options.location
@@ -1018,6 +1030,8 @@ class ChatLab:
                 reminder_options["shared_profile_enabled"] = True
             if self.options.trial_periods:
                 reminder_options["trial_periods_enabled"] = True
+            if self.options.trial_action_cards:
+                reminder_options.update(trial_cards_enabled=True, trial_periods_enabled=True)
             if self.options.location:
                 reminder_options["location_enabled"] = True
             if self.options.manager:
@@ -1072,6 +1086,17 @@ class ChatLab:
             self.action_cards = ChatActionService(
                 self.store, SimulatedChatActionExecutor(), self.options.clock
             )
+        if self.options.trial_action_cards:
+            assert isinstance(self.store, SqliteLabTrialActionStore)
+            self.trial_gateway = LabTrialGrantGateway(self.options.clock.now)
+            self.trial_grants = TrialButtonGrantService(
+                self.store, self.trial_gateway, clock=self.options.clock.now
+            )
+            self.action_cards = ChatActionService(
+                self.store,
+                LabTrialActionExecutor(self.store, self.trial_grants),
+                self.options.clock,
+            )
         if self.options.shared_conversion_profile and isinstance(
             self.options.clock, LabCollectionClock
         ):
@@ -1087,7 +1112,7 @@ class ChatLab:
             tariff_context=self.options.tariff_context,
             tariff_until=tariff_until,
         )
-        if self.options.trial_periods:
+        if self.options.trial_periods or self.options.trial_action_cards:
             assert isinstance(self.store, SqliteTrialPeriodStore)
             profiles = LabTrialProfiles(profiles, self.store)
         if isinstance(self.store, SqliteRetentionExpiryStore):
@@ -1189,7 +1214,9 @@ class ChatLab:
             history_turn_limit=2,
             safety=self.safety,
             reviewed=self.store,
-            conversion=ConversionService(self.store, clock=self.options.clock.now),
+            conversion=ConversionService(
+                self.store, clock=self.options.clock.now, grants=self.trial_grants
+            ),
             proactive=proactive,
             sources=self.sources,
             upsell=ClientUpsellService(
@@ -1432,6 +1459,7 @@ class ChatLab:
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
             action_cards_enabled=self.options.action_cards,
+            trial_action_cards_enabled=self.options.trial_action_cards,
             seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
                 *(

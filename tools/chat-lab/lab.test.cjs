@@ -48,6 +48,7 @@ async function environment({
   actionCard = null,
   savedAction = null,
   actionFailure = false,
+  actionRefusal = false,
 } = {}) {
   let remainingBusy = stateBusyOnce ? 1 : 0;
   const elements = new Map();
@@ -118,6 +119,10 @@ async function environment({
       }
       if (options.method === "POST") {
         if (url.endsWith("/click")) {
+          if (actionRefusal)
+            return response(409, {
+              detail: { code: "trial_account_no_longer_eligible" },
+            });
           if (actionFailure)
             throw new TypeError("Synthetic lost click acknowledgement");
           actionCard.status = "completed";
@@ -206,6 +211,34 @@ test("lost click is observed only; explicit retry preserves the nonce and choice
     0,
   );
   assert.equal(cardButtons(resumed)[1].disabled, true);
+});
+
+test("known refusal and unclaimed SQL state unlock cancellation without another POST", async () => {
+  const env = await environment({ actionCard: card(), actionRefusal: true });
+  await cardButtons(env)[0].listeners.click();
+  assert.equal(cardButtons(env)[1].disabled, false);
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    1,
+  );
+  assert.equal(
+    JSON.parse(env.saved.get("mana-lab-action-attempts-v1"))["card-1"],
+    undefined,
+  );
+});
+
+test("a trial refusal receipt is not displayed as a successful activation", async () => {
+  const item = {
+    ...card(),
+    action_type: "free_trial_days",
+    status: "completed",
+    result: { outcome: "trial_rejected" },
+  };
+  const env = await environment({ actionCard: item });
+  const status =
+    env.element("messages").children[0].children[1].children[0].children[0];
+  assert.match(status.textContent, /выдача отклонена/);
+  assert.equal(cardButtons(env)[0].disabled, true);
 });
 
 test("busy SQL observation stays read-only and recovers without an error or POST", async () => {

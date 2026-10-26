@@ -28,7 +28,11 @@ from app.mana_ai.domain.conversion import (
     ConversionSnapshot,
     conversion_reason,
 )
-from app.mana_ai.domain.conversion_grants import TrialAcceptance, TrialGrantState
+from app.mana_ai.domain.conversion_grants import (
+    TrialAcceptance,
+    TrialButtonAcceptance,
+    TrialGrantState,
+)
 from app.services.reviewed_message_store import (
     SqliteClosedReviewedBrokerStore,
     SqliteReviewedMessageStore,
@@ -345,6 +349,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                             now.isoformat(),
                         ),
                     )
+                    self._on_conversion_created(connection, proposal, snapshot, now)
             result = ConversionAdmission(
                 parent_id=snapshot.parent_id,
                 event_id=snapshot.event_id,
@@ -353,6 +358,15 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
             )
             self._save_event(connection, snapshot, "snapshot", result.model_dump_json(), now)
             return result
+
+    def _on_conversion_created(
+        self,
+        connection: sqlite3.Connection,
+        proposal: ConversionProposal,
+        snapshot: ConversionSnapshot,
+        now: datetime,
+    ) -> None:
+        """Companion profiles freeze eligibility only with a newly admitted proposal."""
 
     @staticmethod
     def _proposal(
@@ -631,110 +645,143 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
     async def claim_trial_grant(
         self, acceptance: TrialAcceptance, now: datetime
     ) -> tuple[TrialGrantState, bool]:
-        def claim() -> tuple[TrialGrantState, bool]:
-            current = self._utc(now)
-            with self._transaction() as connection:
-                existing = connection.execute(
-                    "SELECT acceptance,payload FROM conversion_trial_grants WHERE parent_id=?",
-                    (acceptance.parent_id,),
-                ).fetchone()
-                if existing:
-                    original = TrialAcceptance.model_validate_json(existing["acceptance"])
-                    if original != acceptance:
-                        raise ParentChatError("trial_grant_already_admitted", 409)
-                    return TrialGrantState.model_validate_json(existing["payload"]), False
-                day_start = datetime.combine(
-                    current.astimezone(self._zone).date(), datetime.min.time(), self._zone
-                )
-                count = connection.execute(
-                    "SELECT COUNT(*) FROM conversion_trial_grants WHERE created_at>=?",
-                    (self._utc(day_start).isoformat(),),
-                ).fetchone()[0]
-                if count >= self._conversion_policy.global_daily_trial_grant_limit:
-                    raise ParentChatError("trial_grant_daily_limit", 429)
-                proposal = self._proposal(connection, acceptance.parent_id, acceptance.proposal_id)
-                if proposal.offer.kind != "free_premium_days" or proposal.status not in {
-                    "published",
-                    "interested",
-                }:
-                    raise ParentChatError("trial_offer_not_available", 409)
-                if (
-                    self._conversion_offers.get(proposal.offer.offer_id) != proposal.offer
-                    or not proposal.offer.valid_from <= current < proposal.offer.valid_until
-                ):
-                    raise ParentChatError("trial_offer_expired_or_revoked", 409)
-                account = connection.execute(
-                    "SELECT snapshot,opted_out,converted FROM conversion_accounts "
-                    "WHERE parent_id=?",
-                    (acceptance.parent_id,),
-                ).fetchone()
-                assert account is not None
-                snapshot = ConversionSnapshot.model_validate_json(account["snapshot"])
-                if (
-                    account["opted_out"]
-                    or account["converted"]
-                    or snapshot.agent_trial_given is not False
-                    or conversion_reason(snapshot, self._conversion_policy, current)
-                    not in {"seven_day_free_use", "hot_free_account"}
-                ):
-                    raise ParentChatError("trial_account_no_longer_eligible", 409)
-                if self._account_verification_block(connection, snapshot, current):
-                    raise ParentChatError("trial_account_source_not_verified", 409)
-                if connection.execute(
-                    "SELECT 1 FROM conversion_opt_outs WHERE parent_id=?", (acceptance.parent_id,)
-                ).fetchone():
-                    raise ParentChatError("trial_parent_opted_out", 409)
-                reply = connection.execute(
-                    "SELECT message,created_at FROM parent_chat_turns "
-                    "WHERE parent_id=? AND id=? AND message!=''",
-                    (acceptance.parent_id, acceptance.reply_turn_id),
-                ).fetchone()
-                if (
-                    reply is None
-                    or proposal.turn_id is None
-                    or acceptance.reply_turn_id <= proposal.turn_id
-                    or datetime.fromisoformat(reply["created_at"]) > current
-                    or (current - datetime.fromisoformat(reply["created_at"])).total_seconds() > 900
-                ):
-                    raise ParentChatError("trial_parent_reply_not_bound", 409)
-                normalized = str(reply["message"]).strip().strip(".!? ").casefold()
-                if normalized not in {
-                    "активировать бесплатные дни",
-                    "bepul kunlarni faollashtiring",
-                    "бепул кунларни фаоллаштиринг",
-                    "activate free days",
-                }:
-                    raise ParentChatError("trial_parent_acceptance_not_explicit", 409)
-                latest = connection.execute(
-                    "SELECT proposal_id FROM conversion_proposals WHERE parent_id=? "
-                    "AND turn_id<? AND published_at IS NOT NULL ORDER BY turn_id DESC LIMIT 1",
-                    (acceptance.parent_id, acceptance.reply_turn_id),
-                ).fetchone()
-                if latest is None or latest["proposal_id"] != str(acceptance.proposal_id):
-                    raise ParentChatError("trial_parent_reply_offer_mismatch", 409)
-                self._validate_trial_reply(connection, acceptance, proposal, current)
-                state = TrialGrantState(
-                    action_id=uuid5(proposal.proposal_id, "one-time-non-paid-agent-tariff-v1"),
-                    parent_id=acceptance.parent_id,
-                    proposal_id=proposal.proposal_id,
-                    days=proposal.offer.grant_days,
-                    status="submitting",
-                )
-                connection.execute(
-                    "INSERT INTO conversion_trial_grants"
-                    "(parent_id,action_id,acceptance,payload,created_at) VALUES(?,?,?,?,?)",
-                    (
-                        state.parent_id,
-                        str(state.action_id),
-                        acceptance.model_dump_json(),
-                        state.model_dump_json(),
-                        current.isoformat(),
-                    ),
-                )
-                self._on_trial_grant_claimed(connection, state, current)
-                return state, True
+        return await asyncio.to_thread(self._claim_trial_grant, acceptance, now)
 
-        return await asyncio.to_thread(claim)
+    def _claim_trial_grant(
+        self, acceptance: TrialAcceptance | TrialButtonAcceptance, now: datetime
+    ) -> tuple[TrialGrantState, bool]:
+        current = self._utc(now)
+        with self._transaction() as connection:
+            return self._claim_trial_grant_in_transaction(connection, acceptance, current)
+
+    def _claim_trial_grant_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        acceptance: TrialAcceptance | TrialButtonAcceptance,
+        current: datetime,
+    ) -> tuple[TrialGrantState, bool]:
+        existing = connection.execute(
+            "SELECT acceptance,payload FROM conversion_trial_grants WHERE parent_id=?",
+            (acceptance.parent_id,),
+        ).fetchone()
+        if existing:
+            original = self._parse_trial_acceptance(existing["acceptance"])
+            if original != acceptance:
+                raise ParentChatError("trial_grant_already_admitted", 409)
+            return TrialGrantState.model_validate_json(existing["payload"]), False
+        day_start = datetime.combine(
+            current.astimezone(self._zone).date(), datetime.min.time(), self._zone
+        )
+        count = connection.execute(
+            "SELECT COUNT(*) FROM conversion_trial_grants WHERE created_at>=?",
+            (self._utc(day_start).isoformat(),),
+        ).fetchone()[0]
+        if count >= self._conversion_policy.global_daily_trial_grant_limit:
+            raise ParentChatError("trial_grant_daily_limit", 429)
+        proposal = self._eligible_trial_proposal(connection, acceptance, current)
+        self._validate_trial_confirmation(connection, acceptance, proposal, current)
+        assert proposal.offer.kind == "free_premium_days"
+        state = TrialGrantState(
+            action_id=uuid5(proposal.proposal_id, "one-time-non-paid-agent-tariff-v1"),
+            parent_id=acceptance.parent_id,
+            proposal_id=proposal.proposal_id,
+            days=proposal.offer.grant_days,
+            status="submitting",
+        )
+        connection.execute(
+            "INSERT INTO conversion_trial_grants"
+            "(parent_id,action_id,acceptance,payload,created_at) VALUES(?,?,?,?,?)",
+            (
+                state.parent_id,
+                str(state.action_id),
+                acceptance.model_dump_json(),
+                state.model_dump_json(),
+                current.isoformat(),
+            ),
+        )
+        self._on_trial_grant_claimed(connection, state, current)
+        return state, True
+
+    def _eligible_trial_proposal(
+        self,
+        connection: sqlite3.Connection,
+        acceptance: TrialAcceptance | TrialButtonAcceptance,
+        current: datetime,
+    ) -> ConversionProposal:
+        proposal = self._proposal(connection, acceptance.parent_id, acceptance.proposal_id)
+        if proposal.offer.kind != "free_premium_days" or proposal.status not in {
+            "published",
+            "interested",
+        }:
+            raise ParentChatError("trial_offer_not_available", 409)
+        if (
+            self._conversion_offers.get(proposal.offer.offer_id) != proposal.offer
+            or not proposal.offer.valid_from <= current < proposal.offer.valid_until
+        ):
+            raise ParentChatError("trial_offer_expired_or_revoked", 409)
+        account = connection.execute(
+            "SELECT snapshot,opted_out,converted FROM conversion_accounts WHERE parent_id=?",
+            (acceptance.parent_id,),
+        ).fetchone()
+        assert account is not None
+        snapshot = ConversionSnapshot.model_validate_json(account["snapshot"])
+        if (
+            account["opted_out"]
+            or account["converted"]
+            or snapshot.agent_trial_given is not False
+            or conversion_reason(snapshot, self._conversion_policy, current)
+            not in {"seven_day_free_use", "hot_free_account"}
+        ):
+            raise ParentChatError("trial_account_no_longer_eligible", 409)
+        if self._account_verification_block(connection, snapshot, current):
+            raise ParentChatError("trial_account_source_not_verified", 409)
+        if connection.execute(
+            "SELECT 1 FROM conversion_opt_outs WHERE parent_id=?", (acceptance.parent_id,)
+        ).fetchone():
+            raise ParentChatError("trial_parent_opted_out", 409)
+        return proposal
+
+    def _parse_trial_acceptance(self, payload: str) -> TrialAcceptance | TrialButtonAcceptance:
+        return TrialAcceptance.model_validate_json(payload)
+
+    def _validate_trial_confirmation(
+        self,
+        connection: sqlite3.Connection,
+        acceptance: TrialAcceptance | TrialButtonAcceptance,
+        proposal: ConversionProposal,
+        current: datetime,
+    ) -> None:
+        if not isinstance(acceptance, TrialAcceptance):
+            raise ParentChatError("trial_confirmation_not_supported", 409)
+        reply = connection.execute(
+            "SELECT message,created_at FROM parent_chat_turns "
+            "WHERE parent_id=? AND id=? AND message!=''",
+            (acceptance.parent_id, acceptance.reply_turn_id),
+        ).fetchone()
+        if (
+            reply is None
+            or proposal.turn_id is None
+            or acceptance.reply_turn_id <= proposal.turn_id
+            or datetime.fromisoformat(reply["created_at"]) > current
+            or (current - datetime.fromisoformat(reply["created_at"])).total_seconds() > 900
+        ):
+            raise ParentChatError("trial_parent_reply_not_bound", 409)
+        normalized = str(reply["message"]).strip().strip(".!? ").casefold()
+        if normalized not in {
+            "активировать бесплатные дни",
+            "bepul kunlarni faollashtiring",
+            "бепул кунларни фаоллаштиринг",
+            "activate free days",
+        }:
+            raise ParentChatError("trial_parent_acceptance_not_explicit", 409)
+        latest = connection.execute(
+            "SELECT proposal_id FROM conversion_proposals WHERE parent_id=? "
+            "AND turn_id<? AND published_at IS NOT NULL ORDER BY turn_id DESC LIMIT 1",
+            (acceptance.parent_id, acceptance.reply_turn_id),
+        ).fetchone()
+        if latest is None or latest["proposal_id"] != str(acceptance.proposal_id):
+            raise ParentChatError("trial_parent_reply_offer_mismatch", 409)
+        self._validate_trial_reply(connection, acceptance, proposal, current)
 
     def _validate_trial_reply(
         self,
@@ -753,29 +800,37 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
     async def finish_trial_grant(self, state: TrialGrantState, now: datetime) -> TrialGrantState:
         def finish() -> TrialGrantState:
             with self._transaction() as connection:
-                row = connection.execute(
-                    "SELECT payload FROM conversion_trial_grants WHERE parent_id=? AND action_id=?",
-                    (state.parent_id, str(state.action_id)),
-                ).fetchone()
-                if row is None:
-                    raise ParentChatError("trial_grant_claim_missing", 409)
-                original = TrialGrantState.model_validate_json(row[0])
-                if original.status != "submitting":
-                    if original.model_dump_json() != state.model_dump_json():
-                        raise ParentChatError("trial_grant_receipt_already_final", 409)
-                    return original
-                if original.proposal_id != state.proposal_id or original.days != state.days:
-                    raise ParentChatError("trial_grant_receipt_mismatch", 409)
-                connection.execute(
-                    "UPDATE conversion_trial_grants SET payload=? WHERE parent_id=?",
-                    (state.model_dump_json(), state.parent_id),
-                )
-                self._on_trial_grant_finished(connection, state, self._utc(now))
-                # Private, nonserialized provider observations must not change
-                # the first public receipt relative to exact replay.
-                return TrialGrantState.model_validate_json(state.model_dump_json())
+                return self._finish_trial_grant_in_transaction(connection, state, now)
 
         return await asyncio.to_thread(finish)
+
+    def _finish_trial_grant_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        state: TrialGrantState,
+        now: datetime,
+    ) -> TrialGrantState:
+        row = connection.execute(
+            "SELECT payload FROM conversion_trial_grants WHERE parent_id=? AND action_id=?",
+            (state.parent_id, str(state.action_id)),
+        ).fetchone()
+        if row is None:
+            raise ParentChatError("trial_grant_claim_missing", 409)
+        original = TrialGrantState.model_validate_json(row[0])
+        if original.status != "submitting":
+            if original.model_dump_json() != state.model_dump_json():
+                raise ParentChatError("trial_grant_receipt_already_final", 409)
+            return original
+        if original.proposal_id != state.proposal_id or original.days != state.days:
+            raise ParentChatError("trial_grant_receipt_mismatch", 409)
+        connection.execute(
+            "UPDATE conversion_trial_grants SET payload=? WHERE parent_id=?",
+            (state.model_dump_json(), state.parent_id),
+        )
+        self._on_trial_grant_finished(connection, state, self._utc(now))
+        # Private, nonserialized provider observations must not change
+        # the first public receipt relative to exact replay.
+        return TrialGrantState.model_validate_json(state.model_dump_json())
 
     def _on_trial_grant_finished(
         self,

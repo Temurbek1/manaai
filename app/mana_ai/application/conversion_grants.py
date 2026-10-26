@@ -42,6 +42,9 @@ class TrialGrantService:
 
     async def accept(self, acceptance: TrialAcceptance) -> TrialGrantState:
         state, dispatch = await self._store.claim_trial_grant(acceptance, self._clock())
+        return await self._dispatch(state, dispatch)
+
+    async def _dispatch(self, state: TrialGrantState, dispatch: bool) -> TrialGrantState:
         if not dispatch:
             return state
         try:

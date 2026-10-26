@@ -2,6 +2,20 @@
 
 ## Repository expectations
 
+- The subsequent `make chat-lab-trial-actions` profile is local/fake-only, family
+  v25. Read `docs/mana-trial-action-cards.en.md`. Only new admitted offers freeze
+  eligibility for a host-owned button card on the existing assistant turn. The
+  explicit click atomically binds the original offer, card definition, existing
+  owning grant and a one-shot dispatch. Never fabricate a user turn or route a
+  button through the legacy text acceptance. Reuse current grant policy/executor,
+  receipt publication and period capture. Ready/submitted/unknown claims never
+  drain on worker/restart/GET/replay/new nonce, including midnight. A known owning
+  receipt may be observed without rewriting a lost card acknowledgement. Keep
+  old/disabled proposals uncaptured, explicit opt-out and RU/UZ/EN language proof.
+  Only the fictional one-day gateway is wired, never real parent 4/168440 or
+  payments. Current closed v25 preserves history; old-table refusal is not working
+  execution rollback or deployment acceptance. The full original goal stays open.
+
 - The dynamic action-card prototype is lab-only through `make chat-lab-actions`.
   Read `docs/mana-chat-action-cards.en.md`. Private family v24 atomically binds
   one assistant history turn to an immutable confirmation/cancel card. Only the

@@ -24,6 +24,18 @@ class TrialAcceptance(ChatContract):
         return value
 
 
+class TrialButtonAcceptance(ChatContract):
+    """Internal proof of an authenticated, definition-bound confirmation click."""
+
+    parent_id: ParentChatId
+    event_id: UUID
+    proposal_id: UUID
+    confirmation_card_id: UUID
+    execution_id: UUID
+    click_request_id: UUID
+    definition_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class TrialGrantResult(ChatContract):
     purchase_id: int = Field(gt=0, strict=True)
     parent_id: ParentChatId

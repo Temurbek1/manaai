@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, StringConstraints, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
+from app.mana_ai.domain.conversion_grants import TrialGrantState
 
 CardText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 CardStatus = Literal["pending", "executing", "completed", "cancelled", "expired", "unknown"]
@@ -47,6 +48,31 @@ class ChatActionResult(ChatContract):
     outcome: Literal["simulated_success"] = "simulated_success"
 
 
+class TrialChatActionResult(ChatContract):
+    """A real owning-lifecycle receipt obtained exclusively from the lab's fake gateway."""
+
+    mode: Literal["simulation"] = "simulation"
+    execution_id: UUID
+    outcome: Literal["trial_granted", "trial_rejected", "trial_unknown"]
+    grant: TrialGrantState
+
+    @model_validator(mode="after")
+    def coherent_outcome(self) -> "TrialChatActionResult":
+        expected = {
+            "granted": "trial_granted",
+            "rejected": "trial_rejected",
+            "unknown": "trial_unknown",
+        }
+        if expected.get(self.grant.status) != self.outcome:
+            raise ValueError("Trial outcome must match its owning receipt")
+        return self
+
+
+class TrialCardTerms(ChatContract):
+    proposal_id: UUID
+    grant_days: int = Field(ge=1, le=30, strict=True)
+
+
 class ChatActionCard(ChatContract):
     sequence: int = Field(gt=0)
     card_id: UUID
@@ -54,7 +80,7 @@ class ChatActionCard(ChatContract):
     request_id: UUID
     turn_id: int = Field(gt=0)
     mode: Literal["simulation"] = "simulation"
-    action_type: Literal["sandbox_demo"]
+    action_type: Literal["sandbox_demo", "free_trial_days"]
     title: str
     text: str
     buttons: tuple[ChatActionButton, ChatActionButton]
@@ -63,7 +89,17 @@ class ChatActionCard(ChatContract):
     expires_at: AwareDatetime
     status: CardStatus
     selected_button: Literal["confirm", "cancel"] | None = None
-    result: ChatActionResult | None = None
+    result: ChatActionResult | TrialChatActionResult | None = None
+    trial: TrialCardTerms | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def coherent_kind(self) -> "ChatActionCard":
+        if self.action_type == "sandbox_demo":
+            if self.trial is not None or isinstance(self.result, TrialChatActionResult):
+                raise ValueError("A demo card cannot hold trial authority or receipts")
+        elif self.trial is None or isinstance(self.result, ChatActionResult):
+            raise ValueError("A trial card requires exact terms and an owning receipt")
+        return self
 
 
 class ChatActionPage(ChatContract):

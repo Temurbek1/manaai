@@ -16,6 +16,7 @@ from app.mana_ai.domain.chat_actions import (
     ChatActionCreate,
     ChatActionPage,
     ChatActionResult,
+    TrialChatActionResult,
 )
 from app.mana_ai.domain.family_agents import FamilyQuestion
 from app.services.location_safety_store import SqliteLocationSafetyStore
@@ -28,6 +29,8 @@ class SimulatedChatActionExecutor:
         self.calls = 0
 
     async def execute(self, claim: ChatActionClaim) -> ChatActionResult:
+        if claim.card.action_type != "sandbox_demo":
+            raise ValueError("The demo executor has no authority over another action kind")
         self.calls += 1
         return ChatActionResult(execution_id=claim.execution_id)
 
@@ -61,7 +64,9 @@ class SqliteLabChatActionStore(SqliteLocationSafetyStore):
         """
         )
 
-    def _card(self, row: sqlite3.Row, now: datetime) -> ChatActionCard:
+    def _card(
+        self, row: sqlite3.Row, now: datetime, db: sqlite3.Connection | None = None
+    ) -> ChatActionCard:
         definition = ChatActionCreate.model_validate_json(row["definition"])
         status = row["status"]
         if status == "pending" and datetime.fromisoformat(row["expires_at"]) <= now:
@@ -159,7 +164,7 @@ class SqliteLabChatActionStore(SqliteLocationSafetyStore):
             if prior:
                 if prior["definition_hash"] != digest:
                     raise ParentChatError("action_card_idempotency_conflict", 409)
-                return self._card(prior, now)
+                return self._card(prior, now, db)
             if self._action_pending(db, request.parent_id, now) or self._card_priority(
                 db, request.parent_id, now
             ):
@@ -209,7 +214,7 @@ class SqliteLabChatActionStore(SqliteLocationSafetyStore):
         ).fetchone()
         if row is None:
             raise ParentChatError("action_card_not_found", 404)
-        return self._card(row, now)
+        return self._card(row, now, db)
 
     async def action_card(self, parent: str, card: UUID, now: datetime) -> ChatActionCard:
         def read() -> ChatActionCard:
@@ -231,7 +236,7 @@ class SqliteLabChatActionStore(SqliteLocationSafetyStore):
                     "ORDER BY sequence LIMIT ?",
                     (parent, after, limit + 1),
                 ).fetchall()
-                cards = tuple(self._card(row, self._utc(now)) for row in rows[:limit])
+                cards = tuple(self._card(row, self._utc(now), db) for row in rows[:limit])
                 return ChatActionPage(
                     parent_id=parent,
                     cards=cards,
@@ -278,10 +283,24 @@ class SqliteLabChatActionStore(SqliteLocationSafetyStore):
             )
             self._action_event(db, card, status, now)
             value = self._read_card(db, click.parent_id, card, now)
+            self._on_card_decided(db, value, click, execution, now)
             return ChatActionClaim(card=value, execution_id=execution) if execution else value
 
+    def _on_card_decided(
+        self,
+        db: sqlite3.Connection,
+        card: ChatActionCard,
+        click: ChatActionClick,
+        execution: UUID | None,
+        now: datetime,
+    ) -> None:
+        """Owning domains may commit a matching claim, never dispatch inside SQL."""
+
     async def finish_card(
-        self, claim: ChatActionClaim, result: ChatActionResult | None, now: datetime
+        self,
+        claim: ChatActionClaim,
+        result: ChatActionResult | TrialChatActionResult | None,
+        now: datetime,
     ) -> ChatActionCard:
         def finish() -> ChatActionCard:
             with self._transaction() as db:
@@ -295,7 +314,13 @@ class SqliteLabChatActionStore(SqliteLocationSafetyStore):
                 if result is not None and result.execution_id != claim.execution_id:
                     raise ParentChatError("action_card_receipt_mismatch", 409)
                 if row[0] == "executing":
-                    status = "completed" if result else "unknown"
+                    status = (
+                        "unknown"
+                        if result is None
+                        or isinstance(result, TrialChatActionResult)
+                        and result.outcome == "trial_unknown"
+                        else "completed"
+                    )
                     db.execute(
                         "UPDATE lab_action_cards SET status=?,result=? WHERE card_id=?",
                         (

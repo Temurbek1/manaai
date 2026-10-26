@@ -23,6 +23,14 @@ let bootstrap,
   busy = false,
   rendered = "";
 const errors = {
+  action_card_definition_changed: "Карточка изменилась. Обновите историю.",
+  trial_account_no_longer_eligible:
+    "Условия аккаунта изменились. Бесплатные дни не выданы.",
+  trial_offer_not_available: "Это предложение больше недоступно.",
+  trial_offer_expired_or_revoked: "Срок предложения истёк или оно отозвано.",
+  trial_card_confirmation_not_bound:
+    "Подтверждение устарело. Обновите историю.",
+  trial_cards_disabled: "Выдача через кнопки сейчас отключена.",
   daily_token_budget_exceeded: "Дневной лимит чата исчерпан.",
   safety_server_token_budget_exceeded: "Дневной лимит Child-Safety исчерпан.",
   previous_request_unresolved:
@@ -92,6 +100,14 @@ function drawCard(body, card) {
   const note = document.createElement("p");
   note.className = "action-status";
   note.textContent = statuses[card.status];
+  if (card.action_type === "free_trial_days" && card.result) {
+    note.textContent = {
+      trial_granted: "Тест: бесплатные дни подтверждены",
+      trial_rejected: "Тест: выдача отклонена",
+      trial_unknown:
+        "Тест: результат выдачи неизвестен. Повторного запуска не будет.",
+    }[card.result.outcome];
+  }
   note.setAttribute("role", "status");
   box.append(note);
   const buttons = document.createElement("div");
@@ -106,7 +122,7 @@ function drawCard(body, card) {
       card.status !== "pending" ||
       cardBusy.has(card.card_id) ||
       !cardAttempts ||
-      (attempt &&
+      (!!attempt &&
         (attempt.button_id !== choice.id ||
           attempt.definition_hash !== card.definition_hash ||
           attempt.parent_id !== card.parent_id));
@@ -154,17 +170,42 @@ async function clickCard(card, buttonId) {
   rendered = "";
   draw();
   $("error").hidden = true;
+  let knownRefusal = false;
   try {
     await api(`${prefix}/parent-touch/action-cards/${card.card_id}/click`, {
       method: "POST",
       body: JSON.stringify(click),
     });
   } catch (error) {
+    knownRefusal =
+      error instanceof LabApiError &&
+      [400, 401, 403, 404, 409, 422, 429, 503].includes(error.status);
     showError(error);
   } finally {
     cardBusy.delete(card.card_id);
     rendered = "";
-    await refresh().catch(showError);
+    try {
+      if (await refresh()) {
+        const current = state.action_cards?.find(
+          (item) => item.card_id === card.card_id,
+        );
+        if (
+          knownRefusal &&
+          current?.status === "pending" &&
+          !current.selected_button &&
+          current.definition_hash === card.definition_hash
+        ) {
+          // Only a definitive refusal plus an unclaimed SQL card permits a new
+          // human choice. Transport loss or a consumed claim preserves its nonce.
+          delete cardAttempts[card.card_id];
+          sessionStorage.setItem(cardStorage, JSON.stringify(cardAttempts));
+          rendered = "";
+          draw();
+        }
+      }
+    } catch (error) {
+      showError(error);
+    }
   }
 }
 function draw() {
@@ -420,13 +461,15 @@ async function start() {
     bootstrap.mode === "simulation"
       ? "● Бесплатная симуляция"
       : "● Реальная модель";
-  $("mode-notice").textContent = bootstrap.seeded_history
-    ? "В истории — вымышленная выдача бесплатного дня · настоящие тарифы не выдаются"
-    : bootstrap.scheduled_collection
-      ? "Фиктивные данные и модель · 25.10.2026 · окна 09:00 и 15:00 по Ташкенту"
-      : bootstrap.mode === "simulation"
-        ? "Ответы симулируются · реальные API агентов и локальное хранилище"
-        : "Модель платная · все данные и офферы тестовые · лимиты 2000 + 2000 токенов в день";
+  $("mode-notice").textContent = bootstrap.trial_action_cards_enabled
+    ? "Тестовая выдача бесплатного дня · реальные тарифы клиентов не меняются"
+    : bootstrap.seeded_history
+      ? "В истории — вымышленная выдача бесплатного дня · настоящие тарифы не выдаются"
+      : bootstrap.scheduled_collection
+        ? "Фиктивные данные и модель · 25.10.2026 · окна 09:00 и 15:00 по Ташкенту"
+        : bootstrap.mode === "simulation"
+          ? "Ответы симулируются · реальные API агентов и локальное хранилище"
+          : "Модель платная · все данные и офферы тестовые · лимиты 2000 + 2000 токенов в день";
   $("mode-notice").classList.toggle("paid", bootstrap.mode !== "simulation");
   bootstrap.scenarios.forEach((scenario) => {
     const button = document.createElement("button");

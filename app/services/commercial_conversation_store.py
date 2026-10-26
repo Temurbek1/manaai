@@ -292,9 +292,8 @@ class SqliteCommercialConversationStore(SqliteProactiveParentStore):
             (state.parent_id,),
         ).fetchone()
         assert row is not None
-        acceptance = TrialAcceptance.model_validate_json(row["acceptance"])
-        context = _read_context(connection, state.parent_id, acceptance.reply_turn_id)
-        if context is None or context.language is None:
+        language = self._trial_grant_language(connection, state.parent_id, row["acceptance"])
+        if language is None:
             # Historical actions have no invented recipient language or receipt date.
             return
         payload = state.model_dump_json()
@@ -308,9 +307,16 @@ class SqliteCommercialConversationStore(SqliteProactiveParentStore):
                 payload,
                 _hash(payload),
                 now.isoformat(),
-                context.language,
+                language,
             ),
         )
+
+    def _trial_grant_language(
+        self, db: sqlite3.Connection, parent: str, acceptance_payload: str
+    ) -> ResponseLanguage | None:
+        acceptance = TrialAcceptance.model_validate_json(acceptance_payload)
+        context = _read_context(db, parent, acceptance.reply_turn_id)
+        return context.language if context else None
 
     async def publish_trial_result(self, now: datetime) -> bool:
         if not self._conversation_enabled:

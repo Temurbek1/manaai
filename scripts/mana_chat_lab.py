@@ -535,6 +535,28 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_trial_action_cards_app() -> FastAPI:
+    """Explicit fictional click -> existing one-time grant lifecycle -> same-chat receipt."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/trial-action-cards-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            action_cards=True,
+            trial_action_cards=True,
+            expiry_fixture_days=30,
+        )
+    )
+
+
 def create_action_cards_app() -> FastAPI:
     """Dynamic confirmation buttons with durable simulated execution, never live writes."""
     root = Path(__file__).resolve().parents[1]
