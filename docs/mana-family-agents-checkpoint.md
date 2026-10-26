@@ -2,6 +2,48 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Test chat action buttons — 2026-10-26, `38cc6a7`
+
+The latest owner instruction replaces the proposed automatic text-triggered trial
+activation next step with a **test API for dynamic action confirmation buttons**.
+Implementation is committed in `/mnt/ssd2/mana-conversion-agent-20261021`, not this
+unrelated dirty operational tree. Read
+[the English card API guide](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-chat-action-cards.en.md)
+and single-chat integration section 30.
+
+`make chat-lab-actions CHAT_LAB_PORT=8098` runs a loopback-only fictional-family
+profile. It accepts title/text/custom confirm/cancel labels, atomically publishes
+one assistant message in the existing chat and captures one durable, definition-
+bound click before a typed `sandbox_demo` executor. Creation/click replay, new
+nonces, refresh and restart cannot repeat execution. Cancellation never dispatches;
+unknown/executing claims retain their holds. The lab's existing cookie, CSRF,
+origin and single-family guards remain. Plain text cannot authorize a card.
+No arbitrary callback/provider payload, real tariff, payment, push, Firebase/GA4
+read or model call is wired. The private family **v24** prototype stays outside
+production factories; the previous v23 reader refuses its tables, not a working
+execution rollback. All other lab profiles keep it disabled.
+
+Final configured **`make verify` exited 0**: **1507 backend tests**, **26 admin
+tests /11 suites**, **13 chat-lab tests**, mypy **428 files**, format/lint/typecheck,
+UI production build and zero npm vulnerabilities. One skip and two excluded live
+tests are not passes. Preserve the first gate's missing-dummy-key collection
+failure separately. Actual Chromium tested custom Uzbek labels, cancellation,
+confirmation, a lost successful acknowledgement and literal HTML-looking text.
+Three assistant-only messages yielded two fake executions and one cancellation,
+zero model tokens. Browser reload and an actual server restart preserved all rows
+in **63 tables** with one identical fingerprint. Initial restart navigation raced
+readiness; explicit navigation after startup passed without another POST. The
+390px screenshot was inspected with no document overflow or script errors.
+Evidence: feature `output/action-cards-20261026/` (private/local, uncommitted).
+
+The test server is left available at **http://127.0.0.1:8098** for the owner:
+owned process **88683**, tool session **46378** at handoff, source factory
+`scripts.mana_chat_lab:create_action_cards_app`. Revalidate PID/cwd/command before
+any later control; never stop another project's process. The automation browser
+was closed. No production deployment/SSH/key/source/schedule/budget change occurred.
+Real owning-domain action integration/mobile release and the full original agent
+objective remain open. Never repeat parent 4's already consumed grant.
+
 ### Owned-child GPS to the single chat — 2026-10-26, `399a934`
 
 Read [the implemented GPS checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-location-source.md)
