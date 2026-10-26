@@ -104,8 +104,37 @@ closing automation, the owned server was restarted on its existing files; every
 cell in **69 family /27 source tables** and the entire history/state remain
 identical. No real source/model/push/grant exists in that lab. Evidence:
 `output/usage-comparison-browser-20261026/`. This is not neural quality or a
-production interface release. Packaged migration/closure acceptance follows the
-clean application commit/build.
+production interface release.
+
+Application **`205d140`** builds from the external clean archive
+`/mnt/ssd2/mana-usage-comparison-source-205d140` as
+`mana-ai-family:usage-comparison-local-20261026`, ID
+`sha256:a2938827b3524a769f9c5ffec6085ac9e0461343a215cfd4cfda01e20d860568`.
+All **283 application Python hashes** match; no `.env` or private SQL is included.
+Actual Python 3.12 networkless/nonroot/read-only-root acceptance passes the
+two-day source -> specialist -> one proactive message flow at **150 simulated
+parent /150 Safety tokens**. A following submitted parent-model call retains its
+**612-token** unknown SQL hold; a separate simulated unknown source receipt also
+persists. Current closed family30/deactivated source8, reconstruction and midnight
+preserve every cell in **69/27 tables**, with neither unknown call redispatched.
+The first probe incorrectly expected the *next day's display quota* to include
+the original day's 612 reserve; it correctly remains in its original SQL period
+and blocks new inference across days. The corrected probe checks both facts,
+without changing application code, refunds, budgets or old receipts. Preserve the
+initial probe/log and the separate corrected file/log.
+
+The same packaged actual production factory upgrades the already protected
+October-25 private production-v6 copy **directly 6 -> 30**. Every original cell/
+column in **16 tables**, the two messages and exact old replay survive, with
+zero external requests or historical native/contact captures. Missing auth is
+401, live/history/directory/replay 200 and lab action cards 404. The current closed
+reader retains the migrated state. The actual prior `7b64a05` image refuses both
+new family30/source8 files with all cells/versions unchanged. Refusal is not
+functional old-image rollback; use current closed readers and never downgrade or
+restore stale SQL over new history. Evidence:
+`output/usage-comparison-candidate-20261026/`. This remains small-fixture migration/
+closure engineering acceptance, not production release, fleet capacity or full
+model/source/channel quality. No new production access/copy was performed.
 
 Two distinct real-model parties use fake family/source/contact providers and the
 actual SDK/application/SQL path, without workers or real source/push/grant calls:
