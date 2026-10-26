@@ -152,3 +152,36 @@ a Child-Safety question. It is not a production integration endpoint.
 The full goal remains active: broader real source/model/channel acceptance,
 unsupported commercial/referral contracts, scoped release and administrative
 owning-domain work remain; Technical is last.
+
+## Final packaged checkpoint — application `7c136bd`
+
+Clean image `mana-ai-family:parent-support-final-local-20261026`, ID
+`sha256:3ae88ad3ae27ba2ae92df70f0af4b21b146424fc20f1af4bcf0f26fd4d3e7fbb`,
+matches all **276 app Python files**, with no `.env` or private SQL. The actual
+Python 3.12, networkless, nonroot, read-only-root package passed one parent
+question/answer/exact replay at 300 simulated tokens, then retained a separate
+612-token unknown submission across current closed observation, reconstruction
+and midnight. Every cell in 66 tables survived; unknown work was not repeated.
+
+The same image's actual production factory passed the retained October 25 private
+copy **6 -> 28**, all original cells/columns/rows in 16 tables, two history
+messages and exact old-request replay. Authenticated history/directory/replay and
+liveness returned 200; unauthenticated history 401; lab action-card path 404 and
+absent from OpenAPI. No external request or historical capture occurred. Current
+closed v28 retained the complete upgraded state. This is a local copy, not a new
+production read, live release or complete channel/fleet acceptance.
+
+The actual preceding `a6f5153` image refuses populated v28 without changing a cell;
+this is **not** functional execution rollback. Final evidence is under
+`output/parent-support-candidate-20261026/`, protected 0700/0600. Source archive:
+`/mnt/ssd2/mana-parent-support-source-7c136bd`. Initial prototype harnesses omitted
+PYTHONPATH, then the fake helper's production Telegram-auth override; both failed
+before the workflow. Those logs remain alongside the separate unused-queue
+comparison failure, not relabelled as passes. Final SDK/application checks retain
+the same production safeguards; only the hermetic fake profile disables Telegram.
+
+Final schema synchronization passed after the terminal full gate. The primary
+fake browser lab at **http://127.0.0.1:8103** was restarted from final code and
+retains every cell in 66 family/15 source tables; its automation browser is closed.
+The temporary opt-out server was stopped. Existing 8098–8102 labs and production,
+source settings/schedules, SSH/keys, real grants/payments/push are untouched.
