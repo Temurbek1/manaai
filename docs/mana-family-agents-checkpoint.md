@@ -2,6 +2,74 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Reactive Parent-Touch clarifications — 2026-10-26, application `7b64a05`
+
+Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`, documentation HEAD **`7a93e5b`**.
+Read [the v29 checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-clarifications.md)
+and English integration section 36. Default-disabled
+`MANA_PARENT_TOUCH_CLARIFICATIONS_ENABLED` admits one ordinary parent-initiated
+clarification in the existing shared question slot, without spending Safety tokens
+on device/app-help dialogue. The same exact `reply_to_question_id` binds the answer;
+child analyses, pricing and reminders retain their owning native handoffs.
+Urgent Safety priority and one parent/child slot remain. Neutral answers such as
+Android preserve the originating frozen language/reference, independently of contact
+preferences. New uncertain references direct model presentation only, not consent,
+facts, grants or a general deterministic language detector. Old turns never upgrade.
+
+Private family **29** adds immutable admission/origin tables outside legacy JSON.
+Raw verified costs precede schema/publication checks; assistant/question/binding
+publication is atomic. Invalid/late output cannot create a question, SQL failure
+retains an unknown hold, and message completion is not whole-task completion.
+No new public operation, source read/schedule, permission or token budget follows.
+
+Final `make verify` **exited 0**: **1598 backend**, one skipped/two live excluded,
+**26 admin/11 suites**, **15 lab**, mypy **443 files**, lint/types/build and zero
+npm vulnerabilities. Sequential schema sync passed. Fourteen new cases cover exact
+RU/UZ replies, no-backfill, priority, concurrent/foreign answers, SDK usage/protocol,
+publication failures and unknown holds. Preserve the early language/fixture/format
+failures as qualified pre-fix evidence. The two distinct synthetic real-model
+parties total **eight generations/17 OpenAI HTTP attempts**, estimated known
+uncached generation cost **$0.03044**, not an invoice. Both settle all usage, with
+zero Safety tokens/unknown holds. The first party over-explained Uzbek instructions
+and left a legitimate Russian brand question open; do not relabel it a completed
+parent task. After concise-first guidance, separate OS-specific tasks pass at
+**1676 RU /1694 UZ tokens**, exact replay without HTTP and no remaining question.
+These are qualified synthetic checks, not broad language/quality/business proof.
+
+Browser -> actual HTTP/SQL -> UI passes parent question, urgent interruption,
+Android reply, child question/answer and RU-to-UZ switch in one chat: **12 messages,
+1050 simulated parent /300 Safety tokens**, no active question, no overflow/errors
+at 390px. Same-file final-code restart preserves every cell in **68 family /15
+source tables** and identical history/quota. Automation is closed; the fictional
+lab remains on loopback 8104 with its own files and no real provider gateways.
+
+The clean external archive of `7b64a05` builds image
+`mana-ai-family:parent-clarification-clean-local-20261026`, ID
+`sha256:800eef7594a6299f79692395f0f7911d8d59942f9957d1600dfcd974fae4ccdd`;
+all **277 application Python hashes** match. Python 3.12 networkless/nonroot/
+read-only probes pass exact reactive answer/replay at 300 simulated tokens and
+retain a **612-token unknown hold** through closed v29/restart/midnight, all 68
+tables unchanged. The same actual production factory upgrades the retained
+October-25 private v6 copy **6 -> 29**, all original cells/columns in 16 tables,
+two messages and exact old replay preserved, zero external/historical capture.
+Auth 401, live/history/directory/replay 200 and lab cards 404 pass. The actual v28
+reader refuses v29 unchanged; this is not functional rollback. Use current closed
+v29; never restore/downgrade SQL. Private evidence stays outside Git/images.
+
+One separately admitted read-only source investigation followed the supplied
+mobile archive's singular `/api/v1/child/call/` contract: login 200, exact designated
+parent 4 ownership GET 200, one fresh owned-child page-1 GET **404**. Six connected
+child links were observed, no call rows. This does not identify missing-route vs
+resource/access behavior. No fallback/retry/crawl, Firebase/GA4/audio/model/contact/
+grant or production change followed; types/counts/status only, no personal values.
+Calls remain unconfirmed/unwired; never repeat that terminal party automatically.
+
+The complete original AI KOMANDA goal remains active: Referral/reward contracts,
+full commercial eligibility/offers, further child telemetry/routes, administrative
+owning actions and separately scoped release acceptance remain. No production,
+SSH/key, main/audio, source schedule, budget or customer mutation occurred.
+
 ### Managed parent support questions — 2026-10-26, application `7c136bd`
 
 Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
