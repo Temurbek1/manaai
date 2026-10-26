@@ -429,6 +429,10 @@ class ParentTouchService(ParentChatService):
                     data["assessments"]["query_calendar_days"] = [
                         d.isoformat() for d in evidence.notice.query_calendar_days
                     ]
+                if evidence.notice.counter_comparison is not None:
+                    data["assessments"]["saved_counter_comparison"] = (
+                        evidence.notice.counter_comparison.model_dump(mode="json")
+                    )
         reference = await self._touch_store.language_reference(request.parent_id, turn.turn_id)
         response_language = await self._touch_store.language_hint(request.parent_id, turn.turn_id)
         if response_language is None:
@@ -587,6 +591,17 @@ class ParentTouchService(ParentChatService):
                 "\nState every query_calendar_days value as YYYY-MM-DD: requested API filter "
                 "labels, not verified measurement days, timezone or screen time. "
                 "Preserve partial coverage; missing rows are not zero use."
+            )
+        if evidence and evidence.notice and evidence.notice.counter_comparison is not None:
+            instructions += (
+                "\nThe saved_counter_comparison contains host-computed differences between "
+                "exactly matched single app counters. You may explain these dated reported "
+                "values, never actual behavioral growth, total screen time or causality. "
+                "Do not fill missing/ambiguous apps with zero or present a partial page as "
+                "the whole day. Use natural wording fully in the parent's language; do not "
+                "show English field names or internal data terminology. Do not recommend "
+                "waiting for more rows or offer pagination/refresh: these are unavailable. "
+                "Prefer a safe practical parent action. Keep the comparison concise."
             )
         commercial = await self._touch_store.commercial_context(request.parent_id, turn.turn_id)
         if commercial is not None:

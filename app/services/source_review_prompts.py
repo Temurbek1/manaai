@@ -7,6 +7,7 @@ from app.mana_ai.application.child_safety_ports import SafetyChildAlias, SafetyP
 from app.mana_ai.domain.chat import ParentChildContext
 from app.mana_ai.domain.child_location import LOCATION_QUALIFICATION, LOCATION_SOURCE
 from app.mana_ai.domain.child_safety import SafetyJob
+from app.mana_ai.domain.source_reviews import counter_comparison_view
 
 INSTRUCTIONS = """You are Child-Safety, MANA's internal specialist for the adult parent.
 Review only the supplied own-child source snapshots and bounded conversation. Parent-Touch
@@ -63,6 +64,9 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
             if n.child_id == child.child_id
         ],
     }
+    comparison = counter_comparison_view(bundle)
+    if comparison is not None:
+        payload["saved_counter_comparison"] = comparison.model_dump(mode="json")
     return SafetyPrompt(
         input=ChatPrompt(
             INSTRUCTIONS
@@ -75,6 +79,19 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
                 "\nPreserve query_calendar_day as the requested API filter label, "
                 "not a verified measurement day, timezone or screen-time period."
                 if any(s.requested_day is not None for s in bundle.snapshots)
+                else ""
+            )
+            + (
+                "\nThe saved_counter_comparison is host-computed arithmetic for exactly "
+                "matched single app rows on two adjacent query-calendar labels. You may "
+                "quote those reported values/differences with their dates, but not actual "
+                "behavioral growth, total daily screen time, a complete ranking or causality. "
+                "Unmatched/ambiguous apps are unknown, never zero. Preserve partial-page "
+                "and unknown measurement-period/timezone qualifications. Do not recommend "
+                "waiting for missing rows or fetching another page: no pagination or future "
+                "coverage is promised. Choose a safe practical step the parent can take, "
+                "such as checking the app report or calmly discussing the child's routine."
+                if bundle.usage_comparison is not None
                 else ""
             ),
             (("user", json.dumps(payload, ensure_ascii=False)),),

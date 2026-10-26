@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     mana_family_source_reviews_enabled: bool = False
     mana_family_day_usage_enabled: bool = False
     mana_family_day_reviews_enabled: bool = False
+    mana_family_usage_comparisons_enabled: bool = False
     mana_collection_day_usage_enabled: bool = False
     mana_conversion_shared_profile_enabled: bool = False
     mana_parent_touch_manager_enabled: bool = False
@@ -475,6 +476,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_usage_comparisons_enabled and not (
+            self.mana_family_day_reviews_enabled and self.mana_parent_touch_manager_enabled
+        ):
+            raise ValueError("Saved usage comparisons require the governed dated-review runtime")
         if (
             self.mana_parent_touch_clarifications_enabled
             and not self.mana_parent_touch_manager_enabled

@@ -294,6 +294,10 @@ audit-security:
 	$(PYTHON) scripts/quality_marker_scan.py
 	docker compose config --quiet
 
+.PHONY: chat-lab-usage-comparison
+chat-lab-usage-comparison:
+	.venv/bin/python -m uvicorn scripts.mana_chat_lab:create_usage_comparison_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 audit-schema:
 	scripts/check_openapi_sync.sh
 

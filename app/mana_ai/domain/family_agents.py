@@ -31,6 +31,7 @@ from app.mana_ai.domain.parent_reminders import (
     ReminderCandidate,
     ReminderConfirmation,
 )
+from app.mana_ai.domain.source_reviews import CounterComparisonView
 
 FamilyAgentId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{1,63}$", strict=True)]
 InformationKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_.-]{0,99}$", strict=True)]
@@ -221,8 +222,23 @@ class FamilyNotice(ChatContract):
         default=(), max_length=4, exclude_if=lambda v: not v
     )
     query_calendar_days: tuple[date, ...] = Field(
-        default=(), max_length=1, exclude_if=lambda v: not v
+        default=(), max_length=2, exclude_if=lambda v: not v
     )
+    counter_comparison: CounterComparisonView | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def comparison_dates(self) -> "FamilyNotice":
+        if self.counter_comparison is None:
+            if len(self.query_calendar_days) > 1:
+                raise ValueError("Only a captured counter comparison carries two query dates")
+        elif self.query_calendar_days != (
+            self.counter_comparison.previous_query_calendar_day,
+            self.counter_comparison.current_query_calendar_day,
+        ):
+            raise ValueError("Comparison notices preserve both exact query dates")
+        return self
 
 
 class ParentTouchEvidence(ChatContract):

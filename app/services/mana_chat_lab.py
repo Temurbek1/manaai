@@ -72,7 +72,11 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchMessageRequest,
 )
 from app.mana_ai.domain.family_collection import FamilyCollectionWindow
-from app.mana_ai.domain.family_day_usage import FamilyDayUsagePage, ParentUsageLookup
+from app.mana_ai.domain.family_day_usage import (
+    DayUsageTarget,
+    FamilyDayUsagePage,
+    ParentUsageLookup,
+)
 from app.mana_ai.domain.family_sources import (
     AppUsageCounter,
     ChildAppUsageFacts,
@@ -85,7 +89,11 @@ from app.mana_ai.domain.parent_touch_manager import ManagerTarget, ParentTouchMa
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy, RetentionTariffFact
-from app.mana_ai.domain.source_reviews import SourceReviewPolicy, SourceReviewWork
+from app.mana_ai.domain.source_reviews import (
+    CounterComparisonView,
+    SourceReviewPolicy,
+    SourceReviewWork,
+)
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
@@ -105,6 +113,7 @@ from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLabTrialActionStore
 from app.services.lab_trial_end import LabTrialEndClock
 from app.services.lab_trial_period import LabTrialGrantGateway, LabTrialProfiles, seed_trial_history
+from app.services.lab_usage_comparison import LabUsageComparisonClock, comparison_text
 from app.services.location_safety_store import SqliteLocationSafetyStore
 from app.services.location_source_cache import SqliteLocationSourceCache
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
@@ -127,6 +136,8 @@ from app.services.source_tool_safety_store import (
 )
 from app.services.trial_end_store import SqliteTrialEndStore
 from app.services.trial_period_store import SqliteTrialPeriodStore
+from app.services.usage_comparison_cache import SqliteUsageComparisonCache
+from app.services.usage_comparison_safety_store import SqliteUsageComparisonSafetyStore
 
 LAB_PARENT = "900001"
 LAB_CHILD = 900002
@@ -160,8 +171,11 @@ class LabAppUsageSource:
 class LabDayUsageSource:
     """Fictional date-filtered family source; no username or provider is accessed."""
 
-    def __init__(self, profiles: ParentChildrenSource, clock: Clock) -> None:
+    def __init__(
+        self, profiles: ParentChildrenSource, clock: Clock, *, comparison_story: bool = False
+    ) -> None:
         self._profiles, self._clock, self.calls = profiles, clock, 0
+        self._comparison_story = comparison_story
 
     async def read_usage_lookup(self, parent_id: str) -> ParentUsageLookup:
         context = await self._profiles.read(parent_id)
@@ -191,7 +205,9 @@ class LabDayUsageSource:
                 AppUsageCounter(
                     app_name="Fictional lessons",
                     provider_recorded_at=requested_day.isoformat() + " 12:00:00",
-                    reported_seconds=3600,
+                    reported_seconds=1800
+                    if self._comparison_story and requested_day == date(2026, 10, 24)
+                    else 3600,
                 ),
             ),
         )
@@ -443,7 +459,11 @@ class SimulatedModel:
                 decision = SafetySourceReviewDecision(
                     analysis=None,
                     followup_summary=(
-                        f"Последняя запись местоположения от {location_facts['observed_at']}; "
+                        comparison_text(
+                            CounterComparisonView.model_validate(data["saved_counter_comparison"])
+                        )
+                        if data.get("saved_counter_comparison") is not None
+                        else f"Последняя запись местоположения от {location_facts['observed_at']}; "
                         "текущее местоположение неизвестно. Проверьте карту в приложении."
                         if location_facts is not None
                         else "Снимки батареи и приложений получены; период счётчиков "
@@ -660,7 +680,9 @@ class SimulatedModel:
                                 else f" Последняя запись местоположения от {stamp}; "
                                 "текущее местоположение неизвестно."
                             )
-                if prompt.notice.query_calendar_days:
+                if prompt.notice.counter_comparison is not None:
+                    answer = comparison_text(prompt.notice.counter_comparison, uzbek=uzbek)
+                if prompt.notice.query_calendar_days and prompt.notice.counter_comparison is None:
                     answer = (
                         ", ".join(d.isoformat() for d in prompt.notice.query_calendar_days)
                         + ": "
@@ -801,11 +823,19 @@ class LabOptions:
     safety_remainder: bool = False
     parent_support_questions: bool = False
     clarifications: bool = False
+    usage_comparisons: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.usage_comparisons and (
+            not options.dated_reviews
+            or not options.day_usage
+            or not options.manager
+            or options.action_cards
+        ):
+            raise ValueError("Usage comparison lab requires the governed dated-review profile")
         if options.clarifications and (not options.manager or options.action_cards):
             raise ValueError("Clarification lab requires the current manager profile")
         if options.parent_support_questions and (
@@ -859,6 +889,10 @@ class ChatLab:
             or not isinstance(options.clock, LabCollectionClock)
         ):
             raise ValueError("Collection lab requires fictional time, sources and model")
+        if isinstance(options.clock, LabUsageComparisonClock) and (
+            options.real_model or not options.usage_comparisons
+        ):
+            raise ValueError("Fictional comparison time cannot be used for paid models")
         self.options: LabOptions = options
         if options.upsell and not options.retention:
             raise ValueError("Upsell lab requires the complete conversation runtime")
@@ -937,6 +971,10 @@ class ChatLab:
             expected["parallel_worker"] = True
         if self.options.clarifications:
             expected["clarifications"] = True
+        if self.options.usage_comparisons:
+            expected["usage_comparisons"] = True
+            if isinstance(self.options.clock, LabUsageComparisonClock):
+                expected["clock"] = "fictional_usage_comparison_v1"
         if self.options.parent_support_questions:
             expected["parent_support_questions"] = True
         if self.options.safety_remainder:
@@ -963,6 +1001,8 @@ class ChatLab:
 
     async def start(self) -> None:
         directory = self._directory()
+        if isinstance(self.options.clock, LabUsageComparisonClock):
+            self.options.clock.restore(directory)
         if self.options.trial_end and isinstance(self.options.clock, LabTrialEndClock):
             self.options.clock.restore(directory)
         tariff_until = None
@@ -1057,7 +1097,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteParentClarificationStore
+                SqliteUsageComparisonSafetyStore
+                if self.options.usage_comparisons
+                else SqliteParentClarificationStore
                 if self.options.clarifications
                 else SqliteParentSupportQuestionStore
                 if self.options.parent_support_questions
@@ -1125,6 +1167,8 @@ class ChatLab:
                 reminder_options["trial_end_enabled"] = True
             if self.options.clarifications:
                 reminder_options["clarifications_enabled"] = True
+            if self.options.usage_comparisons:
+                reminder_options["comparisons_enabled"] = True
             if self.options.parent_support_questions:
                 reminder_options["parent_questions_enabled"] = True
             if self.options.safety_remainder:
@@ -1225,7 +1269,9 @@ class ChatLab:
         )
         self.source_store = (
             (
-                SqliteLocationSourceCache
+                SqliteUsageComparisonCache
+                if self.options.usage_comparisons
+                else SqliteLocationSourceCache
                 if self.options.location
                 else SqliteDayReviewCache
                 if self.options.dated_reviews
@@ -1241,6 +1287,7 @@ class ChatLab:
                 review_policy=SourceReviewPolicy(coalesce_seconds=0)
                 if self.options.day_collection
                 else SourceReviewPolicy(),
+                **({"comparisons_enabled": True} if self.options.usage_comparisons else {}),
                 **({"location_enabled": True} if self.options.location else {}),
                 **({"dated_reviews_enabled": True} if self.options.dated_reviews else {}),
             )
@@ -1265,7 +1312,9 @@ class ChatLab:
             app_usage=self.app_usage if self.options.native_observations else None,
             location=self.location if self.options.location else None,
         )
-        self.day_provider = LabDayUsageSource(profiles, self.options.clock)
+        self.day_provider = LabDayUsageSource(
+            profiles, self.options.clock, comparison_story=self.options.usage_comparisons
+        )
         self.day_usage = (
             FamilyDayUsageService(
                 self.source_store,
@@ -1452,6 +1501,55 @@ class ChatLab:
             else [],
         )
 
+    async def prepare_usage_comparison(self) -> dict[str, object]:
+        if (
+            not self.options.usage_comparisons
+            or self.options.real_model
+            or not isinstance(self.options.clock, LabUsageComparisonClock)
+        ):
+            raise ParentChatError("lab_usage_comparison_disabled", 409)
+        assert self.day_usage is not None and self.touch.proactive is not None
+        baseline = await self.day_usage.read_for_analysis(
+            DayUsageTarget(
+                parent_id=LAB_PARENT,
+                child_id=LAB_CHILD,
+                requested_day=date(2026, 10, 24),
+                request_id=uuid5(NAMESPACE_URL, "fictional-usage-comparison-baseline-v1"),
+            )
+        )
+        if baseline.status != "completed":
+            raise ParentChatError("lab_usage_comparison_unresolved", 409)
+        self.options.clock.next_day()
+        now = self.options.clock.now()
+        if await self.store.contact_context(LAB_PARENT, now) is None:
+            await self.touch.proactive.register(
+                ParentContactContext(
+                    parent_id=LAB_PARENT,
+                    event_id=uuid4(),
+                    revision=int(now.timestamp() * 1000000),
+                    observed_at=now,
+                    valid_until=now + timedelta(days=1),
+                    language="ru",
+                    timezone="Asia/Samarkand",
+                    safety_chat_consent=True,
+                    safety_push_consent=False,
+                    marketing_push_consent=False,
+                    retention_chat_consent=self.options.expiry,
+                )
+            )
+        current = await self.day_usage.read_for_analysis(
+            DayUsageTarget(
+                parent_id=LAB_PARENT,
+                child_id=LAB_CHILD,
+                requested_day=date(2026, 10, 25),
+                request_id=uuid5(NAMESPACE_URL, "fictional-usage-comparison-current-v1"),
+            )
+        )
+        if current.status != "completed":
+            raise ParentChatError("lab_usage_comparison_unresolved", 409)
+        self.options.clock.ready()
+        return {"status": "completed", "cache_hit": True, "external_requests": 0}
+
     async def prepare_retention_scenario(self) -> dict[str, str]:
         if not self.options.retention or not isinstance(self.store, SqliteClientRetentionStore):
             raise ParentChatError("lab_retention_disabled", 409)
@@ -1604,6 +1702,20 @@ class ChatLab:
             trial_end_enabled=self.options.trial_end,
             seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="usage-comparison",
+                            title="Сопоставить два дня (симуляция)",
+                            path="/lab/usage-comparison",
+                            body={"parent_id": LAB_PARENT},
+                            local=True,
+                        )
+                    ]
+                    if self.options.usage_comparisons
+                    and isinstance(self.options.clock, LabUsageComparisonClock)
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

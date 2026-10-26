@@ -37,6 +37,7 @@ from app.mana_ai.domain.family_collection import FamilyCollectionWindow
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 from app.services.lab_collection import LabCollectionClock
 from app.services.lab_trial_end import LabTrialEndClock
+from app.services.lab_usage_comparison import LabUsageComparisonClock
 from app.services.mana_chat_lab import (
     LAB_CHILD,
     LAB_PARENT,
@@ -165,6 +166,14 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     )
     async def trial_end() -> dict[str, str]:
         return await mana_family_agents.controlled(lab.prepare_trial_end_scenario())
+
+    @app.post(
+        "/lab/usage-comparison",
+        response_model=dict[str, object],
+        dependencies=[Depends(local_session)],
+    )
+    async def usage_comparison() -> dict[str, object]:
+        return await mana_family_agents.controlled(lab.prepare_usage_comparison())
 
     def card_service() -> ChatActionService:
         if lab.action_cards is None:
@@ -538,6 +547,33 @@ def create_day_usage_app() -> FastAPI:
             tariff_context=True,
             expiry=True,
             day_usage=True,
+        )
+    )
+
+
+def create_usage_comparison_app() -> FastAPI:
+    """Two fictional saved query days reach the same chat through the owning specialist."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/usage-comparison-simulation",
+            clock=LabUsageComparisonClock(),
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            day_usage=True,
+            dated_reviews=True,
+            usage_comparisons=True,
+            clarifications=True,
+            parent_support_questions=True,
+            parallel_worker=True,
+            expiry_fixture_days=30,
         )
     )
 

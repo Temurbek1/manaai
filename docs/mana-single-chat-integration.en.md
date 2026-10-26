@@ -1022,3 +1022,21 @@ The report describes collection coverage and its original dates. Its counters
 are not parent activity, churn, conversion or proven population totals. It does
 not activate the 09:00/15:00 collector or register new native Goal tools. Read
 [configuration, authorization and acceptance](mana-saved-collection-analytics.md).
+
+## 38. Saved adjacent-day counter comparisons (local, not released)
+
+No additional mobile endpoint is needed. On a newly captured dated source change,
+Child-Safety may use one already saved own-child snapshot for the preceding query
+day. Parent-Touch publishes the qualified comparison in that parent's one chat,
+including before a parent message. The existing history/status/answer operations
+and independently permitted neutral push flow stay the same.
+
+The result compares only identical, unambiguous returned app counters. Both query
+labels are preserved; missing/overlapping rows are not zeros or summed screen time.
+These are partial provider counters with unverified measurement period/timezone,
+not proof of changed behavior or danger. No old source is fetched to fill a missing
+baseline, no additional schedule/budget is enabled, and old turns do not upgrade.
+
+Try `make chat-lab-usage-comparison CHAT_LAB_PORT=8106` and its fictional two-day
+scenario button. The new `/lab/usage-comparison` operation is loopback/session/CSRF
+protected and absent from the product API. Read [capture, limits and actual evidence](mana-saved-usage-comparison.md).

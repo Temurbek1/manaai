@@ -17,6 +17,7 @@ from app.mana_ai.domain.child_safety import (
 from app.mana_ai.domain.enums import AnalysisStatus, AnalysisVerdict, ManaAICapability
 from app.mana_ai.domain.family_agents import FamilyNotice, ParentTouchAssessment
 from app.mana_ai.domain.source_reviews import (
+    CounterComparisonView,
     SourceAnalysisOwner,
     SourceReviewBundle,
     SourceReviewWork,
@@ -32,6 +33,12 @@ _TABLE = "source_review_capture"
 
 class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
     _schema_version = 13
+
+    def _allow_usage_comparison(self) -> bool:
+        return False
+
+    def _notice_counter_comparison(self, job: SafetyJob) -> CounterComparisonView | None:
+        return None
 
     def _push_delivery_ready(
         self, connection: sqlite3.Connection, row: sqlite3.Row, now: datetime
@@ -134,6 +141,8 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
                 (parent, child, digest),
             ).fetchone()
             if prior is None:
+                if bundle.usage_comparison is not None and not self._allow_usage_comparison():
+                    raise ParentChatError("usage_comparisons_disabled", 503)
                 if not allow_new or not self._capacity(db, parent):
                     raise ParentChatError("safety_queue_full", 429)
                 cutoff = db.execute(
@@ -260,6 +269,7 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
         bundle = job.context.source_review
         assert bundle is not None and result.followup_summary is not None
         report = self._projection(row)
+        comparison = self._notice_counter_comparison(job)
         notice = FamilyNotice(
             notice_id=uuid4(),
             parent_id=bundle.parent_id,
@@ -268,9 +278,13 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
             assessment=report,
             expires_at=now + timedelta(days=1),
             source_observations=tuple(s.facts for s in bundle.snapshots),
-            query_calendar_days=tuple(
-                s.requested_day for s in bundle.snapshots if s.requested_day is not None
-            ),
+            counter_comparison=comparison,
+            query_calendar_days=(
+                comparison.previous_query_calendar_day,
+                comparison.current_query_calendar_day,
+            )
+            if comparison is not None
+            else tuple(s.requested_day for s in bundle.snapshots if s.requested_day is not None),
         )
         connection.execute(
             "UPDATE family_notices SET status='superseded' WHERE parent_id=? AND child_id=? "

@@ -2,6 +2,21 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_FAMILY_USAGE_COMPARISONS_ENABLED` uses family v30 /
+  source v8. Read `docs/mana-saved-usage-comparison.md` and integration section 38.
+  Only new dated admissions freeze an exact same-parent/child preceding query-day
+  snapshot; old/disabled/in-flight/replayed work never backfills. Reuse indexed SQL
+  only, never fetch a baseline or raise external meters. Compare exact single app
+  rows; no missing-as-zero, overlapping sums, actual behavior/danger, foreground
+  time or complete-population claims. Preserve both date labels/coverage and the
+  private fingerprints; minimize the prior family page to its own child before
+  existing context/model bounds. New notices carry a minimized typed view, never
+  a new source/action grant. Disable only unsubmitted work; verified late usage
+  and cross-day unknown holds remain. Use current closed v30/source8; previous
+  refusal is not functional rollback. Preserve both paid parties, their quality
+  findings/addendum, the size regression and the child-route 403; no automatic
+  replay, fallback, collector/production activation or new native history tool.
+
 - Local default-disabled `OPERATION_FAMILY_COLLECTION_ENABLED` registers manual
   `retention.family_collection.analyze` under the existing Retention owner. Read
   `docs/mana-saved-collection-analytics.md` and integration section 37. Require an

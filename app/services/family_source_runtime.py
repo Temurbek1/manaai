@@ -36,6 +36,7 @@ from app.services.manakids_family_inventory import ManakidsFamilyInventory
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_safety_store import SqliteSourceSafetyStore
+from app.services.usage_comparison_cache import SqliteUsageComparisonCache
 
 
 @dataclass(frozen=True)
@@ -82,14 +83,16 @@ async def family_source_runtime(
         else SqliteSourceSafetyStore
     )
     source_version = await collection_storage_version(settings.mana_family_source_database_path)
-    location_reader = settings.mana_family_location_enabled or source_version == 7
+    location_reader = settings.mana_family_location_enabled or source_version in {7, 8}
     day_review_reader = (
-        settings.mana_family_day_reviews_enabled or source_version in {6, 7} or location_reader
+        settings.mana_family_day_reviews_enabled or source_version in {6, 7, 8} or location_reader
     )
-    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6, 7}
+    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6, 7, 8}
     store = (
         (
-            SqliteLocationSourceCache
+            SqliteUsageComparisonCache
+            if settings.mana_family_usage_comparisons_enabled or source_version == 8
+            else SqliteLocationSourceCache
             if location_reader
             else SqliteDayReviewCache
             if day_review_reader
@@ -107,6 +110,11 @@ async def family_source_runtime(
             enabled=settings.mana_family_source_safety_enabled
             and settings.mana_family_source_reviews_enabled,
             review_policy=settings.mana_family_source_review_policy,
+            **(
+                {"comparisons_enabled": settings.mana_family_usage_comparisons_enabled}
+                if settings.mana_family_usage_comparisons_enabled or source_version == 8
+                else {}
+            ),
             **(
                 {"location_enabled": settings.mana_family_location_enabled}
                 if location_reader

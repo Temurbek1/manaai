@@ -81,6 +81,11 @@ class SqliteSourceReviewCache(SqliteMultiFamilySourceStore):
     def _review_sources(self) -> tuple[ObservedSourceKey, ...]:
         return ("firebase.child_battery.v1", "manakids.child_app_usage.v1")
 
+    def _freeze_review_bundle(
+        self, db: sqlite3.Connection, bundle: SourceReviewBundle
+    ) -> SourceReviewBundle:
+        return bundle
+
     def _review_snapshot(
         self, db: sqlite3.Connection, parent: str, child: int, source: ObservedSourceKey
     ) -> tuple[SourceReviewSnapshot, datetime] | None:
@@ -301,12 +306,15 @@ class SqliteSourceReviewCache(SqliteMultiFamilySourceStore):
                     )
                     return None
                 snapshots.append(snapshot)
-            bundle = SourceReviewBundle(
-                parent_id=parent,
-                child_id=child,
-                snapshots=tuple(snapshots),
-                changed_sources=tuple(sorted(changed)),
-                frozen_at=now,
+            bundle = self._freeze_review_bundle(
+                db,
+                SourceReviewBundle(
+                    parent_id=parent,
+                    child_id=child,
+                    snapshots=tuple(snapshots),
+                    changed_sources=tuple(sorted(changed)),
+                    frozen_at=now,
+                ),
             )
             duplicate = db.execute(
                 "SELECT review_id FROM review_batches WHERE parent_id=? "
