@@ -49,8 +49,18 @@ async function environment({
   savedAction = null,
   actionFailure = false,
   actionRefusal = false,
+  canCancel = false,
+  savedCancellation = null,
+  cancelRecorded = !!savedCancellation,
+  cancelFailure = null,
+  cancelRefusal = false,
+  cancelStorageFailure = false,
 } = {}) {
   let remainingBusy = stateBusyOnce ? 1 : 0;
+  let messagePhase = phase;
+  let cancellationId = savedCancellation?.request_id || "fake-cancel-id";
+  let recorded = cancelRecorded;
+  let nonce = 0;
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, new Element());
@@ -61,6 +71,8 @@ async function environment({
   );
   if (savedAction)
     saved.set("mana-lab-action-attempts-v1", JSON.stringify(savedAction));
+  if (savedCancellation)
+    saved.set("mana-lab-tariff-cancel", JSON.stringify(savedCancellation));
   const requests = [],
     timers = [];
   const state = {
@@ -99,10 +111,16 @@ async function environment({
     },
     sessionStorage: {
       getItem: (key) => saved.get(key) || null,
-      setItem: (key, value) => saved.set(key, value),
+      setItem: (key, value) => {
+        if (key === "mana-lab-tariff-cancel" && cancelStorageFailure)
+          throw new Error("Synthetic denied storage");
+        saved.set(key, value);
+      },
       removeItem: (key) => saved.delete(key),
     },
-    crypto: { randomUUID: () => "fake-original-id" },
+    crypto: {
+      randomUUID: () => (++nonce === 1 ? "fake-original-id" : "fake-cancel-id"),
+    },
     setTimeout: (callback) => timers.push(callback),
     fetch: async (url, options) => {
       requests.push({ url, options });
@@ -118,6 +136,25 @@ async function environment({
         return response(200, state);
       }
       if (options.method === "POST") {
+        const body = JSON.parse(options.body || "null");
+        if (body?.cancel_tariff_request_id) {
+          cancellationId = body.request_id;
+          if (cancelRefusal) {
+            messagePhase = "completed";
+            return response(409, {
+              detail: { code: "upsell_reply_not_waiting" },
+            });
+          }
+          if (cancelFailure === "unknown")
+            throw new TypeError("Synthetic unknown cancellation admission");
+          recorded = true;
+          messagePhase = "failed";
+          if (cancelFailure === "lost")
+            throw new TypeError(
+              "Synthetic committed cancellation acknowledgement lost",
+            );
+          return response(202, { phase: "completed" });
+        }
         if (url.endsWith("/click")) {
           if (actionRefusal)
             return response(409, {
@@ -138,7 +175,15 @@ async function environment({
       }
       if (typeof failure === "number")
         return response(404, { detail: { code: "message_not_found" } });
-      return response(200, { phase });
+      if (url.includes(`/messages/${cancellationId}?`))
+        return recorded
+          ? response(200, { phase: "completed" })
+          : response(404, { detail: { code: "reviewed_message_not_found" } });
+      return response(200, {
+        phase: messagePhase,
+        can_cancel_tariff: canCancel && messagePhase === "responding",
+        error_code: messagePhase === "failed" ? "upsell_reply_cancelled" : null,
+      });
     },
     console,
   };
@@ -304,6 +349,119 @@ test("one admitted message completes without a replacement request", async () =>
   assert.equal(env.saved.has("mana-lab-pending"), false);
 });
 
+test("Stop binds the original request and observes one zero-inference control", async () => {
+  const env = await environment({ phase: "responding", canCancel: true });
+  await env.submit();
+  assert.equal(env.element("cancel-tariff").hidden, false);
+  await env.element("cancel-tariff").listeners.click();
+  await env.timers.at(-1)();
+  const posts = env.requests.filter((r) => r.options.method === "POST");
+  assert.equal(posts.length, 2);
+  const body = JSON.parse(posts[1].options.body);
+  assert.equal(body.cancel_tariff_request_id, "fake-original-id");
+  assert.equal(body.request_id, "fake-cancel-id");
+  assert.equal(body.reply_to_question_id, undefined);
+  assert.equal(env.saved.has("mana-lab-tariff-cancel"), false);
+  assert.equal(env.element("send").disabled, false);
+  assert.equal(env.element("error").hidden, true);
+  assert.match(env.element("status").textContent, /отменён/);
+});
+
+test("ordinary model preparation never exposes or dispatches tariff cancellation", async () => {
+  const env = await environment({ phase: "responding" });
+  await env.submit();
+  assert.equal(env.element("cancel-tariff").hidden, true);
+  await env.element("cancel-tariff").listeners.click();
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    1,
+  );
+});
+
+test("lost committed cancellation acknowledgement reconciles without another POST", async () => {
+  const env = await environment({
+    phase: "responding",
+    canCancel: true,
+    cancelFailure: "lost",
+  });
+  await env.submit();
+  await env.element("cancel-tariff").listeners.click();
+  await env.timers.at(-1)();
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    2,
+  );
+  assert.equal(env.element("send").disabled, false);
+  assert.equal(env.saved.has("mana-lab-tariff-cancel"), false);
+});
+
+test("unknown cancellation keeps its exact target/nonce through ticks and reload", async () => {
+  const env = await environment({
+    phase: "responding",
+    canCancel: true,
+    cancelFailure: "unknown",
+  });
+  await env.submit();
+  await env.element("cancel-tariff").listeners.click();
+  const saved = JSON.parse(env.saved.get("mana-lab-tariff-cancel"));
+  await env.element("cancel-tariff").listeners.click();
+  await env.timers.at(-1)();
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    2,
+  );
+  assert.equal(env.element("send").disabled, true);
+  const resumed = await environment({
+    resume: true,
+    phase: "responding",
+    canCancel: true,
+    savedCancellation: saved,
+    cancelRecorded: false,
+  });
+  await resumed.timers.at(-1)();
+  assert.equal(
+    resumed.requests.filter((r) => r.options.method === "POST").length,
+    0,
+  );
+  assert.deepEqual(
+    JSON.parse(resumed.saved.get("mana-lab-tariff-cancel")),
+    saved,
+  );
+  assert.equal(resumed.element("cancel-tariff").disabled, true);
+});
+
+test("known late cancellation refusal observes the finished original without fallback", async () => {
+  const env = await environment({
+    phase: "responding",
+    canCancel: true,
+    cancelRefusal: true,
+  });
+  await env.submit();
+  await env.element("cancel-tariff").listeners.click();
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    2,
+  );
+  assert.equal(env.element("send").disabled, false);
+  assert.equal(env.saved.has("mana-lab-tariff-cancel"), false);
+});
+
+test("denied cancellation storage refuses before POST and preserves the original pending identity", async () => {
+  const env = await environment({
+    phase: "responding",
+    canCancel: true,
+    cancelStorageFailure: true,
+  });
+  await env.submit();
+  await env.element("cancel-tariff").listeners.click();
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    1,
+  );
+  assert.equal(env.saved.get("mana-lab-pending"), "fake-original-id");
+  assert.equal(env.element("cancel-tariff").disabled, true);
+});
+
 test("lost acknowledgement observes the original UUID and clears only its completed text", async () => {
   const env = await environment({ failure: "network" });
   await env.submit();
@@ -399,4 +557,43 @@ test("a retention fixture receipt is not mislabelled as a failed provider read",
     env.requests.filter((r) => r.options.method === "POST").length,
     1,
   );
+});
+
+test("saved committed Stop reconciles on reload without sending a control", async () => {
+  const saved = {
+    parent_id: "900001",
+    request_id: "fake-cancel-id",
+    message: "отмени подбор",
+    cancel_tariff_request_id: "fake-original-id",
+  };
+  const env = await environment({
+    resume: true,
+    phase: "failed",
+    savedCancellation: saved,
+  });
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    0,
+  );
+  assert.equal(env.element("send").disabled, false);
+  assert.equal(env.saved.has("mana-lab-tariff-cancel"), false);
+});
+
+test("a saved foreign-family Stop is never observed or dispatched", async () => {
+  const saved = {
+    parent_id: "900002",
+    request_id: "fake-cancel-id",
+    message: "отмени подбор",
+    cancel_tariff_request_id: "foreign-request",
+  };
+  const env = await environment({ savedCancellation: saved });
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    0,
+  );
+  assert.equal(
+    env.requests.some((r) => r.url.includes("fake-cancel-id")),
+    false,
+  );
+  assert.equal(env.element("error").hidden, false);
 });

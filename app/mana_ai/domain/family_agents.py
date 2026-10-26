@@ -15,7 +15,7 @@ from app.mana_ai.domain.chat import (
     ParentChatResponse,
     StoredChatTurn,
 )
-from app.mana_ai.domain.client_upsell import UpsellChoice, UpsellEnquiry
+from app.mana_ai.domain.client_upsell import TARIFF_CANCEL_COMMANDS, UpsellChoice, UpsellEnquiry
 from app.mana_ai.domain.enums import (
     AnalysisStatus,
     AnalysisVerdict,
@@ -117,6 +117,18 @@ class ParentTouchMessageRequest(ChatContract):
     message: str = Field(min_length=1, max_length=2000, pattern=r"\S")
     reply_to_question_id: UUID | None = None
     reply_to_confirmation_id: UUID | None = Field(default=None, exclude_if=lambda v: v is None)
+    cancel_tariff_request_id: UUID | None = Field(default=None, exclude_if=lambda v: v is None)
+
+    @model_validator(mode="after")
+    def cancellation(self) -> "ParentTouchMessageRequest":
+        if self.cancel_tariff_request_id is not None and (
+            self.cancel_tariff_request_id == self.request_id
+            or self.reply_to_question_id is not None
+            or self.reply_to_confirmation_id is not None
+            or self.message.strip().casefold().rstrip(".!?") not in TARIFF_CANCEL_COMMANDS
+        ):
+            raise ValueError("A tariff cancellation requires an explicit, separately bound control")
+        return self
 
 
 class ParentTouchReviewedTurn(ParentTouchRequest):
@@ -148,6 +160,7 @@ class ParentTouchReviewGuidance(ChatContract):
 class ReviewedMessage(ChatContract):
     turn: StoredChatTurn
     phase: Literal["awaiting_review", "responding", "completed", "failed", "unknown"]
+    can_cancel_tariff: bool = Field(default=False, exclude_if=lambda v: not v)
 
 
 class ParentTouchDeliveryRequest(ChatContract):
@@ -261,6 +274,7 @@ class ParentTouchMessageState(ChatContract):
     phase: Literal["awaiting_review", "responding", "completed", "failed", "unknown"]
     error_code: str | None = None
     response: ParentTouchResponse | None = None
+    can_cancel_tariff: Literal[True] | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class ParentTouchHistory(ParentChatHistory):

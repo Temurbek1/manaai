@@ -1,4 +1,4 @@
-"""Family v33: one verified native manager call can carry a typed tariff enquiry."""
+"""Captured tariff handoffs and request-bound cancellation without model/source replay."""
 
 import asyncio
 import hashlib
@@ -7,21 +7,30 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from pydantic import ValidationError
 
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
 from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
-from app.mana_ai.domain.chat import ParentChatRequest, StoredChatTurn
+from app.mana_ai.domain.chat import ParentChatRequest, ParentChatResponse, StoredChatTurn
 from app.mana_ai.domain.client_upsell import UpsellChoice, UpsellEnquiry, UpsellIntent
-from app.mana_ai.domain.family_agents import ParentTouchMessageRequest, ParentTouchMessageState
+from app.mana_ai.domain.family_agents import (
+    ParentTouchMessageRequest,
+    ParentTouchMessageState,
+    ParentTouchResponse,
+    ReviewedMessage,
+)
 from app.mana_ai.domain.parent_touch_manager import (
     ParentTouchManagerHandoff,
     ParentTouchManagerScope,
 )
-from app.services.inline_upsell_store import SqliteClosedInlineUpsellStore, SqliteInlineUpsellStore
+from app.services.inline_upsell_store import (
+    SqliteClosedInlineUpsellStore,
+    SqliteInlineUpsellStore,
+)
 
-_TABLES = {"manager_tariff_admissions", "manager_tariff_decisions"}
+_TABLES = {"manager_tariff_admissions", "manager_tariff_decisions", "tariff_reply_cancellations"}
 
 
 def _tariff_receipt(receipt: ChatModelReceipt) -> ChatModelReceipt:
@@ -46,14 +55,14 @@ def _tariff_receipt(receipt: ChatModelReceipt) -> ChatModelReceipt:
 
 
 class SqliteTariffHandoffStore(SqliteInlineUpsellStore):
-    _schema_version = 33
+    _schema_version = 34
 
     def __init__(self, path: Path, *, tariff_handoff_enabled: bool = False, **family: Any) -> None:
         self._tariff_handoff_enabled = tariff_handoff_enabled
         super().__init__(path, **family)
 
     def _supported_versions(self) -> set[int]:
-        return super()._supported_versions() | {32}
+        return super()._supported_versions() | {32, 33}
 
     def _allowed_tables(self) -> set[str]:
         return super()._allowed_tables() | _TABLES
@@ -67,8 +76,92 @@ class SqliteTariffHandoffStore(SqliteInlineUpsellStore):
         CREATE TABLE IF NOT EXISTS manager_tariff_decisions(
             turn_id INTEGER PRIMARY KEY,parent_id TEXT NOT NULL,call_id TEXT NOT NULL,
             payload TEXT NOT NULL,fingerprint TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS tariff_reply_cancellations(
+            turn_id INTEGER PRIMARY KEY,parent_id TEXT NOT NULL,
+            target_request_id TEXT NOT NULL,target_turn_id INTEGER NOT NULL,
+            request_digest TEXT NOT NULL);
         """
         )
+
+    @staticmethod
+    def _message(db: sqlite3.Connection, parent_id: str, request_id: UUID) -> ReviewedMessage:
+        result = SqliteInlineUpsellStore._message(db, parent_id, request_id)
+        available = result.phase == "responding" and bool(
+            db.execute(
+                "SELECT 1 FROM upsell_inline_replies WHERE parent_id=? "
+                "AND origin_turn_id=? AND status='waiting'",
+                (parent_id, result.turn.turn_id),
+            ).fetchone()
+        )
+        return result.model_copy(update={"can_cancel_tariff": available})
+
+    async def upsell_currency_control(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState | None:
+        if request.cancel_tariff_request_id is not None:
+            return await asyncio.to_thread(self._targeted_cancel, request, self._utc(now))
+        return await super().upsell_currency_control(request, now)
+
+    def _targeted_cancel(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState:
+        digest = hashlib.sha256(request.model_dump_json().encode()).hexdigest()
+        with self._transaction() as db:
+            prior = db.execute(
+                "SELECT t.*,c.target_request_id,c.request_digest AS control_digest "
+                "FROM parent_chat_turns t LEFT JOIN tariff_reply_cancellations c "
+                "ON c.turn_id=t.id AND c.parent_id=t.parent_id "
+                "WHERE t.parent_id=? AND t.request_id=?",
+                (request.parent_id, str(request.request_id)),
+            ).fetchone()
+            if prior is not None:
+                if (
+                    prior["request_digest"] != digest
+                    or prior["control_digest"] != digest
+                    or prior["target_request_id"] != str(request.cancel_tariff_request_id)
+                    or prior["status"] != "completed"
+                    or prior["result"] is None
+                ):
+                    raise ParentChatError("request_id_conflict", 409)
+                return ParentTouchMessageState(
+                    parent_id=request.parent_id,
+                    request_id=request.request_id,
+                    turn_id=prior["id"],
+                    phase="completed",
+                    response=ParentTouchResponse(
+                        **ParentChatResponse.model_validate_json(prior["result"]).model_dump(),
+                        asked_question=None,
+                    ),
+                )
+            self._fence_pending(db, now)
+            waiting = db.execute(
+                "SELECT r.*,i.payload AS intent FROM upsell_inline_replies r "
+                "JOIN parent_chat_turns t ON t.id=r.origin_turn_id AND t.parent_id=r.parent_id "
+                "JOIN upsell_intents i ON i.intent_id=r.intent_id AND i.parent_id=r.parent_id "
+                "WHERE r.parent_id=? AND t.request_id=? AND r.status='waiting'",
+                (request.parent_id, str(request.cancel_tariff_request_id)),
+            ).fetchone()
+            if waiting is None:
+                raise ParentChatError("upsell_reply_not_waiting", 409)
+            public = ParentTouchMessageRequest.model_validate(
+                request.model_dump(exclude={"cancel_tariff_request_id"})
+            )
+            result = self._cancel_waiting(db, waiting, public, now)
+            db.execute(
+                "UPDATE parent_chat_turns SET request_digest=? WHERE id=? AND parent_id=?",
+                (digest, result.turn_id, request.parent_id),
+            )
+            db.execute(
+                "INSERT INTO tariff_reply_cancellations VALUES(?,?,?,?,?)",
+                (
+                    result.turn_id,
+                    request.parent_id,
+                    str(request.cancel_tariff_request_id),
+                    waiting["origin_turn_id"],
+                    digest,
+                ),
+            )
+            return result
 
     def _on_admitted(
         self, db: sqlite3.Connection, request: ParentChatRequest, turn_id: int, now: datetime
@@ -290,10 +383,17 @@ class SqliteTariffHandoffStore(SqliteInlineUpsellStore):
 
 
 class SqliteClosedTariffHandoffStore(SqliteClosedInlineUpsellStore):
-    _schema_version = 33
+    _schema_version = 34
+
+    def __init__(self, path: Path, *, storage_version: int = 34, **family: Any) -> None:
+        if storage_version not in {33, 34}:
+            raise ValueError("Unsupported closed tariff storage version")
+        self._schema_version = storage_version
+        super().__init__(path, **family)
 
     def _supported_versions(self) -> set[int]:
-        return {33}
+        return {self._schema_version}
 
     def _allowed_tables(self) -> set[str]:
-        return super()._allowed_tables() | _TABLES
+        extra = _TABLES if self._schema_version == 34 else _TABLES - {"tariff_reply_cancellations"}
+        return super()._allowed_tables() | extra

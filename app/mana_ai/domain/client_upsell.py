@@ -11,6 +11,10 @@ from app.mana_ai.domain.conversion_catalog import (
     ConversionTariffPrice,
 )
 
+TARIFF_CANCEL_COMMANDS = frozenset(
+    {"отмени подбор", "tarif tanlashni bekor qiling", "cancel tariff request"}
+)
+
 
 class ClientUpsellPolicy(ChatContract):
     catalog_cooldown_seconds: int = Field(default=21600, ge=21600, le=86400, strict=True)

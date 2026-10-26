@@ -509,7 +509,7 @@ async def test_current_account_question_keeps_its_original_owning_workflow(tmp_p
         await lab.close()
 
 
-async def test_actual_runtime_and_validated_closed_profile_retain_v33_without_idle_http(
+async def test_actual_runtime_and_validated_closed_profile_retain_current_schema_without_idle_http(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -559,6 +559,6 @@ async def test_actual_runtime_and_validated_closed_profile_retain_v33_without_id
     ):
         async with runtime.parent_chat_runtime(settings):
             with sqlite3.connect(active.mana_parent_chat_database_path) as db:
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 33
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 34
                 assert not db.execute("SELECT 1 FROM manager_tariff_admissions").fetchone()
     assert requests == []

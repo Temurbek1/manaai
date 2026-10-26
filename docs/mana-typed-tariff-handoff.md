@@ -1,5 +1,9 @@
 # One typed manager decision for tariff enquiries — local, 2026-10-27
 
+The subsequent [request-bound cancellation](mana-tariff-cancellation.md) extends
+the current runtime to v34 without upgrading these native call captures. The
+v33 evidence below remains the original checkpoint, not a repeat of its paid party.
+
 Parent-Touch can extract a price/duration enquiry in its original native handoff.
 The existing owning tariff workflow validates the terms, asks for missing currency,
 reads its bounded catalogue and renders the dated result. It no longer needs a

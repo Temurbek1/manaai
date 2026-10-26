@@ -13784,6 +13784,18 @@
         "additionalProperties": false,
         "description": "Review-first parent text; new sensor observations use the protective endpoints.",
         "properties": {
+          "cancel_tariff_request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Tariff Request Id"
+          },
           "message": {
             "maxLength": 2000,
             "minLength": 1,
@@ -13837,6 +13849,18 @@
       "ParentTouchMessageState": {
         "additionalProperties": false,
         "properties": {
+          "can_cancel_tariff": {
+            "anyOf": [
+              {
+                "const": true,
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Cancel Tariff"
+          },
           "error_code": {
             "anyOf": [
               {

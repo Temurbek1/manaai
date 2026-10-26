@@ -12,7 +12,12 @@ from pydantic import ValidationError
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
 from app.mana_ai.application.upsell_text import upsell_result
 from app.mana_ai.domain.chat import ParentChatRequest, ParentChatResponse, StoredChatTurn
-from app.mana_ai.domain.client_upsell import UpsellIntent, UpsellQuote, UpsellWork
+from app.mana_ai.domain.client_upsell import (
+    TARIFF_CANCEL_COMMANDS,
+    UpsellIntent,
+    UpsellQuote,
+    UpsellWork,
+)
 from app.mana_ai.domain.family_agents import (
     ParentTouchMessageRequest,
     ParentTouchMessageState,
@@ -34,7 +39,7 @@ _CANCEL = {
     "cancel",
     "cancel tariff request",
 }
-_EXPLICIT_CANCEL = {"отмени подбор", "tarif tanlashni bekor qiling", "cancel tariff request"}
+_EXPLICIT_CANCEL = TARIFF_CANCEL_COMMANDS
 _CANCELLED = {
     "ru": "Подбор тарифов отменён.",
     "uz-Latn": "Tarif tanlash bekor qilindi.",
@@ -399,6 +404,8 @@ class SqliteInlineUpsellStore(SqliteUpsellCurrencyStore):
     async def upsell_currency_control(
         self, request: ParentTouchMessageRequest, now: datetime
     ) -> ParentTouchMessageState | None:
+        if request.cancel_tariff_request_id is not None:
+            raise ParentChatError("targeted_tariff_cancellation_unavailable", 409)
         if (
             request.reply_to_question_id is None
             and request.reply_to_confirmation_id is None
@@ -432,21 +439,30 @@ class SqliteInlineUpsellStore(SqliteUpsellCurrencyStore):
                 if request.message.strip().casefold().rstrip(".!?") in _EXPLICIT_CANCEL:
                     raise ParentChatError("upsell_reply_not_waiting", 409)
                 return None
-            recent = db.execute(
-                "SELECT COUNT(*),SUM(parent_id=?) FROM assistant_events WHERE "
-                "kind='host_message_published' AND at>?",
-                (request.parent_id, (now - timedelta(days=1)).isoformat()),
-            ).fetchone()
-            if (
-                recent[0] >= self._reminder_policy.global_commands_per_24h
-                or (recent[1] or 0) >= self._reminder_policy.parent_commands_per_24h
-            ):
-                raise ParentChatError("assistant_command_limit_exceeded", 429)
-            self._cancel_pending(db, row, now, "upsell_reply_cancelled")
-            language = UpsellIntent.model_validate_json(row["intent"]).language
-            return self._host_reply(
-                db, request, request.parent_id, request.request_id, _CANCELLED[language], now
-            )
+            return self._cancel_waiting(db, row, request, now)
+
+    def _cancel_waiting(
+        self,
+        db: sqlite3.Connection,
+        row: sqlite3.Row,
+        request: ParentTouchMessageRequest,
+        now: datetime,
+    ) -> ParentTouchMessageState:
+        recent = db.execute(
+            "SELECT COUNT(*),SUM(parent_id=?) FROM assistant_events WHERE "
+            "kind='host_message_published' AND at>?",
+            (request.parent_id, (now - timedelta(days=1)).isoformat()),
+        ).fetchone()
+        if (
+            recent[0] >= self._reminder_policy.global_commands_per_24h
+            or (recent[1] or 0) >= self._reminder_policy.parent_commands_per_24h
+        ):
+            raise ParentChatError("assistant_command_limit_exceeded", 429)
+        self._cancel_pending(db, row, now, "upsell_reply_cancelled")
+        language = UpsellIntent.model_validate_json(row["intent"]).language
+        return self._host_reply(
+            db, request, request.parent_id, request.request_id, _CANCELLED[language], now
+        )
 
 
 class SqliteClosedInlineUpsellStore(SqliteClosedUpsellCurrencyStore):

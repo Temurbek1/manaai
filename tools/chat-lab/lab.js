@@ -20,8 +20,29 @@ let bootstrap,
   state,
   pending = null,
   pendingText = null,
+  canCancelTariff = false,
+  cancellation = null,
+  cancellationStorage = true,
   busy = false,
   rendered = "";
+try {
+  cancellation = JSON.parse(
+    sessionStorage.getItem("mana-lab-tariff-cancel") || "null",
+  );
+  if (
+    cancellation &&
+    (typeof cancellation !== "object" ||
+      Array.isArray(cancellation) ||
+      typeof cancellation.parent_id !== "string" ||
+      typeof cancellation.request_id !== "string" ||
+      typeof cancellation.cancel_tariff_request_id !== "string" ||
+      cancellation.message !== "отмени подбор")
+  )
+    throw new Error("Invalid saved cancellation");
+} catch {
+  cancellation = null;
+  cancellationStorage = false;
+}
 const errors = {
   action_card_definition_changed: "Карточка изменилась. Обновите историю.",
   trial_account_no_longer_eligible:
@@ -43,6 +64,8 @@ const errors = {
   action_card_already_decided: "Решение уже сохранено. Обновите историю.",
   action_card_not_pending:
     "Время подтверждения истекло или решение уже принято.",
+  upsell_reply_not_waiting: "Этот подбор уже завершён. Обновите историю.",
+  targeted_tariff_cancellation_unavailable: "Отмена подбора сейчас недоступна.",
 };
 class LabApiError extends Error {
   constructor(message, status, code = null) {
@@ -75,11 +98,17 @@ function showError(error) {
   $("error").hidden = false;
 }
 function controls(disabled) {
-  busy = disabled;
-  $("send").disabled = disabled;
+  busy = disabled || cancellation !== null;
+  $("send").disabled = busy;
   document
     .querySelectorAll(".scenarios button")
-    .forEach((button) => (button.disabled = disabled));
+    .forEach((button) => (button.disabled = busy));
+  $("cancel-tariff").hidden = !cancellation && !(pending && canCancelTariff);
+  $("cancel-tariff").disabled =
+    !!cancellation || !canCancelTariff || !cancellationStorage;
+  $("cancel-tariff").textContent = cancellation
+    ? "Проверяем отмену…"
+    : "Отменить подбор";
 }
 function paragraph(parent, text) {
   const p = document.createElement("p");
@@ -308,9 +337,12 @@ async function refresh() {
 }
 async function observePending() {
   if (!pending) return;
+  const original = pending;
   const result = await api(
-    `${prefix}/parent-touch/messages/${pending}?parent_id=${bootstrap.parent_id}`,
+    `${prefix}/parent-touch/messages/${original}?parent_id=${bootstrap.parent_id}`,
   );
+  if (pending !== original) return;
+  canCancelTariff = result.can_cancel_tariff === true;
   if (["completed", "failed", "unknown"].includes(result.phase)) {
     if (result.phase === "completed") $("error").hidden = true;
     if (
@@ -323,7 +355,10 @@ async function observePending() {
     sessionStorage.removeItem("mana-lab-pending");
     controls(false);
     $("status").textContent = "";
-    if (result.phase !== "completed")
+    if (result.error_code === "upsell_reply_cancelled") {
+      $("status").textContent = "Подбор тарифов отменён.";
+      $("error").hidden = true;
+    } else if (result.phase !== "completed")
       showError(
         new Error(
           errors[result.error_code] ||
@@ -336,11 +371,86 @@ async function observePending() {
       result.phase === "awaiting_review"
         ? "Child-Safety изучает сообщение…"
         : "Parent-Touch готовит ответ…";
+    controls(true);
   }
 }
+function clearCancellation() {
+  cancellation = null;
+  sessionStorage.removeItem("mana-lab-tariff-cancel");
+  controls(!!pending);
+}
+async function observeCancellation() {
+  if (!cancellation) return false;
+  const current = cancellation;
+  let result;
+  try {
+    result = await api(
+      `${prefix}/parent-touch/messages/${current.request_id}?parent_id=${bootstrap.parent_id}`,
+    );
+  } catch (error) {
+    if (error instanceof LabApiError && error.status === 404) return false;
+    throw error;
+  }
+  if (cancellation !== current) return true;
+  if (["completed", "failed", "unknown"].includes(result.phase)) {
+    clearCancellation();
+    if (result.phase === "completed") $("error").hidden = true;
+    else
+      showError(
+        new Error("Отмена не подтверждена. Повторной отправки не было."),
+      );
+  }
+  return true;
+}
+$("cancel-tariff").addEventListener("click", async () => {
+  if (!pending || !canCancelTariff || cancellation || !cancellationStorage)
+    return;
+  const attempt = {
+    parent_id: bootstrap.parent_id,
+    request_id: crypto.randomUUID(),
+    message: "отмени подбор",
+    cancel_tariff_request_id: pending,
+  };
+  try {
+    // Save the exact target and nonce before POST. Reload/status never redispatch.
+    sessionStorage.setItem("mana-lab-tariff-cancel", JSON.stringify(attempt));
+  } catch {
+    cancellationStorage = false;
+    controls(true);
+    showError(new Error("Для отмены нужно разрешить хранение сессии."));
+    return;
+  }
+  cancellation = attempt;
+  controls(true);
+  $("error").hidden = true;
+  try {
+    await api(`${prefix}/parent-touch/messages`, {
+      method: "POST",
+      body: JSON.stringify(attempt),
+    });
+    await observeCancellation();
+  } catch (error) {
+    showError(error);
+    try {
+      const found = await observeCancellation();
+      if (
+        !found &&
+        error instanceof LabApiError &&
+        [400, 401, 403, 409, 422, 429].includes(error.status)
+      ) {
+        clearCancellation();
+      }
+    } catch {
+      // Preserve the exact attempt through a lost observation; never resubmit it.
+    }
+  }
+  await refresh().catch(showError);
+  await observePending().catch(showError);
+});
 function clearPending() {
   pending = null;
   pendingText = null;
+  canCancelTariff = false;
   sessionStorage.removeItem("mana-lab-pending");
   controls(false);
 }
@@ -348,6 +458,7 @@ async function tick() {
   try {
     if (document.visibilityState === "visible") {
       await refresh();
+      await observeCancellation();
       await observePending();
     }
   } catch (error) {
@@ -422,7 +533,7 @@ $("sleep-example").addEventListener("click", () => {
   $("message").focus();
 });
 $("refresh").addEventListener("click", () =>
-  refresh().then(observePending).catch(showError),
+  refresh().then(observeCancellation).then(observePending).catch(showError),
 );
 $("card-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -536,9 +647,15 @@ async function start() {
     $("scenarios").append(button);
   });
   pending = sessionStorage.getItem("mana-lab-pending");
-  if (pending) controls(true);
+  if (cancellation && cancellation.parent_id !== bootstrap.parent_id) {
+    cancellation = null;
+    cancellationStorage = false;
+    showError(new Error("Сохранённая отмена относится к другому родителю."));
+  }
+  if (pending || cancellation) controls(true);
   await refresh();
   try {
+    await observeCancellation();
     await observePending();
   } catch (error) {
     showError(error);

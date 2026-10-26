@@ -157,6 +157,8 @@ class ParentTouchService(ParentChatService):
             controlled_currency = await self.upsell.control(request)
             if controlled_currency is not None:
                 return controlled_currency
+        if request.cancel_tariff_request_id is not None:
+            raise ParentChatError("targeted_tariff_cancellation_unavailable", 409)
         if self.retention is not None:
             declined = await self.retention.control(request)
             if declined is not None:
@@ -197,6 +199,7 @@ class ParentTouchService(ParentChatService):
             phase=state.phase,
             error_code=state.turn.error_code,
             response=await self._touch_response(state.turn.result) if state.turn.result else None,
+            can_cancel_tariff=True if state.can_cancel_tariff else None,
         )
 
     async def process_reviewed_message(self) -> bool:

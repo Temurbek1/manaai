@@ -2,8 +2,19 @@
 
 ## Repository expectations
 
-- Local default-disabled `MANA_PARENT_TOUCH_TARIFF_HANDOFF_ENABLED` uses family
-  v33. Read `docs/mana-typed-tariff-handoff.md` and integration section 42. Capture
+- Request-bound tariff cancellation uses family v34 in the existing default-off
+  typed tariff runtime. Read `docs/mana-tariff-cancellation.md` and integration
+  section 43. A new control UUID binds one exact same-parent pending request;
+  private target/digest audit stays outside legacy JSON. Advertise cancellation
+  only for a confirmed SQL tariff wait. Reload/status never resubmit; lost source
+  or model receipts retain their original costs/holds. Current closed v34 exposes
+  status/history; explicit closed v33 remains unchanged. Old-image refusal is not
+  functional rollback. Existing native captures/default lab profiles never upgrade.
+  No source/cloud/schedule, grant/payment, push or production activation follows.
+
+- Local default-disabled `MANA_PARENT_TOUCH_TARIFF_HANDOFF_ENABLED` introduced
+  family v33; its current cancellation extension uses v34 above. Read
+  `docs/mana-typed-tariff-handoff.md` and integration section 42. Capture
   only new manager turns; old v32 work keeps its empty-call/two-generation schema.
   Meter raw terminal usage before strict native parsing, atomically bind the
   same-parent call/typed enquiry/owning intent, and retain currency questions,

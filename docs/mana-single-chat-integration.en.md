@@ -1118,3 +1118,20 @@ No financial action, entitlement, push consent or extra token allowance follows.
 Try `make chat-lab-tariff-handoff CHAT_LAB_PORT=8110` in its separate fictional
 directory. The default lab remains unchanged. Read [the typed contract and actual
 model/migration evidence](mana-typed-tariff-handoff.md) before enabling it.
+
+## 43. Cancelling a specific pending tariff request (local, not released)
+
+New v34 message status may contain `can_cancel_tariff=true`. Only then expose a
+cancellation control for that exact request. Send a new message UUID, the explicit
+cancellation phrase and `cancel_tariff_request_id` containing its original UUID to
+the same message POST. Do not attach a question or reminder confirmation binding.
+See [the complete payload and durable contract](mana-tariff-cancellation.md).
+
+Save the exact cancellation identity before POST. Observe its normal message
+status and the original request after lost acknowledgements/reload; never replay
+the POST automatically or substitute a new UUID. A late/wrong target returns 409
+without cancelling another enquiry or starting inference. The chat acknowledgement
+uses zero model tokens; original known charges and unknown source/model holds
+remain. A closed reader exposes saved status/history while execution is disabled.
+The v34 test profile includes one contextual button. Do not call this new
+production contract until a separately scoped release is confirmed.

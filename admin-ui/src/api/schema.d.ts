@@ -7056,6 +7056,8 @@ export interface components {
          * @description Review-first parent text; new sensor observations use the protective endpoints.
          */
         ParentTouchMessageRequest: {
+            /** Cancel Tariff Request Id */
+            cancel_tariff_request_id?: string | null;
             /** Message */
             message: string;
             /** Parent Id */
@@ -7072,6 +7074,8 @@ export interface components {
         };
         /** ParentTouchMessageState */
         ParentTouchMessageState: {
+            /** Can Cancel Tariff */
+            can_cancel_tariff?: true | null;
             /** Error Code */
             error_code?: string | null;
             /** Parent Id */

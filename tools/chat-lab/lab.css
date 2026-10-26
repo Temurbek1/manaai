@@ -32,6 +32,17 @@ button:disabled {
   cursor: wait;
   opacity: 0.5;
 }
+#cancel-tariff {
+  background: #fff;
+  color: #214d47;
+  border: 1px solid #d5dfdd;
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 12px;
+}
+#cancel-tariff[hidden] {
+  display: none;
+}
 .action-card {
   margin-top: 14px;
   border-top: 1px solid #e3e8e9;
