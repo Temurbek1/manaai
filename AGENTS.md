@@ -2,6 +2,17 @@
 
 ## Repository expectations
 
+- The local default-disabled `MANA_FAMILY_PARALLEL_WORKER_ENABLED` changes only
+  scheduling, not SQL schemas or captured model/source protocols. Read
+  `docs/mana-parallel-family-worker.md`. Nine fixed lanes each await one owning
+  durable workflow; no unbounded fan-out, retries or automatic restart. Existing
+  same-parent pending turns, safety priority, ownership, permissions and quotas
+  still decide admission/publication. Unclassified failure or independent lane
+  cancellation fences the whole worker and awaits sibling cancellation cleanup;
+  submitted unknown holds survive shutdown/reconstruction without reissue. Source
+  collection retains its own existing windows/meters. Serial mode stays default;
+  this is neither production activation nor fleet/model/business quality proof.
+
 - The local default-disabled `MANA_RETENTION_TRIAL_END_ENABLED` consumer uses
   family v26. Read `docs/mana-confirmed-trial-end.md`. Freeze eligibility on new
   owning grant claims; never backfill disabled/historical grants. Only the exact

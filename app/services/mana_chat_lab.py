@@ -746,6 +746,7 @@ class LabOptions:
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
+    parallel_worker: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
@@ -868,6 +869,8 @@ class ChatLab:
             expected["trial_action_cards"] = True
         if self.options.trial_end:
             expected["trial_end"] = True
+        if self.options.parallel_worker:
+            expected["parallel_worker"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -1297,6 +1300,7 @@ class ChatLab:
             self.touch,
             clock=self.options.clock.now,
             interval=0.25,
+            parallel_enabled=self.options.parallel_worker,
             source_safety=self.source_safety,
             source_reviews=SourceReviewService(
                 self.source_store,

@@ -1,5 +1,10 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The local [parallel family worker](mana-parallel-family-worker.md) removes the
+shared slow-inference bottleneck for unrelated owning workflows under the same
+SQL claims, priorities and budgets. It adds no collection schedule or model/source
+protocol and remains default disabled; broader agent/release scope below is intact.
+
 The October-26 [confirmed free-period end](mana-confirmed-trial-end.md) adds one
 post-end service notice from newly captured grants and a fresh matching nonpaid
 source observation. It reuses existing Retention/Parent-Touch/Upsell rules with

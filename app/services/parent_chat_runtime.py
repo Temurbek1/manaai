@@ -704,6 +704,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                         service,
                         clock=lambda: datetime.now(UTC),
                         interval=settings.mana_child_safety_poll_seconds,
+                        parallel_enabled=settings.mana_family_parallel_worker_enabled,
                         source_reviews=SourceReviewService(
                             sources.store,
                             store,

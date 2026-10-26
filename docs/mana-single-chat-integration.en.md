@@ -922,3 +922,19 @@ follows the saved message and never contains family details.
 Try `make chat-lab-trial-end CHAT_LAB_PORT=8100` for the explicitly fictional
 October 26–28 scenario. This default-disabled family-v26 feature has not been
 released. Read [evidence, costs and remaining limits](mana-confirmed-trial-end.md).
+
+## 33. Independent processing (local, not released)
+
+The mobile chat contract is unchanged. The server can run bounded independent
+Child-Safety, Parent-Touch, reminder, tariff and notification workflows: a slow
+analysis for another family no longer delays an ordinary reply or an allowed
+push for an already saved message. A family awaiting its own safety review still
+waits; question order, ownership, quiet hours, permissions and token limits remain.
+
+Do not duplicate a pending request or open another chat because analysis takes
+time. Continue observing its existing message-status GET and history GET. Neither
+read redispatches work, and an unknown submitted model/source/push is not retried.
+
+The new server flag is explicit and defaults off. Try the fake single-chat lab
+with `make chat-lab-parallel CHAT_LAB_PORT=8101`. Read
+[processing, failure and compatibility details](mana-parallel-family-worker.md).
