@@ -1,6 +1,6 @@
 """Loopback-only single-chat lab; default simulation, optional paid-model factory.
 
-Run: .venv/bin/uvicorn scripts.mana_chat_lab:create_app --factory --host 127.0.0.1 --port 8092
+Run: make chat-lab (create_workspace_app); create_app retains the original basic profile.
 The separate create_live_app factory uses configured models, fictional sources
 and the same durable 2000-token limits. Neither factory can send push or grants.
 """
@@ -570,6 +570,14 @@ def create_upsell_currency_app() -> FastAPI:
             expiry_fixture_days=30,
         )
     )
+
+
+def create_workspace_app() -> FastAPI:
+    """Current compatible specialists in one fictional, model-free parent chat."""
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    return create_app(options=workspace_options(root / "data/chat-lab/workspace-simulation"))
 
 
 def create_inline_upsell_app() -> FastAPI:

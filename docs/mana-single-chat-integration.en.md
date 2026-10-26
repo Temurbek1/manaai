@@ -1087,3 +1087,17 @@ receipts remain blocked across restart and midnight. No price lookup is payment,
 checkout, a tariff grant or approval for outreach. Token/source limits are unchanged.
 Try `make chat-lab-inline-upsell CHAT_LAB_PORT=8108`; read
 [the result protocol, migration and actual evidence](mana-inline-upsell.md).
+
+## 41. Combined single-chat integration lab (local only)
+
+Run `make chat-lab` and open `http://127.0.0.1:8092` for the compatible current
+manager, Safety, clarification, tariff and reminder workflows in one fictional
+history. It uses simulated models and sources, the real HTTP/application/SQL
+boundaries, existing shared questions and unchanged daily limits. The original
+basic demo remains `make chat-lab-basic`; its separate history is preserved.
+
+This changes no production/mobile operation or source schedule. Real push,
+financial actions, collection windows, Referral and the existing opt-in paid
+model demos are not enabled by this command. A joint fake scenario verifies
+coordination; it does not establish actual model quality, current family data
+or a completed business integration. Read [scope and actual acceptance](mana-combined-chat-lab.md).

@@ -136,7 +136,11 @@ chat-lab-native:
 chat-lab-native-live:
 	PYTHONPATH=. .venv/bin/uvicorn scripts.mana_chat_lab:create_native_live_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT) $(if $(CHAT_LAB_ENV_FILE),--env-file "$(CHAT_LAB_ENV_FILE)")
 
-chat-lab:
+.PHONY: chat-lab chat-lab-workspace chat-lab-basic
+chat-lab chat-lab-workspace:
+	PYTHONPATH=. .venv/bin/uvicorn scripts.mana_chat_lab:create_workspace_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+chat-lab-basic:
 	PYTHONPATH=. .venv/bin/uvicorn scripts.mana_chat_lab:create_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 
 chat-lab-live:

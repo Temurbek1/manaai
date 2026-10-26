@@ -2,6 +2,14 @@
 
 ## Repository expectations
 
+- `make chat-lab` now selects the combined, model-free workspace from
+  `app/services/lab_workspace.py`; read `docs/mana-combined-chat-lab.md`.
+  Keep its separate marked directory and all existing source/chat/Safety limits.
+  The old basic/paid/card/trial/window labs remain separate. No deployment settings,
+  live adapter, collector, push or financial executor belongs in the default lab.
+  Shared paid-profile facts veto contradictory offers; a fake pass is not real
+  source/model quality or production acceptance. Referral awaits its real API.
+
 - Local default-disabled `MANA_UPSELL_INLINE_RESULTS_ENABLED` uses family v32.
   Read `docs/mana-inline-upsell.md` and integration section 40. Only new governed
   tariff turns capture the same-turn result protocol; never upgrade old v31 work.

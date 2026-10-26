@@ -1839,7 +1839,9 @@ class ChatLab:
                     [
                         LabScenario(
                             key="expiry",
-                            title="Скоро истекает тариф (вымышленные данные)",
+                            title="Проверить срок тестового тарифа"
+                            if self.options.expiry_fixture_days == 30
+                            else "Скоро истекает тариф (вымышленные данные)",
                             path="/lab/expiry-profile",
                             body={"parent_id": LAB_PARENT},
                             local=True,

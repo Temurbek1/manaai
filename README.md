@@ -14,7 +14,9 @@ Start with the one you need:
 ## Single-chat testing
 
 Run `make chat-lab` and open <http://127.0.0.1:8092> for the isolated Parent-Touch /
-Child-Safety / conversion test chat. Default responses are simulated; the real
+Child-Safety, assistant, tariff and Retention test chat. The default workspace
+combines the compatible current workflows; `make chat-lab-basic` retains the
+original basic lab and its separate history. Default responses are simulated; the real
 application services and private SQLite history are used with fictional family
 data. No production sources, push notifications or tariff grants are connected.
 [The lab guide](docs/mana-chat-lab.md) explains scenarios and explicit paid-model
