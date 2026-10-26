@@ -1059,3 +1059,31 @@ checkout or payment. No tariff grant, transaction or push is created. Source
 cooldowns, unknown holds and token allowances remain unchanged. This default-off
 family-v31 increment is local; do not enable these behaviors in production until
 a scoped release is confirmed. See [the implementation and exact evidence](mana-upsell-currency.md).
+
+## 40. One tariff result in the original request (local, not released)
+
+With the separately enabled inline-result profile, the original tariff request
+stays `phase=responding` with `response=null` while its bounded catalogue workflow
+runs. Keep observing that same request ID. The final dated quote completes its
+original turn; the app must not insert a provisional assistant acknowledgement,
+submit a replacement request or create another chat. Existing history and status
+operations are sufficient. A necessary currency question remains a normal
+completed assistant message; its bound UZS/USD answer waits for its own final
+quote without an extra model call.
+
+To cancel a waiting tariff selection, use the existing message POST with the
+same `parent_id`, a new message UUID and `message="cancel tariff request"`.
+Russian `отмени подбор` and Uzbek Latin `tarif tanlashni bekor qiling` also work.
+This is a narrowly scoped text control, not a generic cancellation of any agent.
+If the selection already finished, the explicit control returns **409
+`upsell_reply_not_waiting`** without starting another model or reminder operation.
+Observe a lost cancellation acknowledgement through its original saved UUID;
+do not create automatic cancellation retries or new nonces. The test web composer
+does not yet provide a separate Stop button while a request is pending.
+
+Safety priority, fresh ownership, expiry and current disable settings can fence
+the waiting result. Already submitted source/model costs are retained; unknown
+receipts remain blocked across restart and midnight. No price lookup is payment,
+checkout, a tariff grant or approval for outreach. Token/source limits are unchanged.
+Try `make chat-lab-inline-upsell CHAT_LAB_PORT=8108`; read
+[the result protocol, migration and actual evidence](mana-inline-upsell.md).

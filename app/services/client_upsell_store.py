@@ -47,6 +47,9 @@ _TABLES = {
 class SqliteClientUpsellStore(SqliteClientRetentionStore):
     _schema_version = 16
 
+    def _upsell_priority(self, db: sqlite3.Connection, intent: UpsellIntent, now: datetime) -> bool:
+        return self._priority_waiting(db, intent.parent_id, now)
+
     async def upsell_currency_control(
         self, request: ParentTouchMessageRequest, now: datetime
     ) -> ParentTouchMessageState | None:
@@ -232,7 +235,7 @@ class SqliteClientUpsellStore(SqliteClientRetentionStore):
                     "SELECT * FROM upsell_intents WHERE status='queued' ORDER BY position LIMIT 100"
                 ).fetchall():
                     intent = UpsellIntent.model_validate_json(row["payload"])
-                    if self._priority_waiting(db, intent.parent_id, current):
+                    if self._upsell_priority(db, intent, current):
                         continue
                     identity = uuid4()
                     expiry = current + timedelta(seconds=self._upsell_policy.claim_seconds)
@@ -445,7 +448,7 @@ class SqliteClientUpsellStore(SqliteClientRetentionStore):
         if now >= datetime.fromisoformat(row["expires_at"]):
             db.execute("UPDATE upsell_intents SET status='unknown' WHERE intent_id=?", (identity,))
             return True
-        if self._priority_waiting(db, intent.parent_id, now):
+        if self._upsell_priority(db, intent, now):
             return False
         quote = UpsellQuote.model_validate_json(row["quote"]) if row["quote"] else None
         result = self._host_reply(

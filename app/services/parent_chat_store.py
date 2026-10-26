@@ -15,7 +15,7 @@ from pathlib import Path
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
+from app.mana_ai.application.chat_ports import ChatModelReceipt, ChatReplyDeferred, ParentChatError
 from app.mana_ai.domain.chat import (
     ChatQuota,
     ParentChatHistory,
@@ -28,6 +28,10 @@ from app.mana_ai.domain.chat import (
 
 class SqliteParentChatStore:
     _schema_version = 1
+
+    def _settlement_deferred(self, connection: sqlite3.Connection, turn: StoredChatTurn) -> bool:
+        """An owning, durably captured workflow may await a tool after usage settles."""
+        return False
 
     def _supported_versions(self) -> set[int]:
         return {0, 1, self._schema_version}
@@ -416,6 +420,7 @@ class SqliteParentChatStore:
     ) -> ParentChatResponse:
         now = self._utc(now)
         result: ParentChatResponse | None = None
+        deferred = False
         with self._transaction() as connection:
             row = connection.execute(
                 "SELECT * FROM parent_chat_turns WHERE id=? AND parent_id=?",
@@ -466,7 +471,8 @@ class SqliteParentChatStore:
                     (receipt.answer, result.model_dump_json(), turn.turn_id),
                 )
             self._on_settled(connection, turn, receipt, valid=bool(valid))
-            if result is not None:
+            deferred = bool(valid) and self._settlement_deferred(connection, turn)
+            if result is not None and not deferred:
                 # Owning host protocols may replace wording after verified usage
                 # and local action validation, within the same SQL transaction.
                 result = ParentChatResponse.model_validate_json(
@@ -475,6 +481,9 @@ class SqliteParentChatStore:
                         (turn.turn_id, turn.parent_id),
                     ).fetchone()[0]
                 )
+        if deferred:
+            # Raise only after the private waiting state and verified costs commit.
+            raise ChatReplyDeferred()
         if result is None:
             raise ParentChatError(code, 502)
         return result

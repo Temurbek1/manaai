@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     mana_parent_support_questions_enabled: bool = False
     mana_parent_touch_clarifications_enabled: bool = False
     mana_client_upsell_currency_enabled: bool = False
+    mana_upsell_inline_results_enabled: bool = False
     mana_conversion_enabled: bool = False
     mana_conversion_conversation_enabled: bool = False
     mana_conversion_trial_grants_enabled: bool = False
@@ -477,6 +478,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_upsell_inline_results_enabled and not self.mana_client_upsell_currency_enabled:
+            raise ValueError("Inline tariff results require the captured currency enquiry runtime")
         if self.mana_client_upsell_currency_enabled and not (
             self.mana_client_upsell_enabled and self.mana_parent_touch_manager_enabled
         ):

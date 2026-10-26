@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_UPSELL_INLINE_RESULTS_ENABLED` uses family v32.
+  Read `docs/mana-inline-upsell.md` and integration section 40. Only new governed
+  tariff turns capture the same-turn result protocol; never upgrade old v31 work.
+  Settle verified raw costs before durably deferring the public reply, and bind
+  both exact response and owning intent fingerprints. One source result completes
+  the original request; no acknowledgement/extra generation is published. Current
+  Safety, expiry, disable, ownership and explicit cancellation fence late quotes,
+  not verified costs or unknown holds. A late explicit cancellation is a controlled
+  refusal, never a reminder/model fallback. Use current closed v32; old refusal
+  is not functional rollback. No source, schedule, grant/payment or production
+  activation follows. The full goal stays open; Referral awaits its real API.
+
 - Local default-disabled `MANA_CLIENT_UPSELL_CURRENCY_ENABLED` uses family v31.
   Read `docs/mana-upsell-currency.md` and integration section 39. Capture the nullable
   currency schema only on new governed Upsell turns; old turns retain v1 unchanged.

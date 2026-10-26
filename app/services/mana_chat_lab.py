@@ -106,6 +106,7 @@ from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
 from app.services.day_review_cache import SqliteDayReviewCache
 from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_agent_worker import FamilyAgentWorker
+from app.services.inline_upsell_store import SqliteInlineUpsellStore
 from app.services.lab_chat_action_store import SimulatedChatActionExecutor, SqliteLabChatActionStore
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_location import LabLocationSource
@@ -852,11 +853,14 @@ class LabOptions:
     clarifications: bool = False
     usage_comparisons: bool = False
     upsell_currency: bool = False
+    inline_upsell: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.inline_upsell and not options.upsell_currency:
+            raise ValueError("Inline results require the governed currency lab")
         if options.upsell_currency and (
             not options.manager or not options.upsell or options.action_cards
         ):
@@ -1009,6 +1013,8 @@ class ChatLab:
             expected["upsell_currency"] = True
             if isinstance(self.options.clock, LabUsageComparisonClock):
                 expected["clock"] = "fictional_usage_comparison_v1"
+        if self.options.inline_upsell:
+            expected["inline_upsell"] = True
         if self.options.parent_support_questions:
             expected["parent_support_questions"] = True
         if self.options.safety_remainder:
@@ -1131,7 +1137,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteUpsellCurrencyStore
+                SqliteInlineUpsellStore
+                if self.options.inline_upsell
+                else SqliteUpsellCurrencyStore
                 if self.options.upsell_currency
                 else SqliteUsageComparisonSafetyStore
                 if self.options.usage_comparisons
@@ -1207,6 +1215,8 @@ class ChatLab:
                 reminder_options["comparisons_enabled"] = True
             if self.options.upsell_currency:
                 reminder_options["currency_enabled"] = True
+            if self.options.inline_upsell:
+                reminder_options["inline_enabled"] = True
             if self.options.parent_support_questions:
                 reminder_options["parent_questions_enabled"] = True
             if self.options.safety_remainder:

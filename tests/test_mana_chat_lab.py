@@ -5,6 +5,7 @@ import re
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -34,6 +35,18 @@ async def session(client: httpx.AsyncClient) -> dict[str, str]:
     assert match
     assert "HttpOnly" in response.headers["set-cookie"]
     return {"Origin": BASE, "X-Lab-CSRF": match.group(1)}
+
+
+async def observed_state(client: httpx.AsyncClient) -> dict[str, Any]:
+    for _ in range(120):
+        response = await client.get("/lab/state")
+        body = response.json()
+        if response.status_code == 409 and body == {"detail": {"code": "lab_state_busy"}}:
+            await asyncio.sleep(0.02)
+            continue
+        assert response.status_code == 200, (response.status_code, body)
+        return dict(body)
+    raise AssertionError("The fictional SQL observation stayed busy")
 
 
 async def settled(client: httpx.AsyncClient, request: str) -> dict[str, object]:
@@ -85,7 +98,7 @@ async def test_default_lab_uses_no_deployment_settings_provider_or_live_write(
     ):
         assert (await client.get("/lab/state")).status_code == 401
         headers = await session(client)
-        state = (await client.get("/lab/state")).json()
+        state = await observed_state(client)
         assert state["mode"] == "simulation"
         assert state["history"]["quota"]["daily_limit"] == 2000
         assert state["safety_budget"]["server_daily_limit"] == 2000
@@ -127,7 +140,7 @@ async def test_source_scenario_traverses_worker_to_first_assistant_message(tmp_p
         result = await client.post(scenario["path"], headers=headers, json=scenario["body"])
         assert result.status_code == 200 and result.json()["status"] == "completed"
         for _ in range(150):
-            state = (await client.get("/lab/state")).json()
+            state = await observed_state(client)
             if state["history"]["message_notices"]:
                 break
             await asyncio.sleep(0.02)
@@ -138,7 +151,7 @@ async def test_source_scenario_traverses_worker_to_first_assistant_message(tmp_p
         before = state
         replay = await client.post(scenario["path"], headers=headers, json=scenario["body"])
         assert replay.json() == result.json()
-        assert (await client.get("/lab/state")).json() == before
+        assert (await observed_state(client)) == before
         assert app.state.chat_lab.battery.calls == 1
 
 
@@ -161,7 +174,7 @@ async def test_message_question_answer_and_reload_use_one_durable_chat(tmp_path:
         ).status_code == 202
         complete = await settled(client, request)
         assert complete["response"]
-        history = (await client.get("/lab/state")).json()["history"]
+        history = (await observed_state(client))["history"]
         assert len(history["messages"]) == 2
         assert history["active_question"]
         response = await client.post(
@@ -176,19 +189,19 @@ async def test_message_question_answer_and_reload_use_one_durable_chat(tmp_path:
         )
         assert response.status_code == 202
         await settled(client, response.json()["request_id"])
-        before = (await client.get("/lab/state")).json()
+        before = await observed_state(client)
         assert before["history"]["active_question"] is None
         assert before["history"]["quota"]["used_tokens"] == 300
         replay = await client.post(PREFIX + "/parent-touch/messages", headers=headers, json=body)
         assert replay.status_code == 202 and replay.json() == complete
-        assert (await client.get("/lab/state")).json() == before
+        assert (await observed_state(client)) == before
     restarted = create_app(options=LabOptions(directory, clock=clock))
     async with (
         restarted.router.lifespan_context(restarted),
         httpx.AsyncClient(transport=httpx.ASGITransport(app=restarted), base_url=BASE) as client,
     ):
         await session(client)
-        assert (await client.get("/lab/state")).json() == before
+        assert (await observed_state(client)) == before
 
 
 async def test_child_scenario_publishes_only_parent_touch_and_deduplicates(tmp_path: Path) -> None:
@@ -205,7 +218,7 @@ async def test_child_scenario_publishes_only_parent_touch_and_deduplicates(tmp_p
         )
         assert receipt.status_code == 202
         for _ in range(120):
-            state = (await client.get("/lab/state")).json()
+            state = await observed_state(client)
             if state["history"]["message_notices"]:
                 break
             await asyncio.sleep(0.02)
@@ -217,7 +230,7 @@ async def test_child_scenario_publishes_only_parent_touch_and_deduplicates(tmp_p
             PREFIX + scenario["path"], headers=headers, json=scenario["body"]
         )
         assert replay.status_code == 202
-        assert (await client.get("/lab/state")).json() == state
+        assert (await observed_state(client)) == state
 
 
 async def test_fictional_conversion_offer_and_paid_update_create_no_grants(tmp_path: Path) -> None:
@@ -236,7 +249,7 @@ async def test_fictional_conversion_offer_and_paid_update_create_no_grants(tmp_p
         )
         assert result.status_code == 202 and result.json()["proposal"]
         for _ in range(100):
-            state = (await client.get("/lab/state")).json()
+            state = await observed_state(client)
             if state["conversions"]["proposals"][0]["status"] == "published":
                 break
             await asyncio.sleep(0.02)
@@ -246,7 +259,7 @@ async def test_fictional_conversion_offer_and_paid_update_create_no_grants(tmp_p
         assert (
             await client.post(PREFIX + paid["path"], headers=headers, json=paid["body"])
         ).status_code == 202
-        assert (await client.get("/lab/state")).json()["history"]["quota"]["used_tokens"] == 0
+        assert (await observed_state(client))["history"]["quota"]["used_tokens"] == 0
         with sqlite3.connect(tmp_path / "lab/family.sqlite3") as db:
             assert db.execute("SELECT COUNT(*) FROM conversion_trial_grants").fetchone()[0] == 0
 
@@ -274,7 +287,7 @@ async def test_other_families_and_cross_origin_actions_are_rejected(
             await client.post(PREFIX + "/parent-touch/messages", headers=headers, json=body)
         ).status_code == 403
         assert (await client.get(PREFIX + "/parent-touch/chat?parent_id=4")).status_code == 403
-        assert (await client.get("/lab/state")).json()["history"]["messages"] == []
+        assert (await observed_state(client))["history"]["messages"] == []
 
 
 @pytest.mark.parametrize("host", ["remote", "rebinding"])
@@ -362,7 +375,7 @@ async def test_specialist_can_start_the_same_chat_before_parent_text(tmp_path: P
         )
         assert admitted.status_code == 201
         for _ in range(120):
-            state = (await client.get("/lab/state")).json()
+            state = await observed_state(client)
             if state["history"]["active_question"]:
                 break
             await asyncio.sleep(0.02)
@@ -390,3 +403,40 @@ async def test_composite_observation_busy_is_controlled_without_generation(
         monkeypatch.setattr(app.state.chat_lab, "state", busy)
         result = await client.get("/lab/state")
         assert result.status_code == 409 and result.json()["detail"]["code"] == "lab_state_busy"
+
+
+@pytest.mark.parametrize("code", ["lab_state_busy", "unexpected_observation_failure"])
+async def test_state_poll_repeats_only_the_known_read_only_busy_response(
+    tmp_path: Path, monkeypatch: MonkeyPatch, code: str
+) -> None:
+    from app.mana_ai.application.chat_ports import ParentChatError
+    from app.services.mana_chat_lab import LabState
+
+    app = create_app(options=LabOptions(tmp_path / "poll", clock=Clock(), worker_enabled=False))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=BASE) as client,
+    ):
+        await session(client)
+        lab: ChatLab = app.state.chat_lab
+        original = lab.state
+        before = await original()
+        calls = 0
+
+        async def busy_once() -> LabState:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise ParentChatError(code, 409)
+            return await original()
+
+        monkeypatch.setattr(lab, "state", busy_once)
+        if code == "lab_state_busy":
+            assert await observed_state(client) == before.model_dump(mode="json")
+            assert calls == 2
+        else:
+            with pytest.raises(AssertionError, match=code):
+                await observed_state(client)
+            assert calls == 1
+        assert await original() == before
+        assert lab.battery.calls == 0

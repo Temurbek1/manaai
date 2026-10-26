@@ -41,6 +41,16 @@ _QUESTIONS = {
 class SqliteUpsellCurrencyStore(SqliteUsageComparisonSafetyStore):
     _schema_version = 31
 
+    def _currency_resolved(
+        self,
+        db: sqlite3.Connection,
+        request: ParentTouchMessageRequest,
+        result: ParentTouchMessageState,
+        intent: UpsellIntent,
+        now: datetime,
+    ) -> ParentTouchMessageState:
+        return result
+
     def __init__(self, path: Path, *, currency_enabled: bool = False, **family: Any) -> None:
         self._currency_enabled = currency_enabled
         super().__init__(path, **family)
@@ -363,7 +373,7 @@ class SqliteUpsellCurrencyStore(SqliteUsageComparisonSafetyStore):
                 (result.turn_id, row["origin_turn_id"]),
             )
             self._upsell_event(db, str(intent.intent_id), "currency_answer_bound", now)
-            return result
+            return self._currency_resolved(db, request, result, intent, now)
 
     async def claim_upsell(self, now: datetime) -> UpsellWork | None:
         if not self._currency_enabled:
