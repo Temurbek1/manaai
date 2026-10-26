@@ -206,6 +206,11 @@ class Settings(BaseSettings):
     operation_job_timeout_seconds: int = Field(default=900, ge=10, le=86_400)
     operation_data_retention_days: int = Field(default=90, ge=7, le=3_650)
     operation_health_stale_seconds: int = Field(default=21_600, ge=60, le=604_800)
+    operation_family_collection_enabled: bool = False
+    operation_family_collection_database_path: Path | None = None
+    operation_family_collection_binding: str | None = Field(
+        default=None, pattern=r"^mana:[a-z0-9-]+:[a-zA-Z0-9()_-]+:manakids-v1$", max_length=256
+    )
     operation_verification_attempts: int = Field(default=4, ge=1, le=20)
     operation_verification_delay_seconds: float = Field(default=1.0, ge=0, le=60)
     operation_dry_run: bool = True
@@ -457,6 +462,16 @@ class Settings(BaseSettings):
     meta_action_attribution_windows: list[str] = Field(
         default_factory=lambda: ["1d_click", "7d_click"],
     )
+
+    @model_validator(mode="after")
+    def validate_saved_collection_configuration(self) -> "Settings":
+        if self.operation_family_collection_enabled and (
+            self.operation_family_collection_database_path is None
+            or not self.operation_family_collection_database_path.is_absolute()
+            or self.operation_family_collection_binding is None
+        ):
+            raise ValueError("Saved collection analysis requires an absolute path and MANA binding")
+        return self
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
@@ -813,6 +828,8 @@ class Settings(BaseSettings):
         "firebase_service_account_file",
         "ga4_property_id",
         "ga4_service_account_file",
+        "operation_family_collection_database_path",
+        "operation_family_collection_binding",
         mode="before",
     )
     @classmethod

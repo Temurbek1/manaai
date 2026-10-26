@@ -51,6 +51,9 @@ from app.mana_operation_ai.application.retention.agent import RetentionAgent
 from app.mana_operation_ai.application.retention.engagement import (
     RetentionEngagementCapabilityHandler,
 )
+from app.mana_operation_ai.application.retention.family_collection import (
+    SavedCollectionCapabilityHandler,
+)
 from app.mana_operation_ai.application.runtime import SystemClock, UuidGenerator
 from app.mana_operation_ai.background.scheduler import InProcessScheduler
 from app.mana_operation_ai.domain.auth import AuthPolicy
@@ -343,6 +346,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
         ),
     )
+    if settings.operation_family_collection_enabled:
+        from app.services.operation_family_collection import SavedFamilyCollectionAdapter
+
+        collection_path = settings.operation_family_collection_database_path
+        collection_binding = settings.operation_family_collection_binding
+        assert collection_path is not None and collection_binding is not None
+        retention_capability_registry.register(
+            SavedCollectionCapabilityHandler(
+                SavedFamilyCollectionAdapter(collection_path, expected_binding=collection_binding),
+                repository=operation_repository,
+                clock=clock,
+                ids=ids,
+            )
+        )
     agent_registry = AgentRegistry()
     agent_registry.register(
         GrowthAgent(

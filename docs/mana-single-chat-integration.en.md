@@ -1008,3 +1008,17 @@ raw-token allowance and all source limits stay unchanged.
 
 Try `make chat-lab-clarification CHAT_LAB_PORT=8104`; read
 [protocol, migration and actual evidence](mana-parent-clarifications.md).
+
+## 37. Shared collection reports for administrators (local, not released)
+
+The parent app continues using the same single-chat operations. A separate,
+default-disabled operational capability, `retention.family_collection.analyze`,
+can summarize an already saved terminal family-collection publication through
+the existing administrative run/report API. It performs zero new provider or
+model calls and exposes no family IDs, GPS or chat text. It creates no parent
+message, push, tariff action or additional agent.
+
+The report describes collection coverage and its original dates. Its counters
+are not parent activity, churn, conversion or proven population totals. It does
+not activate the 09:00/15:00 collector or register new native Goal tools. Read
+[configuration, authorization and acceptance](mana-saved-collection-analytics.md).

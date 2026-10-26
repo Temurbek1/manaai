@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- Local default-disabled `OPERATION_FAMILY_COLLECTION_ENABLED` registers manual
+  `retention.family_collection.analyze` under the existing Retention owner. Read
+  `docs/mana-saved-collection-analytics.md` and integration section 37. Require an
+  explicit absolute read-only collection path and exact MANA policy binding.
+  Read only a bounded saved terminal publication; never initialize/migrate the
+  source or refresh a provider. Refuse stale/invalid latest data without an older
+  fallback. Preserve source/observation/publication/inspection dates and unknown
+  counts. Project only typed aggregates, suppress private validation context and
+  never expose family IDs/GPS/chat/free-form source prose. No default schedule,
+  parent message, contact, model charge or new authority follows. This is neither
+  full Admin Analysis nor native Goal registration/production activation.
+
 - Local default-disabled `MANA_PARENT_TOUCH_CLARIFICATIONS_ENABLED` uses family
   v29. Read `docs/mana-parent-clarifications.md` and integration section 36.
   Capture only newly admitted manager turns, outside legacy request/result JSON;
