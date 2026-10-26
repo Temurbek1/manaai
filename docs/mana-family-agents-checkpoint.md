@@ -2,6 +2,59 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Independent family workflows — 2026-10-26, application `fc4846a`
+
+Read [the worker checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parallel-family-worker.md)
+and English integration section 33. New default-disabled
+`MANA_FAMILY_PARALLEL_WORKER_ENABLED` replaces the shared slow-provider bottleneck
+with nine bounded owning lanes: source preparation, safety, conversation,
+specialist delivery, reminders, Upsell, Retention, Conversion and push. Each has
+one in-flight workflow per worker; SQL still owns same-parent exclusion, safety
+priority, permissions, current evidence, budgets and idempotency. No fan-out,
+new source schedule, protocol/schema, grant/payment/contact or budget increase.
+Default serial behavior stays. Failure/independent cancellation fences admission,
+cancels siblings and awaits durable cleanup; unknown submissions never retry.
+
+Full `make verify` exited 0: **1559 backend tests**, **26 admin/11 suites**,
+**15 lab tests**, mypy **437 files**, lint/typecheck/build/audit with zero npm
+vulnerabilities; one skip/two excluded live cases are not passes. Sequential schema
+sync passed unchanged. Seven new meaningful cases include blocked providers,
+two-worker single claims, another family's chat/permitted saved-message push,
+same-family safety waiting, actual shutdown/unknown-hold reconstruction, failed
+or independently cancelled lanes and the actual idle runtime (zero requests).
+The overlapping focused suite is 69 cases. An initial import omission and test
+observation of intermediate `metered` were corrected without relaxing outcomes.
+
+Browser -> API/SQL passed battery first contact, 90-day fake price and confirmed
+reminder: **750 simulated parent /150 safety tokens**, one safety job and one
+scheduled reminder. Reload/restart preserve every cell in **56 family /15 source
+tables**. The 390px screen was inspected, no overflow/script errors. Three wrong
+literal-text waits timed out; actual completed text/confirmation/restart were
+verified separately, not relabelled as passing waits. No paid model party was
+repeated; earlier catalog failure/unknown hold remain.
+
+Clean `fc4846a` image `mana-ai-family:parallel-local-20261026`, ID
+`sha256:e547de3be43d4a8e222af2bdef1e6b36ad02446515c42f25f9c1dc36fa1f2f2b`,
+matches 274 Python app files, no `.env`/private SQL. Networkless Python 3.12 verified
+another family's reply during blocked safety and shutdown/reconstruction retaining
+all 56 tables/**612-token unknown hold**, one fake model attempt. The first probe
+omitted required fictional profile qualifications and failed; its script/log
+remain, corrected complete fixture passes. Actual preceding 1ab7afe **closed**
+reader preserves all rows/hold; execution rollback was not tested. The new image's
+parallel production factory also passes retained real-copy **6 -> 26**, all original
+cells in 16 tables/two messages/exact replay, current closed state, zero external
+requests or historical recapture. No SSH/new production copy; artifacts stay
+0700/0600. Export: `/mnt/ssd2/mana-family-parallel-source-fc4846a` outside mypy tree.
+
+Evidence: feature `output/family-parallel-{browser,candidate}-20261026/` and gate
+logs. Fake lab **http://127.0.0.1:8101**, PID **215957**, tool session **32117** at
+handoff; verify cwd/command before control. Existing 8098/8099/8100 remain untouched;
+automation browser closed. No production change; family stays last confirmed
+`f8d095e`. No real Firebase/GA4, grant/payment/push, SSH/key, UI/audio, source or
+schedule mutation. The full objective remains active: native reservation/fleet
+capacity, broader source/model/real-channel quality, supported commercial/referral
+contracts and administrative owning-domain workflows remain open; Technical last.
+
 ### Source-confirmed free-period end — 2026-10-26, application `1ab7afe`
 
 Read [the implementation and evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-confirmed-trial-end.md)
