@@ -2,6 +2,74 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Natural tariff enquiry / currency — 2026-10-26, application `965bddd`
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, documentation/test HEAD **`50894fa`**.
+Read [the currency checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-upsell-currency.md)
+and English integration section 39. Default-disabled
+`MANA_CLIENT_UPSELL_CURRENCY_ENABLED` captures private family **v31** only on new
+admissions in the existing governed manager/Upsell profile. A missing currency
+freezes the exact parent quote, objective, duration and explicit budget, then
+publishes one parent-scope question in the shared slot. Exact `UZS`/`USD` with its
+`reply_to_question_id` binds once and queues the existing catalogue workflow with
+zero extra model calls. Other answers follow ordinary conversation; never guess
+currency, reinterpret the frozen request or create grant/payment/contact authority.
+Existing fresh-family checks, priority, source cooldowns/meters, original language,
+2000 per-parent chat /2000 global Safety budgets and unknown holds remain.
+
+Two private tables retain capture/origin/answer metadata outside legacy JSON.
+No historical turn is upgraded, no source/collection schema changes and no new
+mobile operation follows. Current disable fences unpublished resolved quotes and
+late priced decisions; it never refunds unknown work. Use the current closed v31
+reader for preserved history/holds; an old image's refusal is not execution rollback.
+
+Final `make verify` **exited 0**:
+`output/upsell-currency-verify-four-languages-final-20261026.log`: **1646 backend**,
+one skipped/two live excluded, **26 admin/11 suites**, **15 lab**, mypy **453 files**,
+lint/types/build and zero npm vulnerabilities. Sixteen focused cases include all
+four languages, exact/concurrent/foreign/expired answers, real pinned SDK old/new
+schemas, prior v30 pending migration without capture, atomic publication failure,
+closed restart/midnight holds, late Safety/disable and unknown catalogue refusal.
+Sequential schema sync is unchanged. Preserve the initial full-gate missing-dummy-
+key collection failure and both earlier passing 1644-case gates.
+
+Initial independent synthetic real-model RU/UZ price dialogues technically passed:
+**four generations/eight HTTP attempts/$0.00869 known uncached estimate**. The RU
+case uses 1271 parent tokens; the UZ case 1270 but incorrectly used Russian host
+wording. Its negative language review/receipts remain, never relabelled as a pass.
+The admission correction reuses the existing tariff language helper only for new
+v31 turns, preserving historical captures. A **new independent** Uzbek six-month /
+350000-budget case passes an Uzbek currency question and 180-day/299000-UZS fake
+quote, **1282 parent tokens/two generations/four HTTP/$0.0043925 estimate**. All
+Safety usage is zero; all receipts settle and replay performs no I/O. Combined
+**six generations/twelve HTTP/$0.0130825 estimate**, not an invoice, broader language,
+real catalogue, fleet or business-outcome acceptance. No old paid party is replayed.
+
+Browser -> HTTP/SQL -> UI passes five messages, **300 simulated parent/zero Safety**
+tokens, exact history refresh and 390px layout without page errors/overflow. A
+same-file restart retains full response state and every cell in **71 family/15
+source tables**. Automation is closed; the fictional lab is on loopback **8107**.
+
+Clean `965bddd` builds `mana-ai-family:upsell-currency-local-20261026`, image
+`sha256:ae8942d448620cbe98fdee7ef5f7b2c1d4c5a800b4776fdcaeb9a85244e545b1`;
+all **284 application Python hashes** match, no `.env` or private SQL. Actual
+Python 3.12/networkless/nonroot/read-only packaged probes pass the dialogue and
+retain a **612-token unknown parent hold** plus a blocked lost catalogue receipt
+through closed-reader/restart/midnight, all cells unchanged and no redispatch.
+The actual prior v30 image refuses v31 unchanged. The same current product factory
+upgrades the retained private **v6 -> v31** copy, preserving all original cells/
+columns in 16 tables, both messages and exact old replay. Auth 401, live/history/
+directory/replay 200 and absent lab cards 404 pass, no historical capture or new
+external calls. The first harness had a stale `205d140` metadata literal; its
+original artifacts/review remain. A separate corrected probe reports `965bddd`.
+No new production access/copy occurs; this small copy is not fleet/release proof.
+
+The complete original AI KOMANDA goal remains active. Real commercial/referral
+contracts, broader source/measurement/route semantics, owning actions, quality/
+capacity and scoped deployment still need acceptance. Root unrelated dirt,
+production/main/audio, SSH/key, cloud data and schedules remain unchanged.
+
 ### Saved adjacent query-day child counters — 2026-10-26, application `205d140`
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
