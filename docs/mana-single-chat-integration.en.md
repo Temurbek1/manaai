@@ -875,3 +875,16 @@ uses a running clock and respects quiet hours. It has no live Firebase, push,
 payment or grant adapter. Read
 [implementation, actual source/model checks and capacity limits](mana-family-location-source.md).
 This local family-v23 profile is default disabled and has not been released.
+
+## 30. Test action confirmation buttons
+
+The local web chat now accepts caller-defined action text and confirmation/cancel
+button labels. Run `make chat-lab-actions CHAT_LAB_PORT=8098`, then open
+<http://127.0.0.1:8098>. The action is attached to one assistant message in the
+same chat. Explicit button clicks have durable, definition-bound decisions;
+refresh, duplicate clicks and restart never repeat the simulated execution.
+
+The test-only API and examples are documented in
+[Confirmation cards](mana-chat-action-cards.en.md). Only `sandbox_demo` is wired.
+This is not a production path, actual trial activation, payment or push. Real
+action kinds must use their owning domain lifecycle and separately scoped release.

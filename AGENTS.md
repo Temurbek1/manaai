@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- The dynamic action-card prototype is lab-only through `make chat-lab-actions`.
+  Read `docs/mana-chat-action-cards.en.md`. Private family v24 atomically binds
+  one assistant history turn to an immutable confirmation/cancel card. Only the
+  typed `sandbox_demo` executor is wired; text replies, arbitrary callbacks and
+  generic buttons never grant real tariff/payment/contact authority. Persist the
+  displayed definition and click claim before execution; unknown/executing claims
+  survive restart and never redispatch. The former v23 reader refuses new tables;
+  this is not a deployed feature or functional rollback. Other profiles stay
+  disabled; preserve the original broad goal and production boundaries.
+
 - The local default-disabled `MANA_FAMILY_LOCATION_ENABLED` profile uses family
   v23/source v7/collection v4. Read `docs/mana-family-location-source.md`. Fresh
   ownership gates one fixed-mask child-ID document GET; discard coordinates at

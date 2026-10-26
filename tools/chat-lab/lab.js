@@ -1,6 +1,20 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const prefix = "/api/v1/mana-ai";
+const cardStorage = "mana-lab-action-attempts-v1";
+let cardAttempts;
+try {
+  cardAttempts = JSON.parse(sessionStorage.getItem(cardStorage) || "{}");
+  if (
+    !cardAttempts ||
+    typeof cardAttempts !== "object" ||
+    Array.isArray(cardAttempts)
+  )
+    cardAttempts = null;
+} catch {
+  cardAttempts = null;
+}
+const cardBusy = new Set();
 const csrf = document.querySelector('meta[name="lab-csrf"]').content;
 let bootstrap,
   state,
@@ -15,6 +29,12 @@ const errors = {
     "Предыдущий запрос ещё не завершён. Новую генерацию не запускаем.",
   lab_session_required: "Сессия сервера изменилась. Обновите страницу.",
   lab_csrf_failed: "Сессия сервера изменилась. Обновите страницу.",
+  action_card_requires_button:
+    "Подтвердите или отмените действие кнопкой в чате.",
+  action_card_chat_busy: "Сначала завершите текущий вопрос в чате.",
+  action_card_already_decided: "Решение уже сохранено. Обновите историю.",
+  action_card_not_pending:
+    "Время подтверждения истекло или решение уже принято.",
 };
 class LabApiError extends Error {
   constructor(message, status, code = null) {
@@ -58,9 +78,98 @@ function paragraph(parent, text) {
   p.textContent = text;
   parent.append(p);
 }
+function drawCard(body, card) {
+  const box = document.createElement("div");
+  box.className = "action-card";
+  const statuses = {
+    pending: "Тестовое действие · требуется подтверждение",
+    executing: "Результат пока не подтверждён. Повторного запуска не будет.",
+    completed: "Тест выполнен · реальные данные не изменены",
+    cancelled: "Отменено",
+    expired: "Время подтверждения истекло",
+    unknown: "Результат неизвестен. Повторного запуска не будет.",
+  };
+  const note = document.createElement("p");
+  note.className = "action-status";
+  note.textContent = statuses[card.status];
+  note.setAttribute("role", "status");
+  box.append(note);
+  const buttons = document.createElement("div");
+  buttons.className = "action-buttons";
+  const attempt = cardAttempts?.[card.card_id];
+  card.buttons.forEach((choice) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = choice.id === "confirm" ? "confirm" : "cancel";
+    button.textContent = choice.label;
+    button.disabled =
+      card.status !== "pending" ||
+      cardBusy.has(card.card_id) ||
+      !cardAttempts ||
+      (attempt &&
+        (attempt.button_id !== choice.id ||
+          attempt.definition_hash !== card.definition_hash ||
+          attempt.parent_id !== card.parent_id));
+    if (
+      attempt &&
+      card.status === "pending" &&
+      attempt.button_id === choice.id
+    ) {
+      button.textContent = "Повторить тот же выбор: " + choice.label;
+    }
+    button.addEventListener("click", () => clickCard(card, choice.id));
+    buttons.append(button);
+  });
+  box.append(buttons);
+  body.append(box);
+}
+async function clickCard(card, buttonId) {
+  if (cardBusy.has(card.card_id) || card.status !== "pending" || !cardAttempts)
+    return;
+  const prior = cardAttempts[card.card_id];
+  if (
+    prior &&
+    (prior.parent_id !== card.parent_id ||
+      prior.button_id !== buttonId ||
+      prior.definition_hash !== card.definition_hash)
+  )
+    return;
+  const click = prior || {
+    parent_id: card.parent_id,
+    request_id: crypto.randomUUID(),
+    button_id: buttonId,
+    definition_hash: card.definition_hash,
+  };
+  cardAttempts[card.card_id] = click;
+  try {
+    // Persist before POST. Reload and observation never reissue this mutation.
+    sessionStorage.setItem(cardStorage, JSON.stringify(cardAttempts));
+  } catch {
+    showError(
+      new Error("Для подтверждения нужно разрешить локальное хранение сессии."),
+    );
+    return;
+  }
+  cardBusy.add(card.card_id);
+  rendered = "";
+  draw();
+  $("error").hidden = true;
+  try {
+    await api(`${prefix}/parent-touch/action-cards/${card.card_id}/click`, {
+      method: "POST",
+      body: JSON.stringify(click),
+    });
+  } catch (error) {
+    showError(error);
+  } finally {
+    cardBusy.delete(card.card_id);
+    rendered = "";
+    await refresh().catch(showError);
+  }
+}
 function draw() {
   const history = state.history;
-  const fingerprint = JSON.stringify(history.messages);
+  const fingerprint = JSON.stringify([history.messages, state.action_cards]);
   if (fingerprint !== rendered && history.messages.length) {
     const atBottom =
       $("messages").scrollHeight -
@@ -81,6 +190,11 @@ function draw() {
       const body = document.createElement("div");
       body.className = "body";
       body.textContent = message.content;
+      const card = (state.action_cards || []).find(
+        (item) =>
+          item.turn_id === message.turn_id && message.role === "assistant",
+      );
+      if (card) drawCard(body, card);
       const time = document.createElement("time");
       time.className = "stamp";
       time.dateTime = message.created_at;
@@ -269,8 +383,39 @@ $("sleep-example").addEventListener("click", () => {
 $("refresh").addEventListener("click", () =>
   refresh().then(observePending).catch(showError),
 );
+$("card-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy || !bootstrap?.action_cards_enabled) return;
+  controls(true);
+  $("card-create").disabled = true;
+  $("error").hidden = true;
+  try {
+    await api(prefix + "/parent-touch/action-cards", {
+      method: "POST",
+      body: JSON.stringify({
+        parent_id: bootstrap.parent_id,
+        request_id: crypto.randomUUID(),
+        action_type: "sandbox_demo",
+        title: $("card-title").value.trim(),
+        text: $("card-text").value.trim(),
+        buttons: [
+          { id: "confirm", label: $("card-confirm").value.trim() },
+          { id: "cancel", label: $("card-cancel").value.trim() },
+        ],
+        expires_in_seconds: 900,
+      }),
+    });
+  } catch (error) {
+    showError(error);
+  } finally {
+    controls(false);
+    $("card-create").disabled = false;
+    await refresh().catch(showError);
+  }
+});
 async function start() {
   bootstrap = await api("/lab/bootstrap");
+  $("card-editor").hidden = !bootstrap.action_cards_enabled;
   $("mode").textContent =
     bootstrap.mode === "simulation"
       ? "● Бесплатная симуляция"
@@ -305,6 +450,11 @@ async function start() {
             body: JSON.stringify(fresh.body),
           },
         );
+        if (fresh.key === "action-card") {
+          $("status").textContent = "";
+          await refresh();
+          return;
+        }
         if (fresh.path === "/lab/collection") {
           $("status").textContent =
             `Сбор: ${receipt.status} · ${receipt.targets} целей. Повтор кнопки читает только сохранённый результат.`;

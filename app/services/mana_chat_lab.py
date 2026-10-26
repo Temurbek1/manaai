@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.core.config import get_settings
+from app.mana_ai.application.chat_actions import ChatActionService
 from app.mana_ai.application.chat_ports import (
     ChatModelReceipt,
     ChatPrompt,
@@ -38,6 +39,7 @@ from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
+from app.mana_ai.domain.chat_actions import ChatActionCard, ChatActionCreate
 from app.mana_ai.domain.child_location import ChildLocationFacts
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
@@ -95,6 +97,7 @@ from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
 from app.services.day_review_cache import SqliteDayReviewCache
 from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_agent_worker import FamilyAgentWorker
+from app.services.lab_chat_action_store import SimulatedChatActionExecutor, SqliteLabChatActionStore
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_location import LabLocationSource
 from app.services.lab_native_source_model import LabNativeSourceModel
@@ -692,6 +695,7 @@ class LabBootstrap(BaseModel):
     child_id: int
     scenarios: list[LabScenario]
     scheduled_collection: bool = False
+    action_cards_enabled: bool = False
     seeded_history: Literal["fictional_trial_grant"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -707,6 +711,7 @@ class LabState(BaseModel):
     source_dispatches: list[SourceSafetyReceipt]
     collection_windows: list[FamilyCollectionWindow] = []
     source_reviews: list[SourceReviewWork] = []
+    action_cards: list[ChatActionCard] = []
 
 
 @dataclass(frozen=True)
@@ -732,11 +737,14 @@ class LabOptions:
     manager: bool = False
     trial_periods: bool = False
     location: bool = False
+    action_cards: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.action_cards and (not options.manager or options.real_model):
+            raise ValueError("Action-card lab requires the fictional manager profile")
         if type(options.expiry_fixture_days) is not int or options.expiry_fixture_days not in {
             2,
             30,
@@ -794,6 +802,7 @@ class ChatLab:
         self.source_safety: SourceSafetyService
         self.battery: LabBatterySource
         self.collection: LabCollection | None = None
+        self.action_cards: ChatActionService | None = None
 
     def _directory(self) -> Path:
         directory = self.options.directory
@@ -839,6 +848,8 @@ class ChatLab:
             expected["trial_periods"] = True
         if self.options.location:
             expected["location"] = True
+        if self.options.action_cards:
+            expected["action_cards"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -953,7 +964,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteLocationSafetyStore
+                SqliteLabChatActionStore
+                if self.options.action_cards
+                else SqliteLocationSafetyStore
                 if self.options.location
                 else SqliteTrialPeriodStore
                 if self.options.trial_periods
@@ -1054,6 +1067,11 @@ class ChatLab:
                 push_enabled=False,
             )
         await self.store.initialize()
+        if self.options.action_cards:
+            assert isinstance(self.store, SqliteLabChatActionStore)
+            self.action_cards = ChatActionService(
+                self.store, SimulatedChatActionExecutor(), self.options.clock
+            )
         if self.options.shared_conversion_profile and isinstance(
             self.options.clock, LabCollectionClock
         ):
@@ -1283,6 +1301,15 @@ class ChatLab:
         changes = [event for _, event in await self.source_store.changes(LAB_PARENT)]
         dispatches = await self.source_store.dispatch_receipts(LAB_PARENT)
         windows = list(await self.collection.service.windows()) if self.collection else []
+        cards: list[ChatActionCard] = []
+        if self.action_cards:
+            after = 0
+            while True:
+                page = await self.action_cards.list(LAB_PARENT, after=after, limit=100)
+                cards.extend(page.cards)
+                if page.next_after is None:
+                    break
+                after = page.next_after
         return LabState(
             mode=self.mode,
             history=await self.touch.read_touch_history(LAB_PARENT, before=None, limit=100),
@@ -1292,6 +1319,7 @@ class ChatLab:
             source_changes=changes,
             source_dispatches=dispatches,
             collection_windows=windows,
+            action_cards=cards,
             source_reviews=await self.source_store.reviews(LAB_PARENT)
             if isinstance(self.source_store, SqliteSourceReviewCache)
             else [],
@@ -1403,8 +1431,31 @@ class ChatLab:
             parent_id=LAB_PARENT,
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
+            action_cards_enabled=self.options.action_cards,
             seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="action-card",
+                            title="Действие с кнопками",
+                            path="/parent-touch/action-cards",
+                            body=ChatActionCreate(
+                                parent_id=LAB_PARENT,
+                                request_id=uuid4(),
+                                action_type="sandbox_demo",
+                                title="Подтвердите тестовое действие",
+                                text="Проверим подтверждение в чате. Реальные данные не изменятся.",
+                                buttons=(
+                                    {"id": "confirm", "label": "Подтвердить"},
+                                    {"id": "cancel", "label": "Отмена"},
+                                ),
+                            ).model_dump(mode="json"),
+                        )
+                    ]
+                    if self.options.action_cards
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

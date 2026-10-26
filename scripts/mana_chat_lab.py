@@ -10,9 +10,10 @@ import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
+from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,6 +26,13 @@ from app.api.security import require_backend_bearer_token
 from app.core.openapi import OPENAPI_TAGS
 from app.core.request_body_limit import RequestBodyLimitMiddleware
 from app.core.validation_errors import sanitized_request_validation_handler
+from app.mana_ai.application.chat_actions import ChatActionService
+from app.mana_ai.domain.chat_actions import (
+    ChatActionCard,
+    ChatActionClick,
+    ChatActionCreate,
+    ChatActionPage,
+)
 from app.mana_ai.domain.family_collection import FamilyCollectionWindow
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 from app.services.lab_collection import LabCollectionClock
@@ -150,6 +158,43 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     @app.get("/lab/state", response_model=LabState, dependencies=[Depends(local_session)])
     async def state() -> LabState:
         return await mana_family_agents.controlled(lab.state())
+
+    def card_service() -> ChatActionService:
+        if lab.action_cards is None:
+            raise HTTPException(503, detail={"code": "lab_action_cards_disabled"})
+        return lab.action_cards
+
+    action_path = "/api/v1/mana-ai/parent-touch/action-cards"
+
+    @app.post(action_path, response_model=ChatActionCard, dependencies=[Depends(local_session)])
+    async def create_card(body: ChatActionCreate) -> ChatActionCard:
+        return await mana_family_agents.controlled(card_service().create(body))
+
+    @app.get(action_path, response_model=ChatActionPage, dependencies=[Depends(local_session)])
+    async def list_cards(
+        parent_id: str,
+        after: Annotated[int, Query(ge=0)] = 0,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> ChatActionPage:
+        return await mana_family_agents.controlled(
+            card_service().list(parent_id, after=after, limit=limit)
+        )
+
+    @app.get(
+        action_path + "/{card_id}",
+        response_model=ChatActionCard,
+        dependencies=[Depends(local_session)],
+    )
+    async def read_card(card_id: UUID, parent_id: str) -> ChatActionCard:
+        return await mana_family_agents.controlled(card_service().read(parent_id, card_id))
+
+    @app.post(
+        action_path + "/{card_id}/click",
+        response_model=ChatActionCard,
+        dependencies=[Depends(local_session)],
+    )
+    async def click_card(card_id: UUID, body: ChatActionClick) -> ChatActionCard:
+        return await mana_family_agents.controlled(card_service().click(card_id, body))
 
     @app.post(
         "/lab/child-battery",
@@ -486,6 +531,27 @@ def create_day_usage_app() -> FastAPI:
             tariff_context=True,
             expiry=True,
             day_usage=True,
+        )
+    )
+
+
+def create_action_cards_app() -> FastAPI:
+    """Dynamic confirmation buttons with durable simulated execution, never live writes."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/action-cards-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            action_cards=True,
+            expiry_fixture_days=30,
         )
     )
 

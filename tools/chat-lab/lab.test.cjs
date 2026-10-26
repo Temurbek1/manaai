@@ -45,6 +45,9 @@ async function environment({
   confirmation = null,
   question = null,
   stateBusyOnce = false,
+  actionCard = null,
+  savedAction = null,
+  actionFailure = false,
 } = {}) {
   let remainingBusy = stateBusyOnce ? 1 : 0;
   const elements = new Map();
@@ -55,12 +58,23 @@ async function environment({
   const saved = new Map(
     resume ? [["mana-lab-pending", "fake-original-id"]] : [],
   );
+  if (savedAction)
+    saved.set("mana-lab-action-attempts-v1", JSON.stringify(savedAction));
   const requests = [],
     timers = [];
   const state = {
     mode: "simulation",
     history: {
-      messages: [],
+      messages: actionCard
+        ? [
+            {
+              role: "assistant",
+              turn_id: actionCard.turn_id,
+              content: actionCard.text,
+              created_at: "2026-10-26T09:00:00Z",
+            },
+          ]
+        : [],
       active_question: question,
       active_confirmation: confirmation,
       quota: { used_tokens: 0, daily_limit: 2000, reserved_tokens: 0 },
@@ -72,6 +86,7 @@ async function environment({
     },
     assessments: { assessments: [] },
     conversions: { proposals: [] },
+    action_cards: actionCard ? [actionCard] : [],
   };
   const context = {
     document: {
@@ -102,6 +117,12 @@ async function environment({
         return response(200, state);
       }
       if (options.method === "POST") {
+        if (url.endsWith("/click")) {
+          if (actionFailure)
+            throw new TypeError("Synthetic lost click acknowledgement");
+          actionCard.status = "completed";
+          return response(200, actionCard);
+        }
         if (url === "/lab/child-battery")
           return response(200, { status: sourceStatus, cache_hit: true });
         if (failure === "network")
@@ -125,8 +146,67 @@ async function environment({
     element("message").value = "Synthetic parent text";
     await element("composer").listeners.submit({ preventDefault() {} });
   };
-  return { element, saved, requests, timers, submit };
+  return { element, saved, requests, timers, submit, state };
 }
+
+function card() {
+  return {
+    card_id: "card-1",
+    turn_id: 42,
+    parent_id: "900001",
+    text: "<img src=x onerror=evil()>",
+    status: "pending",
+    definition_hash: "a".repeat(64),
+    buttons: [
+      { id: "confirm", label: "Custom confirm" },
+      { id: "cancel", label: "Custom cancel" },
+    ],
+  };
+}
+function cardButtons(env) {
+  return env.element("messages").children[0].children[1].children[0].children[1]
+    .children;
+}
+test("card renders caller labels as text and confirmation redraws unchanged chat history", async () => {
+  const env = await environment({ actionCard: card() });
+  const buttons = cardButtons(env);
+  assert.equal(buttons[0].textContent, "Custom confirm");
+  assert.equal(buttons[1].textContent, "Custom cancel");
+  await buttons[0].listeners.click();
+  const posts = env.requests.filter((r) => r.options.method === "POST");
+  assert.equal(posts.length, 1);
+  const body = JSON.parse(posts[0].options.body);
+  assert.equal(body.button_id, "confirm");
+  assert.equal(body.definition_hash, "a".repeat(64));
+  assert.equal(body.parent_id, "900001");
+  assert.ok(env.saved.get("mana-lab-action-attempts-v1"));
+  assert.equal(cardButtons(env)[0].disabled, true);
+  assert.equal(cardButtons(env)[1].disabled, true);
+  assert.equal(env.state.history.messages.length, 1);
+});
+test("lost click is observed only; explicit retry preserves the nonce and choice", async () => {
+  const env = await environment({ actionCard: card(), actionFailure: true });
+  await cardButtons(env)[0].listeners.click();
+  await env.timers.at(-1)();
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    1,
+  );
+  assert.equal(cardButtons(env)[1].disabled, true);
+  await cardButtons(env)[0].listeners.click();
+  const posts = env.requests.filter((r) => r.options.method === "POST");
+  assert.equal(posts.length, 2);
+  assert.equal(posts[0].options.body, posts[1].options.body);
+  const resumed = await environment({
+    actionCard: card(),
+    savedAction: JSON.parse(env.saved.get("mana-lab-action-attempts-v1")),
+  });
+  assert.equal(
+    resumed.requests.filter((r) => r.options.method === "POST").length,
+    0,
+  );
+  assert.equal(cardButtons(resumed)[1].disabled, true);
+});
 
 test("busy SQL observation stays read-only and recovers without an error or POST", async () => {
   const env = await environment({ stateBusyOnce: true });

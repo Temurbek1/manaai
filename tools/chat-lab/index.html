@@ -34,6 +34,37 @@
           <div id="jobs"></div>
           <div id="source-jobs"></div>
           <div id="offers"></div>
+          <details id="card-editor" hidden>
+            <summary>Карточка действия</summary>
+            <form id="card-form" class="card-form">
+              <label
+                >Название<input
+                  id="card-title"
+                  maxlength="120"
+                  required
+                  value="Тестовое действие"
+              /></label>
+              <label
+                >Текст<textarea id="card-text" maxlength="1000" required>
+Подтвердите тест. Реальные данные не изменятся.</textarea>
+              </label>
+              <label
+                >Подтверждение<input
+                  id="card-confirm"
+                  maxlength="80"
+                  required
+                  value="Подтвердить"
+              /></label>
+              <label
+                >Отмена<input
+                  id="card-cancel"
+                  maxlength="80"
+                  required
+                  value="Отмена"
+              /></label>
+              <button id="card-create" type="submit">Добавить в чат</button>
+            </form>
+          </details>
           <details>
             <summary>Ответ API</summary>
             <pre id="raw-state"></pre>
