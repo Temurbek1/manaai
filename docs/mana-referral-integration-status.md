@@ -1,5 +1,52 @@
 # Referral and loyalty integration — current evidence, 2026-10-25
 
+## Authorized browser investigation — 2026-10-27
+
+The owner authorized searching the existing Telegram session, the project group
+`5424034576` and its participants' conversations, and then restricted control to
+the browser. This investigation used browser-scoped navigation, DOM observation
+and search only. It sent no Telegram message, changed no cloud/app setting and
+made no referral, tariff, payment, push or production request. It did not use
+global desktop input. No conversation credential was used for authentication
+or configured in the application.
+
+The verified [project group](https://web.telegram.org/a/#-5424034576) has six
+members. Its participant list and the other five participants' available direct
+conversations were checked. Two direct conversations had no existing messages;
+an additional MANA-related contact's conversation was also empty. The populated
+conversations were searched for referral, invitation, promo-code and bonus terms
+in English, Russian and Uzbek variants. This was scoped keyword discovery,
+not a complete archive export, transcription of voice messages or proof that a
+contract cannot exist elsewhere. Some group search results were loaded but the
+search dropdown was collapsed; do not present those observations as an
+exhaustive visible-result audit.
+
+What was actually obtained:
+
+- The group's shared-file view listed the already known Parent List, agent
+  tariff, push and single-chat integration documents. No new referral-specific
+  contract was identified in that inspected file list; its completeness was not
+  independently established.
+- A direct-chat search found the status phrase about the referral work being
+  in progress. Its sender is **the owner**, not the backend developer. It is
+  neither confirmation of a completed provider mechanism nor an API contract.
+- The linked [AI KOMANDA document](https://docs.google.com/document/d/1Ggokz9VOuJR4tx2cS5Jd_zieEKuk523hvkXJfKkxKxY/edit)
+  was read through its browser text view. Its Referral section specifies the
+  desired invitation, personal code, attribution and reward workflow. It
+  supplies no concrete endpoint, authentication contract, response schema,
+  idempotency/reconciliation behavior or approved reward terms. Its example
+  free month and growth targets remain product aspirations.
+- The backend conversations' relevant matches were requirements and earlier
+  integration discussions. No usable code-issuance, attribution or reward
+  contract was obtained from this search.
+
+The integration boundary below therefore remains unchanged: do not invent a
+referral program, label the one-time agent trial as a recurring friend reward,
+or claim that Referral is ready. Other independent single-chat work can continue.
+Browser screenshots remain private ignored diagnostics; unrelated chat content,
+phone numbers, login codes, tokens and raw conversation exports are excluded from
+this record. No paid model diagnostic, Firebase/GA4 read or deployment followed.
+
 ## Subsequent schema-only observation — 2026-10-26
 
 `output/parent-contract-shape-20261026/` records one new bounded schema check of
