@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     mana_family_parallel_worker_enabled: bool = False
     mana_child_safety_remainder_enabled: bool = False
     mana_parent_support_questions_enabled: bool = False
+    mana_parent_touch_clarifications_enabled: bool = False
     mana_conversion_enabled: bool = False
     mana_conversion_conversation_enabled: bool = False
     mana_conversion_trial_grants_enabled: bool = False
@@ -459,6 +460,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if (
+            self.mana_parent_touch_clarifications_enabled
+            and not self.mana_parent_touch_manager_enabled
+        ):
+            raise ValueError("Parent clarifications require the governed Parent-Touch manager")
         if self.mana_parent_support_questions_enabled and not (
             self.mana_parent_touch_manager_enabled and self.mana_client_retention_enabled
         ):

@@ -344,6 +344,8 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         receipt: ChatModelReceipt,
         now: datetime,
     ) -> bool:
+        if receipt.clarification_question is not None:
+            return False
         if receipt.upsell_choice is not None:
             return False
         if receipt.reminder_candidate is not None:

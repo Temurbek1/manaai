@@ -15,6 +15,10 @@ class ParentTouchManagerScope(ChatContract):
     stage: Literal["route", "child_safety", "upsell", "reminder"] = "route"
     upsell_enabled: bool = False
     reminders_enabled: bool = False
+    clarifications_enabled: bool = Field(default=False, exclude_if=lambda v: not v)
+    language_reference: str | None = Field(
+        default=None, max_length=2000, exclude_if=lambda v: v is None
+    )
 
 
 class ParentTouchManagerHandoff(ChatContract):
@@ -29,6 +33,12 @@ class ParentTouchManagerReply(ChatContract):
     def ordinary_statement(self) -> "ParentTouchManagerReply":
         ParentTouchText(body=self.body, question=None)
         return self
+
+
+class ParentTouchClarificationReply(ParentTouchText):
+    """One reactive clarification, never a specialist result or action request."""
+
+    question: str | None = Field(max_length=400, pattern=r"^[^?\u061f\uff1f]*[?\u061f\uff1f]$")
 
 
 CHILD_REVIEW_TOOL = "request_child_safety_review"

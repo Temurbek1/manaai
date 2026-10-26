@@ -110,6 +110,7 @@ from app.services.location_source_cache import SqliteLocationSourceCache
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
+from app.services.parent_clarification_store import SqliteParentClarificationStore
 from app.services.parent_reminder_store import SqliteParentReminderStore
 from app.services.parent_support_question_store import SqliteParentSupportQuestionStore
 from app.services.parent_touch_manager_store import SqliteParentTouchManagerStore
@@ -322,6 +323,42 @@ class SimulatedModel:
             and prompt.manager_scope.stage == "route"
         ):
             text = prompt.messages[-1][1].casefold()
+            spoken_language = prompt.manager_scope.language
+            if (
+                prompt.manager_scope.language_reference is not None
+                and "qanday" in prompt.manager_scope.language_reference.casefold()
+            ):
+                spoken_language = "uz-Latn"  # Only the explicit fictional lab story.
+            if prompt.manager_scope.clarifications_enabled and any(
+                t in text
+                for t in ("как настроить мана", "как настроить mana", "mana qanday sozlanadi")
+            ):
+                question = (
+                    "Telefoningiz Androidmi yoki iPhonemi?"
+                    if spoken_language == "uz-Latn"
+                    else "У вас Android или iPhone?"
+                )
+                return ChatModelReceipt(
+                    usage=ChatTokens(input_tokens=100, output_tokens=50),
+                    model="lab-simulated-not-billed",
+                    completed=True,
+                    answer=question,
+                    clarification_question=question,
+                )
+            if prompt.manager_scope.clarifications_enabled and text.strip() in {
+                "android",
+                "iphone",
+            }:
+                return ChatModelReceipt(
+                    usage=ChatTokens(input_tokens=100, output_tokens=50),
+                    model="lab-simulated-not-billed",
+                    completed=True,
+                    answer=(
+                        "MANA bildirishnomalariga ruxsatni telefon sozlamalaridan tekshiring."
+                        if spoken_language == "uz-Latn"
+                        else "Проверьте разрешение уведомлений MANA в настройках телефона."
+                    ),
+                )
             target: ManagerTarget | None = (
                 "reminder"
                 if any(t in text for t in ("напомни", "eslat", "remind"))
@@ -763,11 +800,14 @@ class LabOptions:
     parallel_worker: bool = False
     safety_remainder: bool = False
     parent_support_questions: bool = False
+    clarifications: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.clarifications and (not options.manager or options.action_cards):
+            raise ValueError("Clarification lab requires the current manager profile")
         if options.parent_support_questions and (
             not options.manager or not options.retention or options.action_cards
         ):
@@ -895,6 +935,8 @@ class ChatLab:
             expected["trial_end"] = True
         if self.options.parallel_worker:
             expected["parallel_worker"] = True
+        if self.options.clarifications:
+            expected["clarifications"] = True
         if self.options.parent_support_questions:
             expected["parent_support_questions"] = True
         if self.options.safety_remainder:
@@ -1015,7 +1057,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteParentSupportQuestionStore
+                SqliteParentClarificationStore
+                if self.options.clarifications
+                else SqliteParentSupportQuestionStore
                 if self.options.parent_support_questions
                 else SqliteSafetyRemainderStore
                 if self.options.safety_remainder
@@ -1079,6 +1123,8 @@ class ChatLab:
                 reminder_options["trial_periods_enabled"] = True
             if self.options.trial_end:
                 reminder_options["trial_end_enabled"] = True
+            if self.options.clarifications:
+                reminder_options["clarifications_enabled"] = True
             if self.options.parent_support_questions:
                 reminder_options["parent_questions_enabled"] = True
             if self.options.safety_remainder:

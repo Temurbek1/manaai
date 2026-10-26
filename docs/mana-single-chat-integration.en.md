@@ -984,3 +984,27 @@ permissions and the existing 2000-token Parent-Touch allowance still apply.
 
 Try `make chat-lab-parent-support CHAT_LAB_PORT=8103`; read
 [migration, model diagnostics and acceptance limits](mana-parent-support-questions.md).
+
+## 36. Ordinary Parent-Touch clarifications (local, not released)
+
+Parent-Touch can ask one necessary clarification of a parent-initiated app-help
+request, such as the phone's operating system. Use the same parent-scoped question
+shape and `reply_to_question_id` from section 35. There is no new mobile operation,
+speaker or chat. An answer such as `Android` preserves the original question's
+language/reference, independently of the contact language.
+
+Keep observing the existing message status and history. `phase=completed` means
+that message completed; the answer may contain a next necessary question.
+`GET /parent-touch/chat` supplies the currently active question. Replaying the
+original request observes its original result, not a new generation. Never use
+historical `asked_question` metadata as permission to answer an already answered
+question with a new nonce.
+
+These are reactive conversation questions. They neither opt the parent into
+outreach/push nor confirm a tariff, device action, payment or trial. Child
+assessments, pricing and reminders still use their existing owning workflows.
+Urgent Safety notices can interrupt without opening another question. The 2000
+raw-token allowance and all source limits stay unchanged.
+
+Try `make chat-lab-clarification CHAT_LAB_PORT=8104`; read
+[protocol, migration and actual evidence](mana-parent-clarifications.md).

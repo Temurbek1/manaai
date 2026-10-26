@@ -31,6 +31,7 @@ from app.mana_ai.domain.parent_touch_manager import (
     CHILD_REVIEW_TOOL,
     REMINDER_TOOL,
     UPSELL_TOOL,
+    ParentTouchClarificationReply,
     ParentTouchManagerHandoff,
     ParentTouchManagerReply,
 )
@@ -65,9 +66,15 @@ class OpenAIParentChatModel:
                 raise ValueError("A manager decision requires its strict response contract")
             text["format"] = {
                 "type": "json_schema",
-                "name": "parent_touch_manager_reply",
+                "name": "parent_touch_clarification_reply"
+                if prompt.manager_scope.clarifications_enabled
+                else "parent_touch_manager_reply",
                 "strict": True,
-                "schema": ParentTouchManagerReply.model_json_schema(),
+                "schema": (
+                    ParentTouchClarificationReply
+                    if prompt.manager_scope.clarifications_enabled
+                    else ParentTouchManagerReply
+                ).model_json_schema(),
             }
             return text
         if prompt.slot_reply:
@@ -347,12 +354,17 @@ class OpenAIParentChatModel:
         reminder_question_text = None
         upsell_choice = None
         upsell_question_text = None
+        clarification_question = None
         if completed and prompt.structured_reply:
             try:
                 reply: ParentTouchText
                 if prompt.manager_scope and prompt.manager_scope.stage == "route":
-                    routed = ParentTouchManagerReply.model_validate_json(answer)
-                    reply = ParentTouchText(body=routed.body, question=None)
+                    if prompt.manager_scope.clarifications_enabled:
+                        reply = ParentTouchClarificationReply.model_validate_json(answer)
+                        clarification_question = reply.question
+                    else:
+                        routed = ParentTouchManagerReply.model_validate_json(answer)
+                        reply = ParentTouchText(body=routed.body, question=None)
                 elif prompt.slot_reply:
                     reply = (
                         ParentTouchUpsellReply
@@ -440,6 +452,7 @@ class OpenAIParentChatModel:
             reminder_question_text=reminder_question_text if completed else None,
             upsell_choice=upsell_choice if completed else None,
             upsell_question_text=upsell_question_text if completed else None,
+            clarification_question=clarification_question if completed else None,
         )
 
     async def close(self) -> None:

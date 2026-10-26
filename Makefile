@@ -38,6 +38,10 @@ chat-lab-parallel:
 
 .PHONY: chat-lab-remainder
 .PHONY: chat-lab-parent-support
+.PHONY: chat-lab-clarification
+chat-lab-clarification:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_clarification_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 chat-lab-parent-support:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_parent_support_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 

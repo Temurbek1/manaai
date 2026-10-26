@@ -542,6 +542,29 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_clarification_app() -> FastAPI:
+    """One reactive clarification in the existing fictional parent chat."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/clarification-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            parent_support_questions=True,
+            clarifications=True,
+            parallel_worker=True,
+            expiry_fixture_days=30,
+        )
+    )
+
+
 def create_parent_support_app() -> FastAPI:
     """Fictional Retention asks one managed parent question in the existing chat."""
     root = Path(__file__).resolve().parents[1]

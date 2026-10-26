@@ -88,6 +88,7 @@ class ChatModelReceipt:
     upsell_choice: UpsellChoice | None = None
     upsell_question_text: str | None = None
     manager_handoff: ParentTouchManagerHandoff | None = None
+    clarification_question: str | None = None
 
 
 class ParentChatModel(Protocol):

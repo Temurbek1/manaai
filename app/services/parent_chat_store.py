@@ -55,7 +55,8 @@ class SqliteParentChatStore:
         now: datetime,
     ) -> bool:
         return (
-            receipt.question_id is None
+            receipt.clarification_question is None
+            and receipt.question_id is None
             and receipt.notice_id is None
             and receipt.reminder_candidate is None
             and receipt.upsell_choice is None

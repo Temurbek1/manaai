@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_PARENT_TOUCH_CLARIFICATIONS_ENABLED` uses family
+  v29. Read `docs/mana-parent-clarifications.md` and integration section 36.
+  Capture only newly admitted manager turns, outside legacy request/result JSON;
+  old/disabled/pending v28 turns never gain the question schema. Parent-Touch can
+  ask one reactive intent/device clarification in the common parent/child slot.
+  Native handoffs precede prose; child/financial/reminder ownership is unchanged.
+  Account verified raw usage before validating/publication, bind the same-parent
+  answer and publish the question atomically. Invalid/late decisions never create
+  a question; failed SQL publication retains an unknown hold, not a free replay.
+  Neutral replies preserve the originating frozen reference; uncertain new
+  references direct model presentation, never source/action/contact authority.
+  Message completion is not task completion. Preserve both paid parties and the
+  initial verbosity/unfinished-brand qualification. Current closed v29 is required;
+  v28 refusal is not working execution rollback. No new source/schedule, push,
+  budget or production activation follows, and the full goal remains active.
+
 - The local default-disabled `MANA_PARENT_SUPPORT_QUESTIONS_ENABLED` uses family
   v28. Read `docs/mana-parent-support-questions.md` and integration section 35.
   Capture only new owning Retention speaker turns; old/disabled/replayed turns
