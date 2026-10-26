@@ -87,7 +87,35 @@ The current v26 reader supports observation with the feature disabled and the
 current closed v26 profile preserves history. Never downgrade populated history
 or restore an older database over it. Previous v23 and lab-only v24/v25 readers
 are not supported execution rollback targets; action-card labs remain separate.
-Packaged candidate/release evidence is recorded separately, when available.
+
+The clean `git archive` of **1ab7afe** built
+`mana-ai-family:trial-end-1ab7afe-local-20261026`, ID
+`sha256:8cc452f8d55aed5e879a9f76ac783ac53ccae3907b4382634f226180740f87a4`.
+All **274 application Python files** match that export; no `.env` or private SQL
+is in the image. The source export is outside this checkout at
+`/mnt/ssd2/mana-family-trial-end-source-1ab7afe`, avoiding duplicate mypy modules.
+This digest identifies the actual build, not reproducibility of a mutable base tag.
+
+The exact Python 3.12 image, with networking disabled and synthetic credentials,
+ran the fictional HTTP end-notice/enquiry/quote/replay/reconstruction flow:
+**eight messages**, one notice, one fake grant, 300 simulated parent/zero safety
+tokens. Current closed observation and restart retained every cell in **64 tables**,
+with zero external attempts. The first harness hashed `sqlite3.Row` object
+representations, which contain memory addresses, and failed its equality check.
+Its script/log remain; the stable-cell-tuple correction passed without changing
+the application or weakening comparisons.
+
+The packaged production factory also upgraded the already protected October-25
+production-v6 copy directly **6 -> 26**, locally and networkless. Every original
+cell/column in **16 tables**, original two messages and exact legacy replay remain.
+Live/history/directory/replay returned 200, missing auth 401 and the lab-only card
+path 404/absent from product OpenAPI. No historical trial/end/source capture or
+external model/source/contact/grant request occurred. Current closed v26 retained
+the entire resulting state. No SSH or new production copy was needed. The private
+migrated artifact is 0600 inside 0700 storage. Logs/attestations are under
+`output/trial-end-candidate-20261026/`. This small real-history fixture and fake
+workflow do not establish fleet throughput, working old-image execution rollback
+or production release acceptance.
 
 The complete objective remains open: broader source/model/capacity acceptance,
 source-backed commercial eligibility, referral/reward contracts, further supported

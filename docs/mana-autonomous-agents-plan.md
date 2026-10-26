@@ -1,5 +1,12 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The October-26 [confirmed free-period end](mana-confirmed-trial-end.md) adds one
+post-end service notice from newly captured grants and a fresh matching nonpaid
+source observation. It reuses existing Retention/Parent-Touch/Upsell rules with
+zero initial reads/model calls. The complete fake browser and packaged v26 story
+passes; the separate real-model/catalog party remains a qualified negative quote
+result. No production release or general paid-eligibility engine is implied.
+
 The October-26 [clean runtime candidate](mana-family-runtime-candidate.md)
 verifies the current packaged production factory on the retained private v6 copy,
 plus populated known/unknown trial-button fixtures on Python 3.12. It deploys
