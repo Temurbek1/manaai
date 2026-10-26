@@ -2,6 +2,88 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Managed parent support questions — 2026-10-26, application `7c136bd`
+
+Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`, documentation HEAD **`9156e82`**.
+Read [the v28 checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-support-questions.md)
+and English integration section 35. Default-disabled
+`MANA_PARENT_SUPPORT_QUESTIONS_ENABLED` captures only new owning Retention speaker
+turns. The same question queue now supports `child_id=null, scope=parent`; child
+questions keep their original shape, no arbitrary child or parallel chat is used.
+The same `reply_to_question_id` binds the exact same-parent answer and preserves
+the published question text even with short history. Parent support answers use
+the manager; original child answers retain Safety review. Keep one total slot,
+urgent Safety interruption, independent Retention permissions/quiet hours,
+original quotas and unknown holds. Explicit RU/UZ opt-out closes only Retention's
+published support question, releasing the child queue without erasing uncertainty.
+
+Private family **28** adds the capture table and atomically changes queue
+nullability, preserving every old row/payload/ID/index and counter high-water mark,
+including absent counters in unused queues. Old/disabled/replayed turns never
+backfill. Rejected priced questions cancel instead of entering generic Safety
+delivery/retry; unknown questions stay held. No new public operation, source/read
+grant, collection/schedule, payment, grant or contact permission is introduced.
+
+Final `make verify` **exited 0**: **1584 backend**, one skipped/two opt-in live
+excluded, **26 admin/11 suites**, **15 lab**, mypy **441 files**, lint/types/build
+and zero npm vulnerabilities. Sequential final schema sync and complete feature
+increment secret scan passed. Fifteen initial cases became sixteen after actual
+packaged copy acceptance exposed a zero-valued counter added for a never-used
+queue; `7c136bd` preserves its absence. Prototype `8d77def`/initial helper import,
+production-setting and comparison failures remain as negative evidence.
+
+Browser -> actual local HTTP/SQL -> UI passed Retention question, urgent Safety
+interruption, exact parent answer, next child question and its answer: nine
+messages, **750 simulated parent/300 Safety tokens**. Final reload/restart retain
+every cell in **66 family/15 source tables**; 390px inspected without overflow or
+page errors. A separate fresh fake browser passed stop/ack -> next Child-Safety
+question, six messages/300 parent tokens; that temporary server was stopped.
+Primary fake lab **http://127.0.0.1:8103**, PID **369141**, tool session **84839**
+at handoff; revalidate cwd/command before control. Automation browsers are closed;
+older 8098–8102 labs are untouched.
+
+Four independent new synthetic GPT-5.4 parties total **eight generations/16
+OpenAI HTTP attempts**, known uncached estimate **$0.02237**, not an invoice.
+Initial RU/UZ full flows completed at 1193/1302 raw parent tokens but Uzbek settings
+text had an unsupported delivery promise/ambiguous wording. The subsequent one-call
+party was priced/refused (613 tokens); its exact cause is unproved because raw
+response/classified failure were not captured. A separate 620-token first-contact
+inspection passed qualified wording. Final required-question-schema UZ full flow
+passed at **1380 tokens**, exact answer/replay, useful parent-supplied Android
+guidance and no delivery guarantee. All Safety costs/unknown holds in these paid
+parties are zero; preserve their original receipts/negative reviews, never replay
+or relabel them as broad semantic/business/fleet acceptance.
+
+Clean final image `mana-ai-family:parent-support-final-local-20261026`, ID
+`sha256:3ae88ad3ae27ba2ae92df70f0af4b21b146424fc20f1af4bcf0f26fd4d3e7fbb`,
+matches **276 app Python files**, no `.env`/private SQL. Networkless, nonroot,
+read-only-root Python 3.12 passed parent question/answer/replay at 300 simulated
+tokens, then preserved a **612-token unknown hold** and all 66 tables through
+current closed observation/reconstruction/midnight without reissue. The same
+image's actual production factory passed retained October 25 private-copy
+**6 -> 28**, all original cells/columns/rows in 16 tables, two history messages,
+exact legacy replay, current closure and zero external requests/historical capture.
+Auth/history/directory/replay/live checks and unexposed lab paths passed. Actual
+preceding `a6f5153` image refuses v28 unchanged; not working execution rollback.
+Use current closed v28, never restore/downgrade over new history. Artifacts are
+0700/0600; source `/mnt/ssd2/mana-parent-support-source-7c136bd` is outside checkout.
+
+Evidence: feature `output/parent-support-{browser,candidate,model*}-20261026/` and
+gate/schema logs. The separately completed schema-only test-parent Parent API
+check on October 26 used exactly login 200 + one filtered Parent List GET 200.
+Only field types/list lengths were retained: existing commercial names/five child
+rows, no referral/contact-preference fields. It does not update historical paid
+values or prove no other service has these fields. No Firebase/GA4/grant/model/
+contact/production call accompanied that source check; do not repeat it automatically.
+
+Production stays last confirmed family **`f8d095e`**. UI/audio, operational services,
+SSH/keys, real grants/payments/push and all source settings/schedules remain
+unchanged. The full original goal remains active: broader real source/model/channel
+acceptance, unsupported referral/commercial contracts, release and administrative
+owning-domain work remain; Technical last. Root unrelated diff remains
+`f4b205e5bfe8cc650416eac2f351c39dc60fb74cab460e800c24cf9280427559`.
+
 ### Observation Safety remainder — 2026-10-26, application `a6f5153`
 
 Read [the v27 checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-safety-remainder.md)
