@@ -18,6 +18,7 @@ from app.mana_ai.application.chat_ports import (
     ChatPrompt,
 )
 from app.mana_ai.application.parent_languages import language_name, parent_language
+from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
 from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.client_upsell import UpsellChoice
 from app.mana_ai.domain.family_agents import (
@@ -36,6 +37,7 @@ from app.mana_ai.domain.parent_touch_manager import (
     ParentTouchClarificationReply,
     ParentTouchManagerHandoff,
     ParentTouchManagerReply,
+    ParentTouchTariffCall,
 )
 from app.services.chat_usage_receipt import terminal_chat_usage
 
@@ -182,7 +184,9 @@ class OpenAIParentChatModel:
                     "name": name,
                     "description": description,
                     "strict": True,
-                    "parameters": {
+                    "parameters": ParentTouchTariffCall.model_json_schema()
+                    if name == UPSELL_TOOL and scope.tariff_handoff_enabled
+                    else {
                         "type": "object",
                         "properties": {},
                         "required": [],
@@ -241,23 +245,30 @@ class OpenAIParentChatModel:
             if scope.reminders_enabled:
                 targets[REMINDER_TOOL] = "reminder"
             arguments = call.get("arguments")
+            direct_tariff = call.get("name") == UPSELL_TOOL and scope.tariff_handoff_enabled
             if (
                 call.get("name") not in targets
                 or call.get("status") not in {None, "completed"}
                 or not isinstance(arguments, str)
-                or len(arguments) > 256
-                or json.loads(arguments) != {}
+                or len(arguments) > (4096 if direct_tariff else 256)
             ):
                 raise ValueError("Unadmitted manager call")
+            enquiry = None
+            if direct_tariff:
+                enquiry = ParentTouchTariffCall.model_validate_json(arguments).enquiry
+            elif json.loads(arguments) != {}:
+                raise ValueError("Unadmitted manager arguments")
             handoff = ParentTouchManagerHandoff(
-                target=targets[call["name"]], call_id=call.get("call_id")
+                target=targets[call["name"]], call_id=call.get("call_id"), tariff_enquiry=enquiry
             )
         except (ValueError, TypeError, ValidationError):
             pass
         return ChatModelReceipt(
             usage=usage,
             model=model,
-            answer=None,
+            answer=TARIFF_HANDOFF_PLACEHOLDER
+            if handoff is not None and handoff.tariff_enquiry is not None
+            else None,
             completed=handoff is not None,
             failure_code=None if handoff else "reply_schema_invalid",
             manager_handoff=handoff,

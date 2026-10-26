@@ -39,6 +39,7 @@ from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.application.trial_action_cards import TrialButtonGrantService
+from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
 from app.mana_ai.domain.chat_actions import ChatActionCard, ChatActionCreate
 from app.mana_ai.domain.child_location import ChildLocationFacts
@@ -135,6 +136,7 @@ from app.services.source_tool_safety_store import (
     SqliteObservationToolSafetyStore,
     SqliteSourceToolSafetyStore,
 )
+from app.services.tariff_handoff_store import SqliteTariffHandoffStore
 from app.services.trial_end_store import SqliteTrialEndStore
 from app.services.trial_period_store import SqliteTrialPeriodStore
 from app.services.upsell_currency_store import SqliteUpsellCurrencyStore
@@ -334,6 +336,18 @@ class SimulatedModel:
     async def count_input(self, prompt: ChatPrompt) -> int:
         return 100
 
+    @staticmethod
+    def _tariff_enquiry(latest: str) -> UpsellEnquiry:
+        currency = "UZS" if "UZS" in latest.upper() else "USD" if "USD" in latest.upper() else None
+        return UpsellEnquiry(
+            parent_quote=latest,
+            objective="list",
+            currency=currency,
+            minimum_days=90 if "90" in latest else 1,
+            maximum_days=90 if "90" in latest else 366,
+            maximum_price_minor=20000000 if "200000" in latest else None,
+        )
+
     async def respond(self, prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
         if (
             self.role == "speaker"
@@ -388,11 +402,22 @@ class SimulatedModel:
                 if any(t in text for t in ("привет", "спасибо", "hello", "salom", "rahmat"))
                 else "child_safety"
             )
+            enquiry = (
+                self._tariff_enquiry(prompt.messages[-1][1])
+                if target == "upsell"
+                and prompt.manager_scope.tariff_handoff_enabled
+                and not any(
+                    t in text for t in ("какой у меня тариф", "заканчивается", "mening tarifim")
+                )
+                else None
+            )
             return ChatModelReceipt(
                 usage=ChatTokens(input_tokens=100, output_tokens=50),
                 model="lab-simulated-not-billed",
                 completed=True,
-                answer=None
+                answer=TARIFF_HANDOFF_PLACEHOLDER
+                if enquiry is not None
+                else None
                 if target
                 else {
                     "ru": "Здравствуйте. Помогу с MANA.",
@@ -401,7 +426,7 @@ class SimulatedModel:
                     "en": "Hello. I can help with MANA.",
                 }[prompt.manager_scope.language],
                 manager_handoff=ParentTouchManagerHandoff(
-                    target=target, call_id="call_" + uuid4().hex
+                    target=target, call_id="call_" + uuid4().hex, tariff_enquiry=enquiry
                 )
                 if target
                 else None,
@@ -551,21 +576,8 @@ class SimulatedModel:
             if prompt.upsell_scope is not None:
                 latest = prompt.messages[-1][1]
                 if prompt.upsell_scope.protocol == "catalog-currency-v2":
-                    currency = (
-                        "UZS"
-                        if "UZS" in latest.upper()
-                        else "USD"
-                        if "USD" in latest.upper()
-                        else None
-                    )
-                    enquiry = UpsellEnquiry(
-                        parent_quote=latest,
-                        objective="list",
-                        currency=currency,
-                        minimum_days=90 if "90" in latest else 1,
-                        maximum_days=90 if "90" in latest else 366,
-                        maximum_price_minor=20000000 if "200000" in latest else None,
-                    )
+                    enquiry = self._tariff_enquiry(latest)
+                    currency = enquiry.currency
                     return ChatModelReceipt(
                         usage=ChatTokens(input_tokens=100, output_tokens=50),
                         model="lab-simulated-not-billed",
@@ -854,11 +866,14 @@ class LabOptions:
     usage_comparisons: bool = False
     upsell_currency: bool = False
     inline_upsell: bool = False
+    tariff_handoff: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.tariff_handoff and not options.inline_upsell:
+            raise ValueError("Typed tariff handoff requires inline results")
         if options.inline_upsell and not options.upsell_currency:
             raise ValueError("Inline results require the governed currency lab")
         if options.upsell_currency and (
@@ -1015,6 +1030,8 @@ class ChatLab:
                 expected["clock"] = "fictional_usage_comparison_v1"
         if self.options.inline_upsell:
             expected["inline_upsell"] = True
+        if self.options.tariff_handoff:
+            expected["tariff_handoff"] = True
         if self.options.parent_support_questions:
             expected["parent_support_questions"] = True
         if self.options.safety_remainder:
@@ -1137,7 +1154,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteInlineUpsellStore
+                SqliteTariffHandoffStore
+                if self.options.tariff_handoff
+                else SqliteInlineUpsellStore
                 if self.options.inline_upsell
                 else SqliteUpsellCurrencyStore
                 if self.options.upsell_currency
@@ -1217,6 +1236,8 @@ class ChatLab:
                 reminder_options["currency_enabled"] = True
             if self.options.inline_upsell:
                 reminder_options["inline_enabled"] = True
+            if self.options.tariff_handoff:
+                reminder_options["tariff_handoff_enabled"] = True
             if self.options.parent_support_questions:
                 reminder_options["parent_questions_enabled"] = True
             if self.options.safety_remainder:

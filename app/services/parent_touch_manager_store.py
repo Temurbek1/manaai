@@ -32,6 +32,9 @@ _TABLE = "parent_touch_manager_turns"
 class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
     _schema_version = 21
 
+    def _direct_manager_result(self, receipt: ChatModelReceipt) -> bool:
+        return False
+
     def __init__(
         self,
         path: Path,
@@ -314,7 +317,7 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
         history_turns: int,
         context_at: datetime,
     ) -> ParentChatResponse:
-        if receipt.manager_handoff is not None:
+        if receipt.manager_handoff is not None and not self._direct_manager_result(receipt):
             await asyncio.to_thread(self._settle_handoff, turn, receipt, self._utc(now))
             raise ChatReplyDeferred()
         return await super().settle(
@@ -352,6 +355,8 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
                     receipt.manager_handoff.model_dump()
                 )
             except (ValueError, TypeError):
+                code = "parent_manager_decision_invalid"
+            if handoff is not None and handoff.tariff_enquiry is not None:
                 code = "parent_manager_decision_invalid"
             if not receipt.completed or receipt.usage.total > root["reserved"]:
                 code = "parent_manager_usage_or_decision_invalid"

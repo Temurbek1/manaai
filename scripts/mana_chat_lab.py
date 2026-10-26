@@ -9,6 +9,7 @@ import ipaddress
 import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
@@ -578,6 +579,15 @@ def create_workspace_app() -> FastAPI:
 
     root = Path(__file__).resolve().parents[1]
     return create_app(options=workspace_options(root / "data/chat-lab/workspace-simulation"))
+
+
+def create_tariff_handoff_app() -> FastAPI:
+    """A single typed native tariff decision; all providers/models remain fictional."""
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(root / "data/chat-lab/tariff-handoff-simulation")
+    return create_app(options=replace(options, tariff_handoff=True))
 
 
 def create_inline_upsell_app() -> FastAPI:

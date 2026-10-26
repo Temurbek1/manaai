@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_PARENT_TOUCH_TARIFF_HANDOFF_ENABLED` uses family
+  v33. Read `docs/mana-typed-tariff-handoff.md` and integration section 42. Capture
+  only new manager turns; old v32 work keeps its empty-call/two-generation schema.
+  Meter raw terminal usage before strict native parsing, atomically bind the
+  same-parent call/typed enquiry/owning intent, and retain currency questions,
+  priority, disable/expiry/cancellation, original quotas and unknown holds. The
+  internal placeholder is never a public reply. Account-help null enquiries retain
+  ordinary delegation. Use current closed v33; old-image refusal is not functional
+  rollback. The separate model-free lab never upgrades the default lab directory.
+  Preserve both new paid diagnostic receipts; no broad quality, financial saving,
+  source/contact/schedule or production activation is implied. Referral awaits API.
+
 - `make chat-lab` now selects the combined, model-free workspace from
   `app/services/lab_workspace.py`; read `docs/mana-combined-chat-lab.md`.
   Keep its separate marked directory and all existing source/chat/Safety limits.

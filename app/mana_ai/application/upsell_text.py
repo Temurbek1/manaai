@@ -7,6 +7,8 @@ from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.domain.chat import ResponseLanguage
 from app.mana_ai.domain.client_upsell import UpsellQuote
 
+TARIFF_HANDOFF_PLACEHOLDER = "Typed tariff enquiry awaiting host validation."
+
 CURRENCY_ENQUIRY_INSTRUCTIONS = (
     "For this captured price/duration enquiry use only the latest parent request. "
     "parent_quote is its exact relevant substring. currency=null unless the parent explicitly "

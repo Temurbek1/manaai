@@ -1101,3 +1101,20 @@ financial actions, collection windows, Referral and the existing opt-in paid
 model demos are not enabled by this command. A joint fake scenario verifies
 coordination; it does not establish actual model quality, current family data
 or a completed business integration. Read [scope and actual acceptance](mana-combined-chat-lab.md).
+
+## 42. One typed tariff handoff (local, not released)
+
+The separately enabled v33 tariff-handoff profile lets Parent-Touch extract an
+explicit price/duration enquiry during its original routing call. The existing
+owning catalogue workflow still validates/renders the result. Account-status help
+retains ordinary delegation. No mobile request, new endpoint or additional chat
+is needed. Keep polling the same request as in section 40; a necessary currency
+answer uses the same exact question binding and needs no new model generation.
+
+Only new captured requests use this contract. Old pending work and replay retain
+their original behavior, language, usage and source claims. Current Safety,
+ownership, expiry, explicit cancellation and disable settings still fence results.
+No financial action, entitlement, push consent or extra token allowance follows.
+Try `make chat-lab-tariff-handoff CHAT_LAB_PORT=8110` in its separate fictional
+directory. The default lab remains unchanged. Read [the typed contract and actual
+model/migration evidence](mana-typed-tariff-handoff.md) before enabling it.

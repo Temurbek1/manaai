@@ -70,8 +70,14 @@ def manager_prompt(
             "request_child_safety_review; do not answer it yourself. For "
             "account/tariff/pricing questions use request_tariff_help when "
             "available. For creating/changing reminders use "
-            "request_reminder_help when available. Call at most one tool, "
-            "without arguments. "
+            "request_reminder_help when available. "
+            + (
+                "Call at most one tool. For an explicit price/duration enquiry put its exact "
+                "terms in request_tariff_help.enquiry. For account status or unsupported "
+                "feature eligibility use enquiry=null; child/reminder tools take no arguments. "
+                if scope.tariff_handoff_enabled
+                else "Call at most one tool, without arguments. "
+            )
             + conversation
             + "If answered_parent_question is supplied, interpret the latest "
             "message as the explicitly bound answer to that historical support question, "
@@ -88,6 +94,12 @@ def manager_prompt(
             instructions += (
                 " Route price/duration enquiries to request_tariff_help even when currency "
                 "is missing; the owning tariff workflow asks that question."
+            )
+        if scope.tariff_handoff_enabled:
+            instructions += " " + CURRENCY_ENQUIRY_INSTRUCTIONS.replace(
+                "With an enquiry keep body='', question=null, reminder=null, "
+                "notice_communicated=false. ",
+                "A native enquiry has no accompanying reply or question. ",
             )
         if selected:
             device_state = (

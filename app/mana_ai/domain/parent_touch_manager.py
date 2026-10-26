@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ResponseLanguage
+from app.mana_ai.domain.client_upsell import UpsellEnquiry
 from app.mana_ai.domain.family_agents import ParentTouchText
 
 ManagerTarget = Literal["child_safety", "upsell", "reminder"]
@@ -16,6 +17,7 @@ class ParentTouchManagerScope(ChatContract):
     upsell_enabled: bool = False
     reminders_enabled: bool = False
     clarifications_enabled: bool = Field(default=False, exclude_if=lambda v: not v)
+    tariff_handoff_enabled: bool = Field(default=False, exclude_if=lambda v: not v)
     language_reference: str | None = Field(
         default=None, max_length=2000, exclude_if=lambda v: v is None
     )
@@ -24,6 +26,19 @@ class ParentTouchManagerScope(ChatContract):
 class ParentTouchManagerHandoff(ChatContract):
     target: ManagerTarget
     call_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,200}$")
+    tariff_enquiry: UpsellEnquiry | None = Field(default=None, exclude_if=lambda v: v is None)
+
+    @model_validator(mode="after")
+    def owning_arguments(self) -> "ParentTouchManagerHandoff":
+        if self.tariff_enquiry is not None and self.target != "upsell":
+            raise ValueError("Tariff arguments belong only to the tariff owner")
+        return self
+
+
+class ParentTouchTariffCall(ChatContract):
+    """New captured native call; null retains ordinary account-help delegation."""
+
+    enquiry: UpsellEnquiry | None
 
 
 class ParentTouchManagerReply(ChatContract):
