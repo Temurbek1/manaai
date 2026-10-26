@@ -2,6 +2,51 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Trial offer confirmation cards — 2026-10-26, `29c9c30`
+
+Read the feature checkout's
+[typed trial-button checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-trial-action-cards.en.md)
+and English integration section 31. New offers can attach one host-owned card to
+their existing assistant turn, accept an explicit definition-bound click and
+delegate to the existing grant policy/executor/receipt/confirmed-period lifecycle.
+No fabricated parent message/activation phrase or generic provider callback is
+used. Financial checks/one-time caps remain in the owning Conversion lifecycle.
+
+This is a **local fake-only v25 profile**, not production enablement. Only new
+proposal admissions capture the bit/offer digest/revision. Old/disabled/replayed
+proposals never acquire buttons. The click transaction binds the existing owning
+grant and a single dispatch; ready/submitted/unknown states never automatically
+drain on GET, restart, midnight or a new nonce. Known owning receipts can be
+observed after a lost card acknowledgement without redispatch. Explicit opt-out
+cancels only unclaimed trial cards. RU/UZ Latin/UZ Cyrillic/EN presentation remains.
+The original text acceptance API/receipts and production OpenAPI are unchanged.
+Only `LabTrialGrantGateway` for fictional parent 900001/one day is mounted. Never
+repeat parent 4's consumed grant or issue real customer tariffs from this lab.
+
+Final **`make verify` exited 0**: **1527 backend tests**, **26 admin tests /11
+suites**, **15 chat-lab tests**, mypy **432 files**, lint/format/typecheck/build and
+zero npm vulnerabilities. One skip and two excluded live tests are not passes.
+Schema sync passed. The 117 focused cases overlap the full gate. Local additive
+v24 -> v25 and current closed-reader checks preserve the populated demo fixture;
+old table refusal is not working old-image rollback or packaged release evidence.
+
+Actual browser lost one successful click acknowledgement, then observed one fake
+grant and two assistant-only messages without reissue. A later 90-day fake catalog
+query used the same chat. A 30-day enquiry returned the fake model's generic
+reply and remains qualified, not model-quality acceptance. Seven final messages,
+600 simulated parent/zero safety tokens, zero holds; reload and actual restart
+preserved every cell in **66 tables** with the same fingerprint. The 390px result
+was inspected, no overflow/script errors. Initial startup probes raced readiness;
+amount waits expected unformatted text and timed out; original SQL receipts remain.
+Evidence: `output/trial-action-cards-20261026/`, local/uncommitted.
+
+The new owner-facing lab remains at **http://127.0.0.1:8099**, owned PID **141198**,
+tool session **36922** at handoff. Revalidate PID/cwd/command before control.
+The earlier generic demo on 8098 remains untouched. The automation browser was
+closed. No production, Firebase/GA4, schedule, real model/grant/payment/push, SSH,
+key or quota change occurred. Production remains the last confirmed family
+`f8d095e`; the original full agent objective and scoped rollout remain open.
+
 ### Test chat action buttons — 2026-10-26, `38cc6a7`
 
 The latest owner instruction replaces the proposed automatic text-triggered trial
