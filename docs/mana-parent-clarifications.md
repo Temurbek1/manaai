@@ -82,7 +82,39 @@ or changed. Broader language and host-rendered offer/template acceptance remain
 open; the uncertain-reference behavior is new-protocol model presentation, not a
 general deterministic language detector or new source/action grant.
 
-Packaged candidate and migration acceptance are recorded after the clean build.
+Application commit **`7b64a05`** is packaged from an external clean Git archive,
+`/mnt/ssd2/mana-parent-clarification-source-7b64a05`, as
+`mana-ai-family:parent-clarification-clean-local-20261026`, image ID
+`sha256:800eef7594a6299f79692395f0f7911d8d59942f9957d1600dfcd974fae4ccdd`.
+Every one of its **277 application Python files** matches that source archive;
+no `.env` or private SQL is included. The earlier same-code worktree-context
+build is not the accepted clean candidate. Container probes use Python 3.12,
+network `none`, user `1000:1000`, a read-only root and no real credential mount.
+
+The packaged reactive question -> exact Android answer -> replay passes at
+**300 simulated parent / zero Safety tokens**. Cancellation after a subsequent
+model submission retains a **612-token unknown hold**. Current closed v29,
+reconstruction and midnight preserve every cell in all **68 family tables**;
+the unknown turn is never redispatched. The actual previous v28 image refuses
+that populated database without changing any cell. That refusal is not working
+execution rollback; use current closed v29 and never downgrade/restore old SQL.
+
+The same image's actual production factory upgrades the already protected
+October-25 production-v6 copy **directly 6 -> 29**, preserving every original
+column/cell in **16 tables**, the two old messages and exact legacy replay.
+Liveness/history/directory/replay return 200, missing auth 401 and lab-only cards
+404. New native/contact captures stay empty, and **zero external requests** occur.
+Current closed v29 also preserves the full migrated state and history. This is a
+small real-history engineering check, not production rollout, fleet capacity,
+functional old-image rollback or broader source/model/business acceptance.
+Private probes, comparisons and image attestation remain under
+`output/parent-clarification-candidate-20261026/`, outside Git/images.
+
+The actual browser lab was then stopped and restarted on its same files using
+the final code. Every cell in **68 family /15 source tables**, all twelve history
+messages and the **1050-token** simulated parent usage remain identical. The
+browser session was already closed; the SQL/history GET observes only.
+Read `output/parent-clarification-browser-20261026/restart-result.json`.
 
 The proposed lab is `make chat-lab-clarification CHAT_LAB_PORT=8104`, using only
 fictional providers and a separate private directory. Try “Как настроить MANA?”
