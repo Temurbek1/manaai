@@ -2,6 +2,83 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Saved adjacent query-day child counters — 2026-10-26, application `205d140`
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, documentation HEAD **`e6b5ba1`**.
+Read [the comparison checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-saved-usage-comparison.md)
+and English integration section 38. Default-disabled
+`MANA_FAMILY_USAGE_COMPARISONS_ENABLED` captures one saved exact own-child prior
+query-day snapshot only on new dated admissions/reviews. Source **v8** adds one
+admission bit and a bounded current/previous head; family **v30** binds new jobs.
+Old/disabled/in-flight/replayed data never gains a comparison or a new native
+history tool. Use one indexed local lookup, not an old provider read/backfill.
+Only identical app labels with single rows on both adjacent query dates are
+compared. Code validates exact arithmetic; no missing-as-zero, overlapping sums,
+complete ranking, total foreground time, actual behavior change/danger or causality
+is established. Preserve original dates, partial coverage and unknown periods/
+timezone. The normalized family page is capped at 1 MiB and minimized to the
+correct child before unchanged context/model bounds; no silent truncation.
+
+Child-Safety passes the minimized comparison and both query labels through the
+existing notice lifecycle. Parent-Touch alone speaks in the existing chat, including
+first contact. Existing one-question ordering, urgent priority, recipient rules,
+quiet hours, source meters and 2000 parent/global-Safety quotas remain. Stop fences
+retain verified late costs, and unknown calls remain held across restart/midnight.
+No new source endpoint, public mobile operation, schedule or financial action follows.
+
+Final `make verify` **exited 0**: **1630 backend**, one skipped/two opt-in live
+excluded, **26 admin/11 suites**, **15 lab**, mypy **451 files**, lint/types/build,
+zero npm vulnerabilities. Sequential schema sync passed unchanged. Seventeen new
+cases cover exact scope/math, missing/ambiguous rows, no-backfill, real host v7
+in-flight upgrade, source/model loss, late stop, local CSRF, idle v30/v8 runtime
+and normalized-family bounds. Preserve earlier fixture typing/hold/lease mistakes,
+the failed 256 KiB regression and the separate passing pre-bound 1629-case gate.
+
+Two distinct synthetic real-model parties total **four generations/eight OpenAI
+HTTP attempts**, known uncached generation estimate **$0.0126325**, not an invoice.
+They use fictional family/sources/contact settings, with no real source/push/grant.
+The first settles **1067 Safety /1392 parent tokens**, but retains an English
+phrase and an unsupported suggestion to wait for more rows. The independent
+post-guidance music case settles **1098 Safety /1431 parent tokens**, preserving
+exact dates/900-to-2700 values/uncertainty and a practical parent-child report
+review, without promising pagination. Technical filter/row wording remains in
+its review addendum. No unknown holds; neither party is broad quality, real-child,
+multilingual, fleet or business acceptance. Old receipts/negative reviews remain.
+
+Actual browser -> HTTP/SQL -> UI passes one assistant-only comparison, zero parent
+messages, repeat-button exact state and 390px layout without overflow/page errors:
+**150 simulated parent /150 Safety tokens**. Same-file server restart preserves
+every cell in **69 family /27 source tables** and the full state/history. Automation
+is closed; the isolated fictional lab remains on loopback **8106**, no real gateways.
+
+The clean `205d140` archive builds `mana-ai-family:usage-comparison-local-20261026`,
+ID `sha256:a2938827b3524a769f9c5ffec6085ac9e0461343a215cfd4cfda01e20d860568`;
+all **283 application Python hashes** match, no `.env`/private SQL. Actual Python
+3.12 networkless/nonroot/read-only probes pass proactive comparison and retain a
+612-token parent unknown SQL hold plus an unknown source receipt through current
+closed readers/restart/midnight, all 69/27 tables unchanged. The initial probe
+misread next-day display quota as the original-period reserve; its correction
+checks retained SQL plus cross-day inference blocking, without code/budget changes.
+The same actual production factory upgrades the retained October-25 private v6
+copy **6 -> 30**, all original cells/columns in 16 tables, two messages and exact
+legacy replay preserved, zero external/historical capture. Auth 401, live/history/
+directory/replay 200 and lab cards 404 pass. Actual prior `7b64a05` refuses family30/
+source8 with cells/versions unchanged, not functional rollback. Use current closed
+readers; never downgrade/restore old SQL. No new production access/copy occurred.
+
+One separately admitted source-backed investigation inspected the mobile archive's
+child-facing daily-statistics route: login 200, fresh designated parent-4 ownership
+GET 200 (six connected children), one owned-child two-day page-1 GET **403**, 47
+bytes. No data rows/PII/body were retained; no fallback/retry/crawl or Firebase/GA4/
+model/audio/contact/grant followed. Do not replay it or replace the working Admin
+API adapter with this denied path. This does not prove data is absent elsewhere.
+
+The full original AI KOMANDA goal remains active: confirmed measurement semantics,
+broader telemetry/routes, commercial/referral contracts, owning actions, quality/
+capacity and scoped release remain open. Root unrelated dirt, production/main/
+audio, SSH/key, existing schedules, cloud data and customer state are unchanged.
+
 ### Reuse shared collection in administrative Retention — 2026-10-26, `a3c1a12`
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
