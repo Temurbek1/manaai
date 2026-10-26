@@ -36,11 +36,28 @@ class UpsellChoice(ChatContract):
 
 
 class UpsellScope(ChatContract):
-    protocol: Literal["catalog-enquiry-v1"] = "catalog-enquiry-v1"
+    protocol: Literal["catalog-enquiry-v1", "catalog-currency-v2"] = "catalog-enquiry-v1"
     maximum_days: Literal[366] = 366
     currency_unit: Literal["one_currency_unit_is_100_minor_units"] = (
         "one_currency_unit_is_100_minor_units"
     )
+
+
+class UpsellEnquiry(ChatContract):
+    """New captured protocol: missing currency is a question, never a default."""
+
+    parent_quote: str = Field(min_length=1, max_length=250, pattern=r"\S")
+    objective: Literal["lowest_total", "lowest_daily", "list"]
+    currency: Literal["UZS", "USD"] | None
+    minimum_days: int = Field(ge=1, le=366, strict=True)
+    maximum_days: int = Field(ge=1, le=366, strict=True)
+    maximum_price_minor: int | None = Field(ge=1, le=10**14, strict=True)
+
+    @model_validator(mode="after")
+    def ordered_days(self) -> "UpsellEnquiry":
+        if self.minimum_days > self.maximum_days:
+            raise ValueError("Tariff duration range must be ordered")
+        return self
 
 
 class UpsellIntent(ChatContract):

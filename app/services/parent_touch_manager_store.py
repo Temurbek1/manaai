@@ -371,6 +371,7 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
                 or receipt.notice_id
                 or receipt.reminder_candidate
                 or receipt.upsell_choice
+                or receipt.upsell_enquiry
             ):
                 code = "parent_manager_decision_invalid"
             if not (

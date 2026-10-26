@@ -551,6 +551,27 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_upsell_currency_app() -> FastAPI:
+    """One fictional tariff request and bound currency answer in the existing web chat."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/upsell-currency-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            upsell_currency=True,
+            expiry_fixture_days=30,
+        )
+    )
+
+
 def create_usage_comparison_app() -> FastAPI:
     """Two fictional saved query days reach the same chat through the owning specialist."""
     root = Path(__file__).resolve().parents[1]

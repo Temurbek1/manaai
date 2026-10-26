@@ -120,6 +120,10 @@ from app.services.source_tool_safety_store import (
 )
 from app.services.trial_end_store import SqliteClosedTrialEndStore, SqliteTrialEndStore
 from app.services.trial_period_store import SqliteClosedTrialPeriodStore, SqliteTrialPeriodStore
+from app.services.upsell_currency_store import (
+    SqliteClosedUpsellCurrencyStore,
+    SqliteUpsellCurrencyStore,
+)
 from app.services.usage_comparison_safety_store import (
     SqliteClosedUsageComparisonSafetyStore,
     SqliteUsageComparisonSafetyStore,
@@ -139,7 +143,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
     }
     version = await family_storage_version(settings.mana_parent_chat_database_path)
     if (
-        version in {17, 18, 19, 20, 21, 22, 23, 26, 27, 28, 29, 30}
+        version in {17, 18, 19, 20, 21, 22, 23, 26, 27, 28, 29, 30, 31}
         and settings.mana_child_safety_enabled
         and not settings.mana_client_upsell_enabled
     ):
@@ -204,31 +208,33 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         profile_options: dict[str, Any] = {}
-        if settings.mana_family_usage_comparisons_enabled or version == 30:
+        if settings.mana_client_upsell_currency_enabled or version == 31:
+            profile_options["currency_enabled"] = settings.mana_client_upsell_currency_enabled
+        if settings.mana_family_usage_comparisons_enabled or version in {30, 31}:
             profile_options["comparisons_enabled"] = settings.mana_family_usage_comparisons_enabled
-        if settings.mana_parent_touch_clarifications_enabled or version in {29, 30}:
+        if settings.mana_parent_touch_clarifications_enabled or version in {29, 30, 31}:
             profile_options["clarifications_enabled"] = (
                 settings.mana_parent_touch_clarifications_enabled
             )
-        if settings.mana_parent_support_questions_enabled or version in {28, 29, 30}:
+        if settings.mana_parent_support_questions_enabled or version in {28, 29, 30, 31}:
             profile_options["parent_questions_enabled"] = (
                 settings.mana_parent_support_questions_enabled
             )
-        if settings.mana_child_safety_remainder_enabled or version in {27, 28, 29, 30}:
+        if settings.mana_child_safety_remainder_enabled or version in {27, 28, 29, 30, 31}:
             profile_options.update(
                 remainder_enabled=settings.mana_child_safety_remainder_enabled,
             )
-        if settings.mana_retention_trial_end_enabled or version in {26, 27, 28, 29, 30}:
+        if settings.mana_retention_trial_end_enabled or version in {26, 27, 28, 29, 30, 31}:
             profile_options.update(
                 trial_end_enabled=settings.mana_retention_trial_end_enabled,
                 trial_end_policy=settings.mana_retention_trial_end_policy,
             )
-        if settings.mana_family_location_enabled or version in {23, 26, 27, 28, 29, 30}:
+        if settings.mana_family_location_enabled or version in {23, 26, 27, 28, 29, 30, 31}:
             profile_options["location_enabled"] = settings.mana_family_location_enabled
         if (
             settings.mana_conversion_trial_periods_enabled
             or settings.mana_family_location_enabled
-            or version in {22, 23, 26, 27, 28, 29, 30}
+            or version in {22, 23, 26, 27, 28, 29, 30, 31}
         ):
             profile_options["trial_periods_enabled"] = (
                 settings.mana_conversion_trial_periods_enabled
@@ -242,6 +248,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             28,
             29,
             30,
+            31,
         }:
             model_name = settings.mana_parent_touch_model or settings.openai_model
             profile_options.update(
@@ -258,7 +265,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         if (
             settings.mana_conversion_shared_profile_enabled
             or settings.mana_parent_touch_manager_enabled
-            or version in {20, 21, 22, 23, 26, 27, 28, 29, 30}
+            or version in {20, 21, 22, 23, 26, 27, 28, 29, 30, 31}
         ):
             profile_options.update(
                 shared_profile_enabled=settings.mana_conversion_shared_profile_enabled,
@@ -276,6 +283,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             28,
             29,
             30,
+            31,
         }:
             profile_options["day_tools_enabled"] = settings.mana_family_day_usage_enabled
         if settings.mana_family_day_reviews_enabled or version in {
@@ -289,20 +297,23 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             28,
             29,
             30,
+            31,
         }:
             profile_options["dated_reviews_enabled"] = settings.mana_family_day_reviews_enabled
         native_store = (
             (
-                SqliteUsageComparisonSafetyStore
+                SqliteUpsellCurrencyStore
+                if settings.mana_client_upsell_currency_enabled or version == 31
+                else SqliteUsageComparisonSafetyStore
                 if settings.mana_family_usage_comparisons_enabled or version == 30
                 else SqliteParentClarificationStore
-                if settings.mana_parent_touch_clarifications_enabled or version in {29, 30}
+                if settings.mana_parent_touch_clarifications_enabled or version in {29, 30, 31}
                 else SqliteParentSupportQuestionStore
-                if settings.mana_parent_support_questions_enabled or version in {28, 29, 30}
+                if settings.mana_parent_support_questions_enabled or version in {28, 29, 30, 31}
                 else SqliteSafetyRemainderStore
-                if settings.mana_child_safety_remainder_enabled or version in {27, 28, 29, 30}
+                if settings.mana_child_safety_remainder_enabled or version in {27, 28, 29, 30, 31}
                 else SqliteTrialEndStore
-                if settings.mana_retention_trial_end_enabled or version in {26, 27, 28, 29, 30}
+                if settings.mana_retention_trial_end_enabled or version in {26, 27, 28, 29, 30, 31}
                 else SqliteLocationSafetyStore
                 if settings.mana_family_location_enabled or version == 23
                 else SqliteTrialPeriodStore
@@ -330,7 +341,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 **native_options,
             )
             if settings.mana_retention_expiry_enabled
-            or version in {17, 18, 19, 20, 21, 22, 23, 26, 27, 28, 29, 30}
+            or version in {17, 18, 19, 20, 21, 22, 23, 26, 27, 28, 29, 30, 31}
             else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
                 reminder_policy=settings.mana_parent_reminder_policy,
@@ -356,18 +367,20 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else native_class(settings.mana_parent_chat_database_path, **native_options)
         )
         store, reviewed = native_store, native_store
-    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26, 27, 28, 29, 30}:
+    elif version in {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26, 27, 28, 29, 30, 31}:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedUsageComparisonSafetyStore
+            SqliteClosedUpsellCurrencyStore
+            if version == 31
+            else SqliteClosedUsageComparisonSafetyStore
             if version == 30
             else SqliteClosedParentClarificationStore
-            if version in {29, 30}
+            if version in {29, 30, 31}
             else SqliteClosedParentSupportQuestionStore
-            if version in {28, 29, 30}
+            if version in {28, 29, 30, 31}
             else SqliteClosedSafetyRemainderStore
-            if version in {27, 28, 29, 30}
+            if version in {27, 28, 29, 30, 31}
             else SqliteClosedTrialEndStore
             if version == 26
             else SqliteClosedLocationSafetyStore

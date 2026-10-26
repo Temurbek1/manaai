@@ -5,6 +5,7 @@ import json
 from typing import Protocol
 
 from app.mana_ai.application.chat_ports import ChatPrompt
+from app.mana_ai.application.upsell_text import CURRENCY_ENQUIRY_INSTRUCTIONS
 from app.mana_ai.domain.parent_touch_manager import ParentTouchManagerScope
 
 
@@ -83,6 +84,11 @@ def manager_prompt(
             if "answered_parent_question" in data
             else {}
         )
+        if template.upsell_scope and template.upsell_scope.protocol == "catalog-currency-v2":
+            instructions += (
+                " Route price/duration enquiries to request_tariff_help even when currency "
+                "is missing; the owning tariff workflow asks that question."
+            )
         if selected:
             device_state = (
                 "and actual permission state remain unknown unless explicitly supplied by "
@@ -125,6 +131,8 @@ def manager_prompt(
             "notice_communicated=false, reminder=null."
         )
         selected = {k: v for k, v in data.items() if k in {"parent_tariff", "catalogue_enquiries"}}
+        if template.upsell_scope and template.upsell_scope.protocol == "catalog-currency-v2":
+            instructions += " " + CURRENCY_ENQUIRY_INSTRUCTIONS
     else:
         instructions = shared + (
             "Handle only the requested reminder. A reminder candidate must "

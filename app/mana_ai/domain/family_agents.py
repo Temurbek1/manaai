@@ -15,7 +15,7 @@ from app.mana_ai.domain.chat import (
     ParentChatResponse,
     StoredChatTurn,
 )
-from app.mana_ai.domain.client_upsell import UpsellChoice
+from app.mana_ai.domain.client_upsell import UpsellChoice, UpsellEnquiry
 from app.mana_ai.domain.enums import (
     AnalysisStatus,
     AnalysisVerdict,
@@ -361,4 +361,18 @@ class ParentTouchUpsellReply(ParentTouchReminderReply):
             raise ValueError(
                 "A catalog enquiry cannot also speak, propose a reminder or claim a notice"
             )
+        return self
+
+
+class ParentTouchCurrencyReply(ParentTouchReminderReply):
+    """Only a newly captured tariff turn can request a host-owned currency question."""
+
+    upsell: UpsellEnquiry | None
+
+    @model_validator(mode="after")
+    def one_host_intent(self) -> "ParentTouchCurrencyReply":
+        if self.upsell is not None and (
+            self.reminder is not None or self.body.strip() or self.notice_communicated
+        ):
+            raise ValueError("A tariff enquiry cannot also speak or claim another intent")
         return self

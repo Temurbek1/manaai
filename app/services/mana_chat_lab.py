@@ -51,7 +51,7 @@ from app.mana_ai.domain.child_safety import (
     SafetySourceReviewDecision,
 )
 from app.mana_ai.domain.client_retention import ClientRetentionPolicy
-from app.mana_ai.domain.client_upsell import ClientUpsellPolicy, UpsellChoice
+from app.mana_ai.domain.client_upsell import ClientUpsellPolicy, UpsellChoice, UpsellEnquiry
 from app.mana_ai.domain.conversion import (
     ConversionOffer,
     ConversionPolicy,
@@ -136,6 +136,7 @@ from app.services.source_tool_safety_store import (
 )
 from app.services.trial_end_store import SqliteTrialEndStore
 from app.services.trial_period_store import SqliteTrialPeriodStore
+from app.services.upsell_currency_store import SqliteUpsellCurrencyStore
 from app.services.usage_comparison_cache import SqliteUsageComparisonCache
 from app.services.usage_comparison_safety_store import SqliteUsageComparisonSafetyStore
 
@@ -548,6 +549,32 @@ class SimulatedModel:
             uzbek = prompt.response_language == "uz-Latn"
             if prompt.upsell_scope is not None:
                 latest = prompt.messages[-1][1]
+                if prompt.upsell_scope.protocol == "catalog-currency-v2":
+                    currency = (
+                        "UZS"
+                        if "UZS" in latest.upper()
+                        else "USD"
+                        if "USD" in latest.upper()
+                        else None
+                    )
+                    enquiry = UpsellEnquiry(
+                        parent_quote=latest,
+                        objective="list",
+                        currency=currency,
+                        minimum_days=90 if "90" in latest else 1,
+                        maximum_days=90 if "90" in latest else 366,
+                        maximum_price_minor=20000000 if "200000" in latest else None,
+                    )
+                    return ChatModelReceipt(
+                        usage=ChatTokens(input_tokens=100, output_tokens=50),
+                        model="lab-simulated-not-billed",
+                        completed=True,
+                        answer="Catalog enquiry awaiting host validation.",
+                        upsell_enquiry=enquiry if currency is None else None,
+                        upsell_choice=UpsellChoice.model_validate(enquiry.model_dump())
+                        if currency
+                        else None,
+                    )
                 if any(
                     q in latest.casefold()
                     for q in (
@@ -824,11 +851,16 @@ class LabOptions:
     parent_support_questions: bool = False
     clarifications: bool = False
     usage_comparisons: bool = False
+    upsell_currency: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.upsell_currency and (
+            not options.manager or not options.upsell or options.action_cards
+        ):
+            raise ValueError("Currency lab requires the governed tariff manager")
         if options.usage_comparisons and (
             not options.dated_reviews
             or not options.day_usage
@@ -973,6 +1005,8 @@ class ChatLab:
             expected["clarifications"] = True
         if self.options.usage_comparisons:
             expected["usage_comparisons"] = True
+        if self.options.upsell_currency:
+            expected["upsell_currency"] = True
             if isinstance(self.options.clock, LabUsageComparisonClock):
                 expected["clock"] = "fictional_usage_comparison_v1"
         if self.options.parent_support_questions:
@@ -1097,7 +1131,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteUsageComparisonSafetyStore
+                SqliteUpsellCurrencyStore
+                if self.options.upsell_currency
+                else SqliteUsageComparisonSafetyStore
                 if self.options.usage_comparisons
                 else SqliteParentClarificationStore
                 if self.options.clarifications
@@ -1169,6 +1205,8 @@ class ChatLab:
                 reminder_options["clarifications_enabled"] = True
             if self.options.usage_comparisons:
                 reminder_options["comparisons_enabled"] = True
+            if self.options.upsell_currency:
+                reminder_options["currency_enabled"] = True
             if self.options.parent_support_questions:
                 reminder_options["parent_questions_enabled"] = True
             if self.options.safety_remainder:

@@ -19,7 +19,9 @@ from app.mana_ai.application.chat_ports import (
 )
 from app.mana_ai.application.parent_languages import language_name, parent_language
 from app.mana_ai.domain.chat import ChatTokens
+from app.mana_ai.domain.client_upsell import UpsellChoice
 from app.mana_ai.domain.family_agents import (
+    ParentTouchCurrencyReply,
     ParentTouchEvidenceReply,
     ParentTouchModelReply,
     ParentTouchReminderReply,
@@ -81,7 +83,9 @@ class OpenAIParentChatModel:
             if not prompt.structured_reply:
                 raise ValueError("A publication slot requires a structured reply")
             schema = (
-                ParentTouchUpsellReply
+                ParentTouchCurrencyReply
+                if prompt.upsell_scope and prompt.upsell_scope.protocol == "catalog-currency-v2"
+                else ParentTouchUpsellReply
                 if prompt.upsell_scope
                 else ParentTouchReminderReply
                 if prompt.reminder_scope
@@ -355,6 +359,7 @@ class OpenAIParentChatModel:
         upsell_choice = None
         upsell_question_text = None
         clarification_question = None
+        upsell_enquiry = None
         if completed and prompt.structured_reply:
             try:
                 reply: ParentTouchText
@@ -367,12 +372,23 @@ class OpenAIParentChatModel:
                         reply = ParentTouchText(body=routed.body, question=None)
                 elif prompt.slot_reply:
                     reply = (
-                        ParentTouchUpsellReply
+                        ParentTouchCurrencyReply
+                        if prompt.upsell_scope
+                        and prompt.upsell_scope.protocol == "catalog-currency-v2"
+                        else ParentTouchUpsellReply
                         if prompt.upsell_scope
                         else ParentTouchReminderReply
                         if prompt.reminder_scope
                         else ParentTouchSlotReply
                     ).model_validate_json(answer)
+                    if isinstance(reply, ParentTouchCurrencyReply) and reply.upsell is not None:
+                        if reply.upsell.currency is None:
+                            upsell_enquiry = reply.upsell
+                            if reply.question is not None:
+                                raise ValueError("A currency question cannot overlap another slot")
+                        else:
+                            upsell_choice = UpsellChoice.model_validate(reply.upsell.model_dump())
+                            upsell_question_text = reply.question
                     if isinstance(reply, ParentTouchUpsellReply) and reply.upsell is not None:
                         upsell_choice = reply.upsell
                         upsell_question_text = reply.question
@@ -433,7 +449,7 @@ class OpenAIParentChatModel:
                 ):
                     raise ValueError("The reply selected an unadmitted question")
                 answer = "\n\n".join(part for part in (reply.body.strip(), reply.question) if part)
-                if upsell_choice is not None and not answer:
+                if (upsell_choice is not None or upsell_enquiry is not None) and not answer:
                     answer = "Catalog enquiry awaiting host validation."
                 if reminder_candidate is not None and not answer:
                     answer = "Reminder proposal awaiting host validation."
@@ -453,6 +469,7 @@ class OpenAIParentChatModel:
             upsell_choice=upsell_choice if completed else None,
             upsell_question_text=upsell_question_text if completed else None,
             clarification_question=clarification_question if completed else None,
+            upsell_enquiry=upsell_enquiry if completed else None,
         )
 
     async def close(self) -> None:

@@ -7,6 +7,19 @@ from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.domain.chat import ResponseLanguage
 from app.mana_ai.domain.client_upsell import UpsellQuote
 
+CURRENCY_ENQUIRY_INSTRUCTIONS = (
+    "For this captured price/duration enquiry use only the latest parent request. "
+    "parent_quote is its exact relevant substring. currency=null unless the parent explicitly "
+    "specified UZS or USD; never infer it from language, location, history or the catalogue. "
+    "The host asks one currency question and preserves these terms. Month=30, three months=90, "
+    "six months=180, year=365 days; unspecified duration=1..366. objective=list for options, "
+    "lowest_total for lowest total, lowest_daily only for explicit daily-price comparison. "
+    "Both currencies have 100 minor units per unit. maximum_price_minor=null unless an explicit "
+    "total budget; an unlabelled explicit number still preserves that budget times 100. "
+    "With an enquiry keep body='', question=null, reminder=null, notice_communicated=false. "
+    "No invented prices, benefits, discounts, renewal, checkout or eligibility."
+)
+
 
 def upsell_language(text: str, fallback: ResponseLanguage) -> ResponseLanguage:
     known = parent_language(text)

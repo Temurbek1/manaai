@@ -1040,3 +1040,22 @@ baseline, no additional schedule/budget is enabled, and old turns do not upgrade
 Try `make chat-lab-usage-comparison CHAT_LAB_PORT=8106` and its fictional two-day
 scenario button. The new `/lab/usage-comparison` operation is loopback/session/CSRF
 protected and absent from the product API. Read [capture, limits and actual evidence](mana-saved-usage-comparison.md).
+
+## 39. Tariff currency clarification (local, not released)
+
+A newly enabled tariff enquiry can omit its currency. Parent-Touch asks one
+currency question in the existing chat and freezes the original quote, requested
+term and explicit budget. It never guesses currency from language or location.
+Send `UZS` or `USD` using the usual message POST with the exact active
+`reply_to_question_id`; no additional endpoint, `chat_id` or synthetic user message
+is needed. This binds the currency once and continues the existing fresh-profile /
+shared-catalogue workflow without another model call. Other replies follow normal
+conversation; they do not silently authorize or reinterpret the old enquiry.
+
+Existing history/status and replay rules apply. Questions expire after one day;
+foreign, consumed or expired bindings cannot start a read. Urgent Safety still has
+priority. Prices remain dated catalogue facts, not verified entitlement, renewal,
+checkout or payment. No tariff grant, transaction or push is created. Source
+cooldowns, unknown holds and token allowances remain unchanged. This default-off
+family-v31 increment is local; do not enable these behaviors in production until
+a scoped release is confirmed. See [the implementation and exact evidence](mana-upsell-currency.md).

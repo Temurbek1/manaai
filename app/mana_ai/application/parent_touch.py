@@ -28,6 +28,7 @@ from app.mana_ai.application.parent_touch_offers import render_parent_offer
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.retention_expiry import RetentionExpiryService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
+from app.mana_ai.application.upsell_text import CURRENCY_ENQUIRY_INSTRUCTIONS
 from app.mana_ai.domain.chat import (
     ParentChatRequest,
     ParentChatResponse,
@@ -152,6 +153,10 @@ class ParentTouchService(ParentChatService):
         return await self.conversion.communicate(render_parent_offer)
 
     async def admit_message(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState:
+        if self.upsell is not None:
+            controlled_currency = await self.upsell.control(request)
+            if controlled_currency is not None:
+                return controlled_currency
         if self.retention is not None:
             declined = await self.retention.control(request)
             if declined is not None:
@@ -539,6 +544,8 @@ class ParentTouchService(ParentChatService):
                 "is authorized by these facts. When absent, account data is unverified."
             )
         if upsell_scope is not None:
+            if upsell_scope.protocol == "catalog-currency-v2":
+                instructions += "\n" + CURRENCY_ENQUIRY_INSTRUCTIONS
             instructions += (
                 "\nOnly an explicit latest-parent price/duration request permits one upsell "
                 "enquiry. parent_quote is its EXACT relevant substring. Durations: month=30, "

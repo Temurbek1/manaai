@@ -23,7 +23,11 @@ from app.mana_ai.domain.client_upsell import (
     UpsellWork,
 )
 from app.mana_ai.domain.conversion_catalog import ConversionCatalogObservation
-from app.mana_ai.domain.family_agents import ParentTouchReviewedTurn
+from app.mana_ai.domain.family_agents import (
+    ParentTouchMessageRequest,
+    ParentTouchMessageState,
+    ParentTouchReviewedTurn,
+)
 from app.services.client_retention_store import (
     SqliteClientRetentionStore,
     SqliteClosedClientRetentionStore,
@@ -42,6 +46,11 @@ _TABLES = {
 
 class SqliteClientUpsellStore(SqliteClientRetentionStore):
     _schema_version = 16
+
+    async def upsell_currency_control(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState | None:
+        return None
 
     def __init__(
         self, path: Path, *, upsell_policy: ClientUpsellPolicy, catalog_binding: str, **family: Any
@@ -146,6 +155,8 @@ class SqliteClientUpsellStore(SqliteClientRetentionStore):
     def _valid_decision(
         self, db: sqlite3.Connection, turn: StoredChatTurn, receipt: ChatModelReceipt, now: datetime
     ) -> bool:
+        if receipt.upsell_enquiry is not None:
+            return False
         if receipt.upsell_choice is None:
             return super()._valid_decision(db, turn, receipt, now)
         if receipt.notice_id is not None or receipt.reminder_candidate is not None:

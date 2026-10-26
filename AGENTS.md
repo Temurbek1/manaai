@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_CLIENT_UPSELL_CURRENCY_ENABLED` uses family v31.
+  Read `docs/mana-upsell-currency.md` and integration section 39. Capture the nullable
+  currency schema only on new governed Upsell turns; old turns retain v1 unchanged.
+  Freeze exact original terms and bind one same-parent shared question/answer.
+  Currency codes resolve through the host without another inference; never infer a
+  currency or new authorization from language/location/history. Preserve current
+  priority, source ownership/cooldowns, quotas, replay and cross-day unknown holds.
+  Deactivation fences unpublished quotes, not verified source/model costs. Use
+  current closed v31; older refusal is not a functional rollback. No source/cloud,
+  grant/payment, schedule or production activation follows; the full goal stays open.
+
+
 - Local default-disabled `MANA_FAMILY_USAGE_COMPARISONS_ENABLED` uses family v30 /
   source v8. Read `docs/mana-saved-usage-comparison.md` and integration section 38.
   Only new dated admissions freeze an exact same-parent/child preceding query-day

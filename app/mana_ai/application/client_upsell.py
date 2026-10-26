@@ -18,6 +18,7 @@ from app.mana_ai.domain.client_upsell import (
     UpsellWork,
 )
 from app.mana_ai.domain.conversion_catalog import ConversionCatalogObservation
+from app.mana_ai.domain.family_agents import ParentTouchMessageRequest, ParentTouchMessageState
 
 
 def select_tariffs(
@@ -51,6 +52,9 @@ def select_tariffs(
 
 
 class ClientUpsellStore(Protocol):
+    async def upsell_currency_control(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState | None: ...
     async def upsell_scope(self, parent_id: str, turn_id: int) -> UpsellScope | None: ...
     async def claim_upsell(self, now: datetime) -> UpsellWork | None: ...
     async def upsell_active(self, work: UpsellWork, now: datetime) -> bool: ...
@@ -90,6 +94,9 @@ class ClientUpsellService:
 
     async def scope(self, parent_id: str, turn_id: int) -> UpsellScope | None:
         return await self._store.upsell_scope(parent_id, turn_id)
+
+    async def control(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState | None:
+        return await self._store.upsell_currency_control(request, self._clock())
 
     async def process_one(self) -> bool:
         if await self._store.publish_ready_upsell(self._clock()):
