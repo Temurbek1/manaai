@@ -20,6 +20,7 @@ from app.mana_ai.domain.parent_reminders import ReminderPolicy
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
 from app.mana_ai.domain.shared_conversion_profile import SharedConversionProfilePolicy
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy
+from app.mana_ai.domain.trial_end import TrialEndPolicy
 
 
 class Settings(BaseSettings):
@@ -97,6 +98,8 @@ class Settings(BaseSettings):
     mana_parent_touch_manager_enabled: bool = False
     mana_conversion_trial_periods_enabled: bool = False
     mana_family_location_enabled: bool = False
+    mana_retention_trial_end_enabled: bool = False
+    mana_retention_trial_end_policy: TrialEndPolicy = Field(default_factory=TrialEndPolicy)
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
         default_factory=SharedConversionProfilePolicy
     )
@@ -464,6 +467,8 @@ class Settings(BaseSettings):
             and not self.mana_parent_touch_manager_enabled
         ):
             raise ValueError("Confirmed trial periods require the current Parent-Touch profile")
+        if self.mana_retention_trial_end_enabled and not self.mana_conversion_trial_periods_enabled:
+            raise ValueError("Trial-end notices require captured confirmed trial periods")
         if self.mana_conversion_shared_profile_enabled and not (
             self.mana_conversion_enabled and self.mana_retention_expiry_enabled
         ):

@@ -32,6 +32,10 @@ NOW = datetime(2026, 10, 16, 12, tzinfo=UTC)
 
 @pytest.fixture
 def credential_file(tmp_path: Path) -> Path:
+    return make_credential_file(tmp_path)
+
+
+def make_credential_file(tmp_path: Path) -> Path:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = key.private_bytes(
         serialization.Encoding.PEM,

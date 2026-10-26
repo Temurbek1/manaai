@@ -36,11 +36,12 @@ from app.services.lab_trial_action_store import (
 )
 from app.services.location_safety_store import SqliteClosedLocationSafetyStore
 from app.services.mana_chat_lab import LAB_PARENT, ChatLab
+from app.services.parent_chat_store import SqliteParentChatStore
 from scripts.mana_chat_lab import create_app
 from tests.test_lab_chat_actions import BASE, PATH, Clock, click, options, session
 
 
-def snapshot(store: SqliteLabChatActionStore) -> dict[str, list[tuple[object, ...]]]:
+def snapshot(store: SqliteParentChatStore) -> dict[str, list[tuple[object, ...]]]:
     with store._connect() as db:
         return {
             table[0]: sorted(

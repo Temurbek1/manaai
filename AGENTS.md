@@ -2,6 +2,19 @@
 
 ## Repository expectations
 
+- The local default-disabled `MANA_RETENTION_TRIAL_END_ENABLED` consumer uses
+  family v26. Read `docs/mana-confirmed-trial-end.md`. Freeze eligibility on new
+  owning grant claims; never backfill disabled/historical grants. Only the exact
+  known period plus a fresh post-end selected-nonpaid observation, independent
+  Retention contact rules, quiet hours, priority and shared caps permits one
+  same-chat service notice. Timer passage never substitutes for an observation.
+  Save assistant/proof/event/outbox atomically; current proof/source flags fence
+  pending pushes. No new initial read/model/payment/grant or marketing authority.
+  Preserve the negative real-model/catalog diagnostic and its unknown source hold;
+  the fake browser pass is not real pricing, broad quality or production acceptance.
+  Current closed v26 retains all state; older reader refusal is not functional
+  rollback. The separate action-card labs and full original objective remain open.
+
 - The subsequent `make chat-lab-trial-actions` profile is local/fake-only, family
   v25. Read `docs/mana-trial-action-cards.en.md`. Only new admitted offers freeze
   eligibility for a host-owned button card on the existing assistant turn. The

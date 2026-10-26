@@ -903,3 +903,22 @@ beside its existing offer `turn_id`. `trial_granted`, `trial_rejected` and
 message or call the legacy text-based acceptance endpoint. Replays, new nonces,
 restart and unknown outcomes never redispatch. Existing quotas remain unchanged.
 Read [the typed lifecycle and compatibility details](mana-trial-action-cards.en.md).
+
+## 32. Confirmed free-period end (local, not released)
+
+The phone continues to retrieve the same chat history. A new confirmed free-period
+grant may now produce one assistant message after a fresh source observation
+confirms the known period ended and the selected tariff is nonpaid. No synthetic
+user message or client-side timer should insert it. The parent may then ask about
+tariffs through the ordinary message endpoint; the existing catalog workflow
+returns supported prices without creating a payment.
+
+Current independent Retention permissions, language/timezone, quiet hours,
+priority, opt-out and frequency limits remain mandatory. Merely reaching an end
+date is insufficient. The initial notice needs no model/source call; subsequent
+dialogue keeps the original daily token limit. A separately allowed neutral push
+follows the saved message and never contains family details.
+
+Try `make chat-lab-trial-end CHAT_LAB_PORT=8100` for the explicitly fictional
+October 26–28 scenario. This default-disabled family-v26 feature has not been
+released. Read [evidence, costs and remaining limits](mana-confirmed-trial-end.md).

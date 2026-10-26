@@ -36,6 +36,7 @@ from app.mana_ai.domain.chat_actions import (
 from app.mana_ai.domain.family_collection import FamilyCollectionWindow
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
 from app.services.lab_collection import LabCollectionClock
+from app.services.lab_trial_end import LabTrialEndClock
 from app.services.mana_chat_lab import (
     LAB_CHILD,
     LAB_PARENT,
@@ -158,6 +159,12 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     @app.get("/lab/state", response_model=LabState, dependencies=[Depends(local_session)])
     async def state() -> LabState:
         return await mana_family_agents.controlled(lab.state())
+
+    @app.post(
+        "/lab/trial-end", response_model=dict[str, str], dependencies=[Depends(local_session)]
+    )
+    async def trial_end() -> dict[str, str]:
+        return await mana_family_agents.controlled(lab.prepare_trial_end_scenario())
 
     def card_service() -> ChatActionService:
         if lab.action_cards is None:
@@ -531,6 +538,29 @@ def create_day_usage_app() -> FastAPI:
             tariff_context=True,
             expiry=True,
             day_usage=True,
+        )
+    )
+
+
+def create_trial_end_app() -> FastAPI:
+    """Fictional confirmed term -> fresh post-end source -> one same-chat notice."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/trial-end-simulation",
+            clock=LabTrialEndClock(),
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            trial_periods=True,
+            trial_end=True,
+            expiry_fixture_days=30,
         )
     )
 

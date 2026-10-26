@@ -103,6 +103,7 @@ from app.services.lab_collection import LabCollection, LabCollectionClock, lab_c
 from app.services.lab_location import LabLocationSource
 from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLabTrialActionStore
+from app.services.lab_trial_end import LabTrialEndClock
 from app.services.lab_trial_period import LabTrialGrantGateway, LabTrialProfiles, seed_trial_history
 from app.services.location_safety_store import SqliteLocationSafetyStore
 from app.services.location_source_cache import SqliteLocationSourceCache
@@ -121,6 +122,7 @@ from app.services.source_tool_safety_store import (
     SqliteObservationToolSafetyStore,
     SqliteSourceToolSafetyStore,
 )
+from app.services.trial_end_store import SqliteTrialEndStore
 from app.services.trial_period_store import SqliteTrialPeriodStore
 
 LAB_PARENT = "900001"
@@ -699,6 +701,7 @@ class LabBootstrap(BaseModel):
     scheduled_collection: bool = False
     action_cards_enabled: bool = False
     trial_action_cards_enabled: bool = False
+    trial_end_enabled: bool = False
     seeded_history: Literal["fictional_trial_grant"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -742,11 +745,14 @@ class LabOptions:
     location: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
+    trial_end: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.trial_end and (not options.trial_periods or options.action_cards):
+            raise ValueError("Trial-end lab requires its own confirmed-period profile")
         if options.trial_action_cards and (not options.action_cards or options.trial_periods):
             raise ValueError("Trial-action lab requires buttons without a pre-granted fixture")
         if options.action_cards and (not options.manager or options.real_model):
@@ -860,6 +866,8 @@ class ChatLab:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
             expected["trial_action_cards"] = True
+        if self.options.trial_end:
+            expected["trial_end"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -882,6 +890,8 @@ class ChatLab:
 
     async def start(self) -> None:
         directory = self._directory()
+        if self.options.trial_end and isinstance(self.options.clock, LabTrialEndClock):
+            self.options.clock.restore(directory)
         tariff_until = None
         if self.options.expiry:
             fixture = directory / "expiry-tariff.json"
@@ -974,7 +984,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteLabTrialActionStore
+                SqliteTrialEndStore
+                if self.options.trial_end
+                else SqliteLabTrialActionStore
                 if self.options.trial_action_cards
                 else SqliteLabChatActionStore
                 if self.options.action_cards
@@ -1030,6 +1042,8 @@ class ChatLab:
                 reminder_options["shared_profile_enabled"] = True
             if self.options.trial_periods:
                 reminder_options["trial_periods_enabled"] = True
+            if self.options.trial_end:
+                reminder_options["trial_end_enabled"] = True
             if self.options.trial_action_cards:
                 reminder_options.update(trial_cards_enabled=True, trial_periods_enabled=True)
             if self.options.location:
@@ -1401,6 +1415,47 @@ class ChatLab:
         await self._profiles.read(LAB_PARENT)
         return {"status": "completed"}
 
+    async def prepare_trial_end_scenario(self) -> dict[str, str]:
+        if (
+            not self.options.trial_end
+            or self.options.real_model
+            or not isinstance(self.options.clock, LabTrialEndClock)
+        ):
+            raise ParentChatError("lab_trial_end_fixture_disabled", 409)
+        marker = self.options.directory / "fictional-trial-end.json"
+        if marker.exists():
+            self.options.clock.restore(self.options.directory)
+            return {"status": "completed", "mode": "simulation"}
+        with self.store._connect() as db:
+            raw = db.execute(
+                "SELECT payload FROM parent_contact_contexts WHERE parent_id=?", (LAB_PARENT,)
+            ).fetchone()
+            assert raw
+            contact = ParentContactContext.model_validate_json(raw[0])
+        with os.fdopen(os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
+            json.dump({"version": 1, "status": "admitted"}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        self.options.clock.advance_to_end()
+        now = self.options.clock.now()
+        assert self.touch.proactive
+        await self.touch.proactive.register(
+            contact.model_copy(
+                update={
+                    "event_id": uuid4(),
+                    "revision": contact.revision + 1,
+                    "observed_at": now,
+                    "valid_until": now + timedelta(days=1),
+                }
+            )
+        )
+        await self._profiles.read(LAB_PARENT)
+        with marker.open("w") as stream:
+            json.dump({"version": 1, "status": "completed"}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return {"status": "completed", "mode": "simulation"}
+
     async def prepare_conversion_profile(self, is_paid: bool | None) -> dict[str, str]:
         if not self.options.shared_conversion_profile:
             raise ParentChatError("lab_shared_conversion_profile_disabled", 409)
@@ -1460,8 +1515,22 @@ class ChatLab:
             scheduled_collection=self.options.scheduled_collection,
             action_cards_enabled=self.options.action_cards,
             trial_action_cards_enabled=self.options.trial_action_cards,
+            trial_end_enabled=self.options.trial_end,
             seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="trial-end",
+                            title="Бесплатный период завершился (тест)",
+                            path="/lab/trial-end",
+                            local=True,
+                            body={"parent_id": LAB_PARENT},
+                        )
+                    ]
+                    if self.options.trial_end
+                    else []
+                ),
                 *(
                     [
                         LabScenario(
