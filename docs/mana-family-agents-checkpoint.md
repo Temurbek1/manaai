@@ -2,6 +2,54 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Clean packaged candidate and referral source evidence — 2026-10-26, `9629523`
+
+Read the feature checkout's
+[runtime candidate record](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-runtime-candidate.md).
+Clean `git archive` source **29c9c30** built image
+`mana-ai-family:runtime-29c9c30-candidate-20261026`, ID
+`sha256:7f862707fcbc212aba5c37f3ebb1351bb1ece33750b6555d8ac87390970d3f23`.
+All **271 Python app files** match that export, no `.env`/private SQL/real key in
+the image. The mutable base tag alone is not a reproducible future image identity.
+
+The actual packaged production factory reused the already protected October-25
+production-v6 copy offline: **v6 -> v23**, every original cell/column in **16
+tables**, original two messages/digest/quota preserved. Live/history/directory/
+exact legacy replay returned 200; unauthenticated history 401; lab-only card path
+404 and absent from product OpenAPI. Current closed v23 retains identical state,
+zero model/source/grant/contact attempts and no historical capture. No SSH/new
+production copy/live-source request was made. This remains a small real-history
+fixture, not fleet or functional old-image rollback acceptance.
+
+The same image's Python 3.12 also ran mounted **lab-only** HTTP/SQL known and
+unknown trial-button parties. Each yielded two assistant-only messages, one fake
+gateway attempt and zero model tokens. Populated current closed v25 observation
+and reconstructed runtime preserve every cell; restart makes zero gateway calls
+and the unknown result stays unknown. Two initial harness failures remain:
+production Telegram-auth defaults rejected the fake settings; then an assertion
+expected 200 for the actual 202 event contract. Explicit isolation/exact contract
+fixed the probe, without product permission/schema changes. All original logs
+remain under `output/family-runtime-candidate-20261026/`. Private artifact parent
+is 0700 and migrated SQL is 0600. Application code remains at the previously
+verified 1527-backend/26-admin/15-lab full-gate commit; `9629523` is docs/evidence.
+
+The supplied mobile archive was inspected read-only for Referral. It establishes
+incoming Android `utm_source`/iOS `ref` -> registration `partner`, profile promo
+display and a tariff promo-validation POST. It does **not** establish personal
+referral-code issuance/read, qualifying invited-parent attribution, approved
+reward terms or reward execution. Device/child invitations are separate. No promo,
+purchase, grant or other endpoint was called; never repurpose the one-time trial
+or promise the PDF's unapproved free month. Hashes/minimized findings are in
+`output/referral-source-contract-20261026/result.json`; details in
+[the referral status](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-referral-integration-status.md).
+
+No production/SSH/key/UI/audio/source/schedule/budget change occurred. Existing
+loopback labs on 8098/8099 were not restarted by this increment. Production stays
+the last confirmed family `f8d095e`. Release settings/credential mounts, authority,
+budgets, ingress/Swagger, backup and compatible closure still need their concrete
+scoped release review; this candidate is not deployment approval. Keep the full
+objective active and continue implementable source/quality/owning-agent work.
+
 ### Trial offer confirmation cards — 2026-10-26, `29c9c30`
 
 Read the feature checkout's
