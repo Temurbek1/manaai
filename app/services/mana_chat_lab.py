@@ -12,7 +12,7 @@ from typing import Any, Literal, Protocol
 from uuid import NAMESPACE_URL, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.core.config import get_settings
 from app.mana_ai.application.chat_ports import (
@@ -49,10 +49,12 @@ from app.mana_ai.domain.child_safety import (
 from app.mana_ai.domain.client_retention import ClientRetentionPolicy
 from app.mana_ai.domain.client_upsell import ClientUpsellPolicy, UpsellChoice
 from app.mana_ai.domain.conversion import (
+    ConversionOffer,
     ConversionPolicy,
     ConversionProposalPage,
     ConversionSnapshot,
     PaidConversionOffer,
+    TrialConversionOffer,
 )
 from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.conversion_catalog import (
@@ -94,6 +96,7 @@ from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_native_source_model import LabNativeSourceModel
+from app.services.lab_trial_period import LabTrialProfiles, seed_trial_history
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
@@ -109,6 +112,7 @@ from app.services.source_tool_safety_store import (
     SqliteObservationToolSafetyStore,
     SqliteSourceToolSafetyStore,
 )
+from app.services.trial_period_store import SqliteTrialPeriodStore
 
 LAB_PARENT = "900001"
 LAB_CHILD = 900002
@@ -653,6 +657,9 @@ class LabBootstrap(BaseModel):
     child_id: int
     scenarios: list[LabScenario]
     scheduled_collection: bool = False
+    seeded_history: Literal["fictional_trial_grant"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class LabState(BaseModel):
@@ -688,10 +695,13 @@ class LabOptions:
     day_collection: bool = False
     shared_conversion_profile: bool = False
     manager: bool = False
+    trial_periods: bool = False
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.trial_periods and not options.manager:
+            raise ValueError("Trial-period lab requires the current manager profile")
         if options.manager and not options.expiry:
             raise ValueError("Manager lab requires the current complete family profile")
         if options.shared_conversion_profile and (not options.expiry or options.real_model):
@@ -779,6 +789,8 @@ class ChatLab:
             expected["shared_conversion_profile"] = True
         if self.options.manager:
             expected["manager"] = True
+        if self.options.trial_periods:
+            expected["trial_periods"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -841,7 +853,7 @@ class ChatLab:
             parent_daily_tokens=2000,
             job_tokens=2000 if self.options.native_sources else 1000,
         )
-        offer = PaidConversionOffer(
+        offer: ConversionOffer = PaidConversionOffer(
             offer_id="lab-only",
             billing_offer_id="lab-only-no-payment",
             approval_reference="fictional-lab-only-not-commercial-approval",
@@ -854,6 +866,14 @@ class ChatLab:
             auto_renew=False,
             checkout_path="/subscriptions/lab-only",
         )
+        if self.options.trial_periods:
+            offer = TrialConversionOffer(
+                offer_id="lab-only",
+                approval_reference="fictional-one-day-fixture-never-a-customer-offer",
+                valid_from=datetime(2026, 1, 1, tzinfo=UTC),
+                valid_until=datetime(2030, 1, 1, tzinfo=UTC),
+                grant_days=1,
+            )
         speaker: ClosableModel
         specialist: ClosableModel
         if self.options.real_model:
@@ -883,7 +903,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteParentTouchManagerStore
+                SqliteTrialPeriodStore
+                if self.options.trial_periods
+                else SqliteParentTouchManagerStore
                 if self.options.manager
                 else SqliteSharedConversionProfileStore
                 if self.options.shared_conversion_profile
@@ -929,6 +951,8 @@ class ChatLab:
                 reminder_options["dated_reviews_enabled"] = True
             if self.options.shared_conversion_profile:
                 reminder_options["shared_profile_enabled"] = True
+            if self.options.trial_periods:
+                reminder_options["trial_periods_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -991,6 +1015,9 @@ class ChatLab:
             tariff_context=self.options.tariff_context,
             tariff_until=tariff_until,
         )
+        if self.options.trial_periods:
+            assert isinstance(self.store, SqliteTrialPeriodStore)
+            profiles = LabTrialProfiles(profiles, self.store)
         if isinstance(self.store, SqliteRetentionExpiryStore):
             profiles = RetentionProfileSource(profiles, self.store, clock=self.options.clock.now)
         self._profiles = profiles
@@ -1131,14 +1158,22 @@ class ChatLab:
                     revision=int(now.timestamp() * 1000000),
                     observed_at=now,
                     valid_until=now + timedelta(days=1),
-                    language="ru",
-                    timezone="Asia/Samarkand",
+                    language="en"
+                    if self.options.trial_periods and self.options.real_model
+                    else "ru",
+                    timezone="America/New_York"
+                    if self.options.trial_periods and self.options.real_model
+                    else "Asia/Samarkand",
                     safety_chat_consent=True,
                     safety_push_consent=False,
                     marketing_push_consent=False,
                     retention_chat_consent=self.options.expiry,
                 )
             )
+        if self.options.trial_periods:
+            assert isinstance(self.store, SqliteTrialPeriodStore)
+            await seed_trial_history(self.store, self.options.clock, directory)
+            await profiles.read(LAB_PARENT)
         self._worker = FamilyAgentWorker(
             self.safety,
             self.touch,
@@ -1309,6 +1344,7 @@ class ChatLab:
             parent_id=LAB_PARENT,
             child_id=LAB_CHILD,
             scheduled_collection=self.options.scheduled_collection,
+            seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
                 *(
                     [

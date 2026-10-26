@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The local default-disabled `MANA_CONVERSION_TRIAL_PERIODS_ENABLED` companion
+  adds family v22 without changing source/collection protocols or public grant
+  schemas. Read `docs/mana-confirmed-trial-periods.md`. Freeze each new grant's
+  consumer admission before dispatch and capture only a known complete verified
+  period in its receipt transaction. Old/disabled/metadata-absent grants never
+  backfill or repeat. A fresh matching nonpaid selected term plus independent
+  Retention language/consent/idle/priority/caps permits one same-chat fixed reminder;
+  private proof fences its push. No new read/model/grant/payment or budget follows.
+  Current closed v22 retains history/unknown holds; actual old v21 refusal is not
+  working rollback. Preserve the wrong-attribute fake-catalog diagnostic and the
+  distinct actual-catalog pass as separate qualified parties, never full quality
+  or production acceptance. Keep parent 4's consumed grant untouched. GPS binding
+  is now proven by supplied mobile source and one stale direct document observation;
+  read `docs/mana-mobile-location-binding.md`. That source is not runtime-wired yet;
+  no scan, listener or current-location claim is authorized by an old stored point.
+
 - The read-only October-25 production-copy rehearsal changes no application code
   or production state. Read `docs/mana-production-upgrade-rehearsal.md` and
   `docs/mana-source-access-20261025.md`. Actual v6 history migrates locally through

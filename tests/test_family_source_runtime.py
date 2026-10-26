@@ -541,21 +541,24 @@ async def test_collection_runtime_arms_storage_without_provider_calls_or_inherit
         "day_collection",
         "shared",
         "manager",
+        "periods",
     ),
     [
-        (False, False, False, False, False, False, False, False, False, False),
-        (True, False, False, False, False, False, False, False, False, False),
-        (True, True, False, False, False, False, False, False, False, False),
-        (True, True, True, False, False, False, False, False, False, False),
-        (True, True, True, True, False, False, False, False, False, False),
-        (True, True, True, True, True, False, False, False, False, False),
-        (True, True, True, True, False, True, False, False, False, False),
-        (True, True, True, True, False, True, True, False, False, False),
-        (True, True, True, True, True, True, True, True, False, False),
-        (True, True, True, True, False, False, False, False, True, False),
-        (True, True, True, True, True, True, True, True, True, False),
-        (True, True, True, True, False, False, False, False, False, True),
-        (True, True, True, True, True, True, True, True, True, True),
+        (False, False, False, False, False, False, False, False, False, False, False),
+        (True, False, False, False, False, False, False, False, False, False, False),
+        (True, True, False, False, False, False, False, False, False, False, False),
+        (True, True, True, False, False, False, False, False, False, False, False),
+        (True, True, True, True, False, False, False, False, False, False, False),
+        (True, True, True, True, True, False, False, False, False, False, False),
+        (True, True, True, True, False, True, False, False, False, False, False),
+        (True, True, True, True, False, True, True, False, False, False, False),
+        (True, True, True, True, True, True, True, True, False, False, False),
+        (True, True, True, True, False, False, False, False, True, False, False),
+        (True, True, True, True, True, True, True, True, True, False, False),
+        (True, True, True, True, False, False, False, False, False, True, False),
+        (True, True, True, True, True, True, True, True, True, True, False),
+        (True, True, True, True, False, False, False, False, False, True, True),
+        (True, True, True, True, True, True, True, True, True, True, True),
     ],
 )
 async def test_source_review_runtime_uses_shared_cache_and_starts_without_external_io(
@@ -572,6 +575,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
     day_collection: bool,
     shared: bool,
     manager: bool,
+    periods: bool,
 ) -> None:
     from app.services.lab_native_source_model import LabNativeSourceModel
     from app.services.mana_chat_lab import SimulatedModel
@@ -613,6 +617,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
         mana_conversion_enabled=shared,
         mana_conversion_shared_profile_enabled=shared,
         mana_parent_touch_manager_enabled=manager,
+        mana_conversion_trial_periods_enabled=periods,
         mana_conversion_offers=(paid_offer(),) if shared else (),
         mana_child_safety_limits=ChildSafetyLimits(
             server_daily_tokens=2000,
@@ -646,6 +651,9 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
 
         assert isinstance(service.store, SqliteSharedConversionProfileStore) is (shared or manager)
         assert (service.manager is not None) is manager
+        from app.services.trial_period_store import SqliteTrialPeriodStore
+
+        assert isinstance(service.store, SqliteTrialPeriodStore) is periods
         assert isinstance(service.collection, DatedCollectionService) is day_collection
         if expiry:
             assert service.sources and service.sources._children is service._children
@@ -673,6 +681,7 @@ async def test_source_review_runtime_uses_shared_cache_and_starts_without_extern
                 "mana_family_day_reviews_enabled": False,
                 "mana_conversion_shared_profile_enabled": False,
                 "mana_parent_touch_manager_enabled": False,
+                "mana_conversion_trial_periods_enabled": False,
                 "mana_collection_day_usage_enabled": False,
             }
         )

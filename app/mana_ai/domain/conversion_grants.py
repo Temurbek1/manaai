@@ -3,9 +3,10 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, field_validator
+from pydantic import AwareDatetime, Field, PrivateAttr, field_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
+from app.mana_ai.domain.trial_periods import TrialPeriodMetadata
 
 
 class TrialAcceptance(ChatContract):
@@ -28,6 +29,16 @@ class TrialGrantResult(ChatContract):
     parent_id: ParentChatId
     tariff: str = Field(min_length=1, max_length=100)
     valid_until: AwareDatetime
+    _period_metadata: TrialPeriodMetadata | None = PrivateAttr(default=None)
+
+    @property
+    def period_metadata(self) -> TrialPeriodMetadata | None:
+        return self._period_metadata
+
+    def with_period_metadata(self, metadata: TrialPeriodMetadata | None) -> "TrialGrantResult":
+        result = self.model_copy()
+        result._period_metadata = metadata
+        return result
 
 
 class TrialGrantState(ChatContract):

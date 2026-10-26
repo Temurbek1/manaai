@@ -731,6 +731,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                         current.isoformat(),
                     ),
                 )
+                self._on_trial_grant_claimed(connection, state, current)
                 return state, True
 
         return await asyncio.to_thread(claim)
@@ -744,6 +745,11 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
     ) -> None:
         """New private protocols can require a frozen offer, never infer it from prose."""
 
+    def _on_trial_grant_claimed(
+        self, connection: sqlite3.Connection, state: TrialGrantState, now: datetime
+    ) -> None:
+        """New private companions freeze their scope before any provider dispatch."""
+
     async def finish_trial_grant(self, state: TrialGrantState, now: datetime) -> TrialGrantState:
         def finish() -> TrialGrantState:
             with self._transaction() as connection:
@@ -755,7 +761,7 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     raise ParentChatError("trial_grant_claim_missing", 409)
                 original = TrialGrantState.model_validate_json(row[0])
                 if original.status != "submitting":
-                    if original != state:
+                    if original.model_dump_json() != state.model_dump_json():
                         raise ParentChatError("trial_grant_receipt_already_final", 409)
                     return original
                 if original.proposal_id != state.proposal_id or original.days != state.days:
@@ -765,7 +771,9 @@ class SqliteConversionStore(SqliteReviewedMessageStore):
                     (state.model_dump_json(), state.parent_id),
                 )
                 self._on_trial_grant_finished(connection, state, self._utc(now))
-                return state
+                # Private, nonserialized provider observations must not change
+                # the first public receipt relative to exact replay.
+                return TrialGrantState.model_validate_json(state.model_dump_json())
 
         return await asyncio.to_thread(finish)
 

@@ -95,6 +95,7 @@ class Settings(BaseSettings):
     mana_collection_day_usage_enabled: bool = False
     mana_conversion_shared_profile_enabled: bool = False
     mana_parent_touch_manager_enabled: bool = False
+    mana_conversion_trial_periods_enabled: bool = False
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
         default_factory=SharedConversionProfilePolicy
     )
@@ -453,6 +454,11 @@ class Settings(BaseSettings):
     def validate_family_source_configuration(self) -> "Settings":
         if self.mana_parent_touch_manager_enabled and not self.mana_retention_expiry_enabled:
             raise ValueError("Parent-Touch manager requires the current complete family runtime")
+        if (
+            self.mana_conversion_trial_periods_enabled
+            and not self.mana_parent_touch_manager_enabled
+        ):
+            raise ValueError("Confirmed trial periods require the current Parent-Touch profile")
         if self.mana_conversion_shared_profile_enabled and not (
             self.mana_conversion_enabled and self.mana_retention_expiry_enabled
         ):

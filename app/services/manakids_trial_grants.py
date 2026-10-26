@@ -8,6 +8,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, StrictBool, field_val
 
 from app.mana_ai.application.conversion_grants import TrialGrantRejected
 from app.mana_ai.domain.conversion_grants import TrialGrantResult
+from app.mana_ai.domain.trial_periods import TrialPeriodMetadata
 
 KNOWN_REFUSALS = frozenset(
     {
@@ -47,17 +48,24 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def _verify_metadata(data: dict[str, object], result: TrialGrantResult, days: int) -> None:
+def _verify_metadata(
+    data: dict[str, object], result: TrialGrantResult, days: int
+) -> TrialPeriodMetadata | None:
     # Keep the documented legacy receipt readable. Once the provider supplies
     # any new metadata, require the whole strict group; never coerce unknowns.
     if not _METADATA_FIELDS.intersection(data):
-        return
+        return None
     metadata = _GrantMetadata.model_validate(data)
     if metadata.is_paid or not metadata.agent_trial_used:
         raise ValueError("Receipt does not verify a consumed non-paid grant")
     expected_start = result.valid_until - timedelta(days=days)
     if abs((metadata.created_at - expected_start).total_seconds()) > 300:
         raise ValueError("Grant creation does not match its requested period")
+    return TrialPeriodMetadata(
+        created_at=metadata.created_at,
+        is_paid=metadata.is_paid,
+        agent_trial_used=metadata.agent_trial_used,
+    )
 
 
 class ManakidsTrialGrantGateway:
@@ -146,7 +154,7 @@ class ManakidsTrialGrantGateway:
                     "valid_until": data.get("valid_until"),
                 }
             )
-            _verify_metadata(data, result, days)
-            # Metadata verifies this response only; do not change legacy SQL
-            # receipt JSON or make it a fresh subscription/contact permission.
-            return result
+            metadata = _verify_metadata(data, result, days)
+            # The private companion may capture a new admitted period. Legacy
+            # receipt JSON never acquires this metadata or contact authority.
+            return result.with_period_metadata(metadata)

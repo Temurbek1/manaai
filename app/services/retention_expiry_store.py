@@ -276,6 +276,26 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
     def _expiry_parent_ready(self, db: sqlite3.Connection, parent: str, now: datetime) -> bool:
         return True
 
+    def _expiry_selection(self) -> str:
+        return "h.is_paid=1"
+
+    def _expiry_message(
+        self,
+        db: sqlite3.Connection,
+        fact: RetentionTariffFact,
+        language: ResponseLanguage,
+        timezone: str,
+        now: datetime,
+    ) -> str | None:
+        if fact.is_paid is not True or fact.valid_until is None:
+            return None
+        return _text(fact.valid_until, language, timezone)
+
+    def _on_expiry_published(
+        self, db: sqlite3.Connection, fact: RetentionTariffFact, turn_id: int, now: datetime
+    ) -> None:
+        """A private companion may bind its own verified period in this transaction."""
+
     def _publish_expiry(self, now: datetime) -> bool:
         if not self._expiry_enabled:
             return False
@@ -291,7 +311,9 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
             rows = db.execute(
                 "SELECT h.* FROM retention_tariff_heads h LEFT JOIN "
                 "retention_expiry_notices n ON n.parent_id=h.parent_id AND "
-                "n.deadline=h.valid_until WHERE h.is_paid=1 AND h.valid_until>? "
+                "n.deadline=h.valid_until WHERE ("
+                + self._expiry_selection()
+                + ") AND h.valid_until>? "
                 "AND h.valid_until<=? AND h.collected_at>=? AND h.collected_at<=? "
                 "AND n.notice_id IS NULL ORDER BY h.valid_until,h.collected_at "
                 "LIMIT 100",
@@ -328,7 +350,8 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
                     if (
                         fact.parent_id != parent
                         or _digest(fact) != row["digest"]
-                        or fact.is_paid is not True
+                        or row["is_paid"] not in (0, 1)
+                        or fact.is_paid is not bool(row["is_paid"])
                         or fact.valid_until is None
                         or not now < fact.valid_until <= latest
                         or not earliest <= fact.collected_at <= now
@@ -341,6 +364,9 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
                     return False
                 contact = _current_context(db, parent, now)
                 assert contact is not None
+                text = self._expiry_message(db, fact, contact.language, contact.timezone, now)
+                if text is None:
+                    continue
                 identity = uuid5(
                     NAMESPACE_URL, f"mana:retention:expiry-v1:{parent}:{row['valid_until']}"
                 )
@@ -349,7 +375,7 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
                     None,
                     parent,
                     uuid5(identity, "parent-touch"),
-                    _text(fact.valid_until, contact.language, contact.timezone),
+                    text,
                     now,
                 )
                 db.execute(
@@ -364,6 +390,7 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
                         row["collected_at"],
                     ),
                 )
+                self._on_expiry_published(db, fact, result.turn_id, now)
                 self._queue_push(db, parent, result.turn_id, "retention", now)
                 return True
             return False

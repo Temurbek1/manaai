@@ -262,11 +262,13 @@ async function start() {
     bootstrap.mode === "simulation"
       ? "● Бесплатная симуляция"
       : "● Реальная модель";
-  $("mode-notice").textContent = bootstrap.scheduled_collection
-    ? "Фиктивные данные и модель · 25.10.2026 · окна 09:00 и 15:00 по Ташкенту"
-    : bootstrap.mode === "simulation"
-      ? "Ответы симулируются · реальные API агентов и локальное хранилище"
-      : "Модель платная · все данные и офферы тестовые · лимиты 2000 + 2000 токенов в день";
+  $("mode-notice").textContent = bootstrap.seeded_history
+    ? "В истории — вымышленная выдача бесплатного дня · настоящие тарифы не выдаются"
+    : bootstrap.scheduled_collection
+      ? "Фиктивные данные и модель · 25.10.2026 · окна 09:00 и 15:00 по Ташкенту"
+      : bootstrap.mode === "simulation"
+        ? "Ответы симулируются · реальные API агентов и локальное хранилище"
+        : "Модель платная · все данные и офферы тестовые · лимиты 2000 + 2000 токенов в день";
   $("mode-notice").classList.toggle("paid", bootstrap.mode !== "simulation");
   bootstrap.scenarios.forEach((scenario) => {
     const button = document.createElement("button");

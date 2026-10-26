@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Protocol
 
 from app.mana_ai.domain.conversion_grants import TrialAcceptance, TrialGrantResult, TrialGrantState
+from app.mana_ai.domain.trial_periods import TrialPeriodMetadata
 
 
 class TrialGrantRejected(Exception):
@@ -48,7 +49,12 @@ class TrialGrantService:
                 result = await self._gateway.grant(state.parent_id, state.days)
             # A typed port is not evidence by itself: revalidate even a supplied
             # model instance before describing its result as a granted offer.
+            metadata = result.period_metadata
             result = TrialGrantResult.model_validate(vars(result))
+            if metadata is not None:
+                result = result.with_period_metadata(
+                    TrialPeriodMetadata.model_validate(vars(metadata))
+                )
             expected_end = self._clock() + timedelta(days=state.days)
             if (
                 result.parent_id != state.parent_id
@@ -56,6 +62,17 @@ class TrialGrantService:
                 or abs((result.valid_until - expected_end).total_seconds()) > 300
             ):
                 raise ValueError("Provider receipt does not verify this grant")
+            if (
+                result.period_metadata is not None
+                and abs(
+                    (
+                        result.period_metadata.created_at
+                        - (result.valid_until - timedelta(days=state.days))
+                    ).total_seconds()
+                )
+                > 300
+            ):
+                raise ValueError("Provider metadata does not verify this requested period")
             updated = state.model_copy(update={"status": "granted", "result": result})
         except TrialGrantRejected as exc:
             updated = state.model_copy(update={"status": "rejected", "error_code": exc.code})

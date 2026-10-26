@@ -21,13 +21,18 @@ coordinates or raw error prose. A 403 here establishes rejection of this request
 it does not by itself establish its exact upstream policy reason or absence of
 data in Firestore. It is not a Cloud IAM/GA4 diagnosis.
 
-The earlier October-12 sampled Firestore schema establishes location coordinates
+At this diagnostic checkpoint, the earlier October-12 sampled Firestore schema established location coordinates
 and metadata but does not establish an authoritative numeric child-profile join.
 Do not infer ownership from a coincidentally equal document/device ID. Missing
 mapping does not mean every location record lacks ownership or that the data
 does not exist. A precise family tool requires the actual mobile/backend binding
 or another authorized exact-child source. A short question about that binding is
 pending with the owner; unrelated implementation work need not wait for it.
+The owner subsequently supplied the mobile source: the numeric binding and one
+direct Firestore GET are now verified in
+[the later binding checkpoint](mana-mobile-location-binding.md). The point is
+stale, and a GPS runtime adapter is still unimplemented. This later evidence
+does not rewrite or repeat the known application-API rejection below.
 
 Original receipt: `output/child-location-contract-20261025` and
 `output/child-location-contract-once-20261025.log`. Do not replay this old party

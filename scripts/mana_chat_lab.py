@@ -490,6 +490,30 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_trial_period_app() -> FastAPI:
+    """Simulated one-day grant -> verified expiry -> same-chat tariff enquiry."""
+    root = Path(__file__).resolve().parents[1]
+    clock = LabCollectionClock()
+    clock.advance(9)
+    clock.advance(15)
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/trial-period-simulation",
+            clock=clock,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            trial_periods=True,
+        )
+    )
+
+
 def create_manager_app() -> FastAPI:
     """Fictional manager routes general, tariff, reminder and child requests in one chat."""
     root = Path(__file__).resolve().parents[1]

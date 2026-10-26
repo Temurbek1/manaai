@@ -824,3 +824,28 @@ explicit 360-second native SQL lease; token limits remain unchanged. Do not use
 old images against a migrated v21 file, restore stale backups over newer chats,
 or interpret this rehearsal as working execution rollback. Read
 [the exact evidence, selected profile and outstanding release requirements](mana-production-upgrade-rehearsal.md).
+
+## 28. Confirmed free-access reminder (local, not released)
+
+New complete known free-day grant receipts can support a single pre-expiry
+Parent-Touch message. The phone continues to use the same message POST, status
+GET and history GET. It must not insert another assistant message, create a chat
+or activate a tariff itself. Existing trusted-backend trial acceptance remains
+the only grant path; an ordinary chat reply does not yet invoke that action.
+
+The worker requires the recorded new grant period, independently fresh matching
+nonpaid tariff facts and current Retention contact permissions. It respects quiet
+hours, conversation idle, safety priority, opt-out and outreach caps. Missing or
+historical metadata is not reconstructed. The message names the confirmed days
+and local deadline, without claiming renewal, payment or protection loss. A
+permitted neutral push follows the persisted message through the existing outbox.
+
+The reminder uses no additional model tokens or source reads. A parent's following
+price question uses the existing scoped catalog workflow and the original daily
+chat budget. Language, timezone and permission remain independently verified.
+No new payload or public API schema is required by the application.
+
+Try `make chat-lab-trial-periods` for an explicitly fictional one-day grant history
+and same-chat price enquiry. This is a local default-disabled family-v22 feature,
+not confirmation of production activation. Read
+[implementation, test evidence, model diagnostics and rollback limits](mana-confirmed-trial-periods.md).
