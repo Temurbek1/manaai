@@ -2,6 +2,45 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Combined default single-chat lab — 2026-10-27, `c169646`
+
+Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`, HEAD **`c169646`**. Read
+[the joint checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-combined-chat-lab.md)
+and English integration section 41. `make chat-lab` now selects one model-free
+profile combining the compatible manager, Safety/native sources, clarifications,
+reminders, Retention and inline tariff workflows. `make chat-lab-basic` preserves
+the original separate basic history. Existing paid/card/trial/window profiles
+stay separate. No production runtime, provider protocol, source schedule, quota
+or schema changes; this profile uses existing family v32/source v8.
+
+Final `make verify` **exited 0**:
+`output/family-workspace-verify-final-20261027.log`, **1669 backend**, one skipped/
+two opt-in live excluded, **26 admin/11 suites**, **15 lab checks**, mypy **457
+files**, lint/types/build and zero npm vulnerabilities. Sequential schema sync
+is unchanged. Three new HTTP/worker/SQL cases cover the joint question/urgent/
+tariff/battery/reminder/restart story, urgent delivery before a blocked catalogue
+response, and exact paid-profile refusal before a contradictory free offer.
+Preserve the initial harness projection/status mistakes and first full-gate
+paid-veto expectation failure; public projections and payment policy were not
+weakened to pass. No paid model party was repeated for this composition change.
+
+Actual browser first contact -> parent OS question -> urgent interruption ->
+exact answer -> Uzbek tariff question/UZS quote -> Russian reminder confirmation/
+cancellation -> native saved battery read passes in one chat. **18 messages/1500
+simulated parent/600 Safety tokens**, zero unknown reserves/push/grant claims.
+The 390px screenshot was inspected, no horizontal overflow or page errors. Fresh
+navigation after restart retains the complete public response and every cell in
+**73 family/27 source tables**. The initial lab handle was observed terminal 143
+with graceful shutdown; its cause is unknown. The PID/cwd guard refused before
+signaling. Restart followed confirmed termination, never a polling timeout, and
+replayed no event/source/model call. Preserve the private lifecycle qualification
+under `output/family-workspace-browser-20261027/`. Browser automation is closed;
+the fictional lab runs on loopback 8109. This is not live-model/source quality,
+business lift, a new production image or deployment acceptance. The full original
+goal stays active; Referral is deferred pending its real API, and other real
+integration, source semantics, quality/capacity and scoped rollout work remains.
+
 ### One tariff result in the original turn — 2026-10-27, application `a1680e7`
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
