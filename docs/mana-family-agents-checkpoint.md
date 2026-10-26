@@ -2,6 +2,62 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Source-confirmed free-period end — 2026-10-26, application `1ab7afe`
+
+Read [the implementation and evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-confirmed-trial-end.md)
+and English integration section 32 in the separate feature checkout. New
+default-disabled `MANA_RETENTION_TRIAL_END_ENABLED` uses family v26; eligibility
+is captured on new owning grant claims, never historical/disabled grants. Only
+the exact known end plus a fresh (<=180 seconds) post-end selected-nonpaid fact,
+independent Retention permissions/language/timezone/quiet hours, safety priority,
+idle rules and shared caps permits one same-chat service notice. Timer passage
+does not replace the source observation. Save turn/proof/audit/outbox atomically;
+current missing/changed proof or paid/stale facts suppress pending push. The
+initial notice adds zero read/model calls, payments, renewals or grants.
+
+Full `make verify` exited 0: **1552 backend tests**, **26 admin/11 suites**,
+**15 lab tests**, mypy **436 files**, lint/typecheck/build/audit (zero npm
+vulnerabilities); one skip and two excluded live tests are not passes. Sequential
+schema sync passed unchanged. Browser -> actual API/SQL -> end notice -> 90-day
+fake catalog quote passed; reload/restart preserve every cell in **64 family /15
+source tables**, one end notice and one fake grant, 300 simulated parent/zero
+safety tokens. Final 390px screenshot was inspected with no horizontal overflow
+or script errors. A smooth-scroll screenshot was premature; the settled final
+quote screenshot is retained separately.
+
+The distinct real GPT-5.4 Uzbek party correctly selected a 30-day UZS enquiry and
+reconciled **1266 raw parent /zero safety tokens**, zero model holds. Its actual
+catalog quote **did not pass**: controlled unavailable text, no quote and an
+unknown source receipt retaining two HTTP reserves. The diagnostic froze time
+before actual live responses; HTTP response status/body were not captured, so
+this is not proof of a sole cause or upstream success. Preserve original SQL,
+negative review and **$0.00449** uncached generation estimate (not invoice).
+No automatic repeat or release claim follows; no real grant/contact/Firebase/GA4.
+
+Clean application image
+`mana-ai-family:trial-end-1ab7afe-local-20261026`, ID
+`sha256:8cc452f8d55aed5e879a9f76ac783ac53ccae3907b4382634f226180740f87a4`,
+matches **274 Python app files**, contains no `.env`/private SQL. Networkless
+Python 3.12 fictional HTTP flow/replay/current-closed/reconstruction preserve all
+64 tables, eight messages, one notice and one fake grant. The first harness hashed
+Row object addresses and failed; corrected stable cell tuples pass, original
+logs retained. The same packaged production factory upgrades the retained
+October-25 real-v6 copy **6 -> 26**: all original cells/columns in 16 tables,
+two messages, exact replay, no historical recapture or external attempt; current
+closed v26 preserves state. Protected artifacts stay local (0700/0600). No SSH
+or new live copy. Old reader refusal is not working execution rollback/fleet proof.
+
+Evidence: feature `output/trial-end-{browser,model-catalog,candidate}-20261026/`
+and full verify/schema logs. Source export is outside the tree at
+`/mnt/ssd2/mana-family-trial-end-source-1ab7afe` (avoids duplicate mypy modules).
+The owner-facing fake lab is available at **http://127.0.0.1:8100**, PID **192106**,
+tool session **38140** at handoff; revalidate cwd/command before control. Existing
+8098/8099 labs remain untouched; automation browsers are closed. Production stays
+the last confirmed family `f8d095e`; no source/schedule/key/SSH/quota/UI/audio
+change or real tariff/contact. Keep the full original objective active, including
+supported commercial eligibility, referral/rewards, broader model/source/capacity
+acceptance and administrative owning-domain workflows; Technical remains last.
+
 ### Clean packaged candidate and referral source evidence — 2026-10-26, `9629523`
 
 Read the feature checkout's
