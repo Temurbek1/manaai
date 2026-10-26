@@ -938,3 +938,17 @@ read redispatches work, and an unknown submitted model/source/push is not retrie
 The new server flag is explicit and defaults off. Try the fake single-chat lab
 with `make chat-lab-parallel CHAT_LAB_PORT=8101`. Read
 [processing, failure and compatibility details](mana-parallel-family-worker.md).
+
+## 34. Safety allowance reuse (local, not released)
+
+The phone still sends one parent message and observes its existing result/history.
+The server may now analyse multiple distinct new child observations within its
+original daily Safety allowance, using verified usage left after earlier work.
+This does not increase the parent's chat budget or guarantee a fixed number of
+real analyses per day. Old/unknown requests are never repeated to fill the budget.
+
+If the complete analysis cannot fit, the server keeps the original context and
+returns/records the existing budget failure rather than substituting a smaller
+question. The app must not automatically retry it with a new ID or reduced data.
+Try `make chat-lab-remainder CHAT_LAB_PORT=8102`; read
+[accounting, migration and evidence limits](mana-safety-remainder.md).

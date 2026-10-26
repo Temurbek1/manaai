@@ -478,6 +478,7 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                         max(signal_times).isoformat() if signal_times else None,
                     ),
                 )
+                self._on_observation_job_admitted(connection, job_id, parent_id)
             else:
                 job_id = row["job_id"]
             connection.execute(
@@ -485,6 +486,11 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                 (parent_id, str(request_id), digest, job_id),
             )
             return self._observe(connection, parent_id, job_id)
+
+    def _on_observation_job_admitted(
+        self, connection: sqlite3.Connection, job_id: str, parent_id: str
+    ) -> None:
+        """Private consumers may capture new jobs in their owning insert transaction."""
 
     def _observe(
         self, connection: sqlite3.Connection, parent_id: str, job_id: str

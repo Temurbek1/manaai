@@ -542,6 +542,28 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_remainder_app() -> FastAPI:
+    """New observation analyses share the unchanged global 2000-token allowance."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/remainder-simulation",
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            parallel_worker=True,
+            safety_remainder=True,
+            expiry_fixture_days=30,
+        )
+    )
+
+
 def create_parallel_app() -> FastAPI:
     """Existing single-family scenarios with bounded independent worker lanes."""
     root = Path(__file__).resolve().parents[1]

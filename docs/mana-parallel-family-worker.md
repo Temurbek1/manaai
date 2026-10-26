@@ -32,9 +32,11 @@ safety still waits for its review; concurrency does not bypass it. Urgent priori
 does not imply cancelling an unreceipted model or refunding its unknown usage.
 
 No token/read/send allowance increases. Parent-Touch remains 2000 raw tokens per
-parent/day and Child-Safety 2000 global/day. Existing native per-job reservations
-can still exhaust admission after one analysis even when some raw daily tokens
-remain; parallelism is not fleet capacity or a remedy for that budget constraint.
+parent/day and Child-Safety 2000 global/day. Ordinary observation jobs originally
+required their full configured reserve even after a short verified analysis;
+native parent reviews already reuse a bounded remainder. The later opt-in
+[observation remainder profile](mana-safety-remainder.md) addresses that distinct
+admission constraint. Parallelism alone is not fleet capacity.
 
 ## Failure, shutdown and compatibility
 

@@ -86,6 +86,7 @@ def _validate_existing_native_schema(path: Path) -> None:
             24,
             25,
             26,
+            27,
         }:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:
@@ -317,11 +318,22 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
 
         return await asyncio.to_thread(source)
 
+    def _remaining_eligibility(self) -> str:
+        return (
+            "j.kind='parent_message' AND EXISTS(SELECT 1 FROM source_tool_turns n "
+            "WHERE n.parent_id=j.parent_id AND n.turn_id=j.parent_turn_cutoff)"
+        )
+
+    def _remaining_reserve(
+        self, connection: sqlite3.Connection, row: sqlite3.Row, remaining: int, own: int
+    ) -> int:
+        return min(self._safety_limits.job_tokens, remaining, own)
+
     def _claim_next(self, now: datetime) -> SafetyJob | None:
         ordinary = super()._claim_next(now)
         if ordinary is not None:
             return ordinary
-        # Only newly captured native reviews may use the remaining allowance.
+        # Only explicitly captured jobs may use the remaining allowance.
         # Historical jobs retain their original full-job reservation contract.
         with self._transaction() as connection:
             self._recover(connection, now)
@@ -334,9 +346,9 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             if remaining < 64 or attempts >= self._safety_limits.server_daily_attempts:
                 return None
             row = connection.execute(
-                "SELECT j.* FROM child_safety_jobs j JOIN source_tool_turns n "
-                "ON n.parent_id=j.parent_id AND n.turn_id=j.parent_turn_cutoff "
-                "WHERE j.status='queued' AND j.kind='parent_message' AND NOT EXISTS "
+                "SELECT j.* FROM child_safety_jobs j WHERE j.status='queued' AND ("
+                + self._remaining_eligibility()
+                + ") AND NOT EXISTS "
                 "(SELECT 1 FROM child_safety_jobs p WHERE p.parent_id=j.parent_id "
                 "AND p.status IN ('preparing','submitted','unknown','metered')) "
                 "AND (SELECT COALESCE(SUM(p.input_tokens+p.output_tokens),0) "
@@ -353,7 +365,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             if row is None:
                 return None
             own = self._budget(connection, row["parent_id"], now).parent_remaining_tokens
-            reserve = min(self._safety_limits.job_tokens, remaining, own)
+            reserve = self._remaining_reserve(connection, row, remaining, own)
             connection.execute(
                 "UPDATE child_safety_jobs SET status='preparing',claim_id=?,lease_expires_at=?,"
                 "day=?,reserved=?,updated_at=? WHERE job_id=? AND status='queued'",

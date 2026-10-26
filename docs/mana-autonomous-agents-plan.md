@@ -1,5 +1,11 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The local [observation budget reuse](mana-safety-remainder.md) removes the full-job
+admission bottleneck for new captured background/direct observations while keeping
+2000 global Safety tokens/day and every unknown hold. Native parent reviews already
+had their separate bounded path. No old task/protocol upgrade or source activation
+is implied; real capacity and the remaining full scope below are still unproven.
+
 The local [parallel family worker](mana-parallel-family-worker.md) removes the
 shared slow-inference bottleneck for unrelated owning workflows under the same
 SQL claims, priorities and budgets. It adds no collection schedule or model/source

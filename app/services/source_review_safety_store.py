@@ -171,6 +171,7 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
                         now.isoformat(),
                     ),
                 )
+                self._on_observation_job_admitted(db, identity, parent)
             else:
                 identity = prior["job_id"]
             db.execute(

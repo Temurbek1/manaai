@@ -2,6 +2,18 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_CHILD_SAFETY_REMAINDER_ENABLED` uses family v27.
+  Read `docs/mana-safety-remainder.md`. Native parent reviews already reuse a
+  remainder; only new captured child-data/source-review jobs gain the additional
+  path. Freeze one parent/job/original-ceiling row in its owning insert transaction;
+  old/disabled/content-replayed jobs never backfill. Keep existing queue/day/attempt
+  limits, full input/output preflight, unknown cross-day holds and parent isolation.
+  No smaller substitute objective, model change, retries, new read/schedule or
+  token allowance follows. There is one indexed metadata row per existing job,
+  no lifetime scan/counter. Use current closed v27; v26 refusal is not working
+  rollback. The pre-freeze counter prototype is not the final schema/artifact.
+  Production and the full original goal remain unchanged/open.
+
 - The local default-disabled `MANA_FAMILY_PARALLEL_WORKER_ENABLED` changes only
   scheduling, not SQL schemas or captured model/source protocols. Read
   `docs/mana-parallel-family-worker.md`. Nine fixed lanes each await one owning

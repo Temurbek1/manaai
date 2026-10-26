@@ -36,6 +36,10 @@ chat-lab-trial-end:
 chat-lab-parallel:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_parallel_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 
+.PHONY: chat-lab-remainder
+chat-lab-remainder:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_remainder_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 .PHONY: chat-lab-location
 chat-lab-location:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_location_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

@@ -113,6 +113,7 @@ from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_reminder_store import SqliteParentReminderStore
 from app.services.parent_touch_manager_store import SqliteParentTouchManagerStore
 from app.services.retention_expiry_store import SqliteRetentionExpiryStore
+from app.services.safety_remainder_store import SqliteSafetyRemainderStore
 from app.services.shared_conversion_profile_store import SqliteSharedConversionProfileStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
@@ -747,11 +748,16 @@ class LabOptions:
     trial_action_cards: bool = False
     trial_end: bool = False
     parallel_worker: bool = False
+    safety_remainder: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.safety_remainder and (
+            not options.manager or not options.source_reviews or options.action_cards
+        ):
+            raise ValueError("Safety remainder lab requires its complete family profile")
         if options.trial_end and (not options.trial_periods or options.action_cards):
             raise ValueError("Trial-end lab requires its own confirmed-period profile")
         if options.trial_action_cards and (not options.action_cards or options.trial_periods):
@@ -871,6 +877,8 @@ class ChatLab:
             expected["trial_end"] = True
         if self.options.parallel_worker:
             expected["parallel_worker"] = True
+        if self.options.safety_remainder:
+            expected["safety_remainder"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -987,7 +995,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteTrialEndStore
+                SqliteSafetyRemainderStore
+                if self.options.safety_remainder
+                else SqliteTrialEndStore
                 if self.options.trial_end
                 else SqliteLabTrialActionStore
                 if self.options.trial_action_cards
@@ -1047,6 +1057,8 @@ class ChatLab:
                 reminder_options["trial_periods_enabled"] = True
             if self.options.trial_end:
                 reminder_options["trial_end_enabled"] = True
+            if self.options.safety_remainder:
+                reminder_options["remainder_enabled"] = True
             if self.options.trial_action_cards:
                 reminder_options.update(trial_cards_enabled=True, trial_periods_enabled=True)
             if self.options.location:
