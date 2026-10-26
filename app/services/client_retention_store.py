@@ -17,6 +17,7 @@ from app.mana_ai.domain.client_retention import (
     RetentionIntent,
 )
 from app.mana_ai.domain.family_agents import (
+    FamilyQuestion,
     ParentTouchMessageRequest,
     ParentTouchMessageState,
     ParentTouchReviewedTurn,
@@ -39,6 +40,12 @@ _TABLES = {
 
 class SqliteClientRetentionStore(SqliteParentReminderStore):
     _schema_version = 15
+
+    async def retention_question(self, parent_id: str, turn_id: int) -> FamilyQuestion | None:
+        return None
+
+    def _on_retention_opt_out(self, db: sqlite3.Connection, parent_id: str) -> None:
+        pass
 
     def __init__(
         self, path: Path, *, retention_policy: ClientRetentionPolicy, **family: Any
@@ -143,8 +150,9 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
             ).fetchone()
             or db.execute(
                 "SELECT 1 FROM family_questions WHERE parent_id=? AND (status IN "
-                "('offered','awaiting_reply','held') OR (status='queued' AND expires_at>?))",
-                (parent, now.isoformat()),
+                "('offered','awaiting_reply','held') OR (status='queued' AND expires_at>?)) "
+                "AND (offered_turn_id IS NULL OR offered_turn_id<>?)",
+                (parent, now.isoformat(), turn_id),
             ).fetchone()
             or db.execute(
                 "SELECT 1 FROM family_notices WHERE parent_id=? AND (status IN "
@@ -426,6 +434,7 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
                 self._retention_event(
                     db, request.parent_id, None, "parent_opted_out", self._utc(now)
                 )
+                self._on_retention_opt_out(db, request.parent_id)
                 contact = _current_context(db, request.parent_id, self._utc(now))
                 language = (
                     "en"

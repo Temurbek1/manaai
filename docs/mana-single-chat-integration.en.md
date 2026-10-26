@@ -952,3 +952,35 @@ returns/records the existing budget failure rather than substituting a smaller
 question. The app must not automatically retry it with a new ID or reduced data.
 Try `make chat-lab-remainder CHAT_LAB_PORT=8102`; read
 [accounting, migration and evidence limits](mana-safety-remainder.md).
+
+## 35. Questions addressed to the parent (local, not released)
+
+New Retention check-ins can ask a managed support question about the parent's
+historical topic or MANA settings. Do not attribute this to a child. The existing
+history fields can now contain this shape:
+
+```json
+{
+  "active_question": {
+    "question_id": "114bdee2-3755-5d88-a9fc-f2c4b733ebb1",
+    "child_id": null,
+    "scope": "parent",
+    "turn_id": 2
+  }
+}
+```
+
+This is a fictional ID, not a production request. Numeric child questions omit
+`scope` and retain their existing meaning. The parent answers through the same
+`POST /api/v1/mana-ai/parent-touch/messages`, with the original `parent_id`, a new
+message UUID, their text and this `reply_to_question_id`. No new chat, `agent_id`,
+child ID or extra mobile operation is needed. Retry only the identical message
+UUID/body if its acknowledgement is lost; status/history reads do not resend.
+
+There is one shared question slot. Urgent Safety notices may interrupt while the
+parent question remains active. The server keeps the exact original question
+context and routes the answer according to its content. Independent Retention
+permissions and the existing 2000-token Parent-Touch allowance still apply.
+
+Try `make chat-lab-parent-support CHAT_LAB_PORT=8103`; read
+[migration, model diagnostics and acceptance limits](mana-parent-support-questions.md).

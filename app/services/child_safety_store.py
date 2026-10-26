@@ -209,7 +209,7 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
         answer_positions = ",".join("?" for _ in turns) or "NULL"
         needs = []
         for question in connection.execute(
-            "SELECT * FROM family_questions WHERE parent_id=? AND "
+            "SELECT * FROM family_questions WHERE parent_id=? AND child_id IS NOT NULL AND "
             "(status IN ('queued','offered','awaiting_reply','held') "
             f"OR (status='answered' AND answer_turn_id IN ({answer_positions}))) "
             "ORDER BY position LIMIT 1011",
@@ -219,6 +219,8 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
             if question["status"] == "answered" and answer is None:
                 continue
             value = self._question(question)
+            if value.child_id is None:
+                raise ParentChatError("safety_question_scope_invalid", 503)
             needs.append(
                 SafetyConversationNeed(
                     child_id=value.child_id,

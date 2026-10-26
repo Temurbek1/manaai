@@ -251,7 +251,7 @@ class SqliteTouchEvidenceStore(SqliteFamilyAgentStore):
                     "AND offered_turn_id=? AND status='offered'",
                     (parent_id, turn_id),
                 ).fetchall():
-                    if question["child_id"] not in connected:
+                    if question["child_id"] is not None and question["child_id"] not in connected:
                         connection.execute(
                             "UPDATE family_questions SET status='cancelled' WHERE question_id=?",
                             (question["question_id"],),

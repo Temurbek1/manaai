@@ -71,7 +71,8 @@ class AgentQuestionRequest(ChatContract):
 class FamilyQuestion(ChatContract):
     question_id: UUID
     parent_id: ParentChatId
-    child_id: int = Field(gt=0, strict=True)
+    child_id: int | None = Field(gt=0, strict=True)
+    scope: Literal["parent"] | None = Field(default=None, exclude_if=lambda v: v is None)
     information_key: InformationKey
     question: str
     reason: str
@@ -82,6 +83,12 @@ class FamilyQuestion(ChatContract):
     created_at: AwareDatetime
     offered_turn_id: int | None = None
     answer_turn_id: int | None = None
+
+    @model_validator(mode="after")
+    def target(self) -> "FamilyQuestion":
+        if (self.child_id is None) != (self.scope == "parent"):
+            raise ValueError("A parent question has no child; a child question needs its child ID")
+        return self
 
 
 class AgentQuestionReceipt(ChatContract):
@@ -162,8 +169,15 @@ class ParentTouchDeferredTurn(ParentTouchDeliveryTurn):
 
 class ParentTouchQuestion(ChatContract):
     question_id: UUID
-    child_id: int = Field(gt=0, strict=True)
+    child_id: int | None = Field(gt=0, strict=True)
+    scope: Literal["parent"] | None = Field(default=None, exclude_if=lambda v: v is None)
     turn_id: int = Field(gt=0, strict=True)
+
+    @model_validator(mode="after")
+    def target(self) -> "ParentTouchQuestion":
+        if (self.child_id is None) != (self.scope == "parent"):
+            raise ValueError("A question must identify exactly one parent or child scope")
+        return self
 
 
 class ParentTouchNotice(ChatContract):

@@ -5180,7 +5180,7 @@ export interface components {
             /** Answer Turn Id */
             answer_turn_id?: number | null;
             /** Child Id */
-            child_id: number;
+            child_id: number | null;
             /**
              * Created At
              * Format: date-time
@@ -5213,6 +5213,8 @@ export interface components {
             question_id: string;
             /** Reason */
             reason: string;
+            /** Scope */
+            scope?: "parent" | null;
             /**
              * Status
              * @enum {string}
@@ -7108,12 +7110,14 @@ export interface components {
         /** ParentTouchQuestion */
         ParentTouchQuestion: {
             /** Child Id */
-            child_id: number;
+            child_id: number | null;
             /**
              * Question Id
              * Format: uuid
              */
             question_id: string;
+            /** Scope */
+            scope?: "parent" | null;
             /** Turn Id */
             turn_id: number;
         };

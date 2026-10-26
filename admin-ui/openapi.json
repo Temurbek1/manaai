@@ -8297,9 +8297,16 @@
             "title": "Answer Turn Id"
           },
           "child_id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Child Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
           },
           "created_at": {
             "format": "date-time",
@@ -8355,6 +8362,18 @@
           "reason": {
             "title": "Reason",
             "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "parent",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
           },
           "status": {
             "enum": [
@@ -13914,14 +13933,33 @@
         "additionalProperties": false,
         "properties": {
           "child_id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Child Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Id"
           },
           "question_id": {
             "format": "uuid",
             "title": "Question Id",
             "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "parent",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
           },
           "turn_id": {
             "exclusiveMinimum": 0.0,

@@ -131,6 +131,7 @@ class ParentChatStore(Protocol):
 
 
 class ParentTouchStore(ParentChatStore, Protocol):
+    async def answered_parent_question(self, parent_id: str, turn_id: int) -> str | None: ...
     async def commercial_context(
         self, parent_id: str, turn_id: int
     ) -> CommercialConversationContext | None: ...

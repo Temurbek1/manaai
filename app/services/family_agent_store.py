@@ -63,7 +63,7 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
             "family_information_revisions",
         }
 
-    def _extra_schema(self) -> str:
+    def _question_schema(self) -> str:
         return """
             CREATE TABLE IF NOT EXISTS family_questions (
                 position INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,6 +88,12 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 WHERE status IN ('offered', 'awaiting_reply', 'held');
             CREATE INDEX IF NOT EXISTS family_question_order
                 ON family_questions(parent_id, status, priority DESC, position);
+        """
+
+    def _extra_schema(self) -> str:
+        return (
+            self._question_schema()
+            + """
             CREATE TABLE IF NOT EXISTS family_question_intents (
                 parent_id TEXT NOT NULL,
                 agent_id TEXT NOT NULL,
@@ -138,6 +144,7 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
                 PRIMARY KEY(parent_id, child_id, information_key, source_revision)
             );
         """
+        )
 
     @staticmethod
     def _digest(request: ParentChatRequest) -> str:
@@ -235,6 +242,9 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
         return previous["id"], previous["reference"]
 
     async def language_hint(self, parent_id: str, turn_id: int) -> ResponseLanguage | None:
+        return None
+
+    async def answered_parent_question(self, parent_id: str, turn_id: int) -> str | None:
         return None
 
     async def commercial_context(
@@ -432,7 +442,10 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
     @staticmethod
     def _public_question(row: sqlite3.Row) -> ParentTouchQuestion:
         return ParentTouchQuestion(
-            question_id=row["question_id"], child_id=row["child_id"], turn_id=row["turn_id"]
+            question_id=row["question_id"],
+            child_id=row["child_id"],
+            turn_id=row["turn_id"],
+            scope="parent" if row["child_id"] is None else None,
         )
 
     async def asked_question(self, parent_id: str, request_id: UUID) -> ParentTouchQuestion | None:

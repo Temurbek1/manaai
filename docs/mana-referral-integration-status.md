@@ -1,5 +1,18 @@
 # Referral and loyalty integration — current evidence, 2026-10-25
 
+## Subsequent schema-only observation — 2026-10-26
+
+`output/parent-contract-shape-20261026/` records one new bounded schema check of
+designated test parent 4: login 200 and the same filtered one-page Parent List
+GET 200, two HTTP attempts total. Only field types/list lengths were retained,
+not personal values, subscription booleans/dates or credentials. It confirms the
+existing commercial field names and five child-profile rows in this record; no
+referral or contact-preference fields were present. This does not prove absence
+from other services or update October 25's historical paid/trial values below.
+No grant, model, push, Firebase/GA4 or production change followed this read.
+
+## Original October 25 evidence
+
 The owner confirms that MANA already has a referral mechanism and will supply its
 contract. Do not invent a replacement program or treat the lack of documentation
 below as proof that the mechanism does not exist. Parent-Touch remains the only

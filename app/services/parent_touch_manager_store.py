@@ -106,7 +106,7 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
     ) -> bool:
         if (
             not self._manager_enabled
-            or request.reply_to_question_id is not None
+            or self._question_reply_needs_safety(db, request, turn_id)
             or self._manager_priority(db, request.parent_id, turn_id, now)
         ):
             return False
@@ -132,6 +132,11 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
             ),
         )
         return True
+
+    def _question_reply_needs_safety(
+        self, db: sqlite3.Connection, request: ParentTouchReviewedTurn, turn_id: int
+    ) -> bool:
+        return request.reply_to_question_id is not None
 
     @staticmethod
     def _message(db: sqlite3.Connection, parent_id: str, request_id: UUID) -> ReviewedMessage:

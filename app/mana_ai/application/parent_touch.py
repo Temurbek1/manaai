@@ -371,6 +371,9 @@ class ParentTouchService(ParentChatService):
         data = json.loads(messages[0][1])
         if not isinstance(data, dict) or "profiles" not in data:
             raise ParentChatError("touch_context_invalid", 503)
+        answered = await self._touch_store.answered_parent_question(request.parent_id, turn.turn_id)
+        if answered is not None:
+            data["answered_parent_question"] = answered
         guidance = None
         manager_scope = (
             await self.manager.manager_scope(request.parent_id, turn.turn_id)
@@ -439,6 +442,8 @@ class ParentTouchService(ParentChatService):
         if question is not None:
             if question.expires_at <= self._clock():
                 raise ParentChatError("question_expired", 409)
+            if question.child_id is None:
+                raise ParentChatError("parent_question_owning_turn_required", 409)
             child = next(
                 (
                     child

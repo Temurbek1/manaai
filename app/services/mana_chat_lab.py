@@ -111,6 +111,7 @@ from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_reminder_store import SqliteParentReminderStore
+from app.services.parent_support_question_store import SqliteParentSupportQuestionStore
 from app.services.parent_touch_manager_store import SqliteParentTouchManagerStore
 from app.services.retention_expiry_store import SqliteRetentionExpiryStore
 from app.services.safety_remainder_store import SqliteSafetyRemainderStore
@@ -513,6 +514,18 @@ class SimulatedModel:
                             maximum_price_minor=None,
                         ),
                     )
+            if prompt.retention_scope is not None and prompt.question is not None:
+                return ChatModelReceipt(
+                    usage=ChatTokens(input_tokens=100, output_tokens=50),
+                    model="lab-simulated-not-billed",
+                    completed=True,
+                    question_id=prompt.question.question_id,
+                    answer=(
+                        "MANA sozlamalari bilan yordam bera olaman. Qaysi sozlamani tushuntiray?"
+                        if prompt.response_language == "uz-Latn"
+                        else "Помогу разобраться с настройками MANA. С какой настройкой помочь?"
+                    ),
+                )
             if prompt.retention_scope is not None:
                 return ChatModelReceipt(
                     usage=ChatTokens(input_tokens=100, output_tokens=50),
@@ -749,11 +762,16 @@ class LabOptions:
     trial_end: bool = False
     parallel_worker: bool = False
     safety_remainder: bool = False
+    parent_support_questions: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.parent_support_questions and (
+            not options.manager or not options.retention or options.action_cards
+        ):
+            raise ValueError("Parent support lab requires the complete Retention profile")
         if options.safety_remainder and (
             not options.manager or not options.source_reviews or options.action_cards
         ):
@@ -877,6 +895,8 @@ class ChatLab:
             expected["trial_end"] = True
         if self.options.parallel_worker:
             expected["parallel_worker"] = True
+        if self.options.parent_support_questions:
+            expected["parent_support_questions"] = True
         if self.options.safety_remainder:
             expected["safety_remainder"] = True
         if (
@@ -995,7 +1015,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteSafetyRemainderStore
+                SqliteParentSupportQuestionStore
+                if self.options.parent_support_questions
+                else SqliteSafetyRemainderStore
                 if self.options.safety_remainder
                 else SqliteTrialEndStore
                 if self.options.trial_end
@@ -1057,6 +1079,8 @@ class ChatLab:
                 reminder_options["trial_periods_enabled"] = True
             if self.options.trial_end:
                 reminder_options["trial_end_enabled"] = True
+            if self.options.parent_support_questions:
+                reminder_options["parent_questions_enabled"] = True
             if self.options.safety_remainder:
                 reminder_options["remainder_enabled"] = True
             if self.options.trial_action_cards:

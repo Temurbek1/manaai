@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The local default-disabled `MANA_PARENT_SUPPORT_QUESTIONS_ENABLED` uses family
+  v28. Read `docs/mana-parent-support-questions.md` and integration section 35.
+  Capture only new owning Retention speaker turns; old/disabled/replayed turns
+  never backfill. Parent questions have `child_id=null, scope=parent` in the same
+  queue, never a fake child. Preserve one shared slot, exact answer/context,
+  urgent Safety priority, independent Retention consent and original quotas.
+  Parent support answers use the manager; child answers retain Safety review.
+  Require the admitted support question in its model schema; reject/cancel priced
+  invalid output, retain unknown holds, never requeue it as generic Safety contact.
+  The atomic queue nullability migration preserves all cells/indexes/high-water
+  marks, including empty queues. Use current closed v28; old refusal is not working
+  execution rollback. Preserve every paid party/negative review, including the
+  unclassified post-fix refusal. Local/browser/model evidence is not a source,
+  business outcome, full quality or production release acceptance. The full goal
+  and production boundary remain unchanged.
+
 - Local default-disabled `MANA_CHILD_SAFETY_REMAINDER_ENABLED` uses family v27.
   Read `docs/mana-safety-remainder.md`. Native parent reviews already reuse a
   remainder; only new captured child-data/source-review jobs gain the additional

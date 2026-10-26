@@ -92,6 +92,18 @@ class OpenAIParentChatModel:
                 schema["properties"]["question"] = {"type": "null"}
                 if prompt.reminder_scope is None and prompt.upsell_scope is None:
                     schema["properties"]["body"]["minLength"] = 1
+            elif prompt.retention_scope is not None and prompt.question.scope == "parent":
+                # This owning publication requires its question; ordinary child
+                # questions may still be deferred with null under their old contract.
+                schema["properties"]["question"] = {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": r"^[^?\u061f\uff1f]*[?\u061f\uff1f]$",
+                    "description": schema["properties"]["question"].get(
+                        "description", "The single admitted parent support question."
+                    ),
+                }
             schema["properties"]["notice_communicated"] = (
                 {"type": "boolean", "enum": [False]}
                 if prompt.notice is None

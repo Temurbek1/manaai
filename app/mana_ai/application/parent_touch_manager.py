@@ -47,10 +47,25 @@ def manager_prompt(
             "request_reminder_help when available. Call at most one tool, "
             "without arguments. Otherwise reply briefly to ordinary greetings "
             "or general app questions as JSON body containing statements, no "
-            "questions. You have no child telemetry or controls. Do not claim "
+            "questions. If answered_parent_question is supplied, interpret the latest "
+            "message as the explicitly bound answer to that historical support question, "
+            "not an answer about a child or a new action authorization. "
+            "You have no child telemetry or controls. Do not claim "
             "to check sources yourself."
         )
-        selected: dict[str, object] = {}
+        selected: dict[str, object] = (
+            {"answered_parent_question": data["answered_parent_question"]}
+            if "answered_parent_question" in data
+            else {}
+        )
+        if selected:
+            instructions += (
+                "Treat the bound support question as historical conversation. Phone settings "
+                "may help but never guarantee timely notification delivery. Distinguish "
+                "allowing notifications/background work from removing battery restrictions; "
+                "do not recommend disabling notifications or background work. The device OS "
+                "and actual permission state remain unknown."
+            )
     elif scope.stage == "child_safety":
         instructions = shared + (
             "Child-Safety reviewed this exact message. Relay its qualified guidance to the "
