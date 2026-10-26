@@ -44,7 +44,9 @@ async function environment({
   sourceStatus = "completed",
   confirmation = null,
   question = null,
+  stateBusyOnce = false,
 } = {}) {
+  let remainingBusy = stateBusyOnce ? 1 : 0;
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, new Element());
@@ -94,7 +96,11 @@ async function environment({
           parent_id: "900001",
           scenarios,
         });
-      if (url === "/lab/state") return response(200, state);
+      if (url === "/lab/state") {
+        if (remainingBusy-- > 0)
+          return response(409, { detail: { code: "lab_state_busy" } });
+        return response(200, state);
+      }
       if (options.method === "POST") {
         if (url === "/lab/child-battery")
           return response(200, { status: sourceStatus, cache_hit: true });
@@ -121,6 +127,16 @@ async function environment({
   };
   return { element, saved, requests, timers, submit };
 }
+
+test("busy SQL observation stays read-only and recovers without an error or POST", async () => {
+  const env = await environment({ stateBusyOnce: true });
+  assert.equal(env.element("error").hidden, true);
+  assert.ok(env.requests.filter((r) => r.url === "/lab/state").length >= 2);
+  assert.equal(
+    env.requests.filter((r) => r.options.method === "POST").length,
+    0,
+  );
+});
 
 test("local source scenario uses the isolated lab route, not a product endpoint", async () => {
   const env = await environment({

@@ -38,6 +38,7 @@ from app.mana_ai.application.source_reviews import SourceReviewService
 from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
+from app.mana_ai.domain.child_location import ChildLocationFacts
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
     SafetyAssessmentPage,
@@ -95,8 +96,11 @@ from app.services.day_review_cache import SqliteDayReviewCache
 from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
+from app.services.lab_location import LabLocationSource
 from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.lab_trial_period import LabTrialProfiles, seed_trial_history
+from app.services.location_safety_store import SqliteLocationSafetyStore
+from app.services.location_source_cache import SqliteLocationSourceCache
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
@@ -382,10 +386,21 @@ class SimulatedModel:
             decision: SafetyModelDecision | SafetySourceReviewDecision
             data = json.loads(prompt.messages[0][1])
             if data["kind"] == "source_review":
+                location_facts = next(
+                    (
+                        s["facts"]
+                        for s in data["snapshots"]
+                        if s["source"] == "firebase.child_location.v1"
+                    ),
+                    None,
+                )
                 decision = SafetySourceReviewDecision(
                     analysis=None,
                     followup_summary=(
-                        "Снимки батареи и приложений получены; период счётчиков "
+                        f"Последняя запись местоположения от {location_facts['observed_at']}; "
+                        "текущее местоположение неизвестно. Проверьте карту в приложении."
+                        if location_facts is not None
+                        else "Снимки батареи и приложений получены; период счётчиков "
                         "и текущее подключение неизвестны. Проверьте заряд телефона."
                     ),
                     question=None,
@@ -576,6 +591,17 @@ class SimulatedModel:
                         "и часовой пояс неизвестны; это не экранное время за день. "
                         "Проверьте заряд телефона."
                     )
+                    for fact in prompt.notice.source_observations:
+                        if isinstance(fact, ChildLocationFacts):
+                            stamp = fact.observed_at.isoformat() if fact.observed_at else "unknown"
+                            if len(prompt.notice.source_observations) == 1:
+                                answer = ""
+                            answer += (
+                                f" Oxirgi joylashuv yozuvi {stamp}; hozirgi joylashuv noma’lum."
+                                if uzbek
+                                else f" Последняя запись местоположения от {stamp}; "
+                                "текущее местоположение неизвестно."
+                            )
                 if prompt.notice.query_calendar_days:
                     answer = (
                         ", ".join(d.isoformat() for d in prompt.notice.query_calendar_days)
@@ -605,6 +631,15 @@ class SimulatedModel:
                         if uzbek or "ilova" in prompt.messages[-1][1].casefold()
                         else "Есть часть счётчиков приложений; период и часовой пояс неизвестны. "
                         "Это не экранное время за день."
+                    )
+                elif sources and "is_moving" in sources[0]:
+                    stamp = sources[0]["observed_at"] or "unknown"
+                    answer = (
+                        f"Oxirgi joylashuv yozuvi {stamp}. Hozirgi joylashuv noma’lum. "
+                        "Ilovadagi xaritani tekshiring."
+                        if uzbek
+                        else f"Последняя запись местоположения от {stamp}. "
+                        "Текущее местоположение неизвестно. Проверьте карту в приложении."
                     )
                 elif sources and sources[0]["status"] == "available":
                     stamp = sources[0]["observed_at"] or "unknown"
@@ -696,10 +731,19 @@ class LabOptions:
     shared_conversion_profile: bool = False
     manager: bool = False
     trial_periods: bool = False
+    location: bool = False
+    expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if type(options.expiry_fixture_days) is not int or options.expiry_fixture_days not in {
+            2,
+            30,
+        }:
+            raise ValueError("Unsupported fictional expiry fixture")
+        if options.location and not (options.day_usage and options.manager):
+            raise ValueError("Location lab requires the governed native manager profile")
         if options.trial_periods and not options.manager:
             raise ValueError("Trial-period lab requires the current manager profile")
         if options.manager and not options.expiry:
@@ -730,7 +774,7 @@ class ChatLab:
             or not isinstance(options.clock, LabCollectionClock)
         ):
             raise ValueError("Collection lab requires fictional time, sources and model")
-        self.options = options
+        self.options: LabOptions = options
         if options.upsell and not options.retention:
             raise ValueError("Upsell lab requires the complete conversation runtime")
         if options.retention and not options.reminders:
@@ -777,6 +821,8 @@ class ChatLab:
             expected["tariff_context"] = True
         if self.options.expiry:
             expected["expiry"] = True
+        if self.options.expiry_fixture_days != 2:
+            expected["expiry_fixture_days"] = self.options.expiry_fixture_days
         if self.options.day_usage:
             expected["day_usage"] = True
         if self.options.dated_reviews:
@@ -791,6 +837,8 @@ class ChatLab:
             expected["manager"] = True
         if self.options.trial_periods:
             expected["trial_periods"] = True
+        if self.options.location:
+            expected["location"] = True
         if (
             directory.is_symlink()
             or marker.is_symlink()
@@ -826,7 +874,8 @@ class ChatLab:
                         json.dumps(
                             {
                                 "valid_until": (
-                                    self.options.clock.now() + timedelta(days=2)
+                                    self.options.clock.now()
+                                    + timedelta(days=self.options.expiry_fixture_days)
                                 ).isoformat()
                             }
                         )
@@ -846,6 +895,7 @@ class ChatLab:
                 self.options.clock,
                 tariffs=self.options.collection_tariffs,
                 dated=self.options.day_collection,
+                location=self.options.location,
             )
         now = self.options.clock.now()
         limits = ChildSafetyLimits(
@@ -903,7 +953,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteTrialPeriodStore
+                SqliteLocationSafetyStore
+                if self.options.location
+                else SqliteTrialPeriodStore
                 if self.options.trial_periods
                 else SqliteParentTouchManagerStore
                 if self.options.manager
@@ -953,6 +1005,8 @@ class ChatLab:
                 reminder_options["shared_profile_enabled"] = True
             if self.options.trial_periods:
                 reminder_options["trial_periods_enabled"] = True
+            if self.options.location:
+                reminder_options["location_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -1029,7 +1083,9 @@ class ChatLab:
         )
         self.source_store = (
             (
-                SqliteDayReviewCache
+                SqliteLocationSourceCache
+                if self.options.location
+                else SqliteDayReviewCache
                 if self.options.dated_reviews
                 else SqliteDayUsageCache
                 if self.options.day_usage
@@ -1043,6 +1099,7 @@ class ChatLab:
                 review_policy=SourceReviewPolicy(coalesce_seconds=0)
                 if self.options.day_collection
                 else SourceReviewPolicy(),
+                **({"location_enabled": True} if self.options.location else {}),
                 **({"dated_reviews_enabled": True} if self.options.dated_reviews else {}),
             )
             if self.options.source_reviews
@@ -1057,12 +1114,14 @@ class ChatLab:
         await self.source_store.initialize()
         self.battery = LabBatterySource(directory, self.options.clock)
         self.app_usage = LabAppUsageSource(self.options.clock)
+        self.location = LabLocationSource(self.options.clock.now)
         self.sources = FamilySourceService(
             self.source_store,
             profiles,
             self.battery,
             clock=self.options.clock.now,
             app_usage=self.app_usage if self.options.native_observations else None,
+            location=self.location if self.options.location else None,
         )
         self.day_provider = LabDayUsageSource(profiles, self.options.clock)
         self.day_usage = (
@@ -1346,6 +1405,24 @@ class ChatLab:
             scheduled_collection=self.options.scheduled_collection,
             seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="source-location",
+                            title="Последнее местоположение (тестовый источник)",
+                            path="/lab/child-observation",
+                            local=True,
+                            body={
+                                "parent_id": LAB_PARENT,
+                                "child_id": LAB_CHILD,
+                                "request_id": str(uuid4()),
+                                "source": "firebase.child_location.v1",
+                            },
+                        )
+                    ]
+                    if self.options.location
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

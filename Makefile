@@ -20,6 +20,10 @@ chat-lab-manager:
 chat-lab-trial-periods:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_trial_period_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
 
+.PHONY: chat-lab-location
+chat-lab-location:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_location_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 .PHONY: chat-lab-day-usage
 chat-lab-day-usage:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_day_usage_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

@@ -49,6 +49,7 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             word in text for word in ("заряд", "батар", "quvvat", "zaryad", "battery")
         )
         wants_usage = any(word in text for word in ("приложен", "ilova", "app usage"))
+        wants_location = any(word in text for word in ("где", "местополож", "qayer", "location"))
         if results:
             tool_result = json.loads(results[-1]["output"])
             facts = tool_result["facts"]
@@ -59,6 +60,9 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
                 else "Частичная страница счётчиков приложений; период/часовой пояс неизвестны, "
                 "это не дневное экранное время."
                 if "entries" in facts
+                else f"Последняя запись местоположения от {facts['observed_at'] or 'unknown'}. "
+                "Текущее местоположение неизвестно; можно проверить карту в приложении."
+                if "is_moving" in facts
                 else f"В сохранённой записи заряд {facts['percent']}%; "
                 f"измерение: {facts['observed_at'] or 'время неизвестно'}. Подключение неизвестно."
                 if facts["status"] == "available"
@@ -72,6 +76,9 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             and children
             and (
                 wants_battery
+                or wants_location
+                and "location"
+                in payload["tools"][0]["parameters"]["properties"].get("kind", {}).get("enum", [])
                 or wants_usage
                 and payload["tools"][0]["name"] == "read_child_observation"
             )
@@ -80,6 +87,8 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             arguments: dict[str, str | None] = {"child_alias": children[0]["alias"]}
             if tool_name == "read_child_observation":
                 arguments["kind"] = "app_usage" if wants_usage else "battery"
+                if wants_location:
+                    arguments["kind"] = "location"
                 if "calendar_day" in payload["tools"][0]["parameters"]["properties"]:
                     arguments["calendar_day"] = None
                     if wants_usage:

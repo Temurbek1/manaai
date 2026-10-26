@@ -5,6 +5,7 @@ import json
 from app.mana_ai.application.chat_ports import ChatPrompt, ParentChatError
 from app.mana_ai.application.child_safety_ports import SafetyChildAlias, SafetyPrompt
 from app.mana_ai.domain.chat import ParentChildContext
+from app.mana_ai.domain.child_location import LOCATION_QUALIFICATION, LOCATION_SOURCE
 from app.mana_ai.domain.child_safety import SafetyJob
 
 INSTRUCTIONS = """You are Child-Safety, MANA's internal specialist for the adult parent.
@@ -36,7 +37,10 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
     if child is None:
         raise ParentChatError("source_review_ownership_denied", 403)
     snapshots = [
-        {"source": s.source, "facts": s.facts.model_dump(mode="json", exclude={"child_id"})}
+        {
+            "source": s.source,
+            "facts": s.facts.model_dump(mode="json", exclude={"child_id", "position_fingerprint"}),
+        }
         | (
             {"query_calendar_day": s.requested_day.isoformat()}
             if s.requested_day is not None
@@ -62,6 +66,11 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
     return SafetyPrompt(
         input=ChatPrompt(
             INSTRUCTIONS
+            + (
+                "\n" + LOCATION_QUALIFICATION
+                if any(s.source == LOCATION_SOURCE for s in bundle.snapshots)
+                else ""
+            )
             + (
                 "\nPreserve query_calendar_day as the requested API filter label, "
                 "not a verified measurement day, timezone or screen-time period."

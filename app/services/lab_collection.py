@@ -22,6 +22,7 @@ from app.services.dated_collection_store import SqliteDatedCollectionStore
 from app.services.day_usage_cache import SqliteDayUsageCache
 from app.services.family_collection_store import SqliteFamilyCollectionStore
 from app.services.inventory_tariff_store import SqliteInventoryTariffStore
+from app.services.location_collection_store import SqliteLocationCollectionStore
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 
 
@@ -48,13 +49,27 @@ class LabCollectionClock:
 
 
 async def lab_collection_store(
-    directory: Path, clock: LabCollectionClock, *, tariffs: bool = False, dated: bool = False
+    directory: Path,
+    clock: LabCollectionClock,
+    *,
+    tariffs: bool = False,
+    dated: bool = False,
+    location: bool = False,
 ) -> SqliteFamilyCollectionStore:
     dated_options: dict[str, Any] = (
-        {"dated_enabled": True, "source_binding": "fictional-dated-source-v1"} if dated else {}
+        {"dated_enabled": dated, "source_binding": "fictional-dated-source-v1"}
+        if dated or location
+        else {}
     )
+    location_options: dict[str, Any] = {"location_enabled": True} if location else {}
     store = (
-        (SqliteDatedCollectionStore if dated else SqliteInventoryTariffStore)(
+        (
+            SqliteLocationCollectionStore
+            if location
+            else SqliteDatedCollectionStore
+            if dated
+            else SqliteInventoryTariffStore
+        )(
             directory / "collection.sqlite3",
             binding="fake-lab-mana",
             policy=FamilyCollectionPolicy(page_size=1, reads_per_window=4),
@@ -62,9 +77,10 @@ async def lab_collection_store(
             tariff_policy=InventoryTariffPolicy(),
             recipient_binding="fictional-family-v17",
             tariffs_enabled=tariffs,
+            **location_options,
             **dated_options,
         )
-        if tariffs or dated
+        if tariffs or dated or location
         else SqliteFamilyCollectionStore(
             directory / "collection.sqlite3",
             binding="fake-lab-mana",

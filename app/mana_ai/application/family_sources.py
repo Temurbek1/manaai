@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from app.mana_ai.application.chat_ports import ParentChatError, ParentChildrenSource
 from app.mana_ai.domain.chat import ParentChildContext
+from app.mana_ai.domain.child_location import ChildLocationFacts
 from app.mana_ai.domain.family_sources import (
     ChildAppUsageFacts,
     ChildBatteryFacts,
@@ -27,6 +28,10 @@ class ChildBatterySource(Protocol):
 
 class ChildAppUsageSource(Protocol):
     async def read(self, child_id: int) -> ChildAppUsageFacts: ...
+
+
+class ChildLocationSource(Protocol):
+    async def read(self, child_id: int) -> ChildLocationFacts: ...
 
 
 class FamilySourceStore(Protocol):
@@ -60,9 +65,11 @@ class FamilySourceService:
         *,
         clock: Callable[[], datetime],
         app_usage: ChildAppUsageSource | None = None,
+        location: ChildLocationSource | None = None,
     ) -> None:
         self._store, self._children, self._battery, self._clock = store, children, battery, clock
         self._app_usage = app_usage
+        self._location = location
 
     async def read_child_battery(self, target: FamilySourceTarget) -> FamilySourceReceipt:
         if target.source != "firebase.child_battery.v1":
@@ -87,6 +94,8 @@ class FamilySourceService:
     ) -> FamilySourceReceipt:
         target = FamilySourceTarget.model_validate(target.model_dump())
         if target.source == "manakids.child_app_usage.v1" and self._app_usage is None:
+            raise ParentChatError("family_source_not_enabled", 503)
+        if target.source == "firebase.child_location.v1" and self._location is None:
             raise ParentChatError("family_source_not_enabled", 503)
         if int(target.parent_id) > 2**63 - 1:
             raise ParentChatError("parent_profile_id_required", 422)
@@ -114,10 +123,15 @@ class FamilySourceService:
                 raise ParentChatError("family_source_ownership_denied", 403)
             if claim.read_provider:
                 submitted = True
-                adapter: ChildBatterySource | ChildAppUsageSource = self._battery
+                adapter: ChildBatterySource | ChildAppUsageSource | ChildLocationSource = (
+                    self._battery
+                )
                 if target.source == "manakids.child_app_usage.v1":
                     assert self._app_usage is not None
                     adapter = self._app_usage
+                elif target.source == "firebase.child_location.v1":
+                    assert self._location is not None
+                    adapter = self._location
                 result = await adapter.read(target.child_id)
                 facts = source_facts(result.model_dump(), target.source)
                 if facts.child_id != target.child_id or not (

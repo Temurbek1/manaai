@@ -82,6 +82,7 @@ def _validate_existing_native_schema(path: Path) -> None:
             20,
             21,
             22,
+            23,
         }:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(source_tool_turns)")}
             if columns != {"parent_id", "turn_id", "profile"}:
@@ -261,6 +262,18 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 return cast(Literal[1, 2, 3], self._captured_protocol(row[0]))
 
         return await asyncio.to_thread(read)
+
+    async def native_location_enabled(self, job: SafetyJob) -> bool:
+        return False
+
+    async def native_location_prompt_version(self, job: SafetyJob) -> Literal[2] | None:
+        return None
+
+    def _validate_native_scope(
+        self, connection: sqlite3.Connection, job: SafetyJob, prepared: SourceToolPreparedInput
+    ) -> None:
+        if prepared.scope.location_enabled is not None:
+            raise ParentChatError("native_source_preparation_denied", 409)
 
     async def review_guidance(
         self, parent_id: str, turn_id: int, connected: tuple[int, ...]
@@ -468,6 +481,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 ):
                     raise ParentChatError("native_source_preparation_denied", 409)
                 self._validate_safety_publication(connection, row, self._utc(now))
+                self._validate_native_scope(connection, job, prepared)
                 payload = SourceToolPreparedInput.model_validate(
                     prepared.model_dump()
                 ).model_dump_json()

@@ -23,7 +23,9 @@ from app.mana_ai.domain.enums import (
     ManaAICapability,
     RiskLevel,
 )
-from app.mana_ai.domain.family_sources import ChildAppUsageFacts, ChildBatteryFacts
+from app.mana_ai.domain.family_sources import (
+    ChildSourceFacts,
+)
 from app.mana_ai.domain.parent_reminders import (
     ParentReminder,
     ReminderCandidate,
@@ -120,7 +122,7 @@ class ParentTouchReviewGuidance(ChatContract):
     reviewed_at: AwareDatetime
     parent_message_at: AwareDatetime
     authorized_child_ids: tuple[int, ...]
-    source_observations: tuple[ChildBatteryFacts | ChildAppUsageFacts, ...] = Field(
+    source_observations: tuple[ChildSourceFacts, ...] = Field(
         default=(), max_length=1, exclude_if=lambda value: not value
     )
     day_usage_query: date | None = Field(default=None, exclude_if=lambda v: v is None)
@@ -201,8 +203,8 @@ class FamilyNotice(ChatContract):
     kind: Literal["assessment", "urgent"]
     assessment: ParentTouchAssessment
     expires_at: AwareDatetime
-    source_observations: tuple[ChildBatteryFacts | ChildAppUsageFacts, ...] = Field(
-        default=(), max_length=3, exclude_if=lambda v: not v
+    source_observations: tuple[ChildSourceFacts, ...] = Field(
+        default=(), max_length=4, exclude_if=lambda v: not v
     )
     query_calendar_days: tuple[date, ...] = Field(
         default=(), max_length=1, exclude_if=lambda v: not v

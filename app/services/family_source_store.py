@@ -255,7 +255,7 @@ class SqliteFamilySourceStore:
                     seconds=self._limits.minimum_interval_seconds
                 ):
                     raise ParentChatError("family_source_read_cooldown", 429)
-                units = 2 if target.source == "firebase.child_battery.v1" else 0
+                units = 0 if target.source == "manakids.child_app_usage.v1" else 2
                 if budget[1] + units > self._limits.document_units_per_24h:
                     raise ParentChatError("family_source_document_limit", 429)
             receipt = FamilySourceReceipt(

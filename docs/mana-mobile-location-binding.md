@@ -68,7 +68,13 @@ retrying that rejected API or guessing another family.
 
 ## Next implementation boundary
 
-The autonomous runtime **does not yet load this GPS source**. Add a typed exact-
+At the original evidence-only checkpoint the autonomous runtime did not load this
+source. The subsequent local [GPS integration checkpoint](mana-family-location-source.md)
+now implements the bounded exact-document adapter, shared cache, native tools and
+existing collection windows. It is not deployed or complete route analysis. The
+following original design boundary remains relevant:
+
+Add a typed exact-
 child adapter through the existing shared request meter/cache/change journal,
 fresh ownership and immutable native tool capture. Reuse existing window/targeted
 read ceilings rather than a parallel refresh loop; unknown reads retain holds and

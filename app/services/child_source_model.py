@@ -58,6 +58,12 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                     "description": (
                         "Read own-child battery or a partial app-counter page; "
                         "dates/period may be unknown."
+                        + (
+                            " The captured location kind returns minimized dated point metadata, "
+                            "not coordinates, an address or current presence."
+                            if prompt.scope.location_enabled
+                            else ""
+                        )
                     ),
                     "parameters": {
                         "type": "object",
@@ -69,7 +75,8 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                             "kind": {
                                 "type": "string",
                                 "enum": ["battery", "app_usage"]
-                                + (["app_usage_day"] if prompt.scope.protocol == 3 else []),
+                                + (["app_usage_day"] if prompt.scope.protocol == 3 else [])
+                                + (["location"] if prompt.scope.location_enabled else []),
                             },
                             **(
                                 {
@@ -188,7 +195,9 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             "child_alias": alias,
             "source": receipt.source,
             "cache_hit": receipt.cache_hit,
-            "facts": receipt.facts.model_dump(mode="json", exclude={"child_id"})
+            "facts": receipt.facts.model_dump(
+                mode="json", exclude={"child_id", "position_fingerprint"}
+            )
             if receipt.facts is not None
             else None,
             "qualification": "Observations only; unknown measurement time stays unknown.",

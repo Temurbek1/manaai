@@ -2,6 +2,22 @@
 
 ## Repository expectations
 
+- The local default-disabled `MANA_FAMILY_LOCATION_ENABLED` profile uses family
+  v23/source v7/collection v4. Read `docs/mana-family-location-source.md`. Fresh
+  ownership gates one fixed-mask child-ID document GET; discard coordinates at
+  the adapter and omit point hashes from model context. New native captures and
+  existing 09:00/15:00 windows may acquire GPS under shared meters; old turns,
+  unknown reads and old windows never upgrade/replay. Preserve original GPS
+  prompt captures; compact v2 is bound only on new policy/scope admissions. Keep
+  observation/write/collection dates separate and never claim current presence,
+  routes, danger or geofence events from one last point. Current closed readers
+  retain new ledgers; old22/6/3 refusal is not working rollback. Preserve the failed
+  RU model party/corrected manager-cost audit, distinct near-budget UZ pass and
+  initial frozen-clock browser failure. One synthetic pass is not fleet capacity
+  or full quality. Existing 2000 parent/global safety limits and unknown holds
+  remain; this feature, collector and contact permissions are not production
+  activation. Keep the full original objective and remaining agents open.
+
 - The local default-disabled `MANA_CONVERSION_TRIAL_PERIODS_ENABLED` companion
   adds family v22 without changing source/collection protocols or public grant
   schemas. Read `docs/mana-confirmed-trial-periods.md`. Freeze each new grant's

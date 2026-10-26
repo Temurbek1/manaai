@@ -849,3 +849,29 @@ Try `make chat-lab-trial-periods` for an explicitly fictional one-day grant hist
 and same-chat price enquiry. This is a local default-disabled family-v22 feature,
 not confirmation of production activation. Read
 [implementation, test evidence, model diagnostics and rollback limits](mana-confirmed-trial-periods.md).
+
+## 29. Last-point GPS context (local, not released)
+
+The phone still uses the same message POST, message-status GET and history GET.
+The trusted server can now provide Child-Safety with the exact owned child's
+last-point metadata through its existing native tool and shared cache. No mobile
+Firebase credential, document path, new chat or client-selected agent is required.
+
+Parent-Touch preserves the observation date and uncertainty. A stored point,
+server update or recent collection is not the child's confirmed current position.
+The model receives no coordinates/address/route. If useful, the parent can open
+the application's existing map; this update does not add a new map/deeplink action.
+
+New source changes can reach the existing coalesced review and first-contact flow
+without waiting for a parent message. Current independent contact consent,
+language/timezone, quiet hours, safety priority and outreach caps remain mandatory.
+The persisted assistant message precedes any separately permitted neutral push.
+Reading GPS never grants contact permission. Existing collector occurrences stay
+09:00/15:00 Asia/Tashkent; this feature creates no refresh timer or listener.
+
+Try `make chat-lab-location`: the declared fictional source scenario first writes
+into the empty chat, then an ordinary location question uses its cache. The lab
+uses a running clock and respects quiet hours. It has no live Firebase, push,
+payment or grant adapter. Read
+[implementation, actual source/model checks and capacity limits](mana-family-location-source.md).
+This local family-v23 profile is default disabled and has not been released.

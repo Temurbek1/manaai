@@ -14,8 +14,11 @@ from pydantic import (
 )
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
+from app.mana_ai.domain.child_location import ChildLocationFacts
 
-FamilySourceKey = Literal["firebase.child_battery.v1", "manakids.child_app_usage.v1"]
+FamilySourceKey = Literal[
+    "firebase.child_battery.v1", "manakids.child_app_usage.v1", "firebase.child_location.v1"
+]
 ObservedSourceKey = FamilySourceKey | Literal["manakids.family_day_app_usage.v1"]
 
 
@@ -135,7 +138,7 @@ class FamilySourceReceipt(ChatContract):
         ]
         | None
     ) = None
-    facts: ChildBatteryFacts | ChildAppUsageFacts | None = None
+    facts: ChildBatteryFacts | ChildAppUsageFacts | ChildLocationFacts | None = None
 
     @model_validator(mode="after")
     def receipt_invariants(self) -> "FamilySourceReceipt":
@@ -160,6 +163,10 @@ class FamilySourceReceipt(ChatContract):
             self.source == "firebase.child_battery.v1"
         ):
             raise ValueError("Source facts do not match their provider kind")
+        if self.facts is not None and isinstance(self.facts, ChildLocationFacts) != (
+            self.source == "firebase.child_location.v1"
+        ):
+            raise ValueError("Location facts do not match their provider kind")
         return self
 
 
@@ -189,10 +196,12 @@ class FamilySourceChange(ChatContract):
         return result
 
 
-ChildSourceFacts = ChildBatteryFacts | ChildAppUsageFacts
+ChildSourceFacts = ChildBatteryFacts | ChildAppUsageFacts | ChildLocationFacts
 
 
 def source_facts(payload: object, source: FamilySourceKey) -> ChildSourceFacts:
+    if source == "firebase.child_location.v1":
+        return ChildLocationFacts.model_validate(payload)
     return (
         ChildBatteryFacts.model_validate(payload)
         if source == "firebase.child_battery.v1"

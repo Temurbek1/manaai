@@ -38,7 +38,7 @@ class ObservationSourceArguments(BatterySourceArguments):
 
 
 class DatedObservationArguments(BatterySourceArguments):
-    kind: Literal["battery", "app_usage", "app_usage_day"]
+    kind: Literal["battery", "app_usage", "app_usage_day", "location"]
     calendar_day: str | None = Field(pattern=r"^\d{4}-\d{2}-\d{2}$", strict=True)
 
     @model_validator(mode="after")
@@ -61,6 +61,8 @@ class SourceToolScope(ChatContract):
     children: tuple[SourceToolChild, ...] = Field(max_length=20)
     protocol: Literal[1, 2, 3] = 1
     calendar_today: date | None = Field(default=None, exclude_if=lambda v: v is None)
+    location_enabled: Literal[True] | None = Field(default=None, exclude_if=lambda v: v is None)
+    location_prompt_version: Literal[2] | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_serializer(mode="wrap")
     def original_scope(self, handler: SerializerFunctionWrapHandler) -> object:
@@ -78,6 +80,10 @@ class SourceToolScope(ChatContract):
             raise ValueError("Invalid native source family scope")
         if (self.protocol == 3) != (self.calendar_today is not None):
             raise ValueError("Only dated source scopes freeze their query-calendar date")
+        if self.location_enabled is not None and self.protocol != 3:
+            raise ValueError("Location tools require the new captured dated-source profile")
+        if self.location_prompt_version is not None and self.location_enabled is not True:
+            raise ValueError("A location prompt version requires its original source capture")
         return self
 
     def validate_call(
@@ -91,6 +97,8 @@ class SourceToolScope(ChatContract):
         }:
             raise ValueError("The exact captured source protocol and child are required")
         day = source_call_day(call)
+        if source_call_key(call) == "firebase.child_location.v1" and not self.location_enabled:
+            raise ValueError("Location was not captured in this source scope")
         if day is not None and (
             self.calendar_today is None or not 1 <= (self.calendar_today - day).days <= 31
         ):
@@ -164,6 +172,8 @@ def source_call_key(
         return (
             DAY_USAGE_SOURCE
             if kind == "app_usage_day"
+            else "firebase.child_location.v1"
+            if kind == "location"
             else "firebase.child_battery.v1"
             if kind == "battery"
             else "manakids.child_app_usage.v1"

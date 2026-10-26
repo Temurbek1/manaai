@@ -17,9 +17,10 @@ const errors = {
   lab_csrf_failed: "Сессия сервера изменилась. Обновите страницу.",
 };
 class LabApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, code = null) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 async function api(path, options = {}) {
@@ -36,7 +37,7 @@ async function api(path, options = {}) {
   const body = await response.json();
   if (!response.ok) {
     const code = body.detail?.code || body.detail || `HTTP ${response.status}`;
-    throw new LabApiError(errors[code] || String(code), response.status);
+    throw new LabApiError(errors[code] || String(code), response.status, code);
   }
   return body;
 }
@@ -135,8 +136,20 @@ function draw() {
   $("raw-state").textContent = JSON.stringify(state, null, 2);
 }
 async function refresh() {
-  state = await api("/lab/state");
+  try {
+    state = await api("/lab/state");
+  } catch (error) {
+    if (
+      error instanceof LabApiError &&
+      error.status === 409 &&
+      error.code === "lab_state_busy"
+    ) {
+      return false; // The next observer tick reads SQL; it never repeats a POST.
+    }
+    throw error;
+  }
   draw();
+  return true;
 }
 async function observePending() {
   if (!pending) return;

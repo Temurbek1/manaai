@@ -490,6 +490,28 @@ def create_day_usage_app() -> FastAPI:
     )
 
 
+def create_location_app() -> FastAPI:
+    """Fictional dated GPS metadata -> Child-Safety -> the existing single chat."""
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=LabOptions(
+            root / "data/chat-lab/location-simulation",
+            expiry_fixture_days=30,
+            native_sources=True,
+            native_observations=True,
+            source_reviews=True,
+            reminders=True,
+            retention=True,
+            upsell=True,
+            tariff_context=True,
+            expiry=True,
+            manager=True,
+            day_usage=True,
+            location=True,
+        )
+    )
+
+
 def create_trial_period_app() -> FastAPI:
     """Simulated one-day grant -> verified expiry -> same-chat tariff enquiry."""
     root = Path(__file__).resolve().parents[1]

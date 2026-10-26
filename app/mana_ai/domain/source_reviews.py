@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
+from app.mana_ai.domain.child_location import ChildLocationFacts
 from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, day_child_fingerprint
 from app.mana_ai.domain.family_sources import (
     ChildAppUsageFacts,
@@ -50,14 +51,18 @@ class SourceReviewSnapshot(ChatContract):
             != (self.source == "firebase.child_battery.v1")
         ):
             raise ValueError("Snapshot provenance and source kind must match")
+        if isinstance(self.facts, ChildLocationFacts) != (
+            self.source == "firebase.child_location.v1"
+        ):
+            raise ValueError("Location snapshot provenance must match")
         return self
 
 
 class SourceReviewBundle(ChatContract):
     parent_id: ParentChatId
     child_id: int = Field(gt=0, le=2**63 - 1, strict=True)
-    snapshots: tuple[SourceReviewSnapshot, ...] = Field(min_length=1, max_length=3)
-    changed_sources: tuple[ObservedSourceKey, ...] = Field(min_length=1, max_length=3)
+    snapshots: tuple[SourceReviewSnapshot, ...] = Field(min_length=1, max_length=4)
+    changed_sources: tuple[ObservedSourceKey, ...] = Field(min_length=1, max_length=4)
     frozen_at: AwareDatetime
 
     @model_validator(mode="after")

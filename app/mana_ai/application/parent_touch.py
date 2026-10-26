@@ -35,6 +35,7 @@ from app.mana_ai.domain.chat import (
     ParentTariffContext,
     StoredChatTurn,
 )
+from app.mana_ai.domain.child_location import LOCATION_QUALIFICATION, ChildLocationFacts
 from app.mana_ai.domain.client_retention import ParentTouchRetentionTurn
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
@@ -418,7 +419,7 @@ class ParentTouchService(ParentChatService):
                 data["assessments"]["notice_kind"] = evidence.notice.kind
                 if evidence.notice.source_observations:
                     data["assessments"]["source_snapshots"] = [
-                        facts.model_dump(mode="json", exclude={"child_id"})
+                        facts.model_dump(mode="json", exclude={"child_id", "position_fingerprint"})
                         for facts in evidence.notice.source_observations
                     ]
                 if evidence.notice.query_calendar_days:
@@ -569,6 +570,8 @@ class ParentTouchService(ParentChatService):
                 "timezone are unverified; never sum them into daily screen time or infer a "
                 "complete ranking/trend. Battery connectivity/current danger remain unknown."
             )
+            if any(isinstance(f, ChildLocationFacts) for f in evidence.notice.source_observations):
+                instructions += "\n" + LOCATION_QUALIFICATION
         source_dates: tuple[str, ...] = (
             tuple(d.isoformat() for d in evidence.notice.query_calendar_days)
             if evidence and evidence.notice
@@ -610,7 +613,7 @@ class ParentTouchService(ParentChatService):
                     if child.connected
                 }
                 data["specialist_guidance"]["source_observations"] = [
-                    facts.model_dump(mode="json", exclude={"child_id"})
+                    facts.model_dump(mode="json", exclude={"child_id", "position_fingerprint"})
                     | {
                         "profile_position": mapping[facts.child_id][0],
                         "child_name": mapping[facts.child_id][1],
@@ -648,6 +651,8 @@ class ParentTouchService(ParentChatService):
                     "and dates; never sum overlapping app counters into screen time, call "
                     "them today's usage, infer trends or present them as a complete ranking."
                 )
+            if any(isinstance(f, ChildLocationFacts) for f in guidance.source_observations):
+                instructions += "\n" + LOCATION_QUALIFICATION
             if guidance.day_usage_query is not None:
                 source_dates = tuple(
                     sorted(set(source_dates) | {guidance.day_usage_query.isoformat()})
