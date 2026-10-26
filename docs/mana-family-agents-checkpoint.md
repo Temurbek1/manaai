@@ -2,6 +2,60 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### One typed tariff handoff — 2026-10-27, application `bfa7e11`
+
+Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`, documentation HEAD **`8de54bc`**.
+Read [the verified local increment](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-typed-tariff-handoff.md)
+and English integration section 42. Default-disabled
+`MANA_PARENT_TOUCH_TARIFF_HANDOFF_ENABLED` captures family **v33** only on new
+governed manager turns. Parent-Touch's first native tariff call may carry the exact
+typed enquiry, avoiding a second extraction generation. Account-help null calls
+and old pending v32 requests retain ordinary two-call delegation. Verified raw
+costs precede strict parsing; call/admission/decision/owning intent are atomically
+bound before the existing currency or inline catalogue workflow. Current priority,
+ownership, disable, expiry, cancellation and unknown holds remain authoritative.
+The placeholder is never a public answer. Source/collection versions, schedules,
+2000 parent/day and 2000 global Safety/day limits are unchanged.
+
+Final full `make verify` **exited 0**: **1690 backend**, one skipped/two opt-in
+live excluded, **26 admin/11 suites**, **15 lab checks**, mypy **459 files**,
+lint/types/build and zero npm vulnerabilities. Preserve initial settlement-hook,
+test-import/type and missing-dummy-key collection failures; none is relabeled a
+pass. Accepted log: `output/tariff-handoff-verify-accepted-20261027.log`.
+
+Two new independent synthetic RU/Uzbek real-model price tasks pass with **two
+generations/four HTTP attempts**, exact 365/180-day terms, correct 700000/350000
+budgets and bound missing-currency handling. **1138/1115 raw parent tokens**, zero
+Safety/holds; known uncached generation estimate **$0.007395**, not an invoice.
+Manual review retains the distinction between fictional dated prices and account
+eligibility/payment. No real sources/push/grants were used. Different tasks from
+the prior party do not prove a causal percentage saving or production capacity;
+never repeat their original ledgers.
+
+Clean image `mana-ai-family:tariff-handoff-local-20261027`, ID
+`sha256:4f9d1aa4d46eab4d3728748cbdeaf4cc8b61e2daee3b321bfc6856d8226d201f`,
+matches all **287 application Python hashes**. Networkless actual-package checks
+retain the **612-token unknown model hold** and blocked lost catalogue claim
+through current closure/restart/midnight, with all **75 family/27 source tables**
+unchanged. The actual prior v32 closed reader refuses v33 unchanged; refusal is
+not functional rollback. Current closed v33 is required. The retained private v6
+production copy upgrades locally to v33 with all original **16 tables/two messages**
+and exact legacy replay preserved; no fresh SSH/copy/provider work occurred.
+
+Actual 390px browser RU/Uzbek tariff/currency plus native battery workflow passes:
+**eight messages/600 simulated parent/300 Safety tokens**, no overflow/page errors,
+holds/push/grants. An initial wait expected 18% instead of the actual fixture's
+12%; its timeout caused no redispatch. Explicit guarded shutdown and confirmed
+termination precede same-file restart; complete SQL/public state matches. Browser
+automation is closed; the isolated model-free lab remains on loopback **8110**:
+`make chat-lab-tariff-handoff CHAT_LAB_PORT=8110`. The default v32 lab/history is
+unchanged. Artifacts remain private in `output/tariff-handoff-{model,browser,candidate}-20261027/`.
+No production, cloud data, source schedule, SSH/key or customer tariff changed.
+Referral is deferred pending its real API; the full original goal remains active
+with wider source/business/model-quality, remaining scenarios and scoped release
+acceptance still open.
+
 ### Combined default single-chat lab — 2026-10-27, `c169646`
 
 Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
