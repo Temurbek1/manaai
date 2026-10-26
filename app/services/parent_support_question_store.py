@@ -82,6 +82,8 @@ class SqliteParentSupportQuestionStore(SqliteSafetyRemainderStore):
                 "INSERT INTO sqlite_sequence(name,seq) SELECT 'family_questions',value "
                 "FROM parent_question_sequence WHERE NOT EXISTS "
                 "(SELECT 1 FROM sqlite_sequence WHERE name='family_questions');"
+                "DELETE FROM sqlite_sequence WHERE name='family_questions' AND seq=0 "
+                "AND NOT EXISTS(SELECT 1 FROM parent_question_sequence);"
                 "UPDATE sqlite_sequence SET seq=MAX(seq,COALESCE("
                 "(SELECT value FROM parent_question_sequence),0)) WHERE name='family_questions';"
                 "DROP TABLE family_questions_v27;DROP TABLE parent_question_sequence;"

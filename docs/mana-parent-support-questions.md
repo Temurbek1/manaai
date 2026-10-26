@@ -81,21 +81,29 @@ upgraded unless the new profile is selected or the file is already v28.
 
 ## Evidence
 
-Fifteen meaningful local cases cover parent question/answer/replay, independent
+Sixteen meaningful local cases cover parent question/answer/replay, independent
 consent, priced invalid cancellation, cross-day unknown holds/current closure,
-v27 cell/index/sequence preservation with populated and empty queues, parent-vs-child
+v27 cell/index/sequence preservation with populated, used-empty and unused-empty queues, parent-vs-child
 priority/urgent interruption, exact question context with a short history window,
 atomic capture failure/disabled no-backfill, in-flight consent revocation,
 cross-parent/concurrent answers, the actual SDK slot and idle runtime selection.
 RU/UZ opt-out cases also prove exact replay and the next Child-Safety delivery.
-Final `make verify` exited 0: **1583 backend tests**, one skipped/two opt-in live
+Final `make verify` exited 0: **1584 backend tests**, one skipped/two opt-in live
 cases excluded, **26 admin tests/11 suites**, **15 lab tests**, mypy **441 files**,
 format/lint/types/build and npm audit with zero vulnerabilities. Evidence:
-`output/parent-support-verify-release-checkpoint-20261026.log`. Earlier full gates
-at 1580/1581 predate the final opt-out increment. The initial full gate stopped on
+`output/parent-support-verify-empty-queue-final-20261026.log`. Earlier full gates
+at 1580/1581 predate the final opt-out increment; 1583 predates unused-queue preservation.
+The initial full gate stopped on
 test-only typing mistakes; schema audit initially found the expected new public
 type drift, then generated OpenAPI/TypeScript were synchronized. Those failures
 are retained, not relabelled as passes.
+
+The first packaged production-copy check of `8d77def` found an added
+`sqlite_sequence('family_questions',0)` row for a never-used empty queue, without
+losing original rows/history. That prototype evidence remains under
+`output/parent-support-candidate-prototype-8d77def-20261026/`. The final migration
+preserves absence of that counter as well as existing high-water values; it does
+not silently clean or recapture already admitted prototype v28 histories.
 
 Browser -> actual local HTTP -> SQL -> UI exercised proactive Retention question,
 urgent Safety interruption, exact parent answer, next child question and its answer:

@@ -212,9 +212,9 @@ async def test_unknown_retention_keeps_shared_hold_across_midnight_and_closed_re
         await lab.close()
 
 
-@pytest.mark.parametrize("empty_queue", [False, True])
+@pytest.mark.parametrize("empty_queue,had_sequence", [(False, True), (True, True), (True, False)])
 async def test_v27_queue_migration_preserves_all_old_cells_and_sequence_without_backfill(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, empty_queue: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, empty_queue: bool, had_sequence: bool
 ) -> None:
     directory = tmp_path / "migration"
 
@@ -237,9 +237,10 @@ async def test_v27_queue_migration_preserves_all_old_cells_and_sequence_without_
         if not empty_queue:
             await lab.touch.request_question(need)
         with lab.store._transaction() as db:
-            if empty_queue:
+            if empty_queue and had_sequence:
                 db.execute("INSERT INTO sqlite_sequence(name,seq) VALUES('family_questions',100)")
-            db.execute("UPDATE sqlite_sequence SET seq=100 WHERE name='family_questions'")
+            if had_sequence:
+                db.execute("UPDATE sqlite_sequence SET seq=100 WHERE name='family_questions'")
         before = snapshot(lab.store)
         await lab.close()
     lab = ChatLab(opts)
@@ -259,7 +260,9 @@ async def test_v27_queue_migration_preserves_all_old_cells_and_sequence_without_
         )
         await lab.touch.request_question(need)
         with lab.store._connect() as db:
-            assert db.execute("SELECT MAX(position) FROM family_questions").fetchone()[0] == 101
+            assert db.execute("SELECT MAX(position) FROM family_questions").fetchone()[0] == (
+                101 if had_sequence else 1
+            )
         current = snapshot(lab.store)
         with pytest.raises(RuntimeError, match="dedicated database"):
             await SqliteClosedSafetyRemainderStore(
