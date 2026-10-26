@@ -59,14 +59,16 @@ async def question(
 
 
 @pytest.mark.parametrize(
-    "text,currency",
+    "text,currency,question_prefix",
     [
-        ("Покажи тарифы на 90 дней до 200000", "UZS"),
-        ("90 kunlik tariflarni ko‘rsating", "USD"),
+        ("Покажи тарифы на 90 дней до 200000", "UZS", "В какой валюте"),
+        ("90 kunlik tariflarni ko‘rsating", "USD", "Tariflarni qaysi valyutada"),
+        ("Show tariffs for 90 days up to 200000", "UZS", "Which currency"),
+        ("90 кунлик тарифларни кўрсатинг", "UZS", "Тарифларни қайси валютада"),
     ],
 )
 async def test_currency_answer_preserves_exact_terms_without_another_model_call(
-    tmp_path: Path, text: str, currency: str
+    tmp_path: Path, text: str, currency: str, question_prefix: str
 ) -> None:
     lab, _ = await setup(tmp_path / currency)
     try:
@@ -75,6 +77,7 @@ async def test_currency_answer_preserves_exact_terms_without_another_model_call(
         q = state.response.asked_question
         assert q.scope == "parent" and q.child_id is None
         assert "UZS" in state.response.answer and "USD" in state.response.answer
+        assert state.response.answer.startswith(question_prefix)
         assert ("valyutada" in state.response.answer) is (currency == "USD")
         before = await lab.state()
         assert lab.catalog.calls == 0

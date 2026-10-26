@@ -59,13 +59,13 @@ an older database over newer history.
 
 ## Verification
 
-Fourteen focused cases currently exercise RU/UZ terms, exact and concurrent replay,
+Sixteen focused cases currently exercise RU/UZ/EN terms, exact and concurrent replay,
 foreign/expired answers, SDK old/new schemas and verified costs, prior v30 pending
 upgrade without capture, atomic publication loss, current closed-reader/midnight
 holds, late priority/deactivation, disabled queued work, unknown catalogue restart
 and actual runtime construction/deactivation without idle external HTTP.
 
-Full gates, browser, model and packaged acceptance are recorded below when complete.
+Full gates, browser, model and packaged acceptance are recorded below.
 All labs use fictional providers/contact preferences and are not business-outcome
 or real-source acceptance. Earlier failed logs remain evidence, not passing checks.
 
@@ -85,10 +85,10 @@ single question with a currency code. This is not a production URL or real offer
 ### Actual local acceptance
 
 Final `make verify` exited **0**, log
-`output/upsell-currency-verify-language-final-20261026.log`: **1644 backend tests**,
+`output/upsell-currency-verify-four-languages-final-20261026.log`: **1646 backend tests**,
 one skipped/two opt-in live excluded, **26 admin tests/11 suites**, **15 lab
 checks**, mypy **453 files**, lint/format/types/build and zero npm vulnerabilities.
-Fourteen focused cases pass. The first full invocation lacked the explicit dummy
+Sixteen focused cases pass, including RU, Uzbek Latin/Cyrillic and English questions. The first full invocation lacked the explicit dummy
 OpenAI environment key and failed during collection; its log is retained. The
 subsequent pre-language-fix full gate passed too, but does not prove the later
 admission correction. Sequential schema synchronization is unchanged.
@@ -122,3 +122,39 @@ all cells in **71 family and 15 source tables** and the complete response state.
 The 390px screenshot was inspected: no page errors or horizontal overflow.
 Browser automation is closed; the fake lab remains on loopback **8107**.
 Artifacts: `output/upsell-currency-browser-20261026/`.
+
+### Packaged and migration acceptance
+
+Application **`965bddd`** was exported into the external clean source directory
+`/mnt/ssd2/mana-upsell-currency-source-965bddd`. The minimal image
+`mana-ai-family:upsell-currency-local-20261026`, ID
+`sha256:ae8942d448620cbe98fdee7ef5f7b2c1d4c5a800b4776fdcaeb9a85244e545b1`,
+matches all **284 application Python hashes**. No `.env` or private SQLite is
+copied. Python 3.12 probes run with no network/capabilities, user 1000 and a
+read-only root filesystem; only temporary/private artifact mounts are writable.
+
+The actual packaged application completes the fictional tariff question/answer/
+quote with 300 simulated parent tokens and no Safety usage. A separate cancelled
+model submission retains its **612-token unknown hold**, and a fictional lost
+catalogue receipt stays blocked. Current closed-reader initialization, restart
+and midnight preserve all cells in 71 family/15 source tables; no work is
+redispatched. A prior actual v30 image refuses the v31 history without changing
+cells/version. This is not functional execution rollback to the old image.
+
+The same current image/factory upgrades the **already retained** private production
+copy from v6 to v31, preserving every original column/cell in 16 tables, both
+messages and exact old-request replay. Anonymous history 401, live/history/
+directory/replay 200 and absent lab cards 404 pass. No new historical admission,
+source/model/contact/grant call or production access/copy occurs. Its current
+closed reader preserves the same history. A first harness run carried the old
+literal application label `205d140`; preserve that metadata review and original
+artifacts. The corrected probe runs in a separate directory and reports the
+actual `965bddd`; no application change was needed. This small private copy is
+not fleet coverage, a production release or restored old-database rollback.
+
+Artifacts: `output/upsell-currency-candidate-20261026/`, including the original and
+corrected production probes, image attestation and old-reader refusal. The full
+AI KOMANDA objective remains open; commercial entitlements/approved offers,
+referral integration, broader telemetry/measurement semantics and scoped release
+still need their owning evidence. This increment does not activate production,
+Firebase/GA4 refresh, SSH/key changes or new schedules.
