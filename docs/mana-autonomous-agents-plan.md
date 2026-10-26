@@ -1,5 +1,12 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The October-26 [clean runtime candidate](mana-family-runtime-candidate.md)
+verifies the current packaged production factory on the retained private v6 copy,
+plus populated known/unknown trial-button fixtures on Python 3.12. It deploys
+nothing and does not replace the complete scope below. The new
+[mobile-source referral findings](mana-referral-integration-status.md#supplied-mobile-source-checked--2026-10-26)
+identify incoming attribution/promo validation, without a confirmed reward contract.
+
 ## Authority and full scope
 
 The owner assigned the objective from

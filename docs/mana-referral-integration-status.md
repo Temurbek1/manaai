@@ -67,3 +67,46 @@ Parent-Touch invitation -> actual parent response -> supported code/link ->
 verified referral progress/reward -> one chat receipt and separately allowed push.
 There is no deployed referral feature or newly implemented reward API in this
 investigation. The full agents goal remains active; other available work continues.
+
+## Supplied mobile source checked — 2026-10-26
+
+The owner's `bosstracker_parent-develop.zip` was inspected read-only, without
+executing its app or build scripts. Its archive hash is still
+`5794cfce882876aaee57e163a793ec7b4d864e6c27d9fcde5eb23a9c64114036`.
+This establishes the supplied revision, not current GitHub or deployed app state.
+
+Source paths below are relative to `bosstracker_parent-develop/`:
+
+- `lib/src/features/auth/presentation/screens/signup.dart:49` reads Android
+  `utm_source`; lines 92–95 read an iOS link's `ref` parameter. Line 246 sends
+  the resulting `userName` as registration `partner`. That is an incoming
+  attribution path, not proof that every parent has an issued referral code,
+  that the parameter is a canonical inviter ID or that a reward was earned.
+- `lib/services/api/user_service.dart:230` posts `tariff`/`promo_code` to
+  `/api/v1/admin-panel-payment/validate-promo/`. The payment UI at
+  `lib/screens/new_settings/payment.dart:326` reads `original_price`,
+  `discounted_price`, `discount_percent` on a successful validation. No agent
+  call was made; this code alone does not establish an idempotent, read-only
+  validation contract or permission to issue codes/rewards.
+- `lib/screens/new_settings/personal_profile.dart:94` reads a profile's
+  `promo_code`. That is not evidence of an API accessible to this backend for
+  personal referral-code issuance or of the rules associating it with friends.
+- `lib/services/api/user_service.dart:355` submits promo codes during the
+  actual tariff purchase. **Do not call this purchase endpoint from an agent**:
+  agents are not permitted to create payments or transactions.
+- `lib/component/show_custom_review_dialog.dart:423` has an optional
+  `bonusMinutes` display. Its inspected celebration constructor leaves it null;
+  it does not establish a backend referral/reward receipt or approved terms.
+
+The source search also distinguishes inviting a **child/device** from inviting
+a new paying parent. Sharing an installation link, reading install attribution,
+validating a discount, or seeing a bonus label cannot substitute for the missing
+personal-code, qualifying-referral and reward contracts listed above. The
+document's example “one month free” remains unapproved; the one-time agent trial
+must not be repurposed as a recurring referral benefit.
+
+Minimized file hashes and findings are recorded in
+`output/referral-source-contract-20261026/result.json`. No credentials/source
+configuration were copied, no API/model/Firebase/GA4 request or customer-data
+read was made, and production was not changed. Referral remains incomplete;
+source/runtime/release work that does not depend on that contract continues.
