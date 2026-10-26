@@ -2,6 +2,80 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Confirmed trial periods and resolved GPS binding — 2026-10-26, `a2c917a`
+
+Read [the new free-period checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-confirmed-trial-periods.md),
+[mobile GPS binding evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-mobile-location-binding.md)
+and English integration section 28. Application code is committed in the separate
+feature worktree; do not cherry-pick this dirty operational tree into a release.
+
+Local default-disabled `MANA_CONVERSION_TRIAL_PERIODS_ENABLED` uses private family
+v22. Only new pre-admitted known nonpaid grants with complete verified metadata
+record their exact period. Public grant schemas/legacy JSON remain unchanged;
+historical/disabled/metadata-absent grants never backfill. Fresh matching selected
+terms plus independently verified Retention consent/language/timezone/quiet hours,
+idle/priority/outreach policy permit one fixed same-chat free-expiry reminder.
+Parent-Touch alone speaks; its private proof also fences an unsubmitted push.
+Capture/reminder add **zero model/source calls**, no payment, renewal or grant.
+Ordinary chat acceptance still does not automatically invoke the existing backend
+grant lifecycle; full conversion/paid targeting/referral scope remains unfinished.
+**Never repeat parent 4's consumed real grant.**
+
+`make chat-lab-trial-periods` explicitly seeds one **fictional** day in a separate
+loopback lab. Browser -> real API -> SQLite -> mobile display passed: one reminder,
+a tariff enquiry and eight messages; reload/restart preserve all family/source
+fingerprints without a repeated fake grant/notice/generation. The worker reviews
+the synthetic historical acceptance once (150 simulated safety tokens); the
+enquiry uses 300 simulated parent tokens. All are fake counters, not quality proof.
+The actual factory's initially skipped fictional morning step was fixed and has
+a start/restart regression. The scrolled 390px final quote was visually inspected;
+owned browser/server closed and port 8097 is free.
+
+Final configured **`make verify` exited 0**: **1478 backend tests**, **26 admin
+tests / 11 suites**, **10 chat-lab tests**, mypy **415 files**, formatting/lint,
+typecheck, production UI build and npm audit (zero vulnerabilities). One skip and
+two excluded opt-in cases are not passes. Sequential `make audit-schema` passed;
+generated OpenAPI/TypeScript artifacts have no diff. Keep the initial missing
+dummy-key collection failure and earlier schema/lab negative evidence intact.
+
+Image `sha256:1c19b0ba62126a87b04c3df6dccd91602177d186af4ab25bb116f0b55e0d1e6f`
+matches all 12 changed/new application files, no `.env`. Actual old-v21 known-grant
+and unknown fixtures upgrade with every original cell retained, no period recapture
+and the original **1850-token hold**. Actual previous v21 refuses all three v22
+fixtures unchanged: this is not working execution rollback. Current closed v22
+preserves state. The already protected actual production-v6 copy also passes
+**direct v6 -> v22** through the image's production HTTP/runtime factory, retaining
+all original cells in 16 tables and the same two history messages. History,
+directory, exact old replay and liveness return 200, missing auth 401, with **zero
+external calls**. Its SQL artifact stays private (0700 directory/0600 file), outside
+Git/images. No new production copy/access or production change was needed.
+
+Two separate small real-model parties remain qualified: the first mistakenly
+bound an unused catalog attribute and actually used the fake catalog; its original
+receipt plus append-only qualification remain. The distinct corrected 30-day
+party used the actual catalog (one login/one GET), returned **60000 UZS**, used
+**1209 raw parent / zero safety tokens**, settled all holds and preserved exact
+replay. Each generation-only estimate is $0.004235 (**$0.00847 combined**), not an
+invoice or broad quality proof. Grants/families/consents were fictional; no real
+grant, push, family read, Firebase or production mutation occurred in those parties.
+
+The owner supplied `bosstracker_parent-develop.zip` (SHA256
+`5794cfce882876aaee57e163a793ec7b4d864e6c27d9fcde5eb23a9c64114036`).
+Mobile source binds numeric `child.id` to exact Firestore
+`children_location/{child_id}` in `bosstracker-dev`. One new fresh test-parent
+ownership lookup plus OAuth and one projected document GET succeeded (**four HTTP
+attempts**, **200**, 1021 bytes). Coordinates/child identity were not saved to the
+public receipt. The point is dated **October 14**, not current presence; the old
+application-location 403 remains historical. **GPS runtime is not yet wired**;
+next add the typed shared-meter/cache/native path with date/quality qualifiers,
+not a scan/listener or direct raw-GPS model exposure. Monitoring semantics,
+referral/reward contracts, whole-fleet capacity, broader model/owning-domain action
+acceptance and the full original objective remain open. Goal stays active.
+
+Production remains the last inspected family `f8d095e`; sources/schedules, SSH,
+keys, tariffs, other containers and quotas are unchanged. This local checkpoint
+is not a production release or authorization for new customer contacts.
+
 ### Actual production-copy upgrade and source checks — 2026-10-25, `c0587eb`
 
 Read [the v6-to-v21 rehearsal](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-production-upgrade-rehearsal.md)
