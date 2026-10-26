@@ -2,6 +2,58 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### One tariff result in the original turn — 2026-10-27, application `a1680e7`
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, documentation HEAD **`b50d7e5`**.
+Read [the completed local checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-inline-upsell.md)
+and English integration section 40. Default-disabled
+`MANA_UPSELL_INLINE_RESULTS_ENABLED` captures family **v32** only on new governed
+enquiries. After verified model usage settles, a frozen response/intent-bound
+source wait keeps the same parent request pending. One dated quote completes that
+turn, without an acknowledgement message or extra inference. Missing currency
+keeps the existing shared question; its exact bound answer waits for its own
+quote. Old v31 work never upgrades. Safety, current ownership, expiry, disable
+and cancellation fence late results, retaining every verified cost/unknown hold.
+Explicit late cancellation returns 409 without model/reminder fallback. The test
+composer still lacks an interactive Stop affordance; cancellation is an API control.
+
+Final `make verify` **exited 0**:
+`output/inline-upsell-verify-accepted-20261027.log`, **1666 backend**, one skipped/
+two live excluded, **26 admin/11 suites**, **15 lab**, mypy **455 files**, lint/
+types/build and zero npm vulnerabilities. Sequential schema sync is unchanged.
+The 18-case inline and 37-case related suites overlap. Preserve the preceding
+full-gate lab `KeyError` and subsequent helper mypy failure. The old response body
+was not retained, so its precise cause is unproven. The strict observer accepts
+only the existing known 409 busy response for bounded SQL-only polling; every
+other failure asserts, and no POST/source/model work is repeated.
+
+The two independent real-model synthetic RU/UZ dialogues have settled receipts:
+**four generations/eight HTTP**, **1266/1279 raw parent tokens**, zero Safety/
+unknown holds, **$0.0086875 known uncached estimate**, not an invoice or broader
+quality proof. No real family/catalogue/source/contact call occurred; these
+parties are not replayed. Browser/restart acceptance preserves six messages,
+600 simulated tokens and all cells in **73 family/15 source tables**. Preserve
+the initial startup reconnect refusal and wrong snapshot-row-order comparison;
+all original first-column hashes and sequence values subsequently match.
+
+Clean application image `mana-ai-family:inline-upsell-local-20261027` /
+`sha256:e997a1631cb32721296abc76e7523f9669eaa9a3cec08f87d337987d3fe25255`
+matches **285 application Python hashes**, with no `.env` or private SQL. Actual
+Python 3.12/nonroot/read-only/networkless probes complete the four-message
+currency flow and retain a **612-token unknown hold** plus lost catalogue block
+across closure/restart/midnight. Prior v31 refusal is not functional rollback.
+The actual product factory upgrades the retained **v6 -> v32** private copy with
+all original cells in 16 tables, both messages, exact replay, current closed-reader
+history, expected auth/route responses and zero new provider/contact/grant calls.
+No new production access/copy was made. These are local, qualified checks.
+
+The full original goal stays active. The owner deferred Referral until its API
+arrives; continue independent work. Commercial eligibility, deeper source/route
+semantics, broader quality/capacity, practical pending controls and separately
+scoped production release remain open. Root unrelated dirt, production, cloud
+data, schedules, quotas, customer tariffs and SSH/keys are unchanged.
+
 ### Referral contract browser investigation — 2026-10-27, documentation `4233162`
 
 Read the updated [integration evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-referral-integration-status.md).
@@ -16,14 +68,12 @@ agent trial or invent rewards. No message, tariff, payment, push, cloud/source
 configuration or production change followed. The documentation-only commit passed
 diff and scoped secret checks; it is not new application/release acceptance.
 
-The following v31 checkpoint remains the last completed application increment.
-Inline tariff-result **v32 is uncommitted WIP** in the feature worktree. Preserve
-its paid synthetic receipts and browser artifacts without replay. Its latest full
-gate failed in an older lab polling test (`KeyError: history`, 1663 passed/one
-failed); the response body was not retained, so its precise HTTP cause is not
-established. Do not replace that failure with the earlier passing gate. Final
-checks, packaged/migration acceptance and documentation remain unfinished; see
-the WIP `docs/mana-inline-upsell.md`. The complete original goal stays active.
+At that investigation checkpoint v32 was uncommitted and its latest full gate
+had failed in an older lab polling test (`KeyError: history`, 1663 passed/one
+failed). Its response body was not retained; preserve the unknown precise cause
+and the original failed log. The completed local v32 acceptance above supersedes
+that WIP state without rewriting its paid/browser receipts. The owner subsequently
+deferred Referral pending its real API. The complete original goal stays active.
 
 ### Natural tariff enquiry / currency — 2026-10-26, application `965bddd`
 
