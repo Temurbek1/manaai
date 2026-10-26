@@ -2,6 +2,29 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Referral contract browser investigation — 2026-10-27, documentation `4233162`
+
+Read the updated [integration evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-referral-integration-status.md).
+The owner-authorized Telegram investigation used browser control only: project
+group membership, participant conversations, shared documents and targeted search.
+The linked Google Docs AI KOMANDA text was read in full. Requirements and status
+discussion were found, but no usable personal-code, attribution or reward contract
+was obtained. The referral-in-progress status was the owner's own message, not a
+backend completion claim. Keyword discovery is not a complete archive/voice audit
+or evidence that the mechanism does not exist. Do not repurpose the one-time
+agent trial or invent rewards. No message, tariff, payment, push, cloud/source
+configuration or production change followed. The documentation-only commit passed
+diff and scoped secret checks; it is not new application/release acceptance.
+
+The following v31 checkpoint remains the last completed application increment.
+Inline tariff-result **v32 is uncommitted WIP** in the feature worktree. Preserve
+its paid synthetic receipts and browser artifacts without replay. Its latest full
+gate failed in an older lab polling test (`KeyError: history`, 1663 passed/one
+failed); the response body was not retained, so its precise HTTP cause is not
+established. Do not replace that failure with the earlier passing gate. Final
+checks, packaged/migration acceptance and documentation remain unfinished; see
+the WIP `docs/mana-inline-upsell.md`. The complete original goal stays active.
+
 ### Natural tariff enquiry / currency — 2026-10-26, application `965bddd`
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
