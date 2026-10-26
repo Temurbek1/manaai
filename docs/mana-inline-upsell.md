@@ -135,9 +135,7 @@ separate comparison matches all original hashes using their first-column order,
 including both unchanged SQLite sequence values. No source row or high-water mark
 was reset. Artifacts: `output/inline-upsell-browser-20261027/`.
 
-Remaining checkpoint acceptance: packaged candidate, retained production-copy
-migration and current closed-reader checks. Test-chat source cancellation is
-currently an API control; its composer
+Test-chat source cancellation is currently an API control; its composer
 still disables ordinary sends while a request is pending, so an interactive Stop
 affordance is not implemented or claimed here. The full original AI KOMANDA goal
 remains active, including commercial/referral contracts, deeper data semantics,
@@ -146,3 +144,35 @@ deferred Referral work pending its backend API; continue independent requirement
 
 Run the model-free lab with `make chat-lab-inline-upsell CHAT_LAB_PORT=8108`.
 This is an isolated fictional loopback scenario, not production data or a real offer.
+
+## Packaged and migration acceptance
+
+Application **`a1680e7`** was exported into the clean external build context
+`/mnt/ssd2/mana-inline-upsell-source-a1680e7`. Image
+`mana-ai-family:inline-upsell-local-20261027`, ID
+`sha256:e997a1631cb32721296abc76e7523f9669eaa9a3cec08f87d337987d3fe25255`,
+matches all **285 application Python hashes** and contains no developer `.env`
+or private SQLite. Probes use Python 3.12, user 1000, a read-only root filesystem,
+no network/capabilities and only private artifact/temporary writable mounts.
+
+The actual packaged application completes the fictional currency question ->
+bound answer -> original-turn quote with **four history messages/300 simulated
+parent tokens/zero Safety**. Exact replay performs no inference/catalogue read.
+A separate lost model submission retains a **612-token unknown hold**. A lost
+catalogue receipt stays blocked. Current closed-reader initialization, restart
+and midnight preserve all cells in **73 family/15 source tables**, with no
+redispatch or refund. The actual prior v31 image refuses new v32 without changing
+any cell/version; this is not functional execution rollback to that image.
+
+The current product factory also upgrades the **already retained** private v6
+production copy to v32 locally. All original columns/cells in **16 tables**, both
+messages and exact historical request replay are preserved. Live/history/agent
+directory/replay return 200; anonymous history returns 401 and lab action cards
+remain absent (404). New captured workflow tables stay empty. The current closed
+reader retains the exact same history, with zero new source/model/contact/grant
+calls. No fresh SSH access or production copy was obtained. This small copy is
+not fleet, release, live-source or broad model-quality acceptance.
+
+Artifacts: `output/inline-upsell-candidate-20261027/`. Production, cloud data,
+source schedules, quotas, customer tariffs and SSH/keys remain unchanged. The
+original full agents objective remains active.

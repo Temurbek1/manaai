@@ -1,5 +1,13 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The October-27 [inline tariff result](mana-inline-upsell.md) completes a new
+governed enquiry in its original parent turn, with verified usage, a durable
+source wait and a bounded cancellation control. It reuses the current manager,
+currency question, ownership and shared catalogue. It adds no payment, proactive
+eligibility or new mobile operation. The owner deferred Referral integration
+pending its real API after the browser investigation; its unimplemented reward
+contract remains explicit, and independent requirements continue.
+
 The local [observation budget reuse](mana-safety-remainder.md) removes the full-job
 admission bottleneck for new captured background/direct observations while keeping
 2000 global Safety tokens/day and every unknown hold. Native parent reviews already
