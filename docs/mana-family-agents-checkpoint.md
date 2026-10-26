@@ -2,6 +2,82 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Owned-child GPS to the single chat — 2026-10-26, `399a934`
+
+Read [the implemented GPS checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-location-source.md)
+and English integration section 29. The separate feature worktree now contains
+the adapter, shared cache, native tool, existing-window acquisition, coalesced
+review and same-chat first contact. **This is local and default disabled**, not a
+production update or complete location intelligence. Do not deploy the dirty
+operational tree; the full original objective stays active.
+
+`MANA_FAMILY_LOCATION_ENABLED=false` adds family **v23**, source cache **v7** and
+collection **v4**. Fresh parent ownership gates one fixed-mask exact-child document
+GET. Coordinates are validated then discarded; private point hashes are also
+omitted from models. Preserve measurement/write/collection dates and missing,
+mock/sample/movement qualifications. A last point is not current presence, a
+route, geofence event, verified accuracy or danger. New native turns and new
+09:00/15:00 Asia/Tashkent occurrences capture eligibility; old/disabled turns,
+windows and unknown reads never acquire it. GPS shares existing cooldown/meter
+and has its own circuit. A disabled GPS provider skips only its work; a partial
+manifest does not claim complete coverage. Contacts retain independent consent,
+language/timezone, quiet hours, priority and caps; Parent-Touch alone speaks.
+
+The original Russian real-model party hit the existing safety limit before valid
+completion. Preserve its failed SQL/receipts and append-only manager cost correction:
+**401 parent / 2000 safety tokens**, estimated generation **$0.0029625**. New compact
+prompt v2 is bound only on new native policies/scopes; original GPS captures retain
+their exact prompt and 32-token minimum. New v2 checks room for a 128-token final
+before inference without increasing a budget or dropping the question/evidence.
+A distinct Uzbek synthetic loop passed with **1473 parent / 1983 safety tokens**,
+zero holds, one fake GPS read and eight OpenAI HTTP attempts. It preserved October
+14 and explicitly denied a confirmed current position/address/movement. Estimated
+generation **$0.0078535**, not an invoice. Nearly the entire **global 2000/day**
+safety pool was used: this is not fleet capacity, optimal cost or broad quality.
+Parent-Touch remains 2000 raw tokens per parent/day. No real family/Firebase,
+contact, grant, payment or production mutation belongs to either model party.
+
+The separate live adapter party followed the previous six-hour interval and read
+**one** owned test-child document: **four HTTP attempts**, completed receipt,
+observation still **2026-10-14**, no coordinates retained. Replay/restart issued no
+HTTP. Evidence: `output/location-adapter-live-20261026`. No scan/listener, model,
+contact, grant, production configuration, key, SSH or schedule change occurred.
+
+Final **`make verify` exited 0**: **1501 backend tests**, **26 admin tests / 11
+suites**, **11 chat-lab tests**, mypy **424 files**, format/lint/typecheck, production
+UI build and npm audit (zero vulnerabilities). One skip and two excluded live
+cases are not passes. Sequential schema audit passed, with **42 application paths
+and the same three recommended chat operations**. Log:
+`output/location-verify-final-confirmed-20261026.log`.
+
+Verified image `sha256:ed5f794f2664aac4fca767b689d298cefa1436a0812803f3019089c6df67292e`
+matches all **23** changed/new application files, no `.env`. Its networkless
+packaged fake-SDK native-v2 loop also completed the same two-message GPS chat and
+exact replay (300 simulated parent/300 safety, no real requests). Actual previous
+image fixtures upgrade **22 -> 23 /6 -> 7 /3 -> 4** with all original cells,
+the **1850-token parent hold**, **two-unit unknown source reserve** and original
+queued turn/inventory claim intact; no historical GPS capture is added. Current
+closed readers preserve all state, including the first failed GPS party. Actual
+old22/6/3 images refuse the new files unchanged: this is **not working rollback**.
+The protected actual production-v6 copy also passes direct **v6 -> v23** through
+this image's HTTP/runtime factory: all original cells in 16 tables, two messages,
+history/directory/old replay/live 200, missing auth 401, zero external calls.
+Private SQL stays outside Git/images (0700 directory/0600 file); no new server copy.
+
+Browser -> API -> SQL -> 390px display passed first assistant contact, parent reply
+and cache reuse: **three messages, two safety jobs, one snapshot/event, one cache
+hit**, 450 simulated parent/450 safety tokens. Reload/server restart preserved
+every family/source cell. Retain the initial frozen-clock/unrelated-expiry fixture
+failure; the corrected dedicated factory uses a running clock and a separate
+30-day fictional tariff. Busy SQL observation waits for the next read-only tick,
+never repeats a POST or shows raw internal error codes. Owned browser/server closed;
+port 8097 is free. Evidence: `output/location-browser-postfix-20261026`.
+
+Full route/history/geofence semantics, monitoring/referral contracts, further
+commercial actions, population capacity, wider quality, OPERATION ownership/actions
+and a separately scoped rollout remain open. Production remains the last recorded
+family `f8d095e`; other services, sources, schedules, keys, SSH and quotas unchanged.
+
 ### Confirmed trial periods and resolved GPS binding — 2026-10-26, `a2c917a`
 
 Read [the new free-period checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-confirmed-trial-periods.md),
