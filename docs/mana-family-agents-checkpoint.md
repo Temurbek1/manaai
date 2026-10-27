@@ -2,6 +2,54 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Parallel Retention, Upsell and Child-Safety checkpoint — 2026-10-28
+
+Feature worktree `/mnt/ssd2/mana-conversion-agent-20261021`, committed **`475d1a6`**.
+Read [the integrated checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parallel-specialists.md)
+and English integration section 47. Three user-requested implementation agents
+worked in parallel; another specialist independently reviewed peer changes.
+Parent-Touch remains the sole speaker; the four OPERATION owners are unchanged.
+
+- Retention now supports explicit RU/UZ/EN parent resumption after a local
+  check-in opt-out, with zero model/source calls. It restores no consent, old
+  suppressed action/push or unknown cost; exact replay cannot undo a newer choice.
+- Concurrent Upsell enquiries observe one exact in-flight public catalog claim,
+  retaining each family's filters/original reply. SQL-only bounded waiting never
+  repeats the source call or extends deadlines; unknown/lost outcomes stay blocked.
+- Default-off `MANA_FAMILY_LOCATION_COMPARISONS_ENABLED` captures one prior
+  same-child GPS snapshot before new source admissions, source9/family37. Existing
+  Safety -> Parent-Touch -> chat presents two qualified saved observations without
+  another provider read. No actual movement, route, geofence or danger is inferred.
+  Old in-flight reads/jobs do not gain the new protocol; stop fences retain costs.
+
+Final `make verify` exited 0: **1792 backend cases**, **26 admin /23 lab cases**,
+mypy **475 files**, static/build checks and zero npm vulnerabilities. OpenAPI
+synchronization and the explicit 33-owned-file secret scan passed. A separate
+390px fake browser first-contact/opt-out/UZ-resume/quote story retained seven
+messages, simulated **300/150 tokens**, full public state and all **79 family /
+29 source tables** through exact fixture replay and deliberate restart. The own
+browser/8115 server are closed. A prototype fixture-clock overlap was fixed and
+covered before the final gate; old labs remain untouched.
+
+Clean image `mana-ai-family:parallel-specialists-local-20261028`,
+`sha256:eaa9dc20ec5b04f415d94b4ae2605f23681088d9f2bfa93940edb74b5ca3ee4d`,
+has 295 application Python files matching export/current source. Networkless
+actual factory v6->37 migration preserves every original cell in 16 tables,
+two messages and exact legacy replay, with zero source/model/contact calls.
+The current closed37 image retains every cell and known costs of the new paid
+case. This is not a functional old36 execution rollback or production release.
+
+One new actual-model fictional UZ first-contact cycle completes with **1560
+parent /1209 Safety raw tokens**, no holds, two generations/two counts and an
+uncached generation estimate **$0.0068705** (not an invoice). **Its content review
+is negative**: two exact timestamps collapse to one UTC calendar date without
+zone/time; opening wording is formal. Preserve that receipt and the zero-call
+settings-only harness failure; do not replay/relabel as full quality acceptance.
+No real cloud source, push, tariff grant, payment or production/SSH/key/schedule
+change occurred. The original full goal is active; exact date presentation,
+broader sources/quality/commercial/capacity/release remain open, Referral deferred.
+
+
 ### Compact initial manager — verified local checkpoint, 2026-10-27
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, application
