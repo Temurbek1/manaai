@@ -58,6 +58,22 @@ one skip/two opt-in live exclusions, **26 admin / 23 lab tests**, mypy **466 fil
 format/Ruff/ESLint, TypeScript, production UI build and zero npm vulnerabilities.
 Neither a green code gate nor three completed conversations is a semantic pass.
 
+Clean application commit **`1a4a06a`** exports 291 Python files at
+`/mnt/ssd2/mana-parent-publication-dates-source-1a4a06a`. Its Python 3.12 image
+`mana-ai-family:publication-dates-local-20261027`, ID
+`sha256:8df0e0dee485f8abb376d322467b5278119dcf13c1a0208a1f8aac2a94bf8266`,
+passes the packaged fake native/currency/cancellation/known-and-unknown lifecycle,
+retaining every cell in **78 family / 27 source tables**, including the 612-token
+unknown parent hold and blocked catalogue across restart/midnight. Both this
+candidate and the actual preceding **`124f26f`** image's **closed** v36 reader
+preserve every cell/history/cost of copies of all four new model cases without
+network or execution. Private original databases are mounted read-only.
+Artifacts: `output/parent-publication-dates-candidate-20261027/`.
+This verifies closed observation only; the prior image cannot execute prompt
+protocol 4 and is not an active-execution rollback. No populated schema is
+downgraded and no historical failed turn is resumed. There is no UI/HTTP change
+or new browser acceptance claim in this instruction-only increment.
+
 Next, improve the **initial** manager's cross-task service overhead instead of
 repeatedly shortening only the last answer: its input is still 1005/1018 tokens
 before a 17-token handoff. Preserve exact messages, ordinary clarification,

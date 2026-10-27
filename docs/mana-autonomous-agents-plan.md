@@ -1,5 +1,16 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The latest [date-role diagnostic](mana-parent-publication-dates.md), application
+**`1a4a06a`**, preserves old 1–3 and captures prompt 4 only on new turns. Both
+unknown-measurement answers improve, but its wider four-case real-model matrix
+retains a UZ dated budget refusal and negative RU field/time wording despite a
+full source timestamp. Three completions are not full semantic acceptance.
+1736-test gates and networkless packaged/old-current closed readers pass without
+production/source changes. Next, reduce initial manager overhead across child,
+price, reminder and ordinary help while retaining exact tasks, strong models,
+typed ownership/permissions, unknown holds and limits; do not repeatedly optimize
+only the final answer or replace a full task with a facts-only response.
+
 The subsequent local [versioned final-publication checkpoint](mana-compact-parent-publication.md),
 application **`124f26f`**, completes two new synthetic six-child native cycles
 within unchanged 2000/2000 allowances. Both previous v1/v2 parties retain failed
