@@ -102,7 +102,43 @@ uses its own marked history without upgrading old lab directories:
 make chat-lab-compact-manager CHAT_LAB_PORT=8114
 ```
 
-Packaged/browser acceptance is recorded after completion. The earlier real-source
+Application commit **`f4479f9`** exports 292 Python files at
+`/mnt/ssd2/mana-compact-manager-source-f4479f9`. Its clean Python 3.12 image is
+`mana-ai-family:compact-manager-local-20261027`, ID
+`sha256:00e9461b7b676299978e49beca022084b210736696f624f6adbd7a6ac5969df6`.
+Networkless probes in `output/compact-manager-candidate-20261027/` all exit 0:
+
+- The actual packaged current-manager native/currency/cancellation workflow
+  records protocol 5; known simulated usage 600 parent / 300 Safety, unknown
+  parent hold 612, blocked lost catalogue and every cell in **78 family / 27
+  source tables** survive current closed reader/restart/midnight.
+- A retained production v6 copy through the actual factory retains every
+  original cell in sixteen tables/two messages, exact historical replay,
+  authentication, absent lab-only cards and no historical capture backfill.
+  No real credential was mounted and zero provider/model calls occurred.
+- Both this candidate and actual preceding **`1a4a06a`** image's **closed** v36
+  reader preserve every cell/history/cost of all nine paid-case copies. Originals
+  are mounted read-only, no model/source execution. The preceding active reader
+  cannot execute protocol 5; this is closed observation, not functional execution
+  rollback or permission to downgrade/restore a populated database.
+
+The actual model-free loopback 8114 browser exercised child analysis, an Uzbek
+platform question/exact Android answer, Russian price/currency binding/quote and
+an unconfirmed reminder in the **same chat**. Its twelve messages, simulated
+1050 parent / 300 Safety usage, active confirmation and every cell in **78/27
+tables** survived a complete owned-server restart. Full public state matched;
+zero page errors or document overflow at 390x844. Both screenshots were visually
+checked under `output/compact-manager-browser-20261027/`. The draft remained
+unscheduled, no real source/model/push/grant calls occurred, and the owned browser
+and 8114 server were deliberately closed. Existing default lab histories and
+production remained unchanged. This verifies simulator/rendering/recovery,
+not the real-model quality which is separately qualified above.
+
+Manual nine-case findings are retained in
+`output/compact-manager-content-review-20261027.json`; this is primary-agent
+inspection, not an independent model/human/business review.
+
+The earlier real-source
 negative party's one-request/24h ledger is already consumed even for another cache
 claim; do not reset/copy an empty ledger, raise its limit or reread Firebase to
 manufacture a live pass. This checkpoint uses no new live-source acceptance.

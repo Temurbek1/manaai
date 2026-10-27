@@ -1,5 +1,16 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The latest [compact initial-manager increment](mana-compact-parent-manager.md),
+application **`f4479f9`**, captures protocol 5 only on new opted-in turns. Nine
+independent real-model fictional cases complete within original per-case
+allowances: dated/unknown child sources, exact tariff/currency, ordinary help,
+bound device answer and an unexecuted reminder. Initial matched inputs fall by
+218 tokens; earlier failed/qualified parties remain unchanged. Full 1746-test
+gates, clean packaged preserved-copy/unknown-state checks and same-chat mobile
+restart pass. This is not a shared global Safety fleet capacity, live-source
+retry, full semantic/business acceptance or release. Existing source limits and
+production stay unchanged; the complete original objective remains active.
+
 The latest [date-role diagnostic](mana-parent-publication-dates.md), application
 **`1a4a06a`**, preserves old 1–3 and captures prompt 4 only on new turns. Both
 unknown-measurement answers improve, but its wider four-case real-model matrix
