@@ -2,6 +2,63 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Request-bound tariff cancellation — 2026-10-27, application `1078106`
+
+Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
+branch `feat/mana-conversion-agent-20261021`, documentation HEAD **`5fdcdf4`**.
+Read [the verified cancellation checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-tariff-cancellation.md)
+and English integration section 43. Existing message POST accepts an explicit
+`cancel_tariff_request_id`; SQL status advertises optional `can_cancel_tariff=true`
+only for a confirmed tariff wait. One new control UUID targets exactly one
+same-parent pending request. Late/wrong targets cannot cancel a newer enquiry or
+fall back to inference/reminders. Its private target/digest/audit and readable
+acknowledgement commit atomically. Quotas, source meters and unknown holds remain.
+
+Family **v34** adds only `tariff_reply_cancellations`; old v33/native captures,
+source/collection versions and saved digests remain. Current closed v34 exposes
+saved status/history with execution off. Explicit closed v33 stays v33 without
+migration. The browser stores target/control UUID before POST; loss/reload/status
+never redispatch. Unresolved cancellation keeps new sends disabled. No new endpoint,
+model call, financial action, push or source authority follows. Default v32 lab
+profiles remain; the v34 typed-tariff lab supplies the contextual Stop button.
+
+Final `make verify` **exited 0**: **1705 backend**, one skipped/two opt-in live
+excluded, **26 admin/11 suites**, **23 lab controller checks**, mypy **460 files**,
+lint/types/build and zero npm vulnerabilities. Log:
+`output/tariff-cancel-verify-release-20261027.log`. API/types are synchronized;
+the sparse public flag is optional `true | null`. Preserve the initial test
+usage-key/mypy errors and earlier qualified gates; no paid model party was repeated.
+
+Clean image `mana-ai-family:tariff-cancel-local-20261027`, ID
+`sha256:5ba3da00779785202e7fbfc35762f8158f28a6081982f8c41a616c336a2781b3`,
+matches **287 application Python hashes**. Actual networkless packaged workflow,
+current closure/restart/midnight retain all **76 family/27 source tables**, known
+costs, **612 unknown model tokens** and blocked lost catalogue claim. Prior v33's
+actual closed image refuses v34 unchanged, not functional rollback. Current code
+upgrades the actual retained v33 fixture with all **75 original tables**/source
+cells and unknown holds unchanged, without new captures. The retained v6 production
+copy also preserves all original **16 tables/two messages** and exact legacy replay,
+with zero provider/contact/grant calls. The initial unmarked-fixture guard refusal
+is retained; its harness marking order was fixed without changing product guards.
+
+Actual 390px browser Uzbek enquiry -> currency question -> bound UZS answer ->
+Stop -> deliberately lost committed acknowledgement -> SQL-only recovery passes:
+**one cancellation POST/five messages/150 simulated parent/zero Safety tokens**.
+The late known catalogue receipt settles without a quote. Both screenshots were
+inspected; no page errors/overflow. Complete public state and every SQL cell survive
+guarded shutdown, confirmed termination and same-file restart. The initial wrapper's
+pre-lifespan instrumentation failed before serving; its failure remains distinct.
+Browser/fixture are closed. Private artifacts: `output/tariff-cancel-{browser,candidate}-20261027/`.
+
+Normal loopback **8110** now runs current code after its old port was confirmed
+closed and a private backup was taken. Migration preserves all old 75/27 table cells,
+**eight messages/600 simulated parent/300 Safety tokens**, with no new source/model
+call. `http://127.0.0.1:8110/` returns 200. Artifacts:
+`output/tariff-cancel-local-lab-upgrade-20261027/`. Production, cloud data, schedules,
+SSH/keys and customer tariffs remain unchanged. The full goal stays active; return
+to the remaining real source/business/specialist integration and scoped release
+requirements. Referral remains deferred pending its real API.
+
 ### One typed tariff handoff — 2026-10-27, application `bfa7e11`
 
 Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
