@@ -1,5 +1,14 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The October-27 [actual source-to-chat diagnostic](mana-real-source-chat-budget-checkpoint.md)
+connects current real credentials/Firestore/native selection, but **fails before
+the specialist continuation under the unchanged 2000-token allowance**. Preserve
+its settled 1069 parent/989 Safety costs and original negative receipt. No answer,
+contact, grant or production release followed. Current source access is proven for
+that one test path; complete live analysis/communication is not. Prior synthetic
+passes do not supersede this finding. Continue lossless, newly captured input
+presentation and cross-task cost/quality before repeating live acceptance.
+
 The October-27 [inline tariff result](mana-inline-upsell.md) completes a new
 governed enquiry in its original parent turn, with verified usage, a durable
 source wait and a bounded cancellation control. It reuses the current manager,

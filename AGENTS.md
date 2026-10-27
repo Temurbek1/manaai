@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- The new actual-source/actual-model party on test parent 4 failed continuation
+  admission under unchanged 2000/2000 limits. Read
+  `docs/mana-real-source-chat-budget-checkpoint.md` before live acceptance or
+  input optimization. One Firestore query succeeded; settled parent/Safety costs
+  are 1069/989 tokens, no unknown holds, no assistant answer. Do not rerun/reset
+  that party or claim the full live path passed. Preserve its source/pairing and
+  negative evidence. Next work is newly captured, lossless host/schema presentation
+  and cross-task manager cost/quality, with old protocols/digests/quotas retained;
+  no source retry, model downgrade or production activation follows.
+
 - Request-bound tariff cancellation uses family v34 in the existing default-off
   typed tariff runtime. Read `docs/mana-tariff-cancellation.md` and integration
   section 43. A new control UUID binds one exact same-parent pending request;
