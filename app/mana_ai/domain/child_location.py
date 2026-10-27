@@ -66,3 +66,65 @@ class ChildLocationFacts(ChatContract):
 
     def fingerprint(self) -> str:
         return hashlib.sha256(self.model_dump_json(exclude={"collected_at"}).encode()).hexdigest()
+
+
+class LocationObservationView(ChatContract):
+    """Public-to-model dates and quality; no child ID, position hash or coordinates."""
+
+    observed_at: AwareDatetime | None
+    source_updated_at: AwareDatetime | None
+    snapshot_collected_at: AwareDatetime
+    quality: Literal["dated", "unknown_measurement_time", "no_observation"]
+    mock: bool | None
+    sample: bool | None
+    is_moving: bool | None
+    accuracy_reported: bool = Field(strict=True)
+
+
+class LocationComparisonView(ChatContract):
+    previous: LocationObservationView
+    current: LocationObservationView
+    chronology: Literal[
+        "ordered_measurements",
+        "same_measurement_time",
+        "regressed_measurement_time",
+        "unknown_measurement_time",
+        "missing_observation",
+    ]
+    stored_point_relation: Literal["same", "different", "not_comparable"]
+    verified_movement: Literal[False] = False
+    route_reconstructed: Literal[False] = False
+
+    @model_validator(mode="after")
+    def qualified_relation(self) -> "LocationComparisonView":
+        previous, current = self.previous, self.current
+        if previous.snapshot_collected_at > current.snapshot_collected_at:
+            raise ValueError("Saved observations must preserve collection order")
+        expected = (
+            "missing_observation"
+            if "no_observation" in {previous.quality, current.quality}
+            else "unknown_measurement_time"
+            if previous.observed_at is None or current.observed_at is None
+            else "ordered_measurements"
+            if previous.observed_at < current.observed_at
+            else "same_measurement_time"
+            if previous.observed_at == current.observed_at
+            else "regressed_measurement_time"
+        )
+        if self.chronology != expected or (
+            (self.stored_point_relation != "not_comparable") != (expected == "ordered_measurements")
+        ):
+            raise ValueError("A point relation requires strictly ordered measurement dates")
+        return self
+
+
+LOCATION_COMPARISON_QUALIFICATION = (
+    "saved_location_comparison contains exactly two stored point observations, not a route. "
+    "Keep both measurement dates and distinguish source-update/collection dates. A same/different "
+    "stored point is not verified movement, presence, distance, speed, arrival, a geofence event "
+    "or danger; sensor accuracy/authenticity are unverified. Unknown, equal or regressed "
+    "measurement times are not comparable. Mock/sample flags qualify the record, never prove "
+    "the child's behavior. No observations between the two points or future tracking are supplied. "
+    "Suggest checking the app map or calmly confirming plans when useful, "
+    "without inventing a place."
+)

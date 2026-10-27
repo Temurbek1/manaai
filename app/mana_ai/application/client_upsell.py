@@ -12,6 +12,7 @@ from app.mana_ai.domain.chat import ParentChildContext
 from app.mana_ai.domain.client_upsell import (
     CatalogAdmission,
     CatalogReadClaim,
+    CatalogReadObservation,
     UpsellChoice,
     UpsellQuote,
     UpsellScope,
@@ -62,6 +63,9 @@ class ClientUpsellStore(Protocol):
     async def catalog_result(
         self, claim: CatalogReadClaim
     ) -> ConversionCatalogObservation | None: ...
+    async def catalog_observation(
+        self, claim: CatalogReadClaim, now: datetime
+    ) -> CatalogReadObservation: ...
     async def finish_catalog(
         self,
         claim: CatalogReadClaim,
@@ -98,6 +102,26 @@ class ClientUpsellService:
     async def control(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState | None:
         return await self._store.upsell_currency_control(request, self._clock())
 
+    async def _observe_catalog(
+        self, work: UpsellWork, claim: CatalogReadClaim, *, context_at: datetime
+    ) -> ConversionCatalogObservation | None:
+        deadline = min(work.expires_at, claim.expires_at, context_at + timedelta(seconds=180))
+        remaining = (deadline - self._clock()).total_seconds()
+        if remaining <= 0:
+            return None
+        # A monotonic timeout also bounds tests or deployments with a stalled wall clock.
+        async with asyncio.timeout(remaining):
+            while self._clock() < deadline:
+                if not await self._store.upsell_active(work, self._clock()):
+                    return None
+                observed = await self._store.catalog_observation(claim, self._clock())
+                if observed.status == "recorded":
+                    return observed.snapshot
+                if observed.status == "unknown":
+                    return None
+                await asyncio.sleep(1)
+        return None
+
     async def process_one(self) -> bool:
         if await self._store.publish_ready_upsell(self._clock()):
             return True
@@ -119,6 +143,10 @@ class ClientUpsellService:
                 return True
             admitted = await self._store.catalog_admission(self._clock())
             snapshot = admitted.snapshot
+            if admitted.waiting_for is not None:
+                snapshot = await self._observe_catalog(
+                    work, admitted.waiting_for, context_at=context.collected_at
+                )
             if admitted.claim:
                 try:
                     snapshot = await self._source.read()

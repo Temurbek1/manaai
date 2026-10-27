@@ -96,4 +96,26 @@ class UpsellQuote(ChatContract):
 class CatalogAdmission(ChatContract):
     snapshot: ConversionCatalogObservation | None = None
     claim: CatalogReadClaim | None = None
+    waiting_for: CatalogReadClaim | None = None
     refusal: Literal["blocked", "busy", "cooldown", "daily_limit"] | None = None
+
+    @model_validator(mode="after")
+    def one_outcome(self) -> "CatalogAdmission":
+        if sum(value is not None for value in (self.snapshot, self.claim, self.refusal)) != 1:
+            raise ValueError("Exactly one catalog admission outcome is required")
+        if self.waiting_for is not None and self.refusal != "busy":
+            raise ValueError("Only an existing busy claim may be observed")
+        return self
+
+
+class CatalogReadObservation(ChatContract):
+    """An existing public-price receipt, never a new provider-read admission."""
+
+    status: Literal["reading", "recorded", "unknown"]
+    snapshot: ConversionCatalogObservation | None = None
+
+    @model_validator(mode="after")
+    def recorded_snapshot(self) -> "CatalogReadObservation":
+        if (self.status == "recorded") != (self.snapshot is not None):
+            raise ValueError("Only a recorded catalog receipt contains a snapshot")
+        return self

@@ -29,6 +29,16 @@ from app.services.parent_reminder_store import (
 )
 from app.services.proactive_parent_store import _current_context, _digest
 
+_RESUME_COMMANDS = {
+    "снова напоминай об этом чате": "ru",
+    "возобнови напоминания об этом чате": "ru",
+    "bu chat haqida yana eslatib turing": "uz-Latn",
+    "chat haqida eslatmalarni qayta yoqing": "uz-Latn",
+    "бу чат ҳақида яна эслатиб туринг": "uz-Cyrl",
+    "resume chat check-ins": "en",
+    "start chat check-ins again": "en",
+}
+
 _TABLES = {
     "retention_policy",
     "retention_intents",
@@ -394,7 +404,8 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
         self, request: ParentTouchMessageRequest, now: datetime
     ) -> ParentTouchMessageState | None:
         normalized = request.message.strip().rstrip(".!?").casefold()
-        if normalized not in {
+        resume_language = _RESUME_COMMANDS.get(normalized)
+        if resume_language is None and normalized not in {
             "не пиши первым",
             "не напоминай о чате",
             "пиши только если я напишу",
@@ -405,7 +416,7 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
         }:
             return None
 
-        def decline() -> ParentTouchMessageState | None:
+        def control() -> ParentTouchMessageState | None:
             with self._transaction() as db:
                 prior = db.execute(
                     "SELECT request_digest FROM parent_chat_turns WHERE parent_id=? "
@@ -416,27 +427,48 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
                     if prior[0] != self._digest(ParentTouchReviewedTurn(**request.model_dump())):
                         raise ParentChatError("request_id_conflict", 409)
                     return None
-                db.execute(
-                    "INSERT OR IGNORE INTO retention_opt_outs VALUES(?,?)",
-                    (request.parent_id, self._utc(now).isoformat()),
-                )
-                db.execute(
-                    "UPDATE retention_intents SET status='suppressed' WHERE parent_id=? "
-                    "AND status='claimed'",
-                    (request.parent_id,),
-                )
-                db.execute(
-                    "UPDATE parent_push_outbox SET status='suppressed',"
-                    "error_code='retention_opted_out',"
-                    "updated_at=? WHERE parent_id=? AND purpose='retention' AND status='queued'",
-                    (self._utc(now).isoformat(), request.parent_id),
-                )
-                self._retention_event(
-                    db, request.parent_id, None, "parent_opted_out", self._utc(now)
-                )
-                self._on_retention_opt_out(db, request.parent_id)
+                if resume_language is not None:
+                    commands = db.execute(
+                        "SELECT COUNT(*),SUM(parent_id=?) FROM assistant_events WHERE "
+                        "kind='host_message_published' AND at>?",
+                        (request.parent_id, (self._utc(now) - timedelta(days=1)).isoformat()),
+                    ).fetchone()
+                    if (
+                        commands[0] >= self._reminder_policy.global_commands_per_24h
+                        or (commands[1] or 0) >= self._reminder_policy.parent_commands_per_24h
+                    ):
+                        raise ParentChatError("assistant_command_limit_exceeded", 429)
+                    # Only this parent's local preference changes. Existing source/contact
+                    # permissions, old intents/questions and push receipts never reactivate.
+                    db.execute(
+                        "DELETE FROM retention_opt_outs WHERE parent_id=?", (request.parent_id,)
+                    )
+                    self._retention_event(
+                        db, request.parent_id, None, "parent_resumed_check_ins", self._utc(now)
+                    )
+                else:
+                    db.execute(
+                        "INSERT OR IGNORE INTO retention_opt_outs VALUES(?,?)",
+                        (request.parent_id, self._utc(now).isoformat()),
+                    )
+                    db.execute(
+                        "UPDATE retention_intents SET status='suppressed' WHERE parent_id=? "
+                        "AND status='claimed'",
+                        (request.parent_id,),
+                    )
+                    db.execute(
+                        "UPDATE parent_push_outbox SET status='suppressed',"
+                        "error_code='retention_opted_out',"
+                        "updated_at=? WHERE parent_id=? AND purpose='retention' "
+                        "AND status='queued'",
+                        (self._utc(now).isoformat(), request.parent_id),
+                    )
+                    self._retention_event(
+                        db, request.parent_id, None, "parent_opted_out", self._utc(now)
+                    )
+                    self._on_retention_opt_out(db, request.parent_id)
                 contact = _current_context(db, request.parent_id, self._utc(now))
-                language = (
+                language = resume_language or (
                     "en"
                     if normalized in {"stop check-ins", "do not message me first"}
                     else "uz-Latn"
@@ -449,6 +481,17 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
                     "uz-Cyrl": "Бу чат ҳақида биринчи бўлиб эслатма юбормайман.",
                     "en": "I will stop initiating chat check-ins.",
                 }
+                if resume_language is not None:
+                    answers = {
+                        "ru": "Снова смогу иногда первым писать об этом чате "
+                        "с учётом ваших настроек.",
+                        "uz-Latn": "Sozlamalaringiz ruxsat berganda bu chat haqida yana "
+                        "birinchi bo‘lib eslataman.",
+                        "uz-Cyrl": "Созламаларингиз рухсат берганда бу чат ҳақида яна "
+                        "биринчи бўлиб эслатаман.",
+                        "en": "I can initiate chat check-ins again when your verified "
+                        "settings allow it.",
+                    }
                 return self._host_reply(
                     db,
                     request,
@@ -458,7 +501,7 @@ class SqliteClientRetentionStore(SqliteParentReminderStore):
                     self._utc(now),
                 )
 
-        return await asyncio.to_thread(decline)
+        return await asyncio.to_thread(control)
 
     def _push_delivery_ready(self, db: sqlite3.Connection, row: sqlite3.Row, now: datetime) -> bool:
         if row["purpose"] == "retention":

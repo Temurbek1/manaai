@@ -5,9 +5,13 @@ import json
 from app.mana_ai.application.chat_ports import ChatPrompt, ParentChatError
 from app.mana_ai.application.child_safety_ports import SafetyChildAlias, SafetyPrompt
 from app.mana_ai.domain.chat import ParentChildContext
-from app.mana_ai.domain.child_location import LOCATION_QUALIFICATION, LOCATION_SOURCE
+from app.mana_ai.domain.child_location import (
+    LOCATION_COMPARISON_QUALIFICATION,
+    LOCATION_QUALIFICATION,
+    LOCATION_SOURCE,
+)
 from app.mana_ai.domain.child_safety import SafetyJob
-from app.mana_ai.domain.source_reviews import counter_comparison_view
+from app.mana_ai.domain.source_reviews import counter_comparison_view, location_comparison_view
 
 INSTRUCTIONS = """You are Child-Safety, MANA's internal specialist for the adult parent.
 Review only the supplied own-child source snapshots and bounded conversation. Parent-Touch
@@ -67,6 +71,9 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
     comparison = counter_comparison_view(bundle)
     if comparison is not None:
         payload["saved_counter_comparison"] = comparison.model_dump(mode="json")
+    location = location_comparison_view(bundle)
+    if location is not None:
+        payload["saved_location_comparison"] = location.model_dump(mode="json")
     return SafetyPrompt(
         input=ChatPrompt(
             INSTRUCTIONS
@@ -93,7 +100,8 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
                 "such as checking the app report or calmly discussing the child's routine."
                 if bundle.usage_comparison is not None
                 else ""
-            ),
+            )
+            + ("\n" + LOCATION_COMPARISON_QUALIFICATION if location is not None else ""),
             (("user", json.dumps(payload, ensure_ascii=False)),),
             safety_source_review=True,
         ),

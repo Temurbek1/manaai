@@ -42,7 +42,7 @@ from app.mana_ai.application.trial_action_cards import TrialButtonGrantService
 from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
 from app.mana_ai.domain.chat_actions import ChatActionCard, ChatActionCreate
-from app.mana_ai.domain.child_location import ChildLocationFacts
+from app.mana_ai.domain.child_location import ChildLocationFacts, LocationComparisonView
 from app.mana_ai.domain.child_safety import (
     ChildSafetyLimits,
     SafetyAssessmentPage,
@@ -113,11 +113,18 @@ from app.services.inline_upsell_store import SqliteInlineUpsellStore
 from app.services.lab_chat_action_store import SimulatedChatActionExecutor, SqliteLabChatActionStore
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
 from app.services.lab_location import LabLocationSource
+from app.services.lab_location_comparison import (
+    LabComparisonLocationSource,
+    LabLocationComparisonClock,
+    location_comparison_text,
+)
 from app.services.lab_native_source_model import LabNativeSourceModel
 from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLabTrialActionStore
 from app.services.lab_trial_end import LabTrialEndClock
 from app.services.lab_trial_period import LabTrialGrantGateway, LabTrialProfiles, seed_trial_history
 from app.services.lab_usage_comparison import LabUsageComparisonClock, comparison_text
+from app.services.location_comparison_cache import SqliteLocationComparisonCache
+from app.services.location_comparison_safety_store import SqliteLocationComparisonSafetyStore
 from app.services.location_safety_store import SqliteLocationSafetyStore
 from app.services.location_source_cache import SqliteLocationSourceCache
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
@@ -488,7 +495,11 @@ class SimulatedModel:
                 decision = SafetySourceReviewDecision(
                     analysis=None,
                     followup_summary=(
-                        comparison_text(
+                        location_comparison_text(
+                            LocationComparisonView.model_validate(data["saved_location_comparison"])
+                        )
+                        if data.get("saved_location_comparison") is not None
+                        else comparison_text(
                             CounterComparisonView.model_validate(data["saved_counter_comparison"])
                         )
                         if data.get("saved_counter_comparison") is not None
@@ -722,6 +733,10 @@ class SimulatedModel:
                                 else f" Последняя запись местоположения от {stamp}; "
                                 "текущее местоположение неизвестно."
                             )
+                if prompt.notice.location_comparison is not None:
+                    answer = location_comparison_text(
+                        prompt.notice.location_comparison, uzbek=uzbek
+                    )
                 if prompt.notice.counter_comparison is not None:
                     answer = comparison_text(prompt.notice.counter_comparison, uzbek=uzbek)
                 if prompt.notice.query_calendar_days and prompt.notice.counter_comparison is None:
@@ -858,6 +873,7 @@ class LabOptions:
     manager: bool = False
     trial_periods: bool = False
     location: bool = False
+    location_comparisons: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
@@ -877,6 +893,8 @@ class LabOptions:
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.location_comparisons and not (options.location and options.compact_publication):
+            raise ValueError("Location comparison lab requires captured location publication")
         if options.compact_manager and not options.compact_publication:
             raise ValueError("Compact manager lab requires captured publication")
         if options.compact_publication and not options.compact_inputs:
@@ -952,7 +970,7 @@ class ChatLab:
         ):
             raise ValueError("Collection lab requires fictional time, sources and model")
         if isinstance(options.clock, LabUsageComparisonClock) and (
-            options.real_model or not options.usage_comparisons
+            options.real_model or not (options.usage_comparisons or options.location_comparisons)
         ):
             raise ValueError("Fictional comparison time cannot be used for paid models")
         self.options: LabOptions = options
@@ -1023,6 +1041,8 @@ class ChatLab:
             expected["trial_periods"] = True
         if self.options.location:
             expected["location"] = True
+        if self.options.location_comparisons:
+            expected["location_comparisons"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
@@ -1049,6 +1069,8 @@ class ChatLab:
             expected["compact_publication"] = True
         if self.options.compact_inputs:
             expected["compact_inputs"] = True
+        if isinstance(self.options.clock, LabLocationComparisonClock):
+            expected["clock"] = self.options.clock.kind
         if self.options.parent_support_questions:
             expected["parent_support_questions"] = True
         if self.options.safety_remainder:
@@ -1171,7 +1193,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteCompactParentPublicationStore
+                SqliteLocationComparisonSafetyStore
+                if self.options.location_comparisons
+                else SqliteCompactParentPublicationStore
                 if self.options.compact_publication
                 else SqliteCompactFamilyInputStore
                 if self.options.compact_inputs
@@ -1272,6 +1296,8 @@ class ChatLab:
                 reminder_options.update(trial_cards_enabled=True, trial_periods_enabled=True)
             if self.options.location:
                 reminder_options["location_enabled"] = True
+            if self.options.location_comparisons:
+                reminder_options["location_comparisons_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -1364,7 +1390,9 @@ class ChatLab:
         )
         self.source_store = (
             (
-                SqliteUsageComparisonCache
+                SqliteLocationComparisonCache
+                if self.options.location_comparisons
+                else SqliteUsageComparisonCache
                 if self.options.usage_comparisons
                 else SqliteLocationSourceCache
                 if self.options.location
@@ -1383,6 +1411,11 @@ class ChatLab:
                 if self.options.day_collection
                 else SourceReviewPolicy(),
                 **({"comparisons_enabled": True} if self.options.usage_comparisons else {}),
+                **(
+                    {"location_comparisons_enabled": True}
+                    if self.options.location_comparisons
+                    else {}
+                ),
                 **({"location_enabled": True} if self.options.location else {}),
                 **({"dated_reviews_enabled": True} if self.options.dated_reviews else {}),
             )
@@ -1398,7 +1431,11 @@ class ChatLab:
         await self.source_store.initialize()
         self.battery = LabBatterySource(directory, self.options.clock)
         self.app_usage = LabAppUsageSource(self.options.clock)
-        self.location = LabLocationSource(self.options.clock.now)
+        self.location = (
+            LabComparisonLocationSource(self.options.clock.now)
+            if isinstance(self.options.clock, LabLocationComparisonClock)
+            else LabLocationSource(self.options.clock.now)
+        )
         self.sources = FamilySourceService(
             self.source_store,
             profiles,
@@ -1607,6 +1644,7 @@ class ChatLab:
             not self.options.usage_comparisons
             or self.options.real_model
             or not isinstance(self.options.clock, LabUsageComparisonClock)
+            or isinstance(self.options.clock, LabLocationComparisonClock)
         ):
             raise ParentChatError("lab_usage_comparison_disabled", 409)
         assert self.day_usage is not None and self.touch.proactive is not None
@@ -1806,6 +1844,20 @@ class ChatLab:
                 *(
                     [
                         LabScenario(
+                            key="location-comparison",
+                            title="Две GPS-записи (симуляция)",
+                            path="/lab/location-comparison",
+                            body={"parent_id": LAB_PARENT},
+                            local=True,
+                        )
+                    ]
+                    if self.options.location_comparisons
+                    and isinstance(self.options.clock, LabLocationComparisonClock)
+                    else []
+                ),
+                *(
+                    [
+                        LabScenario(
                             key="usage-comparison",
                             title="Сопоставить два дня (симуляция)",
                             path="/lab/usage-comparison",
@@ -1815,6 +1867,7 @@ class ChatLab:
                     ]
                     if self.options.usage_comparisons
                     and isinstance(self.options.clock, LabUsageComparisonClock)
+                    and not isinstance(self.options.clock, LabLocationComparisonClock)
                     else []
                 ),
                 *(

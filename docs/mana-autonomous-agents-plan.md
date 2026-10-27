@@ -1,5 +1,12 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The [parallel specialist increment](mana-parallel-specialists.md) adds parent-controlled
+Retention resumption, shared in-flight Upsell catalog observation and captured
+same-child saved GPS comparison through Child-Safety/Parent-Touch. It is local;
+full real-model/source/commercial/release acceptance below remains open. The new
+actual-model first-contact cycle completed with settled usage, but its original
+UTC date precision and wording findings remain a negative content review.
+
 The latest [compact initial-manager increment](mana-compact-parent-manager.md),
 application **`f4479f9`**, captures protocol 5 only on new opted-in turns. Nine
 independent real-model fictional cases complete within original per-case

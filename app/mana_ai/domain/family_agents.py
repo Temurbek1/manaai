@@ -15,6 +15,7 @@ from app.mana_ai.domain.chat import (
     ParentChatResponse,
     StoredChatTurn,
 )
+from app.mana_ai.domain.child_location import LocationComparisonView
 from app.mana_ai.domain.client_upsell import TARIFF_CANCEL_COMMANDS, UpsellChoice, UpsellEnquiry
 from app.mana_ai.domain.enums import (
     AnalysisStatus,
@@ -238,6 +239,9 @@ class FamilyNotice(ChatContract):
         default=(), max_length=2, exclude_if=lambda v: not v
     )
     counter_comparison: CounterComparisonView | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    location_comparison: LocationComparisonView | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 

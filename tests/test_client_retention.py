@@ -434,3 +434,313 @@ async def test_retention_does_not_gain_inference_when_parent_quota_is_exhausted(
         assert (await lab.state()).history.quota.used_tokens == 2000
     finally:
         await lab.close()
+
+
+async def test_retention_resume_round_trips_mobile_chat_without_inference_or_source(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    import httpx
+
+    from scripts.mana_chat_lab import create_app
+    from tests.test_mana_chat_lab import BASE, PREFIX, session
+
+    lab, _ = await inactive_lab(tmp_path / "resume-mobile")
+    options = lab.options
+    await lab.close()
+    app = create_app(options=options)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=BASE) as client,
+    ):
+        runtime = app.state.chat_lab
+
+        async def forbidden(*args: object, **kwargs: object) -> None:
+            raise AssertionError("Preference controls must not read a source or infer")
+
+        monkeypatch.setattr(runtime.touch._model, "count_input", forbidden)
+        monkeypatch.setattr(runtime.touch._model, "respond", forbidden)
+        monkeypatch.setattr(runtime.touch._children, "read", forbidden)
+        headers = await session(client)
+        stopped = {
+            "parent_id": LAB_PARENT,
+            "request_id": str(uuid4()),
+            "message": "stop check-ins",
+        }
+        resumed = {
+            "parent_id": LAB_PARENT,
+            "request_id": str(uuid4()),
+            "message": "resume chat check-ins",
+        }
+        for body in (stopped, resumed):
+            admitted = await client.post(
+                PREFIX + "/parent-touch/messages", headers=headers, json=body
+            )
+            assert admitted.status_code == 202 and admitted.json()["phase"] == "completed"
+            observed = await client.get(
+                PREFIX + f"/parent-touch/messages/{body['request_id']}?parent_id={LAB_PARENT}"
+            )
+            assert observed.status_code == 200 and observed.json() == admitted.json()
+        before = (await client.get(PREFIX + f"/parent-touch/chat?parent_id={LAB_PARENT}")).json()
+        assert len(before["messages"]) == 6
+        assert before["messages"][-1]["content"] == (
+            "I can initiate chat check-ins again when your verified settings allow it."
+        )
+        # Replaying an old stop cannot overwrite the later parent choice.
+        replay = await client.post(PREFIX + "/parent-touch/messages", headers=headers, json=stopped)
+        assert replay.status_code == 202 and replay.json()["phase"] == "completed"
+        assert (
+            await client.get(PREFIX + f"/parent-touch/chat?parent_id={LAB_PARENT}")
+        ).json() == before
+        assert not await runtime.touch.process_retention()
+        with runtime.store._connect() as db:
+            assert not db.execute("SELECT 1 FROM retention_opt_outs").fetchone()
+            assert not db.execute("SELECT 1 FROM retention_intents").fetchone()
+            assert (
+                db.execute(
+                    "SELECT COUNT(*) FROM retention_events WHERE kind='parent_resumed_check_ins'"
+                ).fetchone()[0]
+                == 1
+            )
+
+
+async def test_resume_changes_only_future_retention_preference_not_verified_consent(
+    tmp_path: Path,
+) -> None:
+    lab, clock = await inactive_lab(tmp_path / "resume-consent", consent=False)
+    try:
+        for text in ("не пиши первым", "возобнови напоминания об этом чате"):
+            result = await lab.touch.admit_message(
+                ParentTouchMessageRequest(parent_id=LAB_PARENT, request_id=uuid4(), message=text)
+            )
+            assert result.phase == "completed"
+        assert not await lab.touch.process_retention()
+        clock.value += timedelta(days=15)
+        assert lab.touch.proactive
+        contact = await lab.store.contact_context(LAB_PARENT, clock.now() - timedelta(days=15))
+        assert contact and not contact.retention_chat_consent
+        current = contact.model_copy(
+            update={
+                "event_id": uuid4(),
+                "revision": contact.revision + 1,
+                "observed_at": clock.now(),
+                "valid_until": clock.now() + timedelta(days=1),
+            }
+        )
+        await lab.touch.proactive.register(current)
+        assert not await lab.touch.process_retention()
+        with lab.store._connect() as db:
+            assert not db.execute("SELECT 1 FROM retention_intents").fetchone()
+        await lab.touch.proactive.register(
+            current.model_copy(
+                update={
+                    "event_id": uuid4(),
+                    "revision": current.revision + 1,
+                    "retention_chat_consent": True,
+                }
+            )
+        )
+        assert await lab.touch.process_retention()
+        assert not await lab.touch.process_retention()
+        assert (await lab.state()).history.quota.used_tokens == 150
+    finally:
+        await lab.close()
+
+
+async def test_replaying_old_resume_does_not_remove_newer_refusal(tmp_path: Path) -> None:
+    lab, _ = await inactive_lab(tmp_path / "resume-replay")
+    try:
+        resume = ParentTouchMessageRequest(
+            parent_id=LAB_PARENT, request_id=uuid4(), message="bu chat haqida yana eslatib turing"
+        )
+        first = await lab.touch.admit_message(resume)
+        assert first.response and first.response.answer.startswith("Sozlamalaringiz")
+        stop = ParentTouchMessageRequest(
+            parent_id=LAB_PARENT, request_id=uuid4(), message="birinchi bo‘lib yozmang"
+        )
+        await lab.touch.admit_message(stop)
+        assert await lab.touch.admit_message(resume) == first
+        with lab.store._connect() as db:
+            assert db.execute(
+                "SELECT 1 FROM retention_opt_outs WHERE parent_id=?", (LAB_PARENT,)
+            ).fetchone()
+            assert (
+                db.execute(
+                    "SELECT COUNT(*) FROM retention_events WHERE kind='parent_resumed_check_ins'"
+                ).fetchone()[0]
+                == 1
+            )
+        assert not await lab.touch.process_retention()
+    finally:
+        await lab.close()
+
+
+async def test_stop_then_resume_during_inference_cannot_resurrect_priced_outreach(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    from app.mana_ai.application.chat_ports import ChatModelReceipt, ChatPrompt
+
+    lab, _ = await inactive_lab(tmp_path / "resume-race")
+    original = lab.touch._model.respond
+
+    async def changed(prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
+        for text in ("не пиши первым", "снова напоминай об этом чате"):
+            result = await lab.touch.admit_message(
+                ParentTouchMessageRequest(parent_id=LAB_PARENT, request_id=uuid4(), message=text)
+            )
+            assert result.phase == "completed"
+        return await original(prompt, max_output_tokens=max_output_tokens)
+
+    monkeypatch.setattr(lab.touch._model, "respond", changed)
+    try:
+        assert await lab.touch.process_retention()
+        assert not await lab.touch.process_retention()
+        state = await lab.state()
+        assert len(state.history.messages) == 6  # Original pair plus two control pairs only.
+        assert state.history.quota.used_tokens == 150
+        assert state.history.quota.reserved_tokens == 0
+        with lab.store._connect() as db:
+            assert db.execute("SELECT status FROM retention_intents").fetchone()[0] == "suppressed"
+            assert not db.execute("SELECT 1 FROM parent_push_outbox").fetchone()
+    finally:
+        await lab.close()
+
+
+async def test_resume_retains_unknown_model_hold_over_restart_and_midnight(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    from app.mana_ai.application.chat_ports import ChatModelReceipt, ChatPrompt
+
+    lab, clock = await inactive_lab(tmp_path / "resume-unknown")
+    calls = 0
+
+    async def lost(prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
+        nonlocal calls
+        calls += 1
+        raise TimeoutError("fictional lost retention response")
+
+    monkeypatch.setattr(lab.touch._model, "respond", lost)
+    try:
+        assert await lab.touch.process_retention()
+        held = (await lab.state()).history.quota.reserved_tokens
+        assert held > 0
+        for text in ("stop check-ins", "start chat check-ins again"):
+            result = await lab.touch.admit_message(
+                ParentTouchMessageRequest(parent_id=LAB_PARENT, request_id=uuid4(), message=text)
+            )
+            assert result.phase == "completed"
+        options = lab.options
+        await lab.close()
+        clock.value += timedelta(days=1)
+        lab = ChatLab(options)
+        await lab.start()
+        assert not await lab.touch.process_retention()
+        state = await lab.state()
+        assert state.history.quota.blocked_by_unresolved_request
+        with lab.store._connect() as db:
+            assert db.execute("SELECT status FROM retention_intents").fetchone()[0] == "unknown"
+            assert (
+                db.execute(
+                    "SELECT SUM(reserved) FROM parent_chat_turns WHERE status='unknown'"
+                ).fetchone()[0]
+                == held
+            )
+        assert calls == 1
+    finally:
+        await lab.close()
+
+
+async def test_resume_never_restores_suppressed_push_or_answers_a_safety_question(
+    tmp_path: Path,
+) -> None:
+    from app.mana_ai.domain.family_agents import AgentQuestionRequest
+    from app.services.mana_chat_lab import LAB_CHILD
+
+    lab, clock = await inactive_lab(tmp_path / "resume-priority")
+    try:
+        assert lab.touch.proactive
+        contact = await lab.store.contact_context(LAB_PARENT, clock.now())
+        assert contact
+        await lab.touch.proactive.register(
+            contact.model_copy(
+                update={
+                    "event_id": uuid4(),
+                    "revision": contact.revision + 1,
+                    "retention_push_consent": True,
+                }
+            )
+        )
+        lab.store._push_enabled = True  # SQL outbox only; the lab has no push gateway.
+        assert await lab.touch.process_retention()
+        await lab.touch.admit_message(
+            ParentTouchMessageRequest(
+                parent_id=LAB_PARENT, request_id=uuid4(), message="stop check-ins"
+            )
+        )
+        question = await lab.touch.request_question(
+            AgentQuestionRequest(
+                parent_id=LAB_PARENT,
+                child_id=LAB_CHILD,
+                agent_id="child-safety",
+                request_id=uuid4(),
+                information_key="safety.current_status",
+                question="Ребёнок сейчас в безопасности?",
+                reason="Fictional safety clarification",
+                source_revision="fictional-v1",
+                observed_at=clock.now(),
+                expires_at=clock.now() + timedelta(hours=1),
+            )
+        )
+        await lab.touch.admit_message(
+            ParentTouchMessageRequest(
+                parent_id=LAB_PARENT,
+                request_id=uuid4(),
+                message="resume chat check-ins",
+                reply_to_question_id=question.question.question_id,
+            )
+        )
+        assert not await lab.touch.process_retention()
+        with lab.store._connect() as db:
+            assert db.execute("SELECT status FROM parent_push_outbox").fetchone()[0] == "suppressed"
+            saved = db.execute(
+                "SELECT status,answer_turn_id FROM family_questions WHERE question_id=?",
+                (str(question.question.question_id),),
+            ).fetchone()
+            assert saved[0] == "queued" and saved[1] is None
+    finally:
+        await lab.close()
+
+
+async def test_resume_observes_host_command_ceiling_without_losing_refusal(
+    tmp_path: Path,
+) -> None:
+    import pytest
+
+    from app.mana_ai.application.chat_ports import ParentChatError
+    from app.services.client_retention_store import SqliteClientRetentionStore
+
+    lab, clock = await inactive_lab(tmp_path / "resume-command-limit")
+    try:
+        assert isinstance(lab.store, SqliteClientRetentionStore)
+        stop = ParentTouchMessageRequest(
+            parent_id=LAB_PARENT, request_id=uuid4(), message="stop check-ins"
+        )
+        await lab.touch.admit_message(stop)
+        with lab.store._transaction() as db:
+            for _ in range(lab.store._reminder_policy.parent_commands_per_24h):
+                lab.store._assistant_event(
+                    db, LAB_PARENT, None, "host_message_published", clock.now()
+                )
+        with pytest.raises(ParentChatError, match="assistant_command_limit_exceeded"):
+            await lab.touch.admit_message(
+                ParentTouchMessageRequest(
+                    parent_id=LAB_PARENT, request_id=uuid4(), message="resume chat check-ins"
+                )
+            )
+        assert (await lab.touch.admit_message(stop)).phase == "completed"
+        with lab.store._connect() as db:
+            assert db.execute("SELECT 1 FROM retention_opt_outs").fetchone()
+            assert not db.execute(
+                "SELECT 1 FROM retention_events WHERE kind='parent_resumed_check_ins'"
+            ).fetchone()
+    finally:
+        await lab.close()

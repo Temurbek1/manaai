@@ -10,6 +10,9 @@ from app.mana_ai.domain.source_reviews import CounterComparisonView
 
 
 class LabUsageComparisonClock:
+    kind = "fictional_usage_comparison_v1"
+    filename = "comparison-clock.json"
+
     def __init__(self) -> None:
         self._phase: Literal["baseline", "current", "ready"] = "baseline"
         self._path: Path | None = None
@@ -25,7 +28,7 @@ class LabUsageComparisonClock:
         )
 
     def restore(self, directory: Path) -> None:
-        self._path = directory / "comparison-clock.json"
+        self._path = directory / self.filename
         if self._path.is_symlink():
             raise ValueError("A fictional clock cannot use a symlink")
         if self._path.exists():
@@ -33,7 +36,7 @@ class LabUsageComparisonClock:
             if (
                 not isinstance(value, dict)
                 or set(value) != {"kind", "phase"}
-                or value["kind"] != "fictional_usage_comparison_v1"
+                or value["kind"] != self.kind
                 or value["phase"] not in {"baseline", "current", "ready"}
             ):
                 raise ValueError("Invalid fictional comparison clock")
@@ -48,7 +51,7 @@ class LabUsageComparisonClock:
         with os.fdopen(
             os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
         ) as stream:
-            json.dump({"kind": "fictional_usage_comparison_v1", "phase": phase}, stream)
+            json.dump({"kind": self.kind, "phase": phase}, stream)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, self._path)

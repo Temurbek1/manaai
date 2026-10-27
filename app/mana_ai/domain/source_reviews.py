@@ -10,7 +10,12 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, model_validator
 
 from app.mana_ai.domain.chat import ChatContract, ParentChatId
-from app.mana_ai.domain.child_location import ChildLocationFacts
+from app.mana_ai.domain.child_location import (
+    LOCATION_SOURCE,
+    ChildLocationFacts,
+    LocationComparisonView,
+    LocationObservationView,
+)
 from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, day_child_fingerprint
 from app.mana_ai.domain.family_sources import (
     ChildAppUsageFacts,
@@ -61,6 +66,14 @@ class SourceReviewSnapshot(ChatContract):
 
 class SavedUsageComparison(ChatContract):
     """One exact preceding query-day snapshot, not a verified behavioral baseline."""
+
+    current_snapshot_id: UUID
+    current_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    previous: SourceReviewSnapshot
+
+
+class SavedLocationComparison(ChatContract):
+    """An admission-frozen prior own-child point, never provider read authority."""
 
     current_snapshot_id: UUID
     current_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -137,6 +150,9 @@ class SourceReviewBundle(ChatContract):
     usage_comparison: SavedUsageComparison | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    location_comparison: SavedLocationComparison | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def own_child_sources(self) -> "SourceReviewBundle":
@@ -168,6 +184,24 @@ class SourceReviewBundle(ChatContract):
             assert isinstance(current.facts, ChildAppUsageFacts)
             assert isinstance(previous.facts, ChildAppUsageFacts)
             reported_counter_changes(current.facts, previous.facts)
+        location = self.location_comparison
+        if location is not None:
+            current = next((s for s in self.snapshots if s.source == LOCATION_SOURCE), None)
+            previous = location.previous
+            if (
+                current is None
+                or previous.source != LOCATION_SOURCE
+                or previous.facts.child_id != self.child_id
+                or previous.facts.collected_at > current.facts.collected_at
+                or location.current_snapshot_id != current.snapshot_id
+                or location.current_fingerprint != current.fingerprint
+                or previous.snapshot_id == current.snapshot_id
+                or previous.fingerprint == current.fingerprint
+                or LOCATION_SOURCE not in self.changed_sources
+            ):
+                raise ValueError(
+                    "Saved location comparisons require exact ordered own-child captures"
+                )
         return self
 
     def digest(self) -> str:
@@ -175,7 +209,52 @@ class SourceReviewBundle(ChatContract):
         value: list[tuple[str, str]] = sorted((s.source, s.fingerprint) for s in self.snapshots)
         if self.usage_comparison is not None:
             value.append(("saved_previous_query_day", self.usage_comparison.previous.fingerprint))
+        if self.location_comparison is not None:
+            value.append(("saved_previous_location", self.location_comparison.previous.fingerprint))
         return hashlib.sha256(json.dumps(value, separators=(",", ":")).encode()).hexdigest()
+
+
+def location_comparison_view(bundle: SourceReviewBundle) -> LocationComparisonView | None:
+    comparison = bundle.location_comparison
+    if comparison is None:
+        return None
+    current = next(s.facts for s in bundle.snapshots if s.source == LOCATION_SOURCE)
+    previous = comparison.previous.facts
+    assert isinstance(current, ChildLocationFacts) and isinstance(previous, ChildLocationFacts)
+
+    def project(facts: ChildLocationFacts) -> LocationObservationView:
+        return LocationObservationView(
+            observed_at=facts.observed_at,
+            source_updated_at=facts.source_updated_at,
+            snapshot_collected_at=facts.collected_at,
+            quality=facts.quality,
+            mock=facts.mock,
+            sample=facts.sample,
+            is_moving=facts.is_moving,
+            accuracy_reported=facts.accuracy_reported,
+        )
+
+    chronology = (
+        "missing_observation"
+        if "missing" in {previous.status, current.status}
+        else "unknown_measurement_time"
+        if previous.observed_at is None or current.observed_at is None
+        else "ordered_measurements"
+        if previous.observed_at < current.observed_at
+        else "same_measurement_time"
+        if previous.observed_at == current.observed_at
+        else "regressed_measurement_time"
+    )
+    return LocationComparisonView(
+        previous=project(previous),
+        current=project(current),
+        chronology=chronology,
+        stored_point_relation=(
+            "same" if previous.position_fingerprint == current.position_fingerprint else "different"
+        )
+        if chronology == "ordered_measurements"
+        else "not_comparable",
+    )
 
 
 def counter_comparison_view(bundle: SourceReviewBundle) -> CounterComparisonView | None:

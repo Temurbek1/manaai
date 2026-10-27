@@ -29,6 +29,7 @@ from app.services.firestore_child_battery import FirestoreChildBatterySource
 from app.services.firestore_child_location import FirestoreChildLocationSource
 from app.services.inventory_tariff_store import SqliteInventoryTariffStore
 from app.services.location_collection_store import SqliteLocationCollectionStore
+from app.services.location_comparison_cache import SqliteLocationComparisonCache
 from app.services.location_source_cache import SqliteLocationSourceCache
 from app.services.manakids_child_usage import ManakidsChildUsageSource, ManakidsReadToken
 from app.services.manakids_family_day_usage import ManakidsFamilyDayUsageSource
@@ -83,15 +84,19 @@ async def family_source_runtime(
         else SqliteSourceSafetyStore
     )
     source_version = await collection_storage_version(settings.mana_family_source_database_path)
-    location_reader = settings.mana_family_location_enabled or source_version in {7, 8}
+    location_reader = settings.mana_family_location_enabled or source_version in {7, 8, 9}
     day_review_reader = (
-        settings.mana_family_day_reviews_enabled or source_version in {6, 7, 8} or location_reader
+        settings.mana_family_day_reviews_enabled
+        or source_version in {6, 7, 8, 9}
+        or location_reader
     )
-    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6, 7, 8}
+    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6, 7, 8, 9}
     store = (
         (
-            SqliteUsageComparisonCache
-            if settings.mana_family_usage_comparisons_enabled or source_version == 8
+            SqliteLocationComparisonCache
+            if settings.mana_family_location_comparisons_enabled or source_version == 9
+            else SqliteUsageComparisonCache
+            if settings.mana_family_usage_comparisons_enabled or source_version in {8, 9}
             else SqliteLocationSourceCache
             if location_reader
             else SqliteDayReviewCache
@@ -111,8 +116,13 @@ async def family_source_runtime(
             and settings.mana_family_source_reviews_enabled,
             review_policy=settings.mana_family_source_review_policy,
             **(
+                {"location_comparisons_enabled": settings.mana_family_location_comparisons_enabled}
+                if settings.mana_family_location_comparisons_enabled or source_version == 9
+                else {}
+            ),
+            **(
                 {"comparisons_enabled": settings.mana_family_usage_comparisons_enabled}
-                if settings.mana_family_usage_comparisons_enabled or source_version == 8
+                if settings.mana_family_usage_comparisons_enabled or source_version in {8, 9}
                 else {}
             ),
             **(

@@ -1,5 +1,16 @@
 # AGENTS.md
 
+- The parallel specialist increment adds explicit Retention-only resume commands,
+  SQL-only waiting on the exact in-flight shared catalog receipt, and default-off
+  `MANA_FAMILY_LOCATION_COMPARISONS_ENABLED` (source9/family37). Read
+  `docs/mana-parallel-specialists.md`. Capture prior GPS only on new admissions;
+  old work never upgrades, no additional provider read is implied, and two stored
+  points never prove movement/routes/geofences/danger. Preserve stop fences, raw
+  costs and unknown holds. Use current closed37 for populated state; old36 cannot
+  execute it. The independent UZ first-contact model workflow settled but has a
+  negative exact-date/natural-wording review; do not replay or relabel it as full
+  quality acceptance. No deployment, source activation or financial action follows.
+
 ## Repository expectations
 
 - Local default-disabled `MANA_PARENT_TOUCH_COMPACT_MANAGER_ENABLED` requires

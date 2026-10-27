@@ -360,6 +360,7 @@ class SqliteParentChatStore:
     def _submit(self, turn: StoredChatTurn, reserved_tokens: int, now: datetime) -> None:
         now = self._utc(now)
         with self._transaction() as connection:
+            self._validate_chat_submission(connection, turn, now)
             changed = connection.execute(
                 "UPDATE parent_chat_turns SET status='submitted', reserved=?, updated_at=? "
                 "WHERE id=? AND parent_id=? AND status='preparing' AND reserved>=? "
@@ -375,6 +376,11 @@ class SqliteParentChatStore:
             ).rowcount
             if changed != 1:
                 raise ParentChatError("request_no_longer_admitted", 409)
+
+    def _validate_chat_submission(
+        self, connection: sqlite3.Connection, turn: StoredChatTurn, now: datetime
+    ) -> None:
+        """Optional owning protocols fence new inference inside its durable transition."""
 
     async def fail(
         self, turn: StoredChatTurn, *, code: str, status_code: int = 503, unknown: bool = False

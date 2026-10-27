@@ -1195,3 +1195,32 @@ Nine bounded real-model fictional cases passed, including dated/unknown child
 data, prices/currency, a bound Android answer and an unexecuted reminder draft.
 This does not establish real source access, fleet capacity or production release.
 Read [the exact protocol, measured usage and limitations](mana-compact-parent-manager.md).
+
+
+## 47. Parallel specialist increment (local; not released)
+
+The same three chat operations remain sufficient. Parent-Touch is still the only
+speaker. New local behavior is described in [the specialist checkpoint](mana-parallel-specialists.md).
+
+- Retention preference: after opting out, send `resume chat check-ins`,
+  `возобнови напоминания об этом чате` or `bu chat haqida yana eslatib turing`
+  as an ordinary message with a new UUID. This restores only that local preference;
+  independently verified contact permissions and every existing limit still apply.
+  It never resends old suppressed work. Exact replay returns the original result.
+- Concurrent tariff enquiries observe one already submitted shared catalog claim.
+  Each original message completes with its own filtered quote when the verified
+  receipt is ready. Keep observing status/history; do not repeat a request because
+  another family currently owns the source read. Unknown outcomes never retry.
+- Saved GPS comparisons are server-side, default disabled via
+  `MANA_FAMILY_LOCATION_COMPARISONS_ENABLED`. New eligible source admissions bind
+  one previous same-child snapshot before reading, source9/family37. The existing
+  worker may publish one useful report through Parent-Touch when separately
+  permitted. No new mobile event, chat, source permission or model budget is needed.
+  A two-record relation is not a route, verified movement or danger finding.
+
+Do not call new production behavior until a separately confirmed release. The
+isolated fictional lab is `make chat-lab-location-comparison CHAT_LAB_PORT=8115`;
+its artificial clock cannot be used with real providers/models. Do not migrate
+or reset existing lab directories just to retry a scenario. The new paid UZ
+fictional workflow has a retained negative date/wording review, so this document
+makes no broad real-model, source/fleet or production-readiness claim.

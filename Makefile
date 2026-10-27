@@ -340,3 +340,7 @@ audit-postgres:
 	scripts/postgres_audit.sh
 
 audit-verify: verify audit-focused audit-security audit-schema audit-migrations audit-postgres audit-dependencies audit-browser admin-no-vite admin-bundle-scan admin-production-smoke admin-docker
+
+.PHONY: chat-lab-location-comparison
+chat-lab-location-comparison:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_location_comparison_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

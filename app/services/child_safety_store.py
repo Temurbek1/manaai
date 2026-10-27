@@ -755,6 +755,7 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                     or reserved_tokens > row["reserved"]
                 ):
                     raise ParentChatError("safety_job_no_longer_claimed", 409)
+                self._validate_safety_submission(connection, row, self._utc(now))
                 connection.execute(
                     "UPDATE child_safety_jobs SET status='submitted',reserved=?,updated_at=? "
                     "WHERE job_id=?",
@@ -762,6 +763,11 @@ class SqliteChildSafetyStore(SqliteTouchEvidenceStore):
                 )
 
         await asyncio.to_thread(submit)
+
+    def _validate_safety_submission(
+        self, connection: sqlite3.Connection, row: sqlite3.Row, now: datetime
+    ) -> None:
+        """Optional owning protocols fence a new submission without refunding old usage."""
 
     async def record_usage(
         self, job: SafetyJob, usage: ChatTokens, model: str, now: datetime

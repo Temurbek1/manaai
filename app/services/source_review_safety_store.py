@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from app.mana_ai.application.chat_ports import ParentChatError
 from app.mana_ai.domain.chat import ParentChatRequest
+from app.mana_ai.domain.child_location import LocationComparisonView
 from app.mana_ai.domain.child_safety import (
     SafetyContextSnapshot,
     SafetyJob,
@@ -38,6 +39,12 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
         return False
 
     def _notice_counter_comparison(self, job: SafetyJob) -> CounterComparisonView | None:
+        return None
+
+    def _allow_location_comparison(self) -> bool:
+        return False
+
+    def _notice_location_comparison(self, job: SafetyJob) -> LocationComparisonView | None:
         return None
 
     def _push_delivery_ready(
@@ -143,6 +150,8 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
             if prior is None:
                 if bundle.usage_comparison is not None and not self._allow_usage_comparison():
                     raise ParentChatError("usage_comparisons_disabled", 503)
+                if bundle.location_comparison is not None and not self._allow_location_comparison():
+                    raise ParentChatError("location_comparisons_disabled", 503)
                 if not allow_new or not self._capacity(db, parent):
                     raise ParentChatError("safety_queue_full", 429)
                 cutoff = db.execute(
@@ -279,6 +288,7 @@ class SqliteSourceReviewSafetyStore(SqliteObservationToolSafetyStore):
             expires_at=now + timedelta(days=1),
             source_observations=tuple(s.facts for s in bundle.snapshots),
             counter_comparison=comparison,
+            location_comparison=self._notice_location_comparison(job),
             query_calendar_days=(
                 comparison.previous_query_calendar_day,
                 comparison.current_query_calendar_day,

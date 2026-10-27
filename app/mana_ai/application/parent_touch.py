@@ -494,6 +494,10 @@ class ParentTouchService(ParentChatService):
                     data["assessments"]["saved_counter_comparison"] = (
                         evidence.notice.counter_comparison.model_dump(mode="json")
                     )
+                if evidence.notice.location_comparison is not None:
+                    data["assessments"]["saved_location_comparison"] = (
+                        evidence.notice.location_comparison.model_dump(mode="json")
+                    )
         reference = await self._touch_store.language_reference(request.parent_id, turn.turn_id)
         response_language = await self._touch_store.language_hint(request.parent_id, turn.turn_id)
         if response_language is None:
@@ -665,6 +669,17 @@ class ParentTouchService(ParentChatService):
                 "show English field names or internal data terminology. Do not recommend "
                 "waiting for more rows or offer pagination/refresh: these are unavailable. "
                 "Prefer a safe practical parent action. Keep the comparison concise."
+            )
+        if evidence and evidence.notice and evidence.notice.location_comparison is not None:
+            instructions += (
+                "\nThe saved_location_comparison describes exactly two saved GPS reports, "
+                "not a route or verified movement. Preserve both measurement dates and "
+                "unknown/mock/sample qualifications. Server updates and collection dates "
+                "are not measurement times. Equal stored points do not prove staying in "
+                "one place; different points do not prove travel, danger or a geofence "
+                "crossing. Never invent speed, distance, arrival or missing positions. "
+                "Explain the qualified observations concisely in the parent's language, "
+                "without internal field names; suggest only a supported safe next step."
             )
         commercial = await self._touch_store.commercial_context(request.parent_id, turn.turn_id)
         if commercial is not None:

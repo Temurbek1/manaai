@@ -61,6 +61,14 @@ class SqliteFamilySourceStore:
     def _source_changed(self, connection: sqlite3.Connection, event: FamilySourceChange) -> None:
         """Capture optional consumer admission in the same source transaction."""
 
+    def _source_admitted(
+        self,
+        connection: sqlite3.Connection,
+        target: FamilySourceTarget,
+        receipt: FamilySourceReceipt,
+    ) -> None:
+        """Freeze optional local context atomically before any provider dispatch."""
+
     def __init__(self, path: Path, *, binding: str, limits: FamilySourceLimits) -> None:
         if not binding or len(binding) > 256 or binding == "unverified":
             raise ValueError("A confirmed source binding is required")
@@ -284,6 +292,7 @@ class SqliteFamilySourceStore:
                     receipt.model_dump_json(),
                 ),
             )
+            self._source_admitted(connection, target, receipt)
             return FamilySourceClaim(receipt=receipt, admitted=True, read_provider=not cache)
 
     async def complete(

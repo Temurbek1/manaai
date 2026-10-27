@@ -176,6 +176,16 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
     async def usage_comparison() -> dict[str, object]:
         return await mana_family_agents.controlled(lab.prepare_usage_comparison())
 
+    @app.post(
+        "/lab/location-comparison",
+        response_model=dict[str, object],
+        dependencies=[Depends(local_session)],
+    )
+    async def location_comparison() -> dict[str, object]:
+        from app.services.lab_location_comparison import prepare_location_comparison
+
+        return await mana_family_agents.controlled(prepare_location_comparison(lab))
+
     def card_service() -> ChatActionService:
         if lab.action_cards is None:
             raise HTTPException(503, detail={"code": "lab_action_cards_disabled"})
@@ -938,5 +948,30 @@ def create_day_collection_app() -> FastAPI:
             scheduled_collection=True,
             collection_tariffs=True,
             day_collection=True,
+        )
+    )
+
+
+def create_location_comparison_app() -> FastAPI:
+    """Isolated fake workspace; no clock/source upgrade of earlier lab directories."""
+    from dataclasses import replace
+
+    from app.services.lab_location_comparison import LabLocationComparisonClock
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(
+        root / "data/chat-lab/location-comparison-v37-simulation",
+        clock=LabLocationComparisonClock(),
+    )
+    return create_app(
+        options=replace(
+            options,
+            tariff_handoff=True,
+            compact_inputs=True,
+            compact_publication=True,
+            compact_manager=True,
+            location_comparisons=True,
+            usage_comparisons=False,
         )
     )

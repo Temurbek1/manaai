@@ -16,6 +16,7 @@ from app.mana_ai.domain.chat import ParentChatRequest, StoredChatTurn
 from app.mana_ai.domain.client_upsell import (
     CatalogAdmission,
     CatalogReadClaim,
+    CatalogReadObservation,
     ClientUpsellPolicy,
     UpsellIntent,
     UpsellQuote,
@@ -286,7 +287,13 @@ class SqliteClientUpsellStore(SqliteClientRetentionStore):
                             (row["claim_id"],),
                         )
                         return CatalogAdmission(refusal="blocked")
-                    return CatalogAdmission(refusal="busy")
+                    return CatalogAdmission(
+                        refusal="busy",
+                        waiting_for=CatalogReadClaim(
+                            claim_id=row["claim_id"],
+                            expires_at=datetime.fromisoformat(row["expires_at"]),
+                        ),
+                    )
                 saved = db.execute("SELECT * FROM upsell_catalog WHERE id=1").fetchone()
                 if saved:
                     if hashlib.sha256(saved["payload"].encode()).hexdigest() != saved["digest"]:
@@ -320,6 +327,36 @@ class SqliteClientUpsellStore(SqliteClientRetentionStore):
                 )
 
         return await asyncio.to_thread(claim)
+
+    async def catalog_observation(
+        self, claim: CatalogReadClaim, now: datetime
+    ) -> CatalogReadObservation:
+        def read() -> CatalogReadObservation:
+            with self._connect() as db:
+                row = db.execute(
+                    "SELECT status,expires_at,payload,digest FROM upsell_catalog_reads "
+                    "WHERE claim_id=?",
+                    (str(claim.claim_id),),
+                ).fetchone()
+                if row is None or datetime.fromisoformat(row["expires_at"]) != claim.expires_at:
+                    raise ParentChatError("upsell_catalog_claim_invalid", 409)
+                if row["status"] == "recorded":
+                    if (
+                        not row["payload"]
+                        or hashlib.sha256(row["payload"].encode()).hexdigest() != row["digest"]
+                    ):
+                        raise ParentChatError("upsell_catalog_receipt_invalid", 503)
+                    return CatalogReadObservation(
+                        status="recorded",
+                        snapshot=ConversionCatalogObservation.model_validate_json(row["payload"]),
+                    )
+                return CatalogReadObservation(
+                    status="reading"
+                    if row["status"] == "reading" and self._utc(now) < claim.expires_at
+                    else "unknown"
+                )
+
+        return await asyncio.to_thread(read)
 
     async def catalog_result(self, claim: CatalogReadClaim) -> ConversionCatalogObservation | None:
         def read() -> ConversionCatalogObservation | None:
