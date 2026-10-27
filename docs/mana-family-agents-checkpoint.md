@@ -2,7 +2,44 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Actual-source/actual-model path — incomplete, 2026-10-27
+### Compact input presentation — partial acceptance, 2026-10-27
+
+Authoritative feature worktree is `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, application **`4ea5e4d`**, documentation
+**`f6876a3`**. Read [the exact scope and negative model evidence](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-compact-family-inputs.md)
+and English integration section 44. The default-disabled family v35 presentation
+is captured only for new native turns; original contexts, tool/result pairing,
+models, budgets and historical admissions remain unchanged.
+
+The new independent four-case synthetic paid cohort completed **8 generations /
+10 counts**, with **zero real MANA/Firebase/GA4 reads**, contacts or production
+changes. Both six-child RU/UZ cases completed Safety analysis (1783/1802 tokens)
+but **failed Parent-Touch final token admission**: known parent usage 1022/1035,
+no final generation or answer, no unknown holds. Both tariff cases passed,
+including one Uzbek currency question and an exact UZS answer without another
+inference. Known uncached generation estimate **$0.016305**, not an invoice.
+Preserve the entire new party and the earlier actual-source failure below;
+neither may be reset, retried or relabeled a full success.
+
+Full `make verify` passed with **1721 backend tests**, **26 admin / 23 lab tests**,
+mypy **463 files**, builds/static checks and npm audit zero vulnerabilities.
+Clean application image `mana-ai-family:compact-input-local-20261027`, ID
+`sha256:bc4cf8209a99e84bf0c669d7867725d3764372d0cd0db1f30bd4e3f20a3f31f5`,
+passed networkless fake workflow/unknown holds/closed-reader checks, actual v34
+populated copy migration and retained production v6-copy history/replay. All
+original cells survived; new historical capture rows stayed empty. Actual old
+v34 refuses v35 safely, which is not functional rollback. Current closed v35
+also preserves copies of all four paid cases without re-execution.
+
+The separate model-free 390px browser retained six messages, simulated 450/300
+parent/Safety tokens and every cell in **77 family / 27 source tables** across
+server restart, without page errors or document overflow. The owned browser and
+8112 test server are closed. Existing default labs and production are unchanged.
+Full child-chat completion, broader agents and scoped release remain open;
+continue final manager cost/quality without raising quotas or replaying parties.
+Referral remains deferred until its actual API arrives. The broad goal is active.
+
+### Earlier actual-source/actual-model path — incomplete, 2026-10-27
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
 `feat/mana-conversion-agent-20261021`; documentation HEAD **`809bb6f`**, application
