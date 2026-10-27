@@ -7,9 +7,11 @@ from typing import cast
 
 from openai import APIStatusError
 from openai.types.responses import ResponseInputParam, ToolParam
+from openai.types.responses.response_text_config_param import ResponseTextConfigParam
 from pydantic import ValidationError
 
 from app.mana_ai.application.chat_ports import ChatModelRejected
+from app.mana_ai.application.input_presentation import without_schema_titles
 from app.mana_ai.application.source_tool_ports import SourceModelReceipt, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.family_day_usage import DayUsageReceipt
@@ -123,6 +125,15 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             }
         ]
 
+    def _native_text(self, prompt: SourceToolPrompt) -> ResponseTextConfigParam:
+        result = self._text(prompt.input)
+        if prompt.scope.input_presentation == 1:
+            format_value = result["format"]
+            if format_value["type"] != "json_schema":
+                raise ValueError("Native input presentation requires the exact strict schema")
+            format_value["schema"] = without_schema_titles(format_value["schema"])
+        return result
+
     def _digest(self, prompt: SourceToolPrompt) -> str:
         payload = {
             "version": 1,
@@ -130,7 +141,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             "instructions": prompt.input.instructions,
             "input": self._input(prompt.input),
             "minimum_output_tokens": prompt.input.minimum_output_tokens,
-            "text": self._text(prompt.input),
+            "text": self._native_text(prompt),
             "tools": self._tools(prompt),
             "model": self._model,
             "reasoning_effort": self._effort,
@@ -142,13 +153,15 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
     def _request_tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
         # V3 keeps the original advertised schema in its immutable input digest,
         # but its final-only request has no callable tools. V1/v2 remain exact.
-        if prompt.scope.protocol == 3 and prompt.continuation is not None:
+        if prompt.continuation is not None and (
+            prompt.scope.protocol == 3 or prompt.scope.input_presentation == 1
+        ):
             return []
         return self._tools(prompt)
 
     def _source_input(self, prompt: SourceToolPrompt) -> ResponseInputParam:
         SourceToolScope.model_validate(prompt.scope.model_dump())
-        self._text(prompt.input)  # Refuse a Parent-Touch publication protocol before HTTP.
+        self._native_text(prompt)  # Refuse a Parent-Touch publication protocol before HTTP.
         if (prompt.continuation is None) != (prompt.source_result is None):
             raise ValueError("A native source result requires its original call")
         result = list(self._input(prompt.input))
@@ -229,7 +242,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 instructions=prompt.input.instructions,
                 input=source_input,
                 reasoning={"effort": self._effort},
-                text=self._text(prompt.input),
+                text=self._native_text(prompt),
                 tools=self._request_tools(prompt),
                 tool_choice="none" if prompt.continuation or not prompt.scope.children else "auto",
                 parallel_tool_calls=False,
@@ -254,7 +267,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                     instructions=prompt.input.instructions,
                     input=source_input,
                     reasoning={"effort": self._effort},
-                    text=self._text(prompt.input),
+                    text=self._native_text(prompt),
                     tools=self._request_tools(prompt),
                     tool_choice="none"
                     if prompt.continuation or not prompt.scope.children

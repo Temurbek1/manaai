@@ -99,6 +99,9 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
     _schema_version = 11
     _source_contract = 1
 
+    async def native_input_presentation(self, job: SafetyJob) -> Literal[1] | None:
+        return None
+
     async def source_review_owner(self, job: SafetyJob) -> SourceAnalysisOwner | None:
         return None  # Historical captures cannot acquire the new shared-review protocol.
 

@@ -2,6 +2,20 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_FAMILY_COMPACT_INPUTS_ENABLED` adds family v35,
+  presentation v1 captured only on new native turns. Read
+  `docs/mana-compact-family-inputs.md` and English integration section 44.
+  Preserve every context value/string and strict schema constraint; remove only
+  generated title annotations/native-envelope whitespace and final-only callable
+  tool definitions. Bind the original profile/call/result; never upgrade old
+  captures, discard unknown holds or refund late verified usage. Current closed
+  v35 is required; old refusal is not functional rollback. The independent paid
+  four-case cohort has two tariff passes but two child-chat failures: Safety
+  completed, Parent-Touch final admission did not. Preserve that negative party
+  and the earlier actual-source failure. No full-loop quality, cost-saving,
+  source/schedule/contact or production acceptance follows. Referral remains
+  deferred; the full goal stays active.
+
 - The new actual-source/actual-model party on test parent 4 failed continuation
   admission under unchanged 2000/2000 limits. Read
   `docs/mana-real-source-chat-budget-checkpoint.md` before live acceptance or

@@ -17,6 +17,7 @@ from app.mana_ai.application.chat_ports import (
     ChatModelRejected,
     ChatPrompt,
 )
+from app.mana_ai.application.input_presentation import without_schema_titles
 from app.mana_ai.application.parent_languages import language_name, parent_language
 from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
 from app.mana_ai.domain.chat import ChatTokens
@@ -62,6 +63,14 @@ class OpenAIParentChatModel:
         )
 
     def _text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
+        result = self._base_text(prompt)
+        if prompt.input_presentation == 1 and "format" in result:
+            format_value = result["format"]
+            if format_value["type"] == "json_schema":
+                format_value["schema"] = without_schema_titles(format_value["schema"])
+        return result
+
+    def _base_text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
         if prompt.safety_parent_review or prompt.safety_source_review:
             raise ValueError("A parent-chat adapter cannot inherit a specialist review protocol")
         text: ResponseTextConfigParam = {"verbosity": self._verbosity}
@@ -177,7 +186,7 @@ class OpenAIParentChatModel:
             descriptions.append((UPSELL_TOOL, "Handle the parent's account or tariff question."))
         if scope.reminders_enabled:
             descriptions.append((REMINDER_TOOL, "Prepare the parent's requested reminder."))
-        return {
+        result: dict[str, Any] = {
             "tools": [
                 {
                     "type": "function",
@@ -198,6 +207,10 @@ class OpenAIParentChatModel:
             "parallel_tool_calls": False,
             "tool_choice": "auto",
         }
+        if prompt.input_presentation == 1:
+            for tool in result["tools"]:
+                tool["parameters"] = without_schema_titles(tool["parameters"])
+        return result
 
     def _manager_call_receipt(
         self, prompt: ChatPrompt, payload: dict[str, Any], usage: ChatTokens, output_cap: int

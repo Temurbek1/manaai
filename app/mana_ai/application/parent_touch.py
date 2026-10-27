@@ -2,6 +2,7 @@ import asyncio
 import json
 from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -20,6 +21,7 @@ from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
+from app.mana_ai.application.input_presentation import FamilyInputPresentationPort
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.application.parent_reminders import ParentReminderService
@@ -102,6 +104,7 @@ class ParentTouchService(ParentChatService):
         upsell: ClientUpsellService | None = None,
         expiry: RetentionExpiryService | None = None,
         manager: ParentTouchManagerPort | None = None,
+        input_presentations: FamilyInputPresentationPort | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
@@ -109,6 +112,7 @@ class ParentTouchService(ParentChatService):
         self.upsell = upsell
         self.expiry = expiry
         self.manager = manager
+        self._input_presentations = input_presentations
         super().__init__(
             store=store,
             children=children,
@@ -364,6 +368,21 @@ class ParentTouchService(ParentChatService):
         return json.dumps({"profiles": context}, ensure_ascii=False, separators=(",", ":"))
 
     async def _prepare_prompt(
+        self,
+        turn: StoredChatTurn,
+        request: ParentChatRequest,
+        context: ParentChildContext,
+        messages: tuple[tuple[str, str], ...],
+    ) -> ChatPrompt:
+        prompt = await self._prepare_touch_prompt(turn, request, context, messages)
+        if self._input_presentations is None:
+            return prompt
+        version = await self._input_presentations.input_presentation(
+            request.parent_id, turn.turn_id
+        )
+        return replace(prompt, input_presentation=version)
+
+    async def _prepare_touch_prompt(
         self,
         turn: StoredChatTurn,
         request: ParentChatRequest,

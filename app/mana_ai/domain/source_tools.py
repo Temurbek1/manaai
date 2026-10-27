@@ -63,6 +63,7 @@ class SourceToolScope(ChatContract):
     calendar_today: date | None = Field(default=None, exclude_if=lambda v: v is None)
     location_enabled: Literal[True] | None = Field(default=None, exclude_if=lambda v: v is None)
     location_prompt_version: Literal[2] | None = Field(default=None, exclude_if=lambda v: v is None)
+    input_presentation: Literal[1] | None = Field(default=None, exclude_if=lambda v: v is None)
 
     @model_serializer(mode="wrap")
     def original_scope(self, handler: SerializerFunctionWrapHandler) -> object:

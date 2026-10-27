@@ -19,6 +19,7 @@ from app.mana_ai.application.child_safety_ports import (
 )
 from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
+from app.mana_ai.application.input_presentation import compact_native_host_messages
 from app.mana_ai.application.ports import Clock
 from app.mana_ai.application.source_tool_ports import SourceToolModel, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens, ParentChildContext
@@ -41,6 +42,7 @@ class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3]: ...
     async def native_location_enabled(self, job: SafetyJob) -> bool: ...
     async def native_location_prompt_version(self, job: SafetyJob) -> Literal[2] | None: ...
+    async def native_input_presentation(self, job: SafetyJob) -> Literal[1] | None: ...
     async def prepare_native(
         self,
         job: SafetyJob,
@@ -170,6 +172,7 @@ class SourceToolWorkflow:
             protocol = await self._store.native_protocol(job)
             location = await self._store.native_location_enabled(job)
             location_prompt_version = await self._store.native_location_prompt_version(job)
+            input_presentation = await self._store.native_input_presentation(job)
             safety_prompt = self._prompts.build(job, context, saved, protocol=protocol)
             if location_prompt_version == 2:
                 safety_prompt = replace(
@@ -193,12 +196,21 @@ class SourceToolWorkflow:
                         instructions=safety_prompt.input.instructions + "\n" + LOCATION_GUIDANCE,
                     ),
                 )
+            if input_presentation == 1:
+                safety_prompt = replace(
+                    safety_prompt,
+                    input=replace(
+                        safety_prompt.input,
+                        messages=compact_native_host_messages(safety_prompt.input.messages),
+                    ),
+                )
             scope = SourceToolScope(
                 parent_id=job.view.parent_id,
                 invocation_id=job.view.job_id,
                 protocol=protocol,
                 location_enabled=True if location else None,
                 location_prompt_version=location_prompt_version,
+                input_presentation=input_presentation,
                 calendar_today=context.collected_at.astimezone(ZoneInfo("Asia/Tashkent")).date()
                 if protocol == 3
                 else None,

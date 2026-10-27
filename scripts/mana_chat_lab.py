@@ -590,6 +590,15 @@ def create_tariff_handoff_app() -> FastAPI:
     return create_app(options=replace(options, tariff_handoff=True))
 
 
+def create_compact_input_app() -> FastAPI:
+    """Lossless presentation in a separate current fictional chat profile."""
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(root / "data/chat-lab/compact-inputs-simulation")
+    return create_app(options=replace(options, tariff_handoff=True, compact_inputs=True))
+
+
 def create_inline_upsell_app() -> FastAPI:
     """One original tariff answer, with a durable source wait and reactive cancellation."""
     root = Path(__file__).resolve().parents[1]

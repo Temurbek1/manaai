@@ -395,5 +395,5 @@ class SqliteClosedTariffHandoffStore(SqliteClosedInlineUpsellStore):
         return {self._schema_version}
 
     def _allowed_tables(self) -> set[str]:
-        extra = _TABLES if self._schema_version == 34 else _TABLES - {"tariff_reply_cancellations"}
+        extra = _TABLES if self._schema_version >= 34 else _TABLES - {"tariff_reply_cancellations"}
         return super()._allowed_tables() | extra

@@ -1135,3 +1135,24 @@ uses zero model tokens; original known charges and unknown source/model holds
 remain. A closed reader exposes saved status/history while execution is disabled.
 The v34 test profile includes one contextual button. Do not call this new
 production contract until a separately scoped release is confirmed.
+
+## 44. Compact model input presentation (local, not released)
+
+The separate default-disabled `MANA_FAMILY_COMPACT_INPUTS_ENABLED` profile requires
+the typed tariff runtime. It captures only new native turns in family schema 35;
+old admissions, replay, source grants and quotas do not change. The mobile
+application continues using the same message POST, status GET and history GET.
+No mobile payload or new endpoint is introduced.
+
+The server removes generated schema title annotations, insignificant whitespace
+in its own native JSON envelope and unavailable final-only tool definitions.
+It retains every user/context string, child binding, date, strict constraint and
+original call/result pairing. Current closed v35 preserves history and unknown
+holds with execution disabled; do not downgrade or restore an older database.
+
+Try `make chat-lab-compact-inputs CHAT_LAB_PORT=8112` in its separate fictional
+directory. This is model-free and does not upgrade the default lab. The independent
+paid RU/UZ tariff cases passed, but both six-child conversations still failed
+Parent-Touch final token admission after successful Safety analysis. Do not claim
+the complete chat path ready or enable production from these results. Read
+[the exact protocol, original failures and engineering evidence](mana-compact-family-inputs.md).

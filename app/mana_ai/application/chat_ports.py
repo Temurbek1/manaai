@@ -72,6 +72,7 @@ class ChatPrompt:
     retention_scope: RetentionIntent | None = None
     upsell_scope: UpsellScope | None = None
     manager_scope: ParentTouchManagerScope | None = None
+    input_presentation: Literal[1] | None = None
 
 
 @dataclass(frozen=True)

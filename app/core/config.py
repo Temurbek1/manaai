@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     mana_client_upsell_currency_enabled: bool = False
     mana_upsell_inline_results_enabled: bool = False
     mana_parent_touch_tariff_handoff_enabled: bool = False
+    mana_family_compact_inputs_enabled: bool = False
     mana_conversion_enabled: bool = False
     mana_conversion_conversation_enabled: bool = False
     mana_conversion_trial_grants_enabled: bool = False
@@ -479,6 +480,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if (
+            self.mana_family_compact_inputs_enabled
+            and not self.mana_parent_touch_tariff_handoff_enabled
+        ):
+            raise ValueError("Compact family inputs require the current governed parent runtime")
         if (
             self.mana_parent_touch_tariff_handoff_enabled
             and not self.mana_upsell_inline_results_enabled
