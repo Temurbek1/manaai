@@ -2,7 +2,46 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Date-role matrix and next manager work — qualified local checkpoint, 2026-10-27
+### Compact initial manager — verified local checkpoint, 2026-10-27
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, application
+**`f4479f9`**, documentation **`a8dc4e8`**. Read [the measured scope, cases and limits](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-compact-parent-manager.md)
+and English integration section 46. Default-disabled
+`MANA_PARENT_TOUCH_COMPACT_MANAGER_ENABLED` captures protocol 5 only on new
+eligible turns in unchanged family v36. Old 1–4 instructions, exact messages/
+tools/schema/floors, raw costs and unknown holds retain their original contracts.
+
+Nine predeclared real-model fictional cases complete: dated/unknown RU/UZ child
+data, exact RU tariff/UZ currency binding, greeting, bound Android support and an
+unexecuted reminder draft. Matched initial child inputs fall **1005->787 RU /
+1018->800 UZ**, without model downgrade or context truncation. Known uncached
+generation estimates **$0.0343495 + $0.0141705 = $0.04852**, not invoices. No live
+MANA/Firebase/GA4 reads, contact/grant/payment or production/SSH/key/source-schedule
+changes. Independent 2000/2000 ledgers do not establish global fleet capacity:
+the current global Safety cap covers roughly one measured complex analysis/day.
+All old negative/qualified parties remain unchanged.
+
+Full verification passes **1746 backend**, **26 admin / 23 lab tests**, mypy
+**468 files**, static/build checks and audit zero vulnerabilities. Clean image
+`mana-ai-family:compact-manager-local-20261027`, ID
+`sha256:00e9461b7b676299978e49beca022084b210736696f624f6adbd7a6ac5969df6`,
+passes networkless native/currency/cancellation/unknown-state/restart checks and
+the preserved sixteen-table production v6 copy. Both current and preceding
+**closed** v36 readers preserve every cell/history/cost of all nine model cases;
+the old active reader cannot execute protocol 5. The 612-token unknown hold and
+lost catalogue remain blocked across restart/midnight; no source ledger reset.
+
+Actual 390px model-free browser: child review, UZ question/Android answer, RU
+currency/quote and reminder draft in one history. Twelve messages, simulated
+1050/300 usage, active unexecuted confirmation, full public state and all **78
+family / 27 source tables** survive a complete owned-server restart, with zero
+page errors/document overflow. Owned browser/8114 server are closed. Existing
+default labs and production remain unchanged. This is not full agent, live-source,
+business or release acceptance. The original objective stays active; Referral
+remains deferred. Do not reset the consumed one-request real-source ledger or
+raise its budget to manufacture a live pass.
+
+### Earlier date-role matrix and manager work — qualified local checkpoint, 2026-10-27
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, application
 **`1a4a06a`**, documentation **`339723c`**. Read [the exact date matrix and next scope](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-publication-dates.md).
