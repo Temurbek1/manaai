@@ -165,6 +165,9 @@ def manager_prompt(
             *messages[1:],
         ),
         structured_reply=True,
+        battery_source_publication=template.battery_source_publication
+        if scope.stage == "child_safety"
+        else False,
         question=template.question if scope.stage == "child_safety" else None,
         evidence_reply=template.evidence_reply if scope.stage == "child_safety" else False,
         notice=template.notice if scope.stage == "child_safety" else None,

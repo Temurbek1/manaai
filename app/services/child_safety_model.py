@@ -26,6 +26,7 @@ class OpenAIChildSafetyModel(OpenAIParentChatModel):
             or prompt.retention_scope is not None
             or prompt.upsell_scope is not None
             or prompt.input_presentation is not None
+            or prompt.battery_source_publication
         ):
             raise ValueError("A specialist cannot inherit Parent-Touch's publication protocol")
         return {

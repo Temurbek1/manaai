@@ -103,6 +103,7 @@ from app.services.client_retention_store import SqliteClientRetentionStore
 from app.services.client_upsell_store import SqliteClientUpsellStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.compact_family_input_store import SqliteCompactFamilyInputStore
+from app.services.compact_parent_publication_store import SqliteCompactParentPublicationStore
 from app.services.dated_review_safety_store import SqliteDatedReviewSafetyStore
 from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
 from app.services.day_review_cache import SqliteDayReviewCache
@@ -869,11 +870,14 @@ class LabOptions:
     inline_upsell: bool = False
     tariff_handoff: bool = False
     compact_inputs: bool = False
+    compact_publication: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.compact_publication and not options.compact_inputs:
+            raise ValueError("Compact publication lab requires captured compact inputs")
         if options.compact_inputs and not options.tariff_handoff:
             raise ValueError("Compact input lab requires the current typed tariff profile")
         if options.tariff_handoff and not options.inline_upsell:
@@ -1036,6 +1040,8 @@ class ChatLab:
             expected["inline_upsell"] = True
         if self.options.tariff_handoff:
             expected["tariff_handoff"] = True
+        if self.options.compact_publication:
+            expected["compact_publication"] = True
         if self.options.compact_inputs:
             expected["compact_inputs"] = True
         if self.options.parent_support_questions:
@@ -1160,7 +1166,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteCompactFamilyInputStore
+                SqliteCompactParentPublicationStore
+                if self.options.compact_publication
+                else SqliteCompactFamilyInputStore
                 if self.options.compact_inputs
                 else SqliteTariffHandoffStore
                 if self.options.tariff_handoff
@@ -1246,6 +1254,8 @@ class ChatLab:
                 reminder_options["inline_enabled"] = True
             if self.options.tariff_handoff:
                 reminder_options["tariff_handoff_enabled"] = True
+            if self.options.compact_publication:
+                reminder_options["compact_publication_enabled"] = True
             if self.options.compact_inputs:
                 reminder_options["compact_inputs_enabled"] = True
             if self.options.parent_support_questions:
@@ -1436,6 +1446,9 @@ class ChatLab:
             children=profiles,
             model=speaker,
             manager=self.store if isinstance(self.store, SqliteParentTouchManagerStore) else None,
+            parent_publications=self.store
+            if isinstance(self.store, SqliteCompactParentPublicationStore)
+            else None,
             input_presentations=self.store
             if isinstance(self.store, SqliteCompactFamilyInputStore)
             else None,

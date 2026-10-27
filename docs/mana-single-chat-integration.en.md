@@ -1156,3 +1156,19 @@ paid RU/UZ tariff cases passed, but both six-child conversations still failed
 Parent-Touch final token admission after successful Safety analysis. Do not claim
 the complete chat path ready or enable production from these results. Read
 [the exact protocol, original failures and engineering evidence](mana-compact-family-inputs.md).
+
+## 45. Final Parent-Touch publication instructions (local, not released)
+
+The default-disabled `MANA_PARENT_TOUCH_COMPACT_PUBLICATION_ENABLED` option
+requires section 44's runtime. New native manager turns capture instruction
+protocol 3 in family schema 36. All original messages, specialist guidance,
+profiles, source facts/dates and limits remain. Old captures keep their original
+instructions; a current closed reader preserves history and unknown cost holds.
+
+The mobile application continues using the same three chat operations. No new
+client field or endpoint is introduced. Try the separate fictional lab with
+`make chat-lab-compact-publication CHAT_LAB_PORT=8113`. The new synthetic RU/UZ
+child loops complete within limits, but the Russian answer retains a qualified
+date wording finding. Earlier negative parties remain authoritative for those
+attempts. This is not production activation or general model-quality acceptance.
+Read [the protocol, exact diagnostic costs and remaining limits](mana-compact-parent-publication.md).

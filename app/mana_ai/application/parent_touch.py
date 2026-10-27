@@ -17,6 +17,10 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.client_upsell import ClientUpsellService
+from app.mana_ai.application.compact_parent_publication import (
+    ParentPublicationPort,
+    compact_child_publication,
+)
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.family_collection import FamilyCollectionService
@@ -58,7 +62,7 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchReviewedTurn,
     ReviewedMessage,
 )
-from app.mana_ai.domain.family_sources import ChildAppUsageFacts
+from app.mana_ai.domain.family_sources import ChildAppUsageFacts, ChildBatteryFacts
 
 PARENT_TOUCH_INSTRUCTIONS = """You are Parent-Touch, MANA's sole parent-facing conversation manager.
 Address the adult parent, never the child; reframe child-directed advice for the parent.
@@ -105,6 +109,7 @@ class ParentTouchService(ParentChatService):
         expiry: RetentionExpiryService | None = None,
         manager: ParentTouchManagerPort | None = None,
         input_presentations: FamilyInputPresentationPort | None = None,
+        parent_publications: ParentPublicationPort | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
@@ -113,6 +118,7 @@ class ParentTouchService(ParentChatService):
         self.expiry = expiry
         self.manager = manager
         self._input_presentations = input_presentations
+        self._parent_publications = parent_publications
         super().__init__(
             store=store,
             children=children,
@@ -380,7 +386,25 @@ class ParentTouchService(ParentChatService):
         version = await self._input_presentations.input_presentation(
             request.parent_id, turn.turn_id
         )
-        return replace(prompt, input_presentation=version)
+        prompt = replace(prompt, input_presentation=version)
+        if (
+            self._parent_publications is not None
+            and prompt.manager_scope is not None
+            and prompt.manager_scope.stage == "child_safety"
+        ):
+            publication = await self._parent_publications.parent_publication_version(
+                request.parent_id, turn.turn_id
+            )
+            if publication is not None:
+                prompt = replace(
+                    prompt,
+                    instructions=compact_child_publication(
+                        prompt.manager_scope,
+                        version=publication,
+                        battery_source=prompt.battery_source_publication,
+                    ),
+                )
+        return prompt
 
     async def _prepare_touch_prompt(
         self,
@@ -759,6 +783,16 @@ class ParentTouchService(ParentChatService):
             slot_reply=True,
             response_language=response_language,
             required_observation_dates=source_dates,
+            battery_source_publication=bool(
+                manager_scope
+                and manager_scope.stage == "child_safety"
+                and guidance
+                and guidance.source_observations
+                and all(isinstance(f, ChildBatteryFacts) for f in guidance.source_observations)
+                and guidance.day_usage_query is None
+                and question is None
+                and not (evidence and (evidence.notice or evidence.assessments))
+            ),
             minimum_output_tokens=min(
                 self._max_output,
                 256 if question is not None or evidence and evidence.notice else 128,

@@ -2,6 +2,17 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_PARENT_TOUCH_COMPACT_PUBLICATION_ENABLED` adds
+  family v36; read `docs/mana-compact-parent-publication.md`. Capture-format v1
+  is separate from immutable prompt protocols 1/2/3. Only new admissions use v3;
+  old captures, raw charges, source pairing and unknown holds never upgrade/reset.
+  The short typed battery-source presentation retains the full original task,
+  context/review and minimum output; other contexts keep general instructions.
+  Preserve the two failed UZ parties and negative RU advice/date findings. The
+  latest two full synthetic cycles fit unchanged allowances but do not prove
+  semantic quality, fleet capacity or production/source activation. Use current
+  closed v36, never downgrade or treat old refusal as functional rollback.
+
 - Local default-disabled `MANA_FAMILY_COMPACT_INPUTS_ENABLED` adds family v35,
   presentation v1 captured only on new native turns. Read
   `docs/mana-compact-family-inputs.md` and English integration section 44.

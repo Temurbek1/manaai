@@ -73,6 +73,7 @@ class ChatPrompt:
     upsell_scope: UpsellScope | None = None
     manager_scope: ParentTouchManagerScope | None = None
     input_presentation: Literal[1] | None = None
+    battery_source_publication: bool = False
 
 
 @dataclass(frozen=True)

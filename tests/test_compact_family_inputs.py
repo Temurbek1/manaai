@@ -450,8 +450,9 @@ async def test_admission_capture_failure_rolls_back_the_profile_marker_and_turn(
         await lab.close()
 
 
+@pytest.mark.parametrize("compact_publication", [False, True])
 async def test_actual_runtime_and_closed_configuration_keep_new_schema_without_idle_http(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, compact_publication: bool
 ) -> None:
     import httpx
 
@@ -485,6 +486,7 @@ async def test_actual_runtime_and_closed_configuration_keep_new_schema_without_i
         mana_upsell_inline_results_enabled=True,
         mana_parent_touch_tariff_handoff_enabled=True,
         mana_family_compact_inputs_enabled=True,
+        mana_parent_touch_compact_publication_enabled=compact_publication,
         mana_child_safety_limits=ChildSafetyLimits(
             job_tokens=2000,
             server_daily_tokens=2000,
@@ -501,6 +503,8 @@ async def test_actual_runtime_and_closed_configuration_keep_new_schema_without_i
     for selected in (active, closed):
         async with runtime.parent_chat_runtime(selected):
             with sqlite3.connect(active.mana_parent_chat_database_path) as db:
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 35
+                assert db.execute("PRAGMA user_version").fetchone()[0] == (
+                    36 if compact_publication else 35
+                )
                 assert not db.execute("SELECT 1 FROM family_input_presentations").fetchone()
     assert attempted == []

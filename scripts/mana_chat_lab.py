@@ -599,6 +599,17 @@ def create_compact_input_app() -> FastAPI:
     return create_app(options=replace(options, tariff_handoff=True, compact_inputs=True))
 
 
+def create_compact_publication_app() -> FastAPI:
+    """Versioned final speaker guidance; no live data or paid inference."""
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(root / "data/chat-lab/compact-publication-simulation")
+    return create_app(
+        options=replace(options, tariff_handoff=True, compact_inputs=True, compact_publication=True)
+    )
+
+
 def create_inline_upsell_app() -> FastAPI:
     """One original tariff answer, with a durable source wait and reactive cancellation."""
     root = Path(__file__).resolve().parents[1]
