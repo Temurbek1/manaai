@@ -2,6 +2,15 @@
 
 ## Repository expectations
 
+- New compact-publication admissions use prompt protocol 4 in unchanged family
+  v36/capture-format v1. Read `docs/mana-parent-publication-dates.md`; v1–v3 keep
+  exact inputs/instructions. The new four-case real-model synthetic matrix has
+  three completions, a UZ dated-budget refusal and negative RU dated field/time
+  findings despite a full stored timestamp. Preserve its costs/original receipts;
+  do not replay or call it complete quality. Next work is cross-task initial
+  manager overhead plus natural/precise date framing under unchanged models,
+  full task/context, quotas and old captures; no source/production activation.
+
 - Local default-disabled `MANA_PARENT_TOUCH_COMPACT_PUBLICATION_ENABLED` adds
   family v36; read `docs/mana-compact-parent-publication.md`. Capture-format v1
   is separate from immutable prompt protocols 1/2/3. Only new admissions use v3;

@@ -8,7 +8,7 @@ from contextlib import suppress
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 import pytest
@@ -142,7 +142,7 @@ async def test_capture_fences_before_generation_without_another_source(
                 else:
                     db.execute(
                         "UPDATE source_tool_turns SET profile="
-                        "replace(profile,'\"parent_publication\":3','\"parent_publication\":4')"
+                        "replace(profile,'\"parent_publication\":4','\"parent_publication\":5')"
                     )
         assert await lab.touch.process_reviewed_message()
         state = await lab.touch.message_state(LAB_PARENT, ask.request_id)
@@ -268,8 +268,11 @@ async def test_actual_v35_pending_turn_never_gains_new_publication(
         await current.close()
 
 
-async def test_captured_v1_pending_turn_keeps_exact_instructions_after_new_admission(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("previous_protocol", [1, 2, 3])
+async def test_captured_previous_turn_keeps_exact_instructions_after_new_admission(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    previous_protocol: Literal[1, 2, 3],
 ) -> None:
     lab, _ = await setup(tmp_path / "captured-v1")
     assert isinstance(lab.store, SqliteCompactParentPublicationStore)
@@ -278,33 +281,38 @@ async def test_captured_v1_pending_turn_keeps_exact_instructions_after_new_admis
 
     async def observe(prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
         if prompt.manager_scope and prompt.manager_scope.stage == "child_safety":
-            versions.append(prompt.instructions)
+            versions.append((prompt.instructions, prompt.battery_source_publication))
         return await original(prompt, max_output_tokens=max_output_tokens)
 
     monkeypatch.setattr(lab.touch._model, "respond", observe)
     try:
-        lab.store._publication_protocol = 1
+        lab.store._publication_protocol = previous_protocol
         first = request()
         await lab.touch.admit_message(first)
-        lab.store._publication_protocol = 3
-        assert await lab.store.parent_publication_version(LAB_PARENT, 1) == 1
+        lab.store._publication_protocol = 4
+        assert await lab.store.parent_publication_version(LAB_PARENT, 1) == previous_protocol
         assert await lab.touch.process_reviewed_message()
         assert await lab.safety.process_one()
         assert await lab.touch.process_reviewed_message()
-        assert "Urgent notices first" in versions[0]
-        assert "screens/controls" not in versions[0]
+        scope = ParentTouchManagerScope(language="ru", stage="child_safety")
+        assert versions[0][0] == compact_child_publication(
+            scope, version=previous_protocol, battery_source=versions[0][1]
+        )
         second = request()
         await lab.touch.admit_message(second)
         assert await lab.touch.process_reviewed_message()
         assert await lab.safety.process_one()
         assert await lab.touch.process_reviewed_message()
-        assert len(versions) == 2 and versions[1] != versions[0]
+        assert len(versions) == 2
+        assert versions[1][0] == compact_child_publication(
+            scope, version=4, battery_source=versions[1][1]
+        )
         with lab.store._connect() as db:
             protocols = [
                 json.loads(row[0])["parent_publication"]
                 for row in db.execute("SELECT profile FROM source_tool_turns ORDER BY turn_id")
             ]
-            assert protocols == [1, 3]
+            assert protocols == [previous_protocol, 4]
     finally:
         await lab.close()
 

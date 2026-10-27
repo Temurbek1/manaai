@@ -1,5 +1,11 @@
 # Compact Parent-Touch publication — local, not released
 
+The subsequent [date-role checkpoint](mana-parent-publication-dates.md) captures
+protocol 4 only on new admissions in this same schema. The v1–v3 instructions
+and original results below remain historical and unchanged. Its new matrix is
+qualified: three completions, one UZ budget refusal and negative RU field/time
+wording; do not treat it as complete model-quality or production acceptance.
+
 `MANA_PARENT_TOUCH_COMPACT_PUBLICATION_ENABLED` is default disabled and requires
 the existing compact-input/typed-tariff runtime. Family schema **36** adds one
 `parent_publication_captures` table. Capture-format version 1 is distinct from

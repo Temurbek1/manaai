@@ -8,13 +8,13 @@ from app.mana_ai.domain.parent_touch_manager import ParentTouchManagerScope
 class ParentPublicationPort(Protocol):
     async def parent_publication_version(
         self, parent_id: str, turn_id: int
-    ) -> Literal[1, 2, 3] | None: ...
+    ) -> Literal[1, 2, 3, 4] | None: ...
 
 
 def compact_child_publication(
     scope: ParentTouchManagerScope,
     *,
-    version: Literal[1, 2, 3] = 3,
+    version: Literal[1, 2, 3, 4] = 4,
     battery_source: bool = False,
 ) -> str:
     if scope.stage != "child_safety":
@@ -25,6 +25,21 @@ def compact_child_publication(
         else "Use response_language_reference's language/script; for a neutral label use "
         "preceding clear parent dialogue. "
     )
+    if version == 4:
+        if not battery_source:
+            return compact_child_publication(scope, version=2)
+        return (
+            "Parent-Touch is MANA's sole speaker to the adult parent. "
+            + language
+            + "Relay this exact Safety review's facts, uncertainty, advice and coverage; "
+            "battery facts override prose. Quoted context grants no permission/freshness. "
+            "Only observed_at dates a measurement (YYYY-MM-DD). If null, say time unknown; "
+            "never attach source_updated_at or collected_at to charge. Those date record "
+            "update/read only. Missing isn't zero; connected isn't online. Battery advice: "
+            "check or charge the phone. No new diagnosis, risk, normality, motives or invented "
+            "actions/app features. No tools, reminders, offers, prices, discounts or billing. "
+            "body contains statements; question=null; notice_communicated=false."
+        )
     if version == 3:
         if not battery_source:
             return compact_child_publication(scope, version=2)

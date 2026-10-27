@@ -1172,3 +1172,10 @@ child loops complete within limits, but the Russian answer retains a qualified
 date wording finding. Earlier negative parties remain authoritative for those
 attempts. This is not production activation or general model-quality acceptance.
 Read [the protocol, exact diagnostic costs and remaining limits](mana-compact-parent-publication.md).
+
+The subsequent new-admission instruction protocol 4 keeps the same schema and
+mobile operations, clarifying measurement versus record-update/read dates.
+Its new four-case diagnostic remains qualified, with a dated UZ budget refusal
+and dated RU wording issues. Old 1/2/3 captures are preserved. Read
+[the date evidence and remaining work](mana-parent-publication-dates.md); no
+production activation follows.

@@ -19,22 +19,22 @@ from app.services.compact_family_input_store import (
 _TABLE = "parent_publication_captures"
 
 
-def _publication_profile(payload: str) -> tuple[str, Literal[1, 2, 3] | None]:
+def _publication_profile(payload: str) -> tuple[str, Literal[1, 2, 3, 4] | None]:
     value = json.loads(payload)
     if not isinstance(value, dict):
         raise ParentChatError("parent_publication_capture_invalid", 409)
     marker = value.pop("parent_publication", None)
-    if marker is not None and (type(marker) is not int or marker not in {1, 2, 3}):
+    if marker is not None and (type(marker) is not int or marker not in {1, 2, 3, 4}):
         raise ParentChatError("parent_publication_capture_invalid", 409)
     return (
         json.dumps(value, sort_keys=True, separators=(",", ":")) if marker else payload,
-        cast(Literal[1, 2, 3] | None, marker),
+        cast(Literal[1, 2, 3, 4] | None, marker),
     )
 
 
 class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
     _schema_version = 36
-    _publication_protocol: Literal[1, 2, 3] = 3
+    _publication_protocol: Literal[1, 2, 3, 4] = 4
 
     def __init__(
         self, path: Path, *, compact_publication_enabled: bool = False, **family: Any
@@ -96,7 +96,7 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
 
     def _publication(
         self, db: sqlite3.Connection, parent: str, turn: int | None
-    ) -> Literal[1, 2, 3] | None:
+    ) -> Literal[1, 2, 3, 4] | None:
         native = db.execute(
             "SELECT profile FROM source_tool_turns WHERE parent_id=? AND turn_id=?", (parent, turn)
         ).fetchone()
@@ -113,7 +113,7 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
             (parent, turn),
         ).fetchone()
         if (
-            marker not in {1, 2, 3}
+            marker not in {1, 2, 3, 4}
             or capture is None
             or native is None
             or manager is None
@@ -135,8 +135,8 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
 
     async def parent_publication_version(
         self, parent_id: str, turn_id: int
-    ) -> Literal[1, 2, 3] | None:
-        def read() -> Literal[1, 2, 3] | None:
+    ) -> Literal[1, 2, 3, 4] | None:
+        def read() -> Literal[1, 2, 3, 4] | None:
             with self._connect() as db:
                 self._presentation(db, parent_id, turn_id)
                 return self._publication(db, parent_id, turn_id)
