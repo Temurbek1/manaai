@@ -2,6 +2,53 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Actual-source/actual-model path — incomplete, 2026-10-27
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`; documentation HEAD **`809bb6f`**, application
+**`1078106`**. Read [the original negative live checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-real-source-chat-budget-checkpoint.md)
+before optimizing inputs or another real-source acceptance party. The current
+product HTTP/runtime and actual nine-lane worker selected the owned battery
+source, but **did not produce an assistant answer within the original allowance**.
+Do not substitute prior synthetic successes for this failure or claim full live
+readiness from the 1705-test code gate.
+
+New bounded local party used designated test parent **4**, fresh actual membership
+and display-name-masked model context. Exact attempts: **one MANA login/five
+filtered Parent List GETs**, **one Google OAuth/one Firestore battery query**,
+**three OpenAI counts/two completed generations**; all returned 200. Source has
+one completed claim/two conservative document units, an available normalized
+record with **unknown measurement time**, and the native owning review, with no
+duplicate assessment. No GA4, pagination, contact/push, grant/payment, collector,
+production/SSH/key/settings mutation occurred. Local history contains only the
+admitted test message, not a real-parent outgoing message.
+
+Verified parent cost **1052+17=1069 raw tokens**; Safety **962+27=989**, with zero
+unknown holds/reserves. Safety's remaining **1011** could not fit the next exact
+input plus minimum **32 output tokens**. The exact second input count was not
+retained; do not guess it. SQL error is **`safety_job_token_budget_exceeded`**,
+parent status **`child_safety_review_unavailable`**. Final Parent-Touch generation
+was never reached, so its budget/quality is unproven. Known standard-uncached
+generation estimate **$0.003728**, not an invoice; count/Firestore/index/network
+billing is not inferred. Limits remain 2000 raw parent/day and 2000 global Safety/day.
+
+Current closed v34 preserves every cell in **76 family/15 source tables**, exact
+pairing, failed status and costs with no external call. Original private artifacts
+are under `output/family-live-e2e-20261027/`. **Never rerun/reset this party, refund
+its verified costs, resume its failed native invocation or relabel it a pass.**
+Offline inspection only found six-child input, 1224->1161-byte lossless JSON
+formatting opportunity, nine schema-title annotations and a 432-byte advertised
+tool schema. These are bytes, not proven token/cost/quality savings.
+
+Continue newly captured host/schema presentation while retaining every user
+word, history, ownership/alias, fact/date/qualification and exact tool/result
+pairing. Investigate final-only tool projection and manager tariff overhead across
+child **and** price tasks. Old protocols/digests must not upgrade. Require separate
+synthetic RU/Uzbek full-path acceptance before another live integration check;
+do not reread Firebase to fix formatting or raise quotas/change models silently.
+The full goal remains active, including remaining specialist/business/administrative
+and scoped release work. Referral remains deferred pending its real API.
+
 ### Request-bound tariff cancellation — 2026-10-27, application `1078106`
 
 Authoritative feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`,
