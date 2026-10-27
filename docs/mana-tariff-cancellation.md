@@ -83,7 +83,57 @@ vulnerabilities (`output/tariff-cancel-verify-release-20261027.log`). Earlier pa
 gates predate the final explicit closed-v33 check/sparse API flag; only this run
 covers the final implementation. OpenAPI/TypeScript were regenerated: the flag is
 optional `true | null`, matching its actual sparse HTTP serialization. Focused
-counts overlap this gate. Browser/image acceptance follows after completion.
+counts overlap this gate.
+
+## Packaged and browser acceptance
+
+Application **`1078106`** was exported into the clean external context
+`/mnt/ssd2/mana-tariff-cancel-source-1078106`. Image
+`mana-ai-family:tariff-cancel-local-20261027`, ID
+`sha256:5ba3da00779785202e7fbfc35762f8158f28a6081982f8c41a616c336a2781b3`,
+matches **287 application Python hashes**, without developer `.env` or private
+SQL. Probes use Python 3.12/user 1000, no network/capabilities, read-only root and
+private temporary/artifact mounts. The actual package exercises currency question,
+exact answer/quote, a subsequent request-bound cancellation and exact replay.
+Its **300 simulated parent tokens**, **612-token unknown model hold** and blocked
+lost catalogue claim survive closure, restart and midnight with every cell in
+**76 family/27 source tables** unchanged. Prior v33's actual closed reader refuses
+v34 unchanged; that is not functional execution rollback.
+
+The actual retained v33 fixture first stays v33 under explicit current closure,
+then migrates locally to v34 with all **75 original tables/27 source tables** and
+unknown holds retained. The new control table stays empty. The initial harness
+installed SQL before its lab marker and was correctly refused; marking the empty
+fictional fixture directory before installing its known files fixed only the
+harness. No guard, quota or original artifact was weakened/reset.
+
+The actual product factory also upgrades the retained private v6 production copy
+locally, preserving every original column/cell in **16 tables**, both messages
+and exact legacy replay. Authenticated history/directory/replay/live return 200,
+anonymous history 401 and lab-only cards 404. Current closed v34 retains the same
+history. No fresh production copy, SSH, provider/contact/grant request followed.
+Artifacts: `output/tariff-cancel-candidate-20261027/`.
+
+Actual 390px browser sequence: Uzbek price enquiry -> currency question -> bound
+UZS answer -> SQL-confirmed wait -> Stop -> intentionally lost committed HTTP
+acknowledgement -> SQL-only recovery -> known late source receipt. Exactly **one
+cancellation POST**, **five history messages/150 simulated parent tokens/zero
+Safety**, no late quote, reserve, push or grant. Both mobile screenshots were
+visually inspected, without horizontal document overflow or page errors. After
+guarded SIGINT and confirmed process termination, same-file restart/fresh page
+retains the complete public state and every cell in 76/27 tables. The initial
+fixture tried to instrument a catalogue before lifespan initialization and failed
+before serving; its failure/connection-refusal evidence remains separate. The
+corrected wrapper instruments after initialization. Browser and fixture server
+are closed. Artifacts: `output/tariff-cancel-browser-20261027/`.
+
+The normal loopback **8110** lab is updated to current code after its old port was
+authoritatively closed. A private backup preceded its v33->v34 migration. All old
+75/27 table cells and its **eight messages/600 simulated parent/300 Safety tokens**
+remain, with no new source/model call. `http://127.0.0.1:8110/` returns 200. Artifacts:
+`output/tariff-cancel-local-lab-upgrade-20261027/`. No paid-model party was repeated.
+These fictional engineering checks are not real family/source quality, business
+lift, production budget throughput or production release acceptance.
 
 Referral remains deferred pending its real API. This local increment does not
 complete the full AI KOMANDA, source/business-quality or production release scope.
