@@ -2,7 +2,43 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Final publication within fixed budgets — qualified local checkpoint, 2026-10-27
+### Date-role matrix and next manager work — qualified local checkpoint, 2026-10-27
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, application
+**`1a4a06a`**, documentation **`339723c`**. Read [the exact date matrix and next scope](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-publication-dates.md).
+New admissions capture instruction protocol 4 in unchanged family v36; old
+1/2/3 instructions and source pairings retain exact fingerprints. No old party,
+charge, hold or historical task is reset/replayed/upgraded.
+
+The new synthetic RU/UZ x unknown/dated-measurement matrix made **15 generations /
+16 counts**, all HTTP 200, known uncached generation estimate **$0.027869**, not
+an invoice. Only OpenAI used real transport; zero actual MANA/Firebase/GA4 reads,
+contacts/grants/payments/production changes. Unknown-time answers complete with
+1881/1914 parent tokens and correctly state unknown measurement time. RU dated
+completes with 1903 but exposes `observed_at` and wrongly calls precise time
+unknown despite the full source timestamp. UZ dated final input **846+128=974**
+exceeds remaining **965**; no final call/answer, 1035 known parent tokens retained.
+These are qualified/negative findings, not four successful conversations or a
+model-quality pass. Separate isolated 2000/2000 ledgers are not fleet capacity.
+
+Full verification passed: **1736 backend**, **26 admin / 23 lab tests**, mypy
+**466 files**, static/build checks, audit zero vulnerabilities. Clean candidate
+`mana-ai-family:publication-dates-local-20261027`, ID
+`sha256:8df0e0dee485f8abb376d322467b5278119dcf13c1a0208a1f8aac2a94bf8266`,
+passes networkless native/currency/cancellation/unknown-state/restart checks with
+**78 family / 27 source tables** and the 612-token unknown hold retained. Actual
+preceding `124f26f` and current **closed** v36 readers preserve every cell/history/
+cost of all four model-case copies; old active execution cannot read protocol 4.
+There is no new UI change/browser claim, populated-schema downgrade or deployment.
+
+Next, reduce initial manager overhead across child, tariff, reminder and ordinary
+help: it still costs 1005/1018 input tokens before the 17-token handoff. Preserve
+full tasks/context, strong models, typed extraction/ownership, permissions,
+quotas, floors and unknown costs; do not replace analysis with a facts-only
+substitute or keep retrying the old parties. The complete original objective
+stays active; Referral remains deferred until its actual API arrives.
+
+### Earlier final publication within fixed budgets — qualified local checkpoint, 2026-10-27
 
 Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
 `feat/mana-conversion-agent-20261021`, application **`124f26f`**, documentation
