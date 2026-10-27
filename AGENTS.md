@@ -2,6 +2,16 @@
 
 ## Repository expectations
 
+- Local default-disabled `MANA_PARENT_TOUCH_COMPACT_MANAGER_ENABLED` requires
+  compact publication and captures prompt 5 only for new eligible turns in
+  unchanged family v36/capture-format v1. Read `docs/mana-compact-parent-manager.md`.
+  Keep exact messages/tools/schema, owning scopes, old 1–4 inputs, raw receipts,
+  source limits and unknown holds. Disable fences both initial/native dispatch
+  and late decisions, not known costs. Nine independent real-model fictional
+  cases pass within unchanged per-case allowances; this is not shared global
+  fleet capacity or production/source/business acceptance. Preserve every earlier
+  negative party, never reset the consumed live-source ledger to repeat a test.
+
 - New compact-publication admissions use prompt protocol 4 in unchanged family
   v36/capture-format v1. Read `docs/mana-parent-publication-dates.md`; v1–v3 keep
   exact inputs/instructions. The new four-case real-model synthetic matrix has

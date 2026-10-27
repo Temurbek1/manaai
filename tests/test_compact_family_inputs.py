@@ -450,9 +450,14 @@ async def test_admission_capture_failure_rolls_back_the_profile_marker_and_turn(
         await lab.close()
 
 
-@pytest.mark.parametrize("compact_publication", [False, True])
+@pytest.mark.parametrize(
+    "compact_publication,compact_manager", [(False, False), (True, False), (True, True)]
+)
 async def test_actual_runtime_and_closed_configuration_keep_new_schema_without_idle_http(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, compact_publication: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    compact_publication: bool,
+    compact_manager: bool,
 ) -> None:
     import httpx
 
@@ -487,6 +492,7 @@ async def test_actual_runtime_and_closed_configuration_keep_new_schema_without_i
         mana_parent_touch_tariff_handoff_enabled=True,
         mana_family_compact_inputs_enabled=True,
         mana_parent_touch_compact_publication_enabled=compact_publication,
+        mana_parent_touch_compact_manager_enabled=compact_manager,
         mana_child_safety_limits=ChildSafetyLimits(
             job_tokens=2000,
             server_daily_tokens=2000,

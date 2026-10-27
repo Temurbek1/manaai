@@ -225,6 +225,9 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         )
         profile_options: dict[str, Any] = {}
         if settings.mana_parent_touch_compact_publication_enabled or version == 36:
+            profile_options["compact_manager_enabled"] = (
+                settings.mana_parent_touch_compact_manager_enabled
+            )
             profile_options["compact_publication_enabled"] = (
                 settings.mana_parent_touch_compact_publication_enabled
             )

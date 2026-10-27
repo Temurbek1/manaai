@@ -871,11 +871,14 @@ class LabOptions:
     tariff_handoff: bool = False
     compact_inputs: bool = False
     compact_publication: bool = False
+    compact_manager: bool = False
     expiry_fixture_days: Literal[2, 30] = 2
 
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.compact_manager and not options.compact_publication:
+            raise ValueError("Compact manager lab requires captured publication")
         if options.compact_publication and not options.compact_inputs:
             raise ValueError("Compact publication lab requires captured compact inputs")
         if options.compact_inputs and not options.tariff_handoff:
@@ -1040,6 +1043,8 @@ class ChatLab:
             expected["inline_upsell"] = True
         if self.options.tariff_handoff:
             expected["tariff_handoff"] = True
+        if self.options.compact_manager:
+            expected["compact_manager"] = True
         if self.options.compact_publication:
             expected["compact_publication"] = True
         if self.options.compact_inputs:
@@ -1256,6 +1261,7 @@ class ChatLab:
                 reminder_options["tariff_handoff_enabled"] = True
             if self.options.compact_publication:
                 reminder_options["compact_publication_enabled"] = True
+                reminder_options["compact_manager_enabled"] = self.options.compact_manager
             if self.options.compact_inputs:
                 reminder_options["compact_inputs_enabled"] = True
             if self.options.parent_support_questions:

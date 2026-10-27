@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     mana_parent_touch_tariff_handoff_enabled: bool = False
     mana_family_compact_inputs_enabled: bool = False
     mana_parent_touch_compact_publication_enabled: bool = False
+    mana_parent_touch_compact_manager_enabled: bool = False
     mana_conversion_enabled: bool = False
     mana_conversion_conversation_enabled: bool = False
     mana_conversion_trial_grants_enabled: bool = False
@@ -481,6 +482,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if (
+            self.mana_parent_touch_compact_manager_enabled
+            and not self.mana_parent_touch_compact_publication_enabled
+        ):
+            raise ValueError("Compact manager requires the captured publication runtime")
         if (
             self.mana_parent_touch_compact_publication_enabled
             and not self.mana_family_compact_inputs_enabled

@@ -610,6 +610,23 @@ def create_compact_publication_app() -> FastAPI:
     )
 
 
+def create_compact_manager_app() -> FastAPI:
+    """One current manager with fictional providers and a separate private history."""
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(root / "data/chat-lab/compact-manager-simulation")
+    return create_app(
+        options=replace(
+            options,
+            tariff_handoff=True,
+            compact_inputs=True,
+            compact_publication=True,
+            compact_manager=True,
+        )
+    )
+
+
 def create_inline_upsell_app() -> FastAPI:
     """One original tariff answer, with a durable source wait and reactive cancellation."""
     root = Path(__file__).resolve().parents[1]

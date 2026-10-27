@@ -1179,3 +1179,19 @@ Its new four-case diagnostic remains qualified, with a dated UZ budget refusal
 and dated RU wording issues. Old 1/2/3 captures are preserved. Read
 [the date evidence and remaining work](mana-parent-publication-dates.md); no
 production activation follows.
+
+## 46. Compact initial manager (local, not released)
+
+`MANA_PARENT_TOUCH_COMPACT_MANAGER_ENABLED` requires section 45's captured
+publication runtime. New admissions use instruction protocol 5 in the same
+private schema 36. Initial routing is smaller; all original messages, strict
+tools, child/tariff/reminder ownership, output minimums and quotas remain.
+Old 1–4 requests never upgrade. Deactivation blocks execution and retains costs.
+
+No new mobile payload or endpoint is introduced. Use the same message POST,
+status GET and single-history GET. The model-free test environment has separate
+history: `make chat-lab-compact-manager CHAT_LAB_PORT=8114`.
+Nine bounded real-model fictional cases passed, including dated/unknown child
+data, prices/currency, a bound Android answer and an unexecuted reminder draft.
+This does not establish real source access, fleet capacity or production release.
+Read [the exact protocol, measured usage and limitations](mana-compact-parent-manager.md).

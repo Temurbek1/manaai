@@ -19,27 +19,33 @@ from app.services.compact_family_input_store import (
 _TABLE = "parent_publication_captures"
 
 
-def _publication_profile(payload: str) -> tuple[str, Literal[1, 2, 3, 4] | None]:
+def _publication_profile(payload: str) -> tuple[str, Literal[1, 2, 3, 4, 5] | None]:
     value = json.loads(payload)
     if not isinstance(value, dict):
         raise ParentChatError("parent_publication_capture_invalid", 409)
     marker = value.pop("parent_publication", None)
-    if marker is not None and (type(marker) is not int or marker not in {1, 2, 3, 4}):
+    if marker is not None and (type(marker) is not int or marker not in {1, 2, 3, 4, 5}):
         raise ParentChatError("parent_publication_capture_invalid", 409)
     return (
         json.dumps(value, sort_keys=True, separators=(",", ":")) if marker else payload,
-        cast(Literal[1, 2, 3, 4] | None, marker),
+        cast(Literal[1, 2, 3, 4, 5] | None, marker),
     )
 
 
 class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
     _schema_version = 36
-    _publication_protocol: Literal[1, 2, 3, 4] = 4
+    _publication_protocol: Literal[1, 2, 3, 4, 5] = 4
 
     def __init__(
-        self, path: Path, *, compact_publication_enabled: bool = False, **family: Any
+        self,
+        path: Path,
+        *,
+        compact_publication_enabled: bool = False,
+        compact_manager_enabled: bool = False,
+        **family: Any,
     ) -> None:
         self._compact_publication_enabled = compact_publication_enabled
+        self._compact_manager_enabled = compact_manager_enabled
         super().__init__(path, **family)
 
     def _supported_versions(self) -> set[int]:
@@ -76,7 +82,12 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
         if super()._presentation(db, request.parent_id, turn_id) != 1:
             raise ParentChatError("parent_publication_capture_invalid", 409)
         payload = json.dumps(
-            json.loads(native[0]) | {"parent_publication": self._publication_protocol},
+            json.loads(native[0])
+            | {
+                "parent_publication": 5
+                if self._compact_manager_enabled
+                else self._publication_protocol
+            },
             sort_keys=True,
             separators=(",", ":"),
         )
@@ -96,7 +107,7 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
 
     def _publication(
         self, db: sqlite3.Connection, parent: str, turn: int | None
-    ) -> Literal[1, 2, 3, 4] | None:
+    ) -> Literal[1, 2, 3, 4, 5] | None:
         native = db.execute(
             "SELECT profile FROM source_tool_turns WHERE parent_id=? AND turn_id=?", (parent, turn)
         ).fetchone()
@@ -113,7 +124,7 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
             (parent, turn),
         ).fetchone()
         if (
-            marker not in {1, 2, 3, 4}
+            marker not in {1, 2, 3, 4, 5}
             or capture is None
             or native is None
             or manager is None
@@ -122,6 +133,8 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
             or capture[2] != manager[0]
         ):
             raise ParentChatError("parent_publication_capture_invalid", 409)
+        if marker == 5 and not self._compact_manager_enabled:
+            raise ParentChatError("compact_parent_manager_disabled", 503)
         if not self._compact_publication_enabled:
             raise ParentChatError("parent_publication_disabled", 503)
         return marker
@@ -135,8 +148,8 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
 
     async def parent_publication_version(
         self, parent_id: str, turn_id: int
-    ) -> Literal[1, 2, 3, 4] | None:
-        def read() -> Literal[1, 2, 3, 4] | None:
+    ) -> Literal[1, 2, 3, 4, 5] | None:
+        def read() -> Literal[1, 2, 3, 4, 5] | None:
             with self._connect() as db:
                 self._presentation(db, parent_id, turn_id)
                 return self._publication(db, parent_id, turn_id)
@@ -145,6 +158,8 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
 
     def _captured_protocol(self, payload: str) -> int:
         original, marker = _publication_profile(payload)
+        if marker == 5 and not self._compact_manager_enabled:
+            raise ParentChatError("compact_parent_manager_disabled", 503)
         if marker and not self._compact_publication_enabled:
             raise ParentChatError("parent_publication_disabled", 503)
         return super()._captured_protocol(original)

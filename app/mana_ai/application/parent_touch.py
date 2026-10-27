@@ -17,6 +17,7 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.client_upsell import ClientUpsellService
+from app.mana_ai.application.compact_parent_manager import compact_manager_route
 from app.mana_ai.application.compact_parent_publication import (
     ParentPublicationPort,
     compact_child_publication,
@@ -387,19 +388,28 @@ class ParentTouchService(ParentChatService):
             request.parent_id, turn.turn_id
         )
         prompt = replace(prompt, input_presentation=version)
+        manager_scope = prompt.manager_scope
         if (
             self._parent_publications is not None
-            and prompt.manager_scope is not None
-            and prompt.manager_scope.stage == "child_safety"
+            and manager_scope is not None
+            and manager_scope.stage in {"route", "child_safety"}
         ):
             publication = await self._parent_publications.parent_publication_version(
                 request.parent_id, turn.turn_id
             )
-            if publication is not None:
+            if publication == 5 and manager_scope.stage == "route":
+                data = json.loads(prompt.messages[0][1])
+                prompt = replace(
+                    prompt,
+                    instructions=compact_manager_route(
+                        manager_scope, bound_support="answered_parent_question" in data
+                    ),
+                )
+            elif publication is not None and manager_scope.stage == "child_safety":
                 prompt = replace(
                     prompt,
                     instructions=compact_child_publication(
-                        prompt.manager_scope,
+                        manager_scope,
                         version=publication,
                         battery_source=prompt.battery_source_publication,
                     ),

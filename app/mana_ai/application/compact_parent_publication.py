@@ -8,13 +8,13 @@ from app.mana_ai.domain.parent_touch_manager import ParentTouchManagerScope
 class ParentPublicationPort(Protocol):
     async def parent_publication_version(
         self, parent_id: str, turn_id: int
-    ) -> Literal[1, 2, 3, 4] | None: ...
+    ) -> Literal[1, 2, 3, 4, 5] | None: ...
 
 
 def compact_child_publication(
     scope: ParentTouchManagerScope,
     *,
-    version: Literal[1, 2, 3, 4] = 4,
+    version: Literal[1, 2, 3, 4, 5] = 4,
     battery_source: bool = False,
 ) -> str:
     if scope.stage != "child_safety":
@@ -25,6 +25,11 @@ def compact_child_publication(
         else "Use response_language_reference's language/script; for a neutral label use "
         "preceding clear parent dialogue. "
     )
+    if version == 5:
+        return compact_child_publication(scope, version=4, battery_source=battery_source) + (
+            " Never expose field names. A supplied observed_at includes the known measurement "
+            "time; never call that time unknown because prose does. Typed facts override prose."
+        )
     if version == 4:
         if not battery_source:
             return compact_child_publication(scope, version=2)
