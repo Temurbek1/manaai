@@ -1,5 +1,15 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The subsequent local [versioned final-publication checkpoint](mana-compact-parent-publication.md),
+application **`124f26f`**, completes two new synthetic six-child native cycles
+within unchanged 2000/2000 allowances. Both previous v1/v2 parties retain failed
+Uzbek final admissions and negative Russian advice; the new v3 Russian answer
+still has an ambiguous date association, so mechanical completion is not a full
+semantic-quality pass. Full 1734-test gates, packaged preserved-copy/unknown-state
+checks and mobile browser restart pass. No source/production activation follows;
+the original broad goal and further model/source/owning-domain requirements stay
+open. Referral remains deferred pending the real API.
+
 The new local [compact-input checkpoint](mana-compact-family-inputs.md), application
 `4ea5e4d`, preserves all native facts/pairing while reducing service presentation
 overhead on new captures. Its separate paid RU/UZ child cases complete Safety

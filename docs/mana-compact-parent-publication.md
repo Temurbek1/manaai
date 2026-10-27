@@ -88,7 +88,40 @@ charges, unknown final publication and closed-reader/restart/midnight.
 mypy **466 files**, format/Ruff/ESLint, TypeScript, production UI build and npm
 audit zero vulnerabilities. Earlier v1/v2 gates remain historical evidence;
 their passing suites do not supersede their failed or qualified model results.
-Packaged/browser evidence is recorded separately after completion.
+Application commit **`124f26f`** exports 291 Python application files at
+`/mnt/ssd2/mana-compact-publication-source-124f26f`. Its clean Python 3.12 image is
+`mana-ai-family:compact-publication-local-20261027`, ID
+`sha256:02c4caea7b07b8a972c71e44b27d38c912156f91da2c0369a391e6dfc657a6e9`.
+All networkless probes in `output/compact-publication-candidate-20261027/`
+completed with exit 0:
+
+- Packaged native child workflow, currency question/quote, targeted cancellation,
+  known usage 600 parent / 300 Safety, unknown parent hold 612 and blocked lost
+  catalogue, current closed reader/restart/midnight; every cell in **78 family /
+  27 source tables** retained.
+- Retained production v6 copy through actual factory -> v36: every original cell
+  in sixteen tables/two messages retained; exact old replay, authentication,
+  source-free history and absent lab-only action cards verified. No historical
+  capture was created, no credential mounted, zero provider/model/contact calls.
+- Actual populated v35 fixture -> v36 retains all **77 old family / 27 source
+  tables**, original unknown holds and metadata; only an empty publication table
+  is added. Closed v35 first observes its old file unchanged. The actual v35
+  image refuses populated v36 safely; this is not functional rollback.
+- Current closed candidate preserves every cell of read-only original copies of
+  both child cases in **each** v1/v2/v3 model party. Failed, qualified and completed
+  histories/costs remain unchanged, without any generation or source replay.
+
+The separate loopback 8113 browser exercised actual RU/UZ composer/native flows,
+then retained its four messages, simulated **600 parent / 600 Safety** usage and
+every cell in **78/27 tables** across a complete owned-server restart. Full public
+state matched, no page errors or document overflow at 390x844; both screenshots
+were visually checked under `output/compact-publication-browser-20261027/`.
+An initial wait expected “Zaryad” while the fake answer used “quvvat”; SQL already
+showed both turns completed. Observation used the actual answer without another
+POST. This is simulator/rendering/recovery evidence, not semantic model quality.
+The isolated browser and owned 8113 server were deliberately closed afterwards;
+the final server tool exits 143 after that requested signal, not a verification
+suite pass or an unobserved crash. Existing labs/production remain unchanged.
 
 There are no new mobile operations or request fields. Keep the existing POST,
 status GET and history GET, preserving UUID/question/cancellation identities.
