@@ -1,5 +1,15 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The new local [compact-input checkpoint](mana-compact-family-inputs.md), application
+`4ea5e4d`, preserves all native facts/pairing while reducing service presentation
+overhead on new captures. Its separate paid RU/UZ child cases complete Safety
+analysis but **still fail Parent-Touch final token admission**; two tariff cases
+pass. Preserve all four receipts and the earlier real-source failure below.
+Full fake gates, packaged copy migrations/closed readers and mobile restart
+checks do not supersede those model failures. The full original goal remains
+active, Referral deferred, source/production settings unchanged. Continue final
+manager cost/quality design without raising quotas or replaying these parties.
+
 The October-27 [actual source-to-chat diagnostic](mana-real-source-chat-budget-checkpoint.md)
 connects current real credentials/Firestore/native selection, but **fails before
 the specialist continuation under the unchanged 2000-token allowance**. Preserve

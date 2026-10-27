@@ -74,8 +74,44 @@ disable/tamper fences, known late costs, unknown parent/native holds, closed
 reader/restart/midnight and the actual idle runtime factory. These mechanical
 passes do not make the two failed real-model child conversations ready.
 
-Candidate-image, populated migration and browser checks are recorded separately
-when completed. No production deployment is authorized by this local increment.
+Application commit **`4ea5e4d`** has a clean 289-file Python export at
+`/mnt/ssd2/mana-compact-input-source-4ea5e4d`. Its Python 3.12 image is
+`mana-ai-family:compact-input-local-20261027`, ID
+`sha256:bc4cf8209a99e84bf0c669d7867725d3764372d0cd0db1f30bd4e3f20a3f31f5`.
+Networkless probes in `output/compact-input-candidate-20261027/` verify:
+
+- Actual packaged fake native child loop, currency question/quote, targeted
+  cancellation, unknown parent/source holds and current closed reader/restart/
+  midnight, retaining every cell in **77 family / 27 source tables**. Simulated
+  known parent/Safety usage is 600/300; the unknown parent hold is 612.
+- Retained production v6 copy -> current factory v35: every original cell in
+  sixteen tables and two historical messages survives; historical replay is exact,
+  history rejects unauthenticated reads and lab-only action cards stay absent.
+  New historical presentation captures remain empty; zero provider calls.
+- Actual previous v34 populated fixture -> v35 preserves all **76 original
+  family / 27 source tables**, unknown model/catalogue holds and cancellation
+  metadata; only the new empty capture table is added. Explicit closed v34 first
+  observes its unchanged old schema. The actual old v34 image safely refuses the
+  populated v35 schema without changing cells; this is not functional rollback.
+- Current candidate closed reader preserves every cell of copies of all four
+  paid diagnostic cases, including both failed child conversations. Original
+  diagnostic databases are mounted read-only and never migrated or re-executed.
+
+Initial candidate helper runs lacked `PYTHONPATH=/app` and stopped at imports;
+their logs remain. The subsequent explicit-path runs above completed with exit 0.
+No real credential was mounted and no production server was accessed.
+
+The separate model-free browser on loopback 8112 exercised the actual composer,
+native child response and Uzbek currency question/reply/catalogue display. Six
+messages, simulated parent/Safety usage 450/300, zero page errors and no document
+overflow at 390x844 survived full server restart; every cell in 77/27 tables and
+the complete public state remained identical. Screenshots were visually checked
+in `output/compact-input-browser-20261027/`. The initial generic selector matched
+the hidden card form and timed out before any chat admission; exact visible
+composer controls then passed. The fake tariff model lists more durations than
+the paid case, so this browser result is rendering/recovery evidence, not semantic
+filtering or real-model quality. The owned browser and 8112 test server were closed.
+No production deployment is authorized by this local increment.
 
 ## Integration and next work
 
