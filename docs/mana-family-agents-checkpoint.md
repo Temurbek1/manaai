@@ -2,7 +2,46 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
-### Compact input presentation — partial acceptance, 2026-10-27
+### Final publication within fixed budgets — qualified local checkpoint, 2026-10-27
+
+Feature worktree remains `/mnt/ssd2/mana-conversion-agent-20261021`, branch
+`feat/mana-conversion-agent-20261021`, application **`124f26f`**, documentation
+**`a048400`**. Read [the versioned publication contract and original model findings](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-compact-parent-publication.md)
+and English integration section 45. New default-disabled publication uses family
+v36, capture-format v1 and frozen instruction protocol 3; old captures/protocols,
+source pairings, raw costs and unknown holds never upgrade/reset.
+
+The two latest independent synthetic six-child native cycles complete with
+**1884 RU / 1907 UZ parent tokens** and **1784 / 1794 Safety tokens**, unchanged
+2000/2000 allowances. Exact replay adds zero calls/messages. Only OpenAI used real
+transport: **8 generations / 8 counts**, known uncached generation estimate
+**$0.0156985**, not an invoice. Profiles/OAuth/Firestore were fake, no live family
+data or cloud reads. Separate case ledgers are not shared Safety fleet capacity.
+The Russian answer retains an ambiguous date association; mechanical completion
+is **not** full semantic quality. Previous v1/v2 model parties retain both failed
+Uzbek final admissions and negative Russian advice, without rerun or cost refund.
+The three new publication parties total **$0.055036** known generation estimate.
+
+Full `make verify` passed: **1734 backend tests**, **26 admin / 23 lab tests**,
+mypy **466 files**, static/build checks and npm audit zero vulnerabilities. Clean
+image `mana-ai-family:compact-publication-local-20261027`, ID
+`sha256:02c4caea7b07b8a972c71e44b27d38c912156f91da2c0369a391e6dfc657a6e9`,
+passed networkless actual v35/v6-copy migrations, historical replay, known/unknown
+workflow, current closed reader and preservation of all v1/v2/v3 child-case copies.
+All prior cells/holds survive, no historical capture backfill. Old v35 safely
+refuses v36, which is not functional rollback. A separate 390px fake browser
+retained four messages and all **78 family / 27 source tables** through full
+server restart, with zero page errors/overflow. The owned browser/8113 server
+are closed; existing default labs and production remain unchanged.
+
+The shorter typed battery-source instruction retains the whole original task,
+context and specialist advice; other contexts retain general guidance. No model
+downgrade, output-floor reduction, source read/schedule, real contact, grant,
+payment, production/SSH/key mutation followed. Broader date/model quality, source,
+commercial/administrative and scoped release requirements stay open. Referral
+remains deferred until the actual API arrives. The original goal stays active.
+
+### Earlier compact input presentation — partial acceptance, 2026-10-27
 
 Authoritative feature worktree is `/mnt/ssd2/mana-conversion-agent-20261021`, branch
 `feat/mana-conversion-agent-20261021`, application **`4ea5e4d`**, documentation
