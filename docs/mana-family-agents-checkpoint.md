@@ -2,6 +2,45 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Saved-only native tools and tariff context — local checkpoint, 2026-10-28
+
+Feature worktree `/mnt/ssd2/mana-conversion-agent-20261021`, **`62a463d`**. Read
+[the exact scope and preserved failures](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-saved-observation-workspace.md)
+and English integration section48. New default-off saved-only native4 uses family38;
+contextual price refinement/publication6 uses family39; UTC labels2 use source10.
+Old captures/receipts do not upgrade. The original full goal remains active.
+
+The source inspector performs bounded read-only SQL with immutable separate
+1000-global/20-parent rolling-day ceilings and fresh family ownership. It never
+refreshes Firebase or changes the existing physical/source-admission ledger.
+One next-window real battery query (limit2/reserve2) and its later native saved
+inspection confirm source reuse; the full original family/source ledgers remain
+unchanged in their retained originals. **The answer failed**:819 parent tokens,
+1319 Safety tokens; continuation input1143 exceeds remaining681. No retries/holds.
+Known generation estimate$0.003373, not an invoice. Do not replay or reset it.
+
+The separate fictional real-model two-price case also failed: first quote used
+843 parent tokens; follow-up1118input+128minimum exceeds remaining1157. One fake
+catalog read, one generation/three counts, estimate$0.00292. The RU GPS-label case
+preserves exact UTC instants but has a retained negative raw-enum/wording review
+(1718/1388 tokens, estimate$0.0073885). No party is a general quality pass.
+
+Full `make verify` passes:1845 backend,26 admin/23 lab cases, mypy490 files,
+format/lint/typecheck/build. Required high-severity audit passes with five LOW
+findings, not zero. OpenAPI sync and42-owned-file secret scan pass. Actual390px
+fake browser: GPS report ->90-day quote ->180-day refinement ->saved GPS query,
+seven messages, simulated750/450 tokens, only two original source admissions/
+four units and one SQL inspection. Reload retains full state/all83 family and31
+source tables; no JS error/overflow. Own browser/8116 are closed.
+
+No new candidate-image/active rollback or deployment is claimed. Current closed38/
+39 fake checks retain history/unknown holds; older images cannot execute the new
+schemas. Next approved local work is captured zero-inference literal refinements
+(family40) and compact unified source tools (family41), preserving all tasks,
+original words, models, quotas/floors, receipts and negative parties. Production,
+SSH/keys, source schedules, contacts/grants/payments remain unchanged.
+
+
 ### Parallel Retention, Upsell and Child-Safety checkpoint — 2026-10-28
 
 Feature worktree `/mnt/ssd2/mana-conversion-agent-20261021`, committed **`475d1a6`**.
