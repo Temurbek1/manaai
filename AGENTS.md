@@ -1,5 +1,13 @@
 # AGENTS.md
 
+- The new whole reminder-dialogue diagnostic FAILED the substantive follow-up
+  admission after a correctly confirmed/delivered reminder:1326parent tokens
+  used,749input+128minimum exceeds674remaining. Read
+  `docs/mana-reminder-dialogue-budget.md`. Preserve the original receipts/ledger
+  and0-call setup failure; no retry, smaller reply, budget reset/raise or model
+  downgrade. Next independent Retention setup help must use real complete
+  zero-linked-device facts and an honest origin, never fake inactivity/consent.
+
 - Local family40/41 captures strict literal tariff changes and native5 explicit
   saved/live observation selection. Read `docs/mana-compact-agent-workspace.md`.
   Old protocols never upgrade; retain exact full requests/facts, frame proofs,

@@ -1,5 +1,10 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The [full reminder-dialogue diagnostic](mana-reminder-dialogue-budget.md) confirms
+draft, exact confirmation, restart and one due delivery, then fails the same
+parent’s substantive follow-up at1326/2000 tokens (749input+128floor >674remaining).
+This negative party stays intact; full assistant dialogue is not accepted.
+
 The [compact family workspace](mana-compact-agent-workspace.md) adds new native5
 explicit saved/live selection and host-only exact tariff changes. A new real-model
 fictional saved-only answer and four-quote conversation complete within unchanged
