@@ -2,6 +2,21 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Full reminder dialogue remains incomplete — 2026-10-28
+
+Feature evidence commit **`b0330f5`** preserves a new independent actual-model,
+fictional-family whole-loop diagnostic. Read
+[the negative receipt](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-reminder-dialogue-budget.md).
+Exact reminder task/date, parent confirmation, replay/restart and one same-chat
+due delivery pass; the parent's full subsequent meaningful question fails daily
+admission:1326 tokens used,749input+128floor exceeds674remaining. Two generations/
+four counts, estimate$0.00434, zero Safety/source/push/grant/payment calls and no
+unknown holds. Earlier zero-network setup failure is retained separately. Do not
+replay/reset this party or substitute a shorter reply. Full dialogue is not ready.
+Independent Retention setup-help work and lossless manager input design continue;
+no production, keys, sources or schedules changed, and the full goal stays active.
+
+
 ### Compact observation and literal tariff workspace — local checkpoint, 2026-10-28
 
 Feature worktree `/mnt/ssd2/mana-conversion-agent-20261021`, **`4018971`**.
