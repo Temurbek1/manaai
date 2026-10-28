@@ -1,5 +1,16 @@
 # AGENTS.md
 
+- Local default-disabled `MANA_PARENT_TOUCH_BOUND_REMINDER_REVIEWS_ENABLED` adds
+  family45. Read `docs/mana-bound-reminder-review.md`. Strong semantic review
+  selects prepare/reply for one exact SQL-bound literal proposal; it never
+  supplies date/task arguments, approval or an execution receipt. Preserve full
+  factual context, original effective64 reminder floor,2000/2000 allowances,
+  exact human confirmation, owning clarification and late/unknown accounting.
+  Old43/44 requests never upgrade; current closed45 is required for45. Full
+  engineering checks pass, but actual45 whole dialogue is negative and uses128
+  more reminder tokens than44v2. Preserve every original party; no retry/reset,
+  model downgrade, source/schedule activation or production release follows.
+
 - Local family43/44 direct reminders and unified native manager decisions remain
   default disabled. Read `docs/mana-direct-reminder-routing.md` and
   `docs/mana-compact-manager-decisions.md`. New44 admissions capture nested v2;

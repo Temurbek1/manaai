@@ -1358,3 +1358,19 @@ This is not in production4018971. Use the separately marked fictional lab:
 responses retain their verified cost and never fall back to accompanying prose.
 Historical turns never acquire the new protocol. Current evidence and remaining
 acceptance: [mana-compact-manager-decisions.md](mana-compact-manager-decisions.md).
+
+## 54. Host-bound semantic reminder review (local; not released)
+
+Default-disabled `MANA_PARENT_TOUCH_BOUND_REMINDER_REVIEWS_ENABLED` lets the strong
+owning model review a complete literal reminder without regenerating its task,
+date or timezone. It can request an exact host preview, refuse or clarify. The
+existing human-confirmation and fresh-ownership lifecycle remains mandatory.
+There is no new mobile endpoint or private field to send. Return the existing
+confirmation/question ID when answering; one parent still has one chat.
+
+Old messages never acquire this contract. No source refresh, push, grant, payment
+or quota increase follows. Use the separate fictional lab:
+`make chat-lab-bound-reminder-reviews CHAT_LAB_PORT=8121`. The actual-model complete
+reminder/follow-up party still fails final publication under2000 tokens; it is not
+released or represented as lower cost. Evidence and compatibility scope:
+[mana-bound-reminder-review.md](mana-bound-reminder-review.md).

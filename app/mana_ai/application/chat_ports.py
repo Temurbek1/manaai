@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Literal, Protocol
 from uuid import UUID
 
+from app.mana_ai.domain.bound_reminder_review import BoundReminderDecision
 from app.mana_ai.domain.chat import (
     ChatQuota,
     ChatTokens,
@@ -17,6 +18,7 @@ from app.mana_ai.domain.client_retention import RetentionIntent
 from app.mana_ai.domain.client_upsell import UpsellChoice, UpsellEnquiry, UpsellScope
 from app.mana_ai.domain.commercial_conversation import CommercialConversationContext
 from app.mana_ai.domain.compact_manager_decision import CompactManagerInvocation
+from app.mana_ai.domain.direct_reminders import DirectReminderRequest
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
     AgentQuestionReceipt,
@@ -75,6 +77,7 @@ class ChatPrompt:
     manager_scope: ParentTouchManagerScope | None = None
     input_presentation: Literal[1] | None = None
     battery_source_publication: bool = False
+    bound_reminder_request: DirectReminderRequest | None = None
 
 
 @dataclass(frozen=True)
@@ -94,6 +97,7 @@ class ChatModelReceipt:
     clarification_question: str | None = None
     upsell_enquiry: UpsellEnquiry | None = None
     native_manager_invocation: CompactManagerInvocation | None = None
+    bound_reminder_decision: BoundReminderDecision | None = None
 
 
 class ParentChatModel(Protocol):

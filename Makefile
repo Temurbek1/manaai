@@ -8,6 +8,10 @@ ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 CHAT_LAB_PORT ?= 8092
 CHAT_LAB_ENV_FILE ?=
 
+.PHONY: chat-lab-bound-reminder-reviews
+chat-lab-bound-reminder-reviews:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_bound_reminder_reviews_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 .PHONY: chat-lab-compact-decisions
 chat-lab-compact-decisions:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_compact_decisions_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

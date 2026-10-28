@@ -1098,3 +1098,24 @@ def create_compact_decisions_app() -> FastAPI:
             compact_decisions=True,
         )
     )
+
+
+def create_bound_reminder_reviews_app() -> FastAPI:
+    """Separate model-free v45 lab; fake preparation is not semantic quality evidence."""
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=replace(
+            workspace_options(root / "data/chat-lab/bound-reminder-v45-simulation"),
+            tariff_handoff=True,
+            compact_inputs=True,
+            compact_publication=True,
+            compact_manager=True,
+            saved_observations=True,
+            compact_source_tools=True,
+            direct_reminders=True,
+            compact_decisions=True,
+            bound_reminder_reviews=True,
+        )
+    )

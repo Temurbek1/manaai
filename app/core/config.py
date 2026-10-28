@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     mana_parent_setup_policy: ParentSetupPolicy = Field(default_factory=ParentSetupPolicy)
     mana_parent_touch_direct_reminders_enabled: bool = False
     mana_parent_touch_compact_decisions_enabled: bool = False
+    mana_parent_touch_bound_reminder_reviews_enabled: bool = False
     mana_retention_trial_end_enabled: bool = False
     mana_retention_trial_end_policy: TrialEndPolicy = Field(default_factory=TrialEndPolicy)
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
@@ -497,6 +498,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_parent_touch_bound_reminder_reviews_enabled and not (
+            self.mana_parent_touch_direct_reminders_enabled
+            and self.mana_parent_touch_compact_decisions_enabled
+        ):
+            raise ValueError(
+                "Bound reminder reviews require captured direct reminders and compact decisions"
+            )
         if (
             self.mana_parent_touch_compact_decisions_enabled
             and not self.mana_family_compact_source_tools_enabled

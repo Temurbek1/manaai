@@ -7,6 +7,10 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from app.mana_ai.application.bound_reminder_review import (
+    BoundReminderReviewPort,
+    bound_reminder_review_instructions,
+)
 from app.mana_ai.application.chat_ports import (
     ChatPrompt,
     ParentChatError,
@@ -117,6 +121,7 @@ class ParentTouchService(ParentChatService):
         retention: ClientRetentionService | None = None,
         setup: ParentSetupService | None = None,
         direct_reminders: DirectReminderPort | None = None,
+        bound_reminder_reviews: BoundReminderReviewPort | None = None,
         upsell: ClientUpsellService | None = None,
         expiry: RetentionExpiryService | None = None,
         manager: ParentTouchManagerPort | None = None,
@@ -129,6 +134,7 @@ class ParentTouchService(ParentChatService):
         self.retention = retention
         self.setup = setup
         self._direct_reminders = direct_reminders
+        self._bound_reminder_reviews = bound_reminder_reviews
         self.upsell = upsell
         self.expiry = expiry
         self.manager = manager
@@ -509,6 +515,7 @@ class ParentTouchService(ParentChatService):
             prompt = replace(prompt, instructions=native_instructions)
         if (
             self._direct_reminders is not None
+            and prompt.bound_reminder_request is None
             and manager_scope is not None
             and manager_scope.stage == "reminder"
             and await self._direct_reminders.direct_reminder_request(
@@ -971,6 +978,49 @@ class ParentTouchService(ParentChatService):
                 256 if question is not None or evidence and evidence.notice else 128,
             ),
         )
+        if self._bound_reminder_reviews is not None:
+            bound = await self._bound_reminder_reviews.bound_reminder_review_request(
+                request.parent_id, turn.turn_id
+            )
+            if bound is not None:
+                if (
+                    manager_scope is None
+                    or manager_scope.stage != "reminder"
+                    or template.question is not None
+                    or template.notice is not None
+                    or template.reminder_scope is None
+                ):
+                    raise ParentChatError("bound_reminder_scope_changed", 503)
+                # Keep the full original profile/context and exact parent text;
+                # the host's paired proposal is private, not duplicated wire prose.
+                bound_data = dict(data)
+                bound_instructions = bound_reminder_review_instructions(manager_scope)
+                if manager_scope.language_reference is not None:
+                    if manager_scope.language_reference == template.messages[-1][1]:
+                        # This exact frozen reference is already present verbatim.
+                        bound_instructions = bound_instructions.replace(
+                            "response_language_reference", "the last parent message"
+                        )
+                    else:
+                        bound_data["response_language_reference"] = manager_scope.language_reference
+                return replace(
+                    template,
+                    instructions=bound_instructions,
+                    manager_scope=manager_scope,
+                    bound_reminder_request=bound,
+                    messages=(
+                        (
+                            template.messages[0][0],
+                            json.dumps(bound_data, ensure_ascii=False, separators=(",", ":")),
+                        ),
+                        *template.messages[1:],
+                    ),
+                    minimum_output_tokens=manager_prompt(
+                        manager_scope, data, messages, template=template
+                    ).minimum_output_tokens,
+                    upsell_scope=None,
+                    retention_scope=None,
+                )
         return (
             manager_prompt(manager_scope, data, messages, template=template)
             if manager_scope

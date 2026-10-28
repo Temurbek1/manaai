@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.core.config import get_settings
+from app.mana_ai.application.bound_reminder_review import BOUND_REMINDER_PREPARE_ACK
 from app.mana_ai.application.chat_actions import ChatActionService
 from app.mana_ai.application.chat_ports import (
     ChatModelReceipt,
@@ -42,6 +43,7 @@ from app.mana_ai.application.source_safety import SourceSafetyService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.mana_ai.application.trial_action_cards import TrialButtonGrantService
 from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
+from app.mana_ai.domain.bound_reminder_review import BoundReminderDecision
 from app.mana_ai.domain.chat import ChatChild, ChatTokens, ParentChildContext, ParentTariffContext
 from app.mana_ai.domain.chat_actions import ChatActionCard, ChatActionCreate
 from app.mana_ai.domain.child_location import ChildLocationFacts, LocationComparisonView
@@ -99,6 +101,7 @@ from app.mana_ai.domain.source_reviews import (
     SourceReviewWork,
 )
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy, SourceSafetyReceipt
+from app.services.bound_reminder_review_store import SqliteBoundReminderReviewStore
 from app.services.child_safety_model import OpenAIChildSafetyModel
 from app.services.child_safety_prompts import ChildSafetyPromptBuilder
 from app.services.child_source_model import OpenAIChildSourceModel
@@ -383,6 +386,17 @@ class SimulatedModel:
         )
 
     async def respond(self, prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
+        if prompt.bound_reminder_request is not None:
+            return ChatModelReceipt(
+                usage=ChatTokens(input_tokens=100, output_tokens=50),
+                model="lab-simulated-not-billed",
+                completed=True,
+                answer=BOUND_REMINDER_PREPARE_ACK,
+                reminder_candidate=prompt.bound_reminder_request.candidate,
+                bound_reminder_decision=BoundReminderDecision(
+                    kind="prepare", body=None, question=None
+                ),
+            )
         if (
             self._direct_reminders
             and prompt.manager_scope
@@ -998,6 +1012,7 @@ class LabOptions:
     parent_setup: bool = False
     direct_reminders: bool = False
     compact_decisions: bool = False
+    bound_reminder_reviews: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
@@ -1017,6 +1032,12 @@ class LabOptions:
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.bound_reminder_reviews and not (
+            options.direct_reminders and options.compact_decisions
+        ):
+            raise ValueError(
+                "Bound reminder reviews require captured direct reminders and compact decisions"
+            )
         if options.compact_decisions and not options.compact_source_tools:
             raise ValueError("Compact decisions require the full governed manager lab")
         if options.direct_reminders and not options.compact_source_tools:
@@ -1204,6 +1225,8 @@ class ChatLab:
             expected["direct_reminders"] = True
         if self.options.compact_decisions:
             expected["compact_decisions"] = True
+        if self.options.bound_reminder_reviews:
+            expected["bound_reminder_reviews"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
@@ -1359,7 +1382,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteCompactManagerDecisionStore
+                SqliteBoundReminderReviewStore
+                if self.options.bound_reminder_reviews
+                else SqliteCompactManagerDecisionStore
                 if self.options.compact_decisions
                 else SqliteDirectReminderStore
                 if self.options.direct_reminders
@@ -1493,6 +1518,7 @@ class ChatLab:
                 self.options.parent_setup
                 or self.options.direct_reminders
                 or self.options.compact_decisions
+                or self.options.bound_reminder_reviews
             ):
                 reminder_options.update(
                     parent_setup_enabled=self.options.parent_setup,
@@ -1502,6 +1528,8 @@ class ChatLab:
                 reminder_options["direct_reminders_enabled"] = True
             if self.options.compact_decisions:
                 reminder_options["compact_decisions_enabled"] = True
+            if self.options.bound_reminder_reviews:
+                reminder_options["bound_reminder_reviews_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -1748,6 +1776,9 @@ class ChatLab:
             else None,
             direct_reminders=self.store
             if isinstance(self.store, SqliteDirectReminderStore)
+            else None,
+            bound_reminder_reviews=self.store
+            if isinstance(self.store, SqliteBoundReminderReviewStore)
             else None,
             setup=ParentSetupService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteParentSetupStore) and self.options.parent_setup

@@ -202,15 +202,18 @@ class SqliteParentClarificationStore(SqliteParentSupportQuestionStore):
             ParentTouchText(body=receipt.answer[: -len(question)].strip(), question=question)
         except (ValueError, ValidationError):
             return False
+        return self._clarification_scope_matches(db, turn) and super()._valid_decision(
+            db, turn, replace(receipt, clarification_question=None), now
+        )
+
+    def _clarification_scope_matches(self, db: sqlite3.Connection, turn: StoredChatTurn) -> bool:
         row = db.execute(
             "SELECT 1 FROM parent_clarification_admissions a JOIN parent_touch_manager_turns m "
             "ON m.turn_id=a.turn_id AND m.parent_id=a.parent_id WHERE a.parent_id=? "
             "AND a.turn_id=? AND m.phase='routing' AND m.choice IS NULL",
             (turn.parent_id, turn.turn_id),
         ).fetchone()
-        return row is not None and super()._valid_decision(
-            db, turn, replace(receipt, clarification_question=None), now
-        )
+        return row is not None
 
     def _on_settled(
         self,

@@ -112,7 +112,8 @@ class SqliteDirectReminderStore(SqliteParentSetupStore):
         try:
             parsed = DirectReminderRequest.model_validate_json(row["payload"])
             if (
-                row["request_hash"] != row["request_digest"]
+                self._direct_request_digest(db, parent, turn_id, row["request_hash"])
+                != row["request_digest"]
                 or parsed.captured_at != datetime.fromisoformat(row["created_at"])
                 or hashlib.sha256(row["payload"].encode()).hexdigest() != row["fingerprint"]
                 or parsed.candidate.content not in row["message"]
@@ -131,6 +132,12 @@ class SqliteDirectReminderStore(SqliteParentSetupStore):
         except (ValueError, TypeError):
             raise ParentChatError("direct_reminder_capture_invalid", 503) from None
         return parsed
+
+    def _direct_request_digest(
+        self, db: sqlite3.Connection, parent: str, turn_id: int, digest: str
+    ) -> str:
+        """An explicitly captured review may pair its own private admission marker."""
+        return digest
 
     async def direct_reminder_request(
         self, parent_id: str, turn_id: int

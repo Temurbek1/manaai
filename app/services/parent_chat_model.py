@@ -11,6 +11,12 @@ from openai.types.responses.response_text_config_param import ResponseTextConfig
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.mana_ai.application.bound_reminder_review import (
+    BOUND_REMINDER_PREPARE_ACK,
+    bound_reminder_review_candidate,
+    bound_reminder_review_schema,
+    parse_bound_reminder_review,
+)
 from app.mana_ai.application.chat_ports import (
     ChatDecisionFailure,
     ChatModelReceipt,
@@ -81,6 +87,28 @@ class OpenAIParentChatModel:
     def _base_text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
         if prompt.safety_parent_review or prompt.safety_source_review:
             raise ValueError("A parent-chat adapter cannot inherit a specialist review protocol")
+        if prompt.bound_reminder_request is not None:
+            scope = prompt.manager_scope
+            if (
+                scope is None
+                or scope.stage != "reminder"
+                or scope.compact_decision_protocol is not None
+                or prompt.reminder_scope is None
+                or prompt.notice is not None
+                or prompt.question is not None
+                or prompt.upsell_scope is not None
+                or prompt.retention_scope is not None
+            ):
+                raise ValueError("A bound review requires its one owning reminder scope")
+            return {
+                "verbosity": self._verbosity,
+                "format": {
+                    "type": "json_schema",
+                    "name": "parent_touch_bound_reminder_review",
+                    "strict": True,
+                    "schema": bound_reminder_review_schema(scope),
+                },
+            }
         if prompt.manager_scope and prompt.manager_scope.compact_decision_protocol in {1, 2}:
             if prompt.manager_scope.stage != "route":
                 raise ValueError("A compact native decision belongs only to initial routing")
@@ -481,6 +509,10 @@ class OpenAIParentChatModel:
         question_id = None
         notice_id = None
         failure_code: ChatDecisionFailure | None = None if completed else "provider_output_invalid"
+        if prompt.bound_reminder_request is not None:
+            return self._bound_reminder_receipt(
+                prompt, tokens, model, answer if completed else None, failure_code
+            )
         reminder_candidate = None
         reminder_question_text = None
         upsell_choice = None
@@ -597,6 +629,66 @@ class OpenAIParentChatModel:
             upsell_question_text=upsell_question_text if completed else None,
             clarification_question=clarification_question if completed else None,
             upsell_enquiry=upsell_enquiry if completed else None,
+        )
+
+    def _bound_reminder_receipt(
+        self,
+        prompt: ChatPrompt,
+        tokens: ChatTokens,
+        raw_model: object,
+        text: str | None,
+        failure: ChatDecisionFailure | None,
+    ) -> ChatModelReceipt:
+        decision = candidate = question = answer = None
+        model = self._model
+        try:
+            if (
+                not isinstance(raw_model, str)
+                or not 0 < len(raw_model) <= 128
+                or not raw_model.isascii()
+                or not raw_model.isprintable()
+                or any(c.isspace() for c in raw_model)
+            ):
+                raise ValueError("Invalid bound-review model label")
+            model = raw_model
+            if (
+                text is None
+                or prompt.manager_scope is None
+                or prompt.bound_reminder_request is None
+            ):
+                raise ValueError("No complete bound review")
+            decision = parse_bound_reminder_review(
+                json.loads(text), prompt.bound_reminder_request, prompt.manager_scope
+            )
+            for part in (decision.body, decision.question):
+                if part is not None:
+                    part.encode("utf-8")
+                    if (
+                        prompt.response_language
+                        and (detected := parent_language(part)) is not None
+                        and detected != prompt.response_language
+                    ):
+                        failure = "reply_language_mismatch"
+                        raise ValueError("The bound review used another parent language")
+            candidate = bound_reminder_review_candidate(decision, prompt.bound_reminder_request)
+            question = decision.question
+            answer = (
+                BOUND_REMINDER_PREPARE_ACK
+                if candidate is not None
+                else "\n\n".join(p for p in ((decision.body or "").strip(), question) if p)
+            )
+        except (ValueError, TypeError, RecursionError):
+            decision = candidate = question = answer = None
+            failure = failure or "reply_schema_invalid"
+        return ChatModelReceipt(
+            usage=tokens,
+            model=model,
+            answer=answer,
+            completed=decision is not None,
+            failure_code=None if decision is not None else failure,
+            reminder_candidate=candidate,
+            clarification_question=question,
+            bound_reminder_decision=decision,
         )
 
     async def close(self) -> None:
