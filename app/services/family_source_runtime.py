@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -15,6 +15,8 @@ from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_day_usage import ParentUsageIdentitySource
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.inventory_tariffs import InventoryTariffSink, TariffCollectionService
+from app.mana_ai.application.parent_setup import ParentSetupSink
+from app.mana_ai.application.setup_collection import SetupCollectionService
 from app.mana_ai.domain.family_sources import FamilySourceKey
 from app.mana_ai.domain.source_safety import SourceSafetyPolicy
 from app.services.dated_collection_store import SqliteDatedCollectionStore
@@ -36,6 +38,7 @@ from app.services.manakids_child_usage import ManakidsChildUsageSource, Manakids
 from app.services.manakids_family_day_usage import ManakidsFamilyDayUsageSource
 from app.services.manakids_family_inventory import ManakidsFamilyInventory
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
+from app.services.setup_collection_store import SqliteSetupCollectionStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_safety_store import SqliteSourceSafetyStore
 from app.services.usage_comparison_cache import SqliteUsageComparisonCache
@@ -59,6 +62,7 @@ async def family_source_runtime(
     clock: Callable[[], datetime],
     account_auth: ManakidsReadToken | None = None,
     tariff_receiver: InventoryTariffSink | None = None,
+    setup_receiver: ParentSetupSink | None = None,
     day_identities: ParentUsageIdentitySource | None = None,
 ) -> FamilySourceRuntime | None:
     if not settings.mana_family_sources_enabled:
@@ -227,7 +231,14 @@ async def family_source_runtime(
         collection_version = await collection_storage_version(
             settings.mana_family_collection_database_path
         )
-        location_collection = settings.mana_family_location_enabled or collection_version == 4
+        setup_collection = settings.mana_parent_setup_enabled or collection_version == 5
+        if settings.mana_parent_setup_enabled and setup_receiver is None:
+            raise ValueError("Setup collection requires its owning receiver")
+        location_collection = (
+            settings.mana_family_location_enabled
+            or collection_version in {4, 5}
+            or setup_collection
+        )
         dated_reader = (
             settings.mana_collection_day_usage_enabled
             or collection_version in {3, 4}
@@ -252,9 +263,20 @@ async def family_source_runtime(
             if location_collection
             else {}
         )
+        setup_options: dict[str, Any] = (
+            {
+                "setup_enabled": settings.mana_parent_setup_enabled,
+                "setup_policy": settings.mana_parent_setup_policy,
+                "setup_recipient_binding": str(settings.mana_parent_chat_database_path.resolve()),
+            }
+            if setup_collection
+            else {}
+        )
         collection_store = (
             (
-                SqliteLocationCollectionStore
+                SqliteSetupCollectionStore
+                if setup_collection
+                else SqliteLocationCollectionStore
                 if location_collection
                 else SqliteDatedCollectionStore
                 if dated_reader
@@ -267,6 +289,7 @@ async def family_source_runtime(
                 binding=collection_binding,
                 policy=settings.mana_family_collection_policy,
                 sources=registered,
+                **setup_options,
                 **location_options,
                 **dated_options,
             )
@@ -286,10 +309,21 @@ async def family_source_runtime(
             clock=clock,
             timeout_seconds=settings.mana_parent_chat_source_timeout_seconds,
             include_tariffs=settings.mana_collection_tariffs_enabled,
+            include_child_coverage=settings.mana_parent_setup_enabled,
+        )
+        service_setup_options: dict[str, Any] = (
+            {"setup_receiver": setup_receiver if settings.mana_parent_setup_enabled else None}
+            if isinstance(collection_store, SqliteSetupCollectionStore)
+            else {}
         )
         collection = (
-            DatedCollectionService(
-                store=collection_store,
+            (
+                SetupCollectionService
+                if isinstance(collection_store, SqliteSetupCollectionStore)
+                else DatedCollectionService
+            )(
+                **dict(store=cast(Any, collection_store)),
+                **service_setup_options,
                 inventory=inventory,
                 sources=reads,
                 observations=store,

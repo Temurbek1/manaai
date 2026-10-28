@@ -47,6 +47,9 @@ def next_family_collection_window(after: datetime) -> datetime:
 class InventoryFamily(ChatContract):
     parent_id: ParentChatId
     connected_child_ids: tuple[int, ...] = Field(max_length=20)
+    children_complete: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def canonical_family(self) -> "InventoryFamily":

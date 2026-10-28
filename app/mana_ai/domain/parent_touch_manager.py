@@ -18,6 +18,7 @@ class ParentTouchManagerScope(ChatContract):
     reminders_enabled: bool = False
     clarifications_enabled: bool = Field(default=False, exclude_if=lambda v: not v)
     tariff_handoff_enabled: bool = Field(default=False, exclude_if=lambda v: not v)
+    setup_help_protocol: Literal[1] | None = Field(default=None, exclude_if=lambda v: v is None)
     language_reference: str | None = Field(
         default=None, max_length=2000, exclude_if=lambda v: v is None
     )

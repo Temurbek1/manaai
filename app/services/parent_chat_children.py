@@ -73,6 +73,7 @@ class ManakidsChatChildrenSource:
         password: str,
         wall_timeout_seconds: float = 30,
         clock: Callable[[], datetime] | None = None,
+        include_child_coverage: bool = False,
     ) -> None:
         self._client = client
         self._base = base_url.rstrip("/")
@@ -84,6 +85,7 @@ class ManakidsChatChildrenSource:
         self._auth_retry_at = 0.0
         self._wall_timeout = wall_timeout_seconds
         self._clock = clock if clock is not None else lambda: datetime.now(UTC)
+        self._include_child_coverage = include_child_coverage
 
     async def _read_json(self, response: httpx.Response) -> object:
         if response.status_code in {401, 403}:
@@ -215,6 +217,9 @@ class ManakidsChatChildrenSource:
         tariff = _tariff_context(payload["results"][0], collected_at)
         context = ParentChildContext(
             parent_id=parent_id,
+            children_complete=True
+            if self._include_child_coverage and parent.children_count is not None
+            else None,
             children=[
                 ChatChild(
                     child_id=child.id,

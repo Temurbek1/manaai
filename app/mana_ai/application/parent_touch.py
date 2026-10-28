@@ -30,6 +30,8 @@ from app.mana_ai.application.input_presentation import FamilyInputPresentationPo
 from app.mana_ai.application.parent_chat import ParentChatService
 from app.mana_ai.application.parent_languages import parent_language
 from app.mana_ai.application.parent_reminders import ParentReminderService
+from app.mana_ai.application.parent_setup import ParentSetupService
+from app.mana_ai.application.parent_setup_help import setup_help_route
 from app.mana_ai.application.parent_touch_manager import ParentTouchManagerPort, manager_prompt
 from app.mana_ai.application.parent_touch_offers import render_parent_offer
 from app.mana_ai.application.proactive_parent import ProactiveParentService
@@ -111,6 +113,7 @@ class ParentTouchService(ParentChatService):
         collection: FamilyCollectionService | None = None,
         reminders: ParentReminderService | None = None,
         retention: ClientRetentionService | None = None,
+        setup: ParentSetupService | None = None,
         upsell: ClientUpsellService | None = None,
         expiry: RetentionExpiryService | None = None,
         manager: ParentTouchManagerPort | None = None,
@@ -121,6 +124,7 @@ class ParentTouchService(ParentChatService):
         self.collection = collection
         self.reminders = reminders
         self.retention = retention
+        self.setup = setup
         self.upsell = upsell
         self.expiry = expiry
         self.manager = manager
@@ -155,6 +159,8 @@ class ParentTouchService(ParentChatService):
         return await self.upsell.process_one() if self.upsell else False
 
     async def process_retention(self) -> bool:
+        if self.setup is not None and await self.setup.process_one():
+            return True
         if self.expiry is not None and await self.expiry.process_one():
             return True
         if self.retention is None:
@@ -457,6 +463,8 @@ class ParentTouchService(ParentChatService):
                         "Missing/stale saved facts remain unavailable; promise no refresh."
                     ),
                 )
+        if manager_scope is not None and manager_scope.setup_help_protocol == 1:
+            prompt = replace(prompt, instructions=setup_help_route(manager_scope))
         return prompt
 
     async def _prepare_touch_prompt(

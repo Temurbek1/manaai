@@ -186,6 +186,12 @@ def create_app(*, options: LabOptions | None = None) -> FastAPI:
 
         return await mana_family_agents.controlled(prepare_location_comparison(lab))
 
+    @app.post(
+        "/lab/parent-setup", response_model=dict[str, object], dependencies=[Depends(local_session)]
+    )
+    async def parent_setup() -> dict[str, object]:
+        return await mana_family_agents.controlled(lab.prepare_parent_setup())
+
     def card_service() -> ChatActionService:
         if lab.action_cards is None:
             raise HTTPException(503, detail={"code": "lab_action_cards_disabled"})
@@ -1030,5 +1036,26 @@ def create_compact_agent_workspace_app() -> FastAPI:
             literal_tariff_followups=True,
             compact_source_tools=True,
             usage_comparisons=False,
+        )
+    )
+
+
+def create_parent_setup_workspace_app() -> FastAPI:
+    """Separate model-free v42 lab; earlier marked directories retain their protocols."""
+    from dataclasses import replace
+
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    return create_app(
+        options=replace(
+            workspace_options(root / "data/chat-lab/parent-setup-v42-simulation"),
+            tariff_handoff=True,
+            compact_inputs=True,
+            compact_publication=True,
+            compact_manager=True,
+            saved_observations=True,
+            compact_source_tools=True,
+            parent_setup=True,
         )
     )

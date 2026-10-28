@@ -147,6 +147,9 @@ class ParentChildContext(ChatContract):
     children: list[ChatChild] = Field(max_length=20)
     collected_at: AwareDatetime
     limitations: list[str] = Field(max_length=5)
+    children_complete: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     tariff: ParentTariffContext | None = Field(default=None, exclude_if=lambda value: value is None)
 
 

@@ -17,6 +17,7 @@ from app.mana_ai.domain.family_collection import FamilyCollectionPolicy
 from app.mana_ai.domain.family_sources import FamilySourceLimits
 from app.mana_ai.domain.inventory_tariffs import InventoryTariffPolicy
 from app.mana_ai.domain.parent_reminders import ReminderPolicy
+from app.mana_ai.domain.parent_setup import ParentSetupPolicy
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
 from app.mana_ai.domain.saved_observations import SavedObservationLimits
 from app.mana_ai.domain.shared_conversion_profile import SharedConversionProfilePolicy
@@ -119,6 +120,8 @@ class Settings(BaseSettings):
     mana_upsell_followups_enabled: bool = False
     mana_upsell_literal_followups_enabled: bool = False
     mana_family_compact_source_tools_enabled: bool = False
+    mana_parent_setup_enabled: bool = False
+    mana_parent_setup_policy: ParentSetupPolicy = Field(default_factory=ParentSetupPolicy)
     mana_retention_trial_end_enabled: bool = False
     mana_retention_trial_end_policy: TrialEndPolicy = Field(default_factory=TrialEndPolicy)
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
@@ -492,6 +495,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_parent_setup_enabled and not (
+            self.mana_family_compact_source_tools_enabled
+            and self.mana_parent_support_questions_enabled
+            and self.mana_parent_touch_proactive_enabled
+            and self.mana_client_retention_enabled
+        ):
+            raise ValueError("Parent setup requires the captured Retention conversation runtime")
         if self.mana_upsell_literal_followups_enabled and not self.mana_upsell_followups_enabled:
             raise ValueError("Literal tariff controls require captured tariff follow-ups")
         if (

@@ -1303,3 +1303,25 @@ A real production90-day quote and180-day literal follow-up completed for the
 previously designated test parent4, using861 then0 tokens. Exact replay uses0.
 Full release scope, preserved negative results, backup and compatible closure:
 [mana-family-production-20261028.md](mana-family-production-20261028.md).
+
+## 51. Setup-help first contact (local; not released)
+
+The new default-disabled `MANA_PARENT_SETUP_ENABLED` server lane reuses a complete
+already acquired MANA parent profile or shared inventory page. When no child is
+linked, current independent Retention permissions and contact rules may permit
+one dated assistant invitation and one parent-scoped question in the same chat.
+No parent message is needed first. A missing `children_count` means unknown
+coverage and cannot initiate this message. Linkage is not online status or churn.
+
+The phone uses the unchanged message/status/history API. To answer the invitation
+or the next device clarification, copy the returned `question_id` into
+`reply_to_question_id`. Do not fabricate another chat/user message for first
+contact. A neutral push is optional and independently authorized; this feature
+does not enable push dispatch or source collection.
+
+Use `make chat-lab-parent-setup CHAT_LAB_PORT=8118` for the separate fictional
+lab. This local extension is not in production4018971. Fake workflow checks and
+a two-reply actual-model completion do not establish full setup quality: the
+model still speculated about an unsupplied pairing flow and used1918/2000 tokens.
+Contracts, preserved negative parties and compatible closure:
+[mana-parent-setup-support.md](mana-parent-setup-support.md).

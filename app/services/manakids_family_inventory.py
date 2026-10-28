@@ -33,12 +33,14 @@ class ManakidsFamilyInventory:
         clock: Callable[[], datetime],
         timeout_seconds: float = 30,
         include_tariffs: bool = False,
+        include_child_coverage: bool = False,
     ) -> None:
         if base_url.rstrip("/") != "https://api.manakids.uz" or not 1 <= timeout_seconds <= 60:
             raise ValueError("Explicit MANA inventory provider and timeout are required")
         self._client, self._auth, self._clock = client, auth, clock
         self._base, self._timeout = base_url.rstrip("/"), timeout_seconds
         self._include_tariffs = include_tariffs
+        self._include_child_coverage = include_child_coverage
 
     async def read(self, offset: int, limit: int) -> FamilyInventoryPage:
         if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
@@ -78,6 +80,9 @@ class ManakidsFamilyInventory:
                 InventoryFamily(
                     parent_id=str(p.id),
                     connected_child_ids=tuple(c.id for c in p.children if c.is_connected),
+                    children_complete=True
+                    if self._include_child_coverage and p.children_count is not None
+                    else None,
                 )
                 for p in page.results
             ),

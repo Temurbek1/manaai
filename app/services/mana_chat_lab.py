@@ -30,6 +30,7 @@ from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_reminders import ParentReminderService
+from app.mana_ai.application.parent_setup import ParentSetupService, SetupProfileSource
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.parent_touch_manager import manager_binding
 from app.mana_ai.application.ports import Clock
@@ -121,6 +122,7 @@ from app.services.lab_location_comparison import (
     location_comparison_text,
 )
 from app.services.lab_native_source_model import LabNativeSourceModel
+from app.services.lab_parent_setup import LabSetupProfiles
 from app.services.lab_tariff_followup import simulated_tariff_refinement
 from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLabTrialActionStore
 from app.services.lab_trial_end import LabTrialEndClock
@@ -137,6 +139,7 @@ from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
 from app.services.parent_clarification_store import SqliteParentClarificationStore
 from app.services.parent_reminder_store import SqliteParentReminderStore
+from app.services.parent_setup_store import SqliteParentSetupStore
 from app.services.parent_support_question_store import SqliteParentSupportQuestionStore
 from app.services.parent_touch_manager_store import SqliteParentTouchManagerStore
 from app.services.retention_expiry_store import SqliteRetentionExpiryStore
@@ -274,10 +277,16 @@ class LabCatalog:
 
 class LabProfiles:
     def __init__(
-        self, clock: Clock, *, tariff_context: bool = False, tariff_until: datetime | None = None
+        self,
+        clock: Clock,
+        *,
+        tariff_context: bool = False,
+        tariff_until: datetime | None = None,
+        child_coverage: bool = False,
     ) -> None:
         self._clock = clock
         self._tariff_context = tariff_context
+        self._child_coverage = child_coverage
         self._tariff_until = tariff_until
 
     async def read(self, parent_id: str) -> ParentChildContext:
@@ -286,6 +295,7 @@ class LabProfiles:
         now = self._clock.now()
         return ParentChildContext(
             parent_id=LAB_PARENT,
+            children_complete=True if self._child_coverage else None,
             children=[
                 ChatChild(child_id=LAB_CHILD, name="Тестовый ребёнок", age=8, connected=True)
             ],
@@ -378,6 +388,27 @@ class SimulatedModel:
                 and "qanday" in prompt.manager_scope.language_reference.casefold()
             ):
                 spoken_language = "uz-Latn"  # Only the explicit fictional lab story.
+            data = json.loads(prompt.messages[0][1])
+            bound_setup = data.get("answered_parent_question", "")
+            if (
+                prompt.manager_scope.clarifications_enabled
+                and any(
+                    t in bound_setup for t in ("Помочь с подключением ребёнка", "Bolani ulashda")
+                )
+                and text.strip().rstrip(".!?") in {"да", "ha", "yes"}
+            ):
+                question = (
+                    "Bolani ulash uchun Android yoki iPhone ishlatyapsizmi?"
+                    if spoken_language == "uz-Latn"
+                    else "Для подключения ребёнка используете Android или iPhone?"
+                )
+                return ChatModelReceipt(
+                    usage=ChatTokens(input_tokens=100, output_tokens=50),
+                    model="lab-simulated-not-billed",
+                    completed=True,
+                    answer=question,
+                    clarification_question=question,
+                )
             if prompt.manager_scope.clarifications_enabled and any(
                 t in text
                 for t in ("как настроить мана", "как настроить mana", "mana qanday sozlanadi")
@@ -398,14 +429,31 @@ class SimulatedModel:
                 "android",
                 "iphone",
             }:
+                setup_help = any(
+                    "подключения ребёнка" in content or "Bolani ulash uchun" in content
+                    for role, content in prompt.messages
+                    if role == "assistant"
+                )
                 return ChatModelReceipt(
                     usage=ChatTokens(input_tokens=100, output_tokens=50),
                     model="lab-simulated-not-billed",
                     completed=True,
                     answer=(
-                        "MANA bildirishnomalariga ruxsatni telefon sozlamalaridan tekshiring."
-                        if spoken_language == "uz-Latn"
-                        else "Проверьте разрешение уведомлений MANA в настройках телефона."
+                        (
+                            "Avval ota-ona va bola telefonlarini yoningizga oling. "
+                            "Ilovangizdagi bolani ulash bo‘limini oching; ekran nomi "
+                            "versiyaga qarab farq qilishi mumkin. Xato chiqsa, matnini yozing."
+                            if spoken_language == "uz-Latn"
+                            else "Подготовьте свой телефон и телефон ребёнка. Откройте в MANA "
+                            "раздел подключения ребёнка; его название зависит от версии "
+                            "приложения. Если возникла ошибка, напишите её текст."
+                        )
+                        if setup_help
+                        else (
+                            "MANA bildirishnomalariga ruxsatni telefon sozlamalaridan tekshiring."
+                            if spoken_language == "uz-Latn"
+                            else "Проверьте разрешение уведомлений MANA в настройках телефона."
+                        )
                     ),
                 )
             refinement = simulated_tariff_refinement(
@@ -920,6 +968,7 @@ class LabOptions:
     tariff_followups: bool = False
     literal_tariff_followups: bool = False
     compact_source_tools: bool = False
+    parent_setup: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
@@ -939,6 +988,10 @@ class LabOptions:
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.parent_setup and not (
+            options.compact_source_tools and options.parent_support_questions
+        ):
+            raise ValueError("Setup lab requires captured Retention questions and source tools")
         if options.literal_tariff_followups and not options.tariff_followups:
             raise ValueError("Literal tariff controls need captured tariff follow-ups")
         if options.compact_source_tools and not options.saved_observations:
@@ -1112,6 +1165,8 @@ class ChatLab:
             expected["literal_tariff_followups"] = True
         if self.options.compact_source_tools:
             expected["compact_source_tools"] = True
+        if self.options.parent_setup:
+            expected["parent_setup"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
@@ -1262,7 +1317,9 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteCompactSourceToolStore
+                SqliteParentSetupStore
+                if self.options.parent_setup
+                else SqliteCompactSourceToolStore
                 if self.options.compact_source_tools
                 else SqliteLiteralTariffFollowupStore
                 if self.options.literal_tariff_followups
@@ -1386,6 +1443,10 @@ class ChatLab:
                 reminder_options["literal_tariff_followups_enabled"] = True
             if self.options.compact_source_tools:
                 reminder_options["compact_source_tools_enabled"] = True
+            if self.options.parent_setup:
+                reminder_options.update(
+                    parent_setup_enabled=True, setup_binding="fictional-mana-profile-v1"
+                )
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -1463,12 +1524,18 @@ class ChatLab:
             self.options.clock,
             tariff_context=self.options.tariff_context,
             tariff_until=tariff_until,
+            child_coverage=self.options.parent_setup,
         )
         if self.options.trial_periods or self.options.trial_action_cards:
             assert isinstance(self.store, SqliteTrialPeriodStore)
             profiles = LabTrialProfiles(profiles, self.store)
         if isinstance(self.store, SqliteRetentionExpiryStore):
             profiles = RetentionProfileSource(profiles, self.store, clock=self.options.clock.now)
+        if self.options.parent_setup:
+            assert isinstance(self.store, SqliteParentSetupStore)
+            self._setup_profiles = LabSetupProfiles(profiles, directory)
+            profiles = self._setup_profiles
+            profiles = SetupProfileSource(profiles, self.store, clock=self.options.clock.now)
         self._profiles = profiles
         policy = SourceSafetyPolicy(timezone="Asia/Samarkand")
         source_class = (
@@ -1624,6 +1691,9 @@ class ChatLab:
             expiry=RetentionExpiryService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteRetentionExpiryStore)
             else None,
+            setup=ParentSetupService(self.store, clock=self.options.clock.now)
+            if isinstance(self.store, SqliteParentSetupStore) and self.options.parent_setup
+            else None,
             retention=ClientRetentionService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteClientRetentionStore)
             else None,
@@ -1749,6 +1819,13 @@ class ChatLab:
             if isinstance(self.source_store, SqliteSourceReviewCache)
             else [],
         )
+
+    async def prepare_parent_setup(self) -> dict[str, object]:
+        if not self.options.parent_setup or self.options.real_model:
+            raise ParentChatError("lab_parent_setup_disabled", 503)
+        self._setup_profiles.set_unlinked()
+        await self._profiles.read(LAB_PARENT)
+        return {"status": "completed", "fictional": True}
 
     async def prepare_usage_comparison(self) -> dict[str, object]:
         if (
@@ -1952,6 +2029,19 @@ class ChatLab:
             trial_end_enabled=self.options.trial_end,
             seeded_history="fictional_trial_grant" if self.options.trial_periods else None,
             scenarios=[
+                *(
+                    [
+                        LabScenario(
+                            key="parent-setup",
+                            title="Помощь с подключением ребёнка (симуляция)",
+                            path="/lab/parent-setup",
+                            body={"parent_id": LAB_PARENT},
+                            local=True,
+                        )
+                    ]
+                    if self.options.parent_setup and not self.options.real_model
+                    else []
+                ),
                 *(
                     [
                         LabScenario(

@@ -1,5 +1,18 @@
 # AGENTS.md
 
+- Local default-disabled `MANA_PARENT_SETUP_ENABLED` adds family42 / collection5.
+  Read `docs/mana-parent-setup-support.md` and integration section51. Reuse only
+  already acquired, explicitly complete MANA linkage facts; missing child counts
+  are unknown, never inactivity/churn/trial evidence. Parent-Touch owns the single
+  dated invitation/question, independent consent, quiet hours, Safety priority and
+  shared caps. New typed setup-help captures never upgrade old replies; preserve
+  late verified costs, cross-day unknown holds and original 2000/2000 allowances.
+  The first actual-model party misrouted help; the next completed two replies but
+  speculated about linking and exhausted most of the allowance. Neither is full
+  semantic quality or sustained-dialogue acceptance. Current42 closed reading is
+  required for populated42 state; production4018971 stays unchanged. No cloud
+  activation, collection schedule, push, grant or payment follows this checkpoint.
+
 - Scoped production now runs application4018971 family41/source10; read
   `docs/mana-family-production-20261028.md`. Only the parent sidecar/staticSwagger
   changed, models and2000/2000raw ceilings retained. Targeted reads100/200units

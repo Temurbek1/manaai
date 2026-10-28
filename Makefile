@@ -352,3 +352,7 @@ chat-lab-agents:
 .PHONY: chat-lab-compact-agents
 chat-lab-compact-agents:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_compact_agent_workspace_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+.PHONY: chat-lab-parent-setup
+chat-lab-parent-setup:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_parent_setup_workspace_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
