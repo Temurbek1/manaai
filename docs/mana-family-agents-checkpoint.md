@@ -3,6 +3,65 @@
 ## Subsequent conversion / proactive increment — local, not deployed
 
 
+### Bound semantic reminder review — local, 2026-10-29
+
+Feature **c78b087** is pushed to `feat/mana-conversion-agent-20261021` in
+`/mnt/ssd2/mana-conversion-agent-20261021`. Read
+[family45](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-bound-reminder-review.md)
+and English integration section54. Its new flag remains default disabled;
+production was not changed. The full goal remains active.
+
+A same-strength semantic prepare/reply decision is paired with one complete
+SQL-frozen literal proposal. The SDK cannot regenerate date/task fields; SQL
+independently verifies the exact root, candidate, model/binding and clarification
+bit. Existing human confirmation/fresh ownership remain mandatory. Clarifications
+use the existing parent question lifecycle; unbound legacy turns are unchanged.
+Full authorized factual context remains in model input. Only an exact duplicate
+frozen language reference may point to its identical full parent message. The old
+effective reminder floor64 is preserved; final publication remains128 and the
+raw2000-parent/2000-global-Safety limits and models remain unchanged.
+
+Full `make verify` exited0: **2418 backend /26 admin /23 lab**, mypy531 files,
+format/Ruff/lint/types/build; one skip, two opt-in live exclusions and five low
+existing development findings remain. OpenAPI/clean secret/quality scans pass.
+The initial long-literal lint failure is retained. Focused SDK/guard runs exposed
+scope/ACK, control-character model and incompatible-protocol issues; fixes preserve
+known usage and unknown holds. Do not equate these checks with model quality.
+
+Clean image `f210abb47813…` verifies328 app/lockfile hashes in the329-entry commit
+manifest on actual Python3.12.15/OpenAI2.53.0. Ten networkless SDK cases pass.
+Actual-factory41/44→45 retains every cell of86/96 old tables and adds11/1 tables,
+with worker start suppressed and zero HTTP. Old44 queued capture/2000-held tokens
+remain exact without bound backfill. Closed45 preserves the actual negative
+1452parent/1119Safety ledger and a612-token unknown hold after midnight; all original
+DB/WAL/SHM bytes remain unchanged. Historical42 migration remains qualified.
+The fake390px browser retains six messages, one confirmed scheduled reminder and
+450 simulated parent/150 Safety tokens after reload, without private ACK or page
+overflow/errors. An initial postprocessor expected a null field the API correctly
+omitted; its correction uses unchanged saved JSON. Browser/server are closed.
+
+**Actual45 whole dialogue is still negative and costs more raw tokens.** The exact
+reminder/due-delivery path uses669+19=688 parent tokens versus560 in44v2 (+128).
+Natural full backpack follow-up routes correctly for740+24=764; parent1452 leaves548.
+Safety completes useful qualified guidance for1119 global tokens. Final publication
+counts753 then713 after the old optional-history resize;713+128=841>548, so no final
+answer is generated. No unknown holds/cloud reads/push/grants remain. Known uncached
+generation estimate$0.00554675 is not an invoice/count fee or a financial saving.
+Never replay/reset this party, lower a floor/model or narrow the original request.
+
+Next evaluate **owner-first native dispatch** before complex final-input changes:
+initial routing currently pays for an unused UpsellEnquiry schema/financial rules
+on every parenting question. The existing null-enquiry Upsell handoff supports an
+independent request, but contextual refinements have route-only frozen terms.
+Preserve the old contract there or carry every term/strict-cheaper proof into the
+selected owner; never lose currency/budget constraints. The read-only design is
+`output/conversation-publication-design-20261029.md` in the feature workspace.
+A conversation-only final relay additionally needs host proof over ALL observation,
+saved-history, backend, query and notice channels;0 provider calls or opaque prose
+is not proof of no measurements/risk. Full facts/guidance/history must survive.
+No46 implementation or production approval/readiness follows from that plan.
+
+
 ### Direct reminders / native manager checkpoint — local, 2026-10-28
 
 Feature **a41f3c2** is pushed to `feat/mana-conversion-agent-20261021` in
