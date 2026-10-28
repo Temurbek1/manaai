@@ -17,6 +17,11 @@ from app.mana_ai.application.child_safety_ports import (
     SafetyCompletion,
     SafetyPrompt,
 )
+from app.mana_ai.application.compact_source_tools import (
+    INITIAL_INSTRUCTIONS,
+    compact_source_frame_hash,
+    compact_source_messages,
+)
 from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.input_presentation import compact_native_host_messages
@@ -41,7 +46,7 @@ from app.mana_ai.domain.source_tools import (
 class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     async def source_review_owner(self, job: SafetyJob) -> SourceAnalysisOwner | None: ...
     async def native_captured(self, job: SafetyJob) -> bool: ...
-    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3, 4]: ...
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3, 4, 5]: ...
     async def native_location_enabled(self, job: SafetyJob) -> bool: ...
     async def native_location_prompt_version(self, job: SafetyJob) -> Literal[2] | None: ...
     async def native_input_presentation(self, job: SafetyJob) -> Literal[1] | None: ...
@@ -228,6 +233,20 @@ class SourceToolWorkflow:
                         messages=compact_native_host_messages(safety_prompt.input.messages),
                     ),
                 )
+            if protocol == 5:
+                safety_prompt = replace(
+                    safety_prompt,
+                    input=replace(
+                        safety_prompt.input,
+                        instructions=INITIAL_INSTRUCTIONS
+                        + "\nquery-calendar today "
+                        + context.collected_at.astimezone(ZoneInfo("Asia/Tashkent"))
+                        .date()
+                        .isoformat()
+                        + ".",
+                        messages=compact_source_messages(safety_prompt.input.messages),
+                    ),
+                )
             scope = SourceToolScope(
                 parent_id=job.view.parent_id,
                 invocation_id=job.view.job_id,
@@ -235,9 +254,10 @@ class SourceToolWorkflow:
                 location_enabled=True if location else None,
                 location_prompt_version=location_prompt_version,
                 input_presentation=input_presentation,
-                saved_observations_enabled=True if protocol == 4 else None,
+                saved_observations_enabled=True if protocol in {4, 5} else None,
+                request_projection_hash=compact_source_frame_hash() if protocol == 5 else None,
                 calendar_today=context.collected_at.astimezone(ZoneInfo("Asia/Tashkent")).date()
-                if protocol in {3, 4}
+                if protocol in {3, 4, 5}
                 else None,
                 children=tuple(
                     SourceToolChild(alias=c.alias, child_id=c.child_id)

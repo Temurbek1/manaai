@@ -117,6 +117,8 @@ class Settings(BaseSettings):
         default_factory=SavedObservationLimits
     )
     mana_upsell_followups_enabled: bool = False
+    mana_upsell_literal_followups_enabled: bool = False
+    mana_family_compact_source_tools_enabled: bool = False
     mana_retention_trial_end_enabled: bool = False
     mana_retention_trial_end_policy: TrialEndPolicy = Field(default_factory=TrialEndPolicy)
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
@@ -490,6 +492,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_upsell_literal_followups_enabled and not self.mana_upsell_followups_enabled:
+            raise ValueError("Literal tariff controls require captured tariff follow-ups")
+        if (
+            self.mana_family_compact_source_tools_enabled
+            and not self.mana_family_saved_observations_enabled
+        ):
+            raise ValueError("Compact source tools require the captured saved-observation runtime")
         if self.mana_family_saved_observations_enabled and not (
             self.mana_parent_touch_compact_manager_enabled and self.mana_family_location_enabled
         ):

@@ -1002,3 +1002,33 @@ def create_agent_workspace_app() -> FastAPI:
             usage_comparisons=False,
         )
     )
+
+
+def create_compact_agent_workspace_app() -> FastAPI:
+    """New fake v41 workspace; never upgrade a previous lab's captured turns."""
+    from dataclasses import replace
+
+    from app.services.lab_location_comparison import LabLocationComparisonClock
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(
+        root / "data/chat-lab/compact-agent-workspace-v41-simulation",
+        clock=LabLocationComparisonClock(),
+    )
+    return create_app(
+        options=replace(
+            options,
+            tariff_handoff=True,
+            compact_inputs=True,
+            compact_publication=True,
+            compact_manager=True,
+            location_comparisons=True,
+            location_time_labels=True,
+            saved_observations=True,
+            tariff_followups=True,
+            literal_tariff_followups=True,
+            compact_source_tools=True,
+            usage_comparisons=False,
+        )
+    )

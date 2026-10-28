@@ -1253,3 +1253,34 @@ saved review and the real-model two-enquiry conversation both stopped at unchang
 raw token limits. Their costs and original tasks are retained. New compact-source
 and literal-refinement increments remain necessary; no retry/reset is authorized
 by reading status or reconnecting.
+
+## 49. Compact observation choice and literal tariff changes (local; not released)
+
+The local family41 workspace composes native5 observation tools and family40
+literal tariff changes. No new mobile operation is required: retain the same
+single chat, asynchronous message admission/status and history contracts.
+
+`MANA_FAMILY_COMPACT_SOURCE_TOOLS_ENABLED` and
+`MANA_UPSELL_LITERAL_FOLLOWUPS_ENABLED` are server-only, default-disabled flags.
+The first requires saved observations; the second requires tariff follow-ups.
+Only new captures opt in. Existing messages, questions, model/source holds and
+protocols never upgrade or restart.
+
+Child-Safety chooses exactly one `read_child_observation` tool with explicit
+`saved_only` or `live` access, using already authorized own-child sources. SQL
+inspection grants no provider refresh; unavailable/stale evidence causes no
+fallback. Budgets, ownership, source ceilings and raw token accounting remain
+unchanged. Source tools and credentials are never mobile-supplied payloads.
+
+After a new eligible typed quote, an exact reply such as `А на 180 дней?`,
+`yana 180 kun`, or `До 200000 UZS` can update the typed request without another
+model call. Other constraints remain bound to the same-parent quote. Free-form
+requests stay model-directed; currency cannot silently reinterpret a budget.
+The ordinary owner validates source freshness, current priorities and limits.
+This creates neither a payment nor a trial grant.
+
+Use `make chat-lab-compact-agents CHAT_LAB_PORT=8117` for the separate fictional
+lab. The independent actual-model/synthetic-source party completes one Uzbek
+saved-only answer and one Russian four-quote conversation; it is not real-family,
+fleet/day capacity or production acceptance. Full evidence and rollout limits:
+[mana-compact-agent-workspace.md](mana-compact-agent-workspace.md).

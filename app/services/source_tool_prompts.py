@@ -65,14 +65,14 @@ class SourceToolPromptBuilder(ChildSafetyPromptBuilder):
                     NATIVE_REVIEW_INSTRUCTIONS
                     if protocol == 1
                     else DATED_REVIEW_INSTRUCTIONS
-                    if protocol in {3, 4}
+                    if protocol in {3, 4, 5}
                     else OBSERVATION_REVIEW_INSTRUCTIONS
                 )
                 + (
                     "\nquery-calendar today "
                     + context.collected_at.astimezone(ZoneInfo("Asia/Tashkent")).date().isoformat()
                     + "."
-                    if protocol in {3, 4}
+                    if protocol in {3, 4, 5}
                     else ""
                 )
                 + ACCOUNT_INTENT_GUIDANCE,

@@ -26,6 +26,9 @@ class TariffFollowupContext(ChatContract):
     delivered_answer: str = Field(min_length=1, max_length=4000)
     delivered_at: AwareDatetime
     refinement_requests: tuple[TariffRequestMessage, ...] = Field(default=(), max_length=2)
+    literal_predecessors: tuple[TariffRequestMessage, ...] = Field(
+        default=(), max_length=20, exclude_if=lambda value: not value
+    )
 
     @model_validator(mode="after")
     def same_parent_and_prior_turn(self) -> "TariffFollowupContext":
@@ -41,6 +44,10 @@ class TariffFollowupContext(ChatContract):
             or any(
                 not self.delivered_turn_id < message.turn_id < self.turn_id
                 for message in self.refinement_requests
+            )
+            or any(
+                message.turn_id >= self.origin_messages[0].turn_id
+                for message in self.literal_predecessors
             )
         ):
             raise ValueError("Tariff context must belong to one earlier delivered parent quote")
@@ -70,4 +77,8 @@ class TariffFollowupContext(ChatContract):
                 "positive_price_can_match": ceiling >= 1,
                 "historical_reference_not_commercial_authority": True,
             }
+        if self.literal_predecessors:
+            result["earlier_literal_requests"] = [
+                message.message for message in self.literal_predecessors
+            ]
         return result

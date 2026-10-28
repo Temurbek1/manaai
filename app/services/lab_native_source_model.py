@@ -9,6 +9,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.mana_ai.application.chat_ports import ChatPrompt, ParentChatModel
+from app.mana_ai.application.compact_source_tools import BODY_KEYS
 from app.mana_ai.domain.child_safety import SafetyModelDecision
 from app.services.child_source_model import OpenAIChildSourceModel
 
@@ -56,7 +57,11 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
             facts = tool_result["facts"]
             summary = (
                 "Сохранённая запись недоступна; данные неизвестны. Источник не обновлялся."
-                if facts is None and tool_result.get("saved_observation") is not None
+                if facts is None
+                and (
+                    tool_result.get("saved_observation") is not None
+                    or tool_result.get("inspection_scope") == "saved_sql_only"
+                )
                 else f"Запрос за {tool_result['query_calendar_day']}: "
                 "ребёнка нет в странице; использование неизвестно."
                 if facts is None
@@ -116,6 +121,8 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
                                 date.fromisoformat(today.group(1)) - timedelta(days=1)
                             ).isoformat()
                         )
+            if "access" in tool["parameters"]["properties"]:
+                arguments["access"] = "saved_only" if wants_saved else "live"
             return httpx.Response(
                 200,
                 json={
@@ -135,9 +142,14 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
                 },
             )
         else:
+            # The deterministic fallback consumes the older host key names.
+            # Native v5 only renames these keys; restore them losslessly for
+            # this fake's semantic matching without changing the SDK request.
+            inverse = {value: key for key, value in BODY_KEYS.items()}
+            fallback_data = {inverse.get(key, key): value for key, value in data.items()}
             prompt = ChatPrompt(
                 payload["instructions"],
-                (("user", payload["input"][0]["content"]),),
+                (("user", json.dumps(fallback_data, ensure_ascii=False, separators=(",", ":"))),),
                 safety_parent_review=data["kind"] == "parent_message",
                 safety_source_review=data["kind"] == "source_review",
             )

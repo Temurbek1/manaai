@@ -1,5 +1,14 @@
 # AGENTS.md
 
+- Local family40/41 captures strict literal tariff changes and native5 explicit
+  saved/live observation selection. Read `docs/mana-compact-agent-workspace.md`.
+  Old protocols never upgrade; retain exact full requests/facts, frame proofs,
+  unknown holds and original actual-source failures. Literal controls grant no
+  source/financial authority and cannot reinterpret a budget currency. A new
+  fictional actual-model case uses1885parent/1832globalSafety tokens; this is not
+  fleet/day capacity or real-family acceptance. All flags defaultoff; use current
+  closed41 for populated state, never downgrade/restore old history.
+
 - Local saved-observation/native4 (family38), tariff refinement/publication6
   (family39) and GPS time labels2 (source10) are documented in
   `docs/mana-saved-observation-workspace.md`. Preserve old captures, exact full

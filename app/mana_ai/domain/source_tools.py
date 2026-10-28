@@ -59,13 +59,17 @@ class SourceToolScope(ChatContract):
     parent_id: ParentChatId
     invocation_id: UUID
     children: tuple[SourceToolChild, ...] = Field(max_length=20)
-    protocol: Literal[1, 2, 3, 4] = 1
+    protocol: Literal[1, 2, 3, 4, 5] = 1
     calendar_today: date | None = Field(default=None, exclude_if=lambda v: v is None)
     location_enabled: Literal[True] | None = Field(default=None, exclude_if=lambda v: v is None)
     location_prompt_version: Literal[2] | None = Field(default=None, exclude_if=lambda v: v is None)
     input_presentation: Literal[1] | None = Field(default=None, exclude_if=lambda v: v is None)
     saved_observations_enabled: Literal[True] | None = Field(
         default=None, exclude_if=lambda v: v is None
+    )
+
+    request_projection_hash: str | None = Field(
+        default=None, pattern=r"^[a-f0-9]{64}$", exclude_if=lambda v: v is None
     )
 
     @model_serializer(mode="wrap")
@@ -82,14 +86,16 @@ class SourceToolScope(ChatContract):
             or len({child.child_id for child in self.children}) != len(self.children)
         ):
             raise ValueError("Invalid native source family scope")
-        if (self.protocol in {3, 4}) != (self.calendar_today is not None):
+        if (self.protocol in {3, 4, 5}) != (self.calendar_today is not None):
             raise ValueError("Only dated source scopes freeze their query-calendar date")
-        if self.location_enabled is not None and self.protocol not in {3, 4}:
+        if self.location_enabled is not None and self.protocol not in {3, 4, 5}:
             raise ValueError("Location tools require the new captured dated-source profile")
         if self.location_prompt_version is not None and self.location_enabled is not True:
             raise ValueError("A location prompt version requires its original source capture")
-        if (self.protocol == 4) != (self.saved_observations_enabled is True):
+        if (self.protocol in {4, 5}) != (self.saved_observations_enabled is True):
             raise ValueError("Saved SQL inspection requires its new captured source protocol")
+        if (self.protocol == 5) != (self.request_projection_hash is not None):
+            raise ValueError("Compact source requests require their exact new frame capture")
         return self
 
     def validate_call(
@@ -100,7 +106,10 @@ class SourceToolScope(ChatContract):
             2: ObservationSourceCall,
             3: DatedObservationCall,
             4: DatedObservationCall,
+            5: UnifiedObservationCall,
         }[self.protocol]
+        if isinstance(call, UnifiedObservationCall) and self.protocol != 5:
+            raise ValueError("Unified source access was not captured in this scope")
         if not isinstance(call, expected) or source_call_alias(call) not in {
             c.alias for c in self.children
         }:
@@ -123,7 +132,7 @@ class SourceToolScope(ChatContract):
             self.invocation_id,
             (
                 "native-saved-inspection-v1:"
-                if isinstance(call, SavedObservationCall)
+                if source_call_access(call) == "saved_only"
                 else "native-source-read-v1:"
             )
             + identity,
@@ -171,6 +180,29 @@ class SavedObservationCall(DatedObservationCall):
     name: Literal["inspect_saved_child_observation"] = "inspect_saved_child_observation"  # type: ignore[assignment]
 
 
+class UnifiedObservationArguments(DatedObservationArguments):
+    access: Literal["saved_only", "live"]
+
+
+def unified_arguments(value: str) -> UnifiedObservationArguments:
+    return UnifiedObservationArguments.model_validate(_source_payload(value))
+
+
+class UnifiedObservationCall(DatedObservationCall):
+    @model_validator(mode="after")
+    def valid_arguments(self) -> "UnifiedObservationCall":
+        unified_arguments(self.arguments)
+        return self
+
+
+def source_call_access(
+    call: BatterySourceCall | ObservationSourceCall,
+) -> Literal["saved_only", "live"]:
+    if isinstance(call, UnifiedObservationCall):
+        return unified_arguments(call.arguments).access
+    return "saved_only" if isinstance(call, SavedObservationCall) else "live"
+
+
 def dated_arguments(value: str) -> DatedObservationArguments:
     return DatedObservationArguments.model_validate(_source_payload(value))
 
@@ -178,6 +210,8 @@ def dated_arguments(value: str) -> DatedObservationArguments:
 def source_call_alias(
     call: BatterySourceCall | ObservationSourceCall | DatedObservationCall,
 ) -> str:
+    if isinstance(call, UnifiedObservationCall):
+        return unified_arguments(call.arguments).child_alias
     if isinstance(call, DatedObservationCall):
         return dated_arguments(call.arguments).child_alias
     return (
@@ -191,7 +225,11 @@ def source_call_key(
     call: BatterySourceCall | ObservationSourceCall | DatedObservationCall,
 ) -> FamilySourceKey | Literal["manakids.family_day_app_usage.v1"]:
     if isinstance(call, DatedObservationCall):
-        kind = dated_arguments(call.arguments).kind
+        kind = (
+            unified_arguments(call.arguments)
+            if isinstance(call, UnifiedObservationCall)
+            else dated_arguments(call.arguments)
+        ).kind
         return (
             DAY_USAGE_SOURCE
             if kind == "app_usage_day"
@@ -213,7 +251,11 @@ def source_call_day(
     call: BatterySourceCall | ObservationSourceCall | DatedObservationCall,
 ) -> date | None:
     value = (
-        dated_arguments(call.arguments).calendar_day
+        (
+            unified_arguments(call.arguments)
+            if isinstance(call, UnifiedObservationCall)
+            else dated_arguments(call.arguments)
+        ).calendar_day
         if isinstance(call, DatedObservationCall)
         else None
     )
@@ -227,10 +269,11 @@ class EncryptedSourceReasoning(ChatContract):
 
 
 class SourceToolContinuation(ChatContract):
-    version: Literal[1, 2, 3, 4] = 1
+    version: Literal[1, 2, 3, 4, 5] = 1
     input_digest: str = Field(pattern=r"^[a-f0-9]{64}$", strict=True)
     items: tuple[
         BatterySourceCall
+        | UnifiedObservationCall
         | SavedObservationCall
         | DatedObservationCall
         | ObservationSourceCall
@@ -250,6 +293,7 @@ class SourceToolContinuation(ChatContract):
                     2: (ObservationSourceCall,),
                     3: (DatedObservationCall,),
                     4: (DatedObservationCall, SavedObservationCall),
+                    5: (UnifiedObservationCall,),
                 }[self.version]
                 for item in self.items
                 if isinstance(item, BatterySourceCall | ObservationSourceCall)

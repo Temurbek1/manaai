@@ -1,10 +1,11 @@
 """Native source transport only; never source dispatch, policy or budget authority."""
 
 import asyncio
+import copy
 import hashlib
 import json
 from dataclasses import replace
-from typing import cast
+from typing import Any, cast
 
 from openai import APIStatusError
 from openai.types.responses import ResponseInputParam, ToolParam
@@ -13,6 +14,11 @@ from openai.types.responses.response_text_config_param import ResponseTextConfig
 from pydantic import ValidationError
 
 from app.mana_ai.application.chat_ports import ChatModelRejected
+from app.mana_ai.application.compact_source_tools import (
+    compact_source_final_instructions,
+    compact_source_frame_hash,
+    compact_source_result,
+)
 from app.mana_ai.application.input_presentation import without_schema_titles
 from app.mana_ai.application.source_tool_ports import SourceModelReceipt, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens
@@ -27,9 +33,12 @@ from app.mana_ai.domain.source_tools import (
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolScope,
+    UnifiedObservationCall,
+    source_call_access,
     source_call_alias,
     source_call_day,
     source_call_key,
+    unified_arguments,
 )
 from app.services.chat_usage_receipt import terminal_chat_usage
 from app.services.child_safety_model import OpenAIChildSafetyModel
@@ -55,6 +64,37 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
     def _tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
         if not prompt.scope.children:
             return []
+        if prompt.scope.protocol == 5:
+            if prompt.scope.request_projection_hash != compact_source_frame_hash():
+                raise ValueError("The captured source request frame changed")
+            prior = self._tools(
+                replace(
+                    prompt,
+                    scope=prompt.scope.model_copy(
+                        update={
+                            "protocol": 3,
+                            "saved_observations_enabled": None,
+                            "request_projection_hash": None,
+                        }
+                    ),
+                )
+            )[0]
+            if prior["type"] != "function":
+                raise ValueError("The unified observation schema requires its original function")
+            parameters = copy.deepcopy(cast(dict[str, Any], prior["parameters"]))
+            assert isinstance(parameters, dict)
+            parameters["properties"]["access"] = {"type": "string", "enum": ["saved_only", "live"]}
+            parameters["required"].append("access")
+            return [
+                {
+                    "type": "function",
+                    "name": "read_child_observation",
+                    "strict": True,
+                    "parameters": parameters,
+                    "description": "One authorized child observation: saved_only inspects SQL; "
+                    "live follows source policy. No fallback or additional tool.",
+                }
+            ]
         if prompt.scope.protocol == 4:
             original = self._tools(
                 replace(
@@ -186,13 +226,18 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         # V3 keeps the original advertised schema in its immutable input digest,
         # but its final-only request has no callable tools. V1/v2 remain exact.
         if prompt.continuation is not None and (
-            prompt.scope.protocol in {3, 4} or prompt.scope.input_presentation == 1
+            prompt.scope.protocol in {3, 4, 5} or prompt.scope.input_presentation == 1
         ):
             return []
         return self._tools(prompt)
 
     def _source_input(self, prompt: SourceToolPrompt) -> ResponseInputParam:
         SourceToolScope.model_validate(prompt.scope.model_dump())
+        if (
+            prompt.scope.protocol == 5
+            and prompt.scope.request_projection_hash != compact_source_frame_hash()
+        ):
+            raise ValueError("The captured source request frame changed")
         self._native_text(prompt)  # Refuse a Parent-Touch publication protocol before HTTP.
         if (prompt.continuation is None) != (prompt.source_result is None):
             raise ValueError("A native source result requires its original call")
@@ -226,7 +271,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 and not isinstance(receipt, DayUsageReceipt | SavedObservationReceipt)
             )
             or (
-                isinstance(call, SavedObservationCall)
+                (source_call_access(call) == "saved_only")
                 != isinstance(receipt, SavedObservationReceipt)
             )
             or receipt.source != source_call_key(call)
@@ -281,6 +326,8 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                     "dates, unknown periods and partial coverage; unavailable is not zero."
                 ),
             )
+        if prompt.scope.protocol == 5:
+            tool_result = compact_source_result(tool_result)
         items.append(
             {
                 "type": "function_call_output",
@@ -290,12 +337,22 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         )
         return cast(ResponseInputParam, result + items)
 
+    def _request_instructions(self, prompt: SourceToolPrompt) -> str:
+        if prompt.scope.protocol == 5 and prompt.continuation is not None:
+            call = prompt.continuation.call
+            if not isinstance(call, UnifiedObservationCall) or prompt.scope.calendar_today is None:
+                raise ValueError("The final compact frame requires the exact unified call")
+            return compact_source_final_instructions(unified_arguments(call.arguments).kind) + (
+                "\nquery-calendar today " + prompt.scope.calendar_today.isoformat() + "."
+            )
+        return prompt.input.instructions
+
     async def count_source_input(self, prompt: SourceToolPrompt) -> int:
         source_input = self._source_input(prompt)
         async with asyncio.timeout(self._wall_timeout):
             raw = await self._client.responses.input_tokens.with_raw_response.count(
                 model=self._model,
-                instructions=prompt.input.instructions,
+                instructions=self._request_instructions(prompt),
                 input=source_input,
                 reasoning={"effort": self._effort},
                 text=self._native_text(prompt),
@@ -320,7 +377,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             async with asyncio.timeout(self._wall_timeout):
                 raw = await self._client.responses.with_raw_response.create(
                     model=self._model,
-                    instructions=prompt.input.instructions,
+                    instructions=self._request_instructions(prompt),
                     input=source_input,
                     reasoning={"effort": self._effort},
                     text=self._native_text(prompt),
@@ -405,6 +462,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             | ObservationSourceCall
             | DatedObservationCall
             | SavedObservationCall
+            | UnifiedObservationCall
             | EncryptedSourceReasoning
         ] = []
         for item in output:
@@ -415,7 +473,9 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 raise ValueError("A provisional item cannot authorize a source call")
             if kind == "function_call":
                 call = (
-                    SavedObservationCall
+                    UnifiedObservationCall
+                    if prompt.scope.protocol == 5
+                    else SavedObservationCall
                     if prompt.scope.protocol == 4
                     and item.get("name") == "inspect_saved_child_observation"
                     else BatterySourceCall

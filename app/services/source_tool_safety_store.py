@@ -20,10 +20,10 @@ from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceT
 from app.mana_ai.domain.saved_observations import SavedObservationReceipt, SavedObservationTarget
 from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
-    SavedObservationCall,
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolPreparedInput,
+    source_call_access,
     source_call_alias,
     source_call_day,
     source_call_key,
@@ -271,8 +271,8 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             return 3
         raise ParentChatError("native_source_preparation_denied", 409)
 
-    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3, 4]:
-        def read() -> Literal[1, 2, 3, 4]:
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3, 4, 5]:
+        def read() -> Literal[1, 2, 3, 4, 5]:
             with self._connect() as connection:
                 row = connection.execute(
                     "SELECT profile FROM source_tool_turns WHERE parent_id=? AND turn_id=?",
@@ -280,7 +280,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 ).fetchone()
                 if row is None:
                     raise ParentChatError("native_source_preparation_denied", 409)
-                return cast(Literal[1, 2, 3, 4], self._captured_protocol(row[0]))
+                return cast(Literal[1, 2, 3, 4, 5], self._captured_protocol(row[0]))
 
         return await asyncio.to_thread(read)
 
@@ -446,7 +446,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             if (
                 child is None
                 or (
-                    isinstance(choice.call, SavedObservationCall)
+                    (source_call_access(choice.call) == "saved_only")
                     != isinstance(target, SavedObservationTarget)
                 )
                 or target.parent_id != prepared.scope.parent_id
@@ -706,7 +706,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 day = source_call_day(choice.call)
                 target = (
                     SavedObservationTarget.model_validate(data | {"requested_day": day})
-                    if isinstance(choice.call, SavedObservationCall)
+                    if (source_call_access(choice.call) == "saved_only")
                     else DayUsageTarget.model_validate(data | {"requested_day": day})
                     if day is not None
                     else FamilySourceTarget.model_validate(data)

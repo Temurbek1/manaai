@@ -1,5 +1,11 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The [compact family workspace](mana-compact-agent-workspace.md) adds new native5
+explicit saved/live selection and host-only exact tariff changes. A new real-model
+fictional saved-only answer and four-quote conversation complete within unchanged
+allowances. One analysis still uses1832 of2000 global Safety tokens; this is not
+fleet capacity, a retry of the actual-family failure or full-goal acceptance.
+
 The [saved-observation workspace](mana-saved-observation-workspace.md) connects
 native4 saved-only inspection, contextual tariff refinements and exact GPS UTC
 labels. Its two new actual-model full conversations stop on the preserved raw

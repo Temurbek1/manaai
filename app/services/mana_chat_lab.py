@@ -105,6 +105,7 @@ from app.services.client_upsell_store import SqliteClientUpsellStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.compact_family_input_store import SqliteCompactFamilyInputStore
 from app.services.compact_parent_publication_store import SqliteCompactParentPublicationStore
+from app.services.compact_source_tool_store import SqliteCompactSourceToolStore
 from app.services.dated_review_safety_store import SqliteDatedReviewSafetyStore
 from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
 from app.services.day_review_cache import SqliteDayReviewCache
@@ -125,6 +126,7 @@ from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLa
 from app.services.lab_trial_end import LabTrialEndClock
 from app.services.lab_trial_period import LabTrialGrantGateway, LabTrialProfiles, seed_trial_history
 from app.services.lab_usage_comparison import LabUsageComparisonClock, comparison_text
+from app.services.literal_tariff_followup_store import SqliteLiteralTariffFollowupStore
 from app.services.location_comparison_cache import SqliteLocationComparisonCache
 from app.services.location_comparison_safety_store import SqliteLocationComparisonSafetyStore
 from app.services.location_safety_store import SqliteLocationSafetyStore
@@ -778,7 +780,15 @@ class SimulatedModel:
             else:
                 guidance = json.loads(prompt.messages[0][1]).get("specialist_guidance", {})
                 sources = guidance.get("source_observations", [])
-                if guidance.get("day_usage_query"):
+                if guidance.get("saved_observation") and not sources:
+                    answer = (
+                        "Saqlangan yozuv mavjud emas yoki eskirgan; ma’lumot noma’lum. "
+                        "Manba qayta yangilanmagan."
+                        if uzbek
+                        else "Сохранённая запись отсутствует или устарела; данные неизвестны. "
+                        "Источник не обновлялся."
+                    )
+                elif guidance.get("day_usage_query"):
                     day = guidance["day_usage_query"]
                     answer = (
                         (
@@ -908,6 +918,8 @@ class LabOptions:
     saved_observations: bool = False
     saved_observation_limits: SavedObservationLimits = field(default_factory=SavedObservationLimits)
     tariff_followups: bool = False
+    literal_tariff_followups: bool = False
+    compact_source_tools: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
@@ -927,6 +939,10 @@ class LabOptions:
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.literal_tariff_followups and not options.tariff_followups:
+            raise ValueError("Literal tariff controls need captured tariff follow-ups")
+        if options.compact_source_tools and not options.saved_observations:
+            raise ValueError("Compact source tools need the captured saved-only lab")
         if options.location_time_labels and not options.location_comparisons:
             raise ValueError("Location time labels need the captured comparison lab")
         if options.saved_observations and not (options.compact_manager and options.location):
@@ -1092,6 +1108,10 @@ class ChatLab:
             )
         if self.options.tariff_followups:
             expected["tariff_followups"] = True
+        if self.options.literal_tariff_followups:
+            expected["literal_tariff_followups"] = True
+        if self.options.compact_source_tools:
+            expected["compact_source_tools"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
@@ -1242,7 +1262,11 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteTariffFollowupStore
+                SqliteCompactSourceToolStore
+                if self.options.compact_source_tools
+                else SqliteLiteralTariffFollowupStore
+                if self.options.literal_tariff_followups
+                else SqliteTariffFollowupStore
                 if self.options.tariff_followups
                 else SqliteSavedObservationSafetyStore
                 if self.options.saved_observations
@@ -1358,6 +1382,10 @@ class ChatLab:
                 reminder_options["saved_observation_limits"] = self.options.saved_observation_limits
             if self.options.tariff_followups:
                 reminder_options["tariff_followups_enabled"] = True
+            if self.options.literal_tariff_followups:
+                reminder_options["literal_tariff_followups_enabled"] = True
+            if self.options.compact_source_tools:
+                reminder_options["compact_source_tools_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)

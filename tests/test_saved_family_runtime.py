@@ -11,14 +11,24 @@ from app.core.config import Settings
 from app.mana_ai.application.parent_touch import ParentTouchService
 from app.mana_ai.application.source_tool_workflow import SourceToolWorkflow
 from app.services import parent_chat_runtime as runtime
+from app.services.compact_source_tool_store import SqliteCompactSourceToolStore
+from app.services.literal_tariff_followup_store import SqliteLiteralTariffFollowupStore
 from app.services.saved_observation_safety_store import SqliteSavedObservationSafetyStore
 from app.services.tariff_followup_store import SqliteTariffFollowupStore
 from tests.test_location_comparison_runtime import comparison_settings
 
 
 @pytest.mark.parametrize(
-    "saved,followups,labels",
-    [(False, False, True), (True, False, False), (False, True, False), (True, True, True)],
+    "saved,followups,labels,literal,compact",
+    [
+        (False, False, True, False, False),
+        (True, False, False, False, False),
+        (False, True, False, False, False),
+        (True, True, True, False, False),
+        (False, True, False, True, False),
+        (True, False, False, False, True),
+        (True, True, True, True, True),
+    ],
 )
 async def test_captured_runtime_stopped_runtime_and_closed_reader_do_no_idle_http(
     tmp_path: Path,
@@ -26,6 +36,8 @@ async def test_captured_runtime_stopped_runtime_and_closed_reader_do_no_idle_htt
     saved: bool,
     followups: bool,
     labels: bool,
+    literal: bool,
+    compact: bool,
 ) -> None:
     attempts: list[str] = []
 
@@ -43,14 +55,18 @@ async def test_captured_runtime_stopped_runtime_and_closed_reader_do_no_idle_htt
                 "mana_family_saved_observations_enabled": saved,
                 "mana_upsell_followups_enabled": followups,
                 "mana_family_location_time_labels_enabled": labels,
+                "mana_upsell_literal_followups_enabled": literal,
+                "mana_family_compact_source_tools_enabled": compact,
             }
         ),
     )
-    expected = 39 if followups else 38 if saved else 37
+    expected = 41 if compact else 40 if literal else 39 if followups else 38 if saved else 37
     async with runtime.parent_chat_runtime(active) as service:
         assert isinstance(service, ParentTouchService) and service.safety
-        assert isinstance(service.store, SqliteSavedObservationSafetyStore) is (saved or followups)
-        assert isinstance(service.store, SqliteTariffFollowupStore) is followups
+        assert isinstance(service.store, SqliteSavedObservationSafetyStore) is (expected >= 38)
+        assert isinstance(service.store, SqliteTariffFollowupStore) is (expected >= 39)
+        assert isinstance(service.store, SqliteLiteralTariffFollowupStore) is (literal or compact)
+        assert isinstance(service.store, SqliteCompactSourceToolStore) is compact
         workflow = service.safety._native_sources
         assert isinstance(workflow, SourceToolWorkflow)
         assert (workflow._saved_observations is not None) is saved
@@ -58,6 +74,8 @@ async def test_captured_runtime_stopped_runtime_and_closed_reader_do_no_idle_htt
         "mana_family_saved_observations_enabled": False,
         "mana_upsell_followups_enabled": False,
         "mana_family_location_time_labels_enabled": False,
+        "mana_upsell_literal_followups_enabled": False,
+        "mana_family_compact_source_tools_enabled": False,
     }
     async with runtime.parent_chat_runtime(Settings(_env_file=None, **stopped)) as service:
         assert isinstance(service, ParentTouchService)
@@ -83,6 +101,8 @@ async def test_captured_runtime_stopped_runtime_and_closed_reader_do_no_idle_htt
         "mana_family_saved_observations_enabled",
         "mana_upsell_followups_enabled",
         "mana_family_location_time_labels_enabled",
+        "mana_upsell_literal_followups_enabled",
+        "mana_family_compact_source_tools_enabled",
     ],
 )
 def test_new_flags_fail_closed_on_missing_required_profiles(flag: str) -> None:
