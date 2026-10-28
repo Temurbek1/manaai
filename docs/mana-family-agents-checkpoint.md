@@ -2,6 +2,49 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Scoped production release completed — 2026-10-28
+
+The owner requested releasing verified work. Isolated parent-chat application
+**4018971** now runs family41/source10; source/doc checkpoint b0330f5 and release
+record **dcbd446** are pushed to `feat/mana-conversion-agent-20261021` by samango1.
+Read [the release record](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-production-20261028.md)
+and English integration section50. Dirty family42/collection5 setup help remains
+local and was not included in the image or GitHub push. The full goal stays active.
+
+Server image `1f978e9051bf…` has the exact local `b9e3dec5cce9…` filesystem layers,
+nonempty runtime configuration and310 application hashes. The initial active
+configuration inherited an incompatible model timeout and briefly interrupted
+only the chat sidecar; compatible closed reading preserved history. The corrected
+actual environment uses explicitly tested30 seconds/lease360, not a model/budget
+change. A backup-path harness failure stopped before recreation. The final helper
+uses a fresh distinct snapshot; original backup remains. Swagger's initial0700
+root was corrected to0755; public HTML/schema/assets return200 and browser renders.
+The prior default Python-urllib user-agent403 is an existing edge restriction;
+explicit MANA-Backend/1.0 was checked200 without changing WAF/authentication.
+
+All16 original table/cell fingerprints survive schema6 ->41. Final parent sidecar
+is healthy/zero restarts. Main/audio e73c10a, OP API38cdac4, UIfaf0a78, worker2ea7b9a
+and PostgreSQL retain exact IDs/images/start times/runtime/mounts and healthy state.
+Existing credential and SSH file hashes match. Private kit/backup:
+`/opt/manaai-releases/family-4018971-20261028/` and
+`/var/backups/mana-ai/family-4018971-20261028/`. Never restore old schema6 over41;
+the same41 closed reader retains new history, counters and unknown holds.
+
+Public HTTPS live smoke on previously designated test parent4:90-day162000UZS
+quote then180-day299000UZS quote both complete/published. First model receipt
+790input+71output=**861 parent tokens**; literal follow-up and exact replays use0.
+No child-source read, Safety analysis, push, grant or payment. Estimate$0.00304,
+not an invoice. This is not broad child-source/parent-dialogue/fleet acceptance.
+
+Enabled new-turn manager/native5/saved inspection, reminders, Retention support
+and explicit Upsell stay under2000parent/day and2000globalSafety/day. Targeted
+source admission is bounded100requests/200conservativeunits per rollingday with
+six-hour cooldown. Bulk collection/autorefresh, push dispatch, automatic grants
+and unsupported conversion campaigns remain disabled; existing schedules unchanged.
+Swagger: <https://ai.360rec.uz/docs#/mana-chat>. Earlier real-family/reminder
+budget failures remain valid. Continue the unfinished complete goal independently.
+
+
 ### Full reminder dialogue remains incomplete — 2026-10-28
 
 Feature evidence commit **`b0330f5`** preserves a new independent actual-model,
