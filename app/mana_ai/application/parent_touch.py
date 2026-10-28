@@ -35,6 +35,7 @@ from app.mana_ai.application.parent_touch_offers import render_parent_offer
 from app.mana_ai.application.proactive_parent import ProactiveParentService
 from app.mana_ai.application.retention_expiry import RetentionExpiryService
 from app.mana_ai.application.reviewed_message_ports import ReviewedMessageStore
+from app.mana_ai.application.tariff_followups import TariffFollowupPort, tariff_followup_route
 from app.mana_ai.application.upsell_text import CURRENCY_ENQUIRY_INSTRUCTIONS
 from app.mana_ai.domain.chat import (
     ParentChatRequest,
@@ -43,7 +44,11 @@ from app.mana_ai.domain.chat import (
     ParentTariffContext,
     StoredChatTurn,
 )
-from app.mana_ai.domain.child_location import LOCATION_QUALIFICATION, ChildLocationFacts
+from app.mana_ai.domain.child_location import (
+    LOCATION_QUALIFICATION,
+    LOCATION_TIME_LABEL_QUALIFICATION,
+    ChildLocationFacts,
+)
 from app.mana_ai.domain.client_retention import ParentTouchRetentionTurn
 from app.mana_ai.domain.family_agents import (
     AgentQuestionPage,
@@ -111,6 +116,7 @@ class ParentTouchService(ParentChatService):
         manager: ParentTouchManagerPort | None = None,
         input_presentations: FamilyInputPresentationPort | None = None,
         parent_publications: ParentPublicationPort | None = None,
+        tariff_followups: TariffFollowupPort | None = None,
     ) -> None:
         self.collection = collection
         self.reminders = reminders
@@ -120,6 +126,7 @@ class ParentTouchService(ParentChatService):
         self.manager = manager
         self._input_presentations = input_presentations
         self._parent_publications = parent_publications
+        self._tariff_followups = tariff_followups
         super().__init__(
             store=store,
             children=children,
@@ -397,7 +404,30 @@ class ParentTouchService(ParentChatService):
             publication = await self._parent_publications.parent_publication_version(
                 request.parent_id, turn.turn_id
             )
-            if publication == 5 and manager_scope.stage == "route":
+            if publication == 6 and manager_scope.stage == "route":
+                if self._tariff_followups is None:
+                    raise ParentChatError("tariff_followup_runtime_disabled", 503)
+                followup = await self._tariff_followups.tariff_followup_context(
+                    request.parent_id, turn.turn_id
+                )
+                if followup is None:
+                    raise ParentChatError("tariff_followup_capture_invalid", 409)
+                data = json.loads(prompt.messages[0][1])
+                data["tariff_followup"] = followup.presentation()
+                prompt = replace(
+                    prompt,
+                    messages=(
+                        (
+                            prompt.messages[0][0],
+                            json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+                        ),
+                        *prompt.messages[1:],
+                    ),
+                    instructions=tariff_followup_route(
+                        manager_scope, bound_support="answered_parent_question" in data
+                    ),
+                )
+            elif publication == 5 and manager_scope.stage == "route":
                 data = json.loads(prompt.messages[0][1])
                 prompt = replace(
                     prompt,
@@ -412,6 +442,19 @@ class ParentTouchService(ParentChatService):
                         manager_scope,
                         version=publication,
                         battery_source=prompt.battery_source_publication,
+                    ),
+                )
+        if manager_scope is not None and manager_scope.stage == "child_safety":
+            data = json.loads(prompt.messages[0][1])
+            guidance = data.get("specialist_guidance")
+            if isinstance(guidance, dict) and guidance.get("saved_observation") is not None:
+                prompt = replace(
+                    prompt,
+                    instructions=prompt.instructions
+                    + (
+                        " Saved SQL inspection did not refresh a provider. Keep measurement, "
+                        "provider-check, snapshot-collection and inspection dates distinct. "
+                        "Missing/stale saved facts remain unavailable; promise no refresh."
                     ),
                 )
         return prompt
@@ -646,7 +689,12 @@ class ParentTouchService(ParentChatService):
                 "timezone are unverified; never sum them into daily screen time or infer a "
                 "complete ranking/trend. Battery connectivity/current danger remain unknown."
             )
-            if any(isinstance(f, ChildLocationFacts) for f in evidence.notice.source_observations):
+            if any(
+                isinstance(f, ChildLocationFacts) for f in evidence.notice.source_observations
+            ) and (
+                evidence.notice.location_comparison is None
+                or evidence.notice.location_comparison.presentation_version != 2
+            ):
                 instructions += "\n" + LOCATION_QUALIFICATION
         source_dates: tuple[str, ...] = (
             tuple(d.isoformat() for d in evidence.notice.query_calendar_days)
@@ -704,6 +752,13 @@ class ParentTouchService(ParentChatService):
             data["specialist_guidance"] = guidance.model_dump(
                 mode="json", exclude={"authorized_child_ids", "source_observations"}
             ) | {"basis": "parent_report_and_dated_saved_context_not_fresh_sensors"}
+            if guidance.saved_observation is not None:
+                instructions += (
+                    "\nThis review inspected saved SQL only. No provider refresh occurred; "
+                    "preserve provider_checked_at, snapshot_collected_at and inspected_at "
+                    "as different dates. A fresh inspection never makes an old measurement "
+                    "current. Missing/stale saved facts remain unavailable; promise no refresh."
+                )
             if guidance.source_observations:
                 mapping = {
                     child.child_id: (i + 1, child.name)
@@ -793,6 +848,13 @@ class ParentTouchService(ParentChatService):
                 "Communicate admitted facts/question; never fabricate a parent answer. "
                 "For a question alone, body may be empty; do not restate the profile."
             )
+        if (
+            evidence
+            and evidence.notice
+            and evidence.notice.location_comparison is not None
+            and evidence.notice.location_comparison.presentation_version == 2
+        ):
+            instructions += "\n" + LOCATION_TIME_LABEL_QUALIFICATION
         template = ChatPrompt(
             instructions,
             (

@@ -24,9 +24,15 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
     _schema_version = 37
 
     def __init__(
-        self, path: Path, *, location_comparisons_enabled: bool = False, **family: Any
+        self,
+        path: Path,
+        *,
+        location_comparisons_enabled: bool = False,
+        location_time_labels_enabled: bool = False,
+        **family: Any,
     ) -> None:
         self._location_comparisons_enabled = location_comparisons_enabled
+        self._location_time_labels_enabled = location_time_labels_enabled
         super().__init__(path, **family)
 
     def _supported_versions(self) -> set[int]:
@@ -58,11 +64,31 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
             (identity, parent),
         ).fetchone()
         if captured:
+            if (
+                not self._location_time_labels_enabled
+                and db.execute(
+                    "SELECT 1 FROM child_safety_jobs WHERE job_id=? AND parent_id=? "
+                    "AND json_extract(context,"
+                    "'$.source_review.location_comparison.presentation_version')=2",
+                    (identity, parent),
+                ).fetchone()
+            ):
+                raise ParentChatError("location_time_labels_disabled", 503)
             if not self._location_comparisons_enabled:
                 raise ParentChatError("location_comparisons_disabled", 503)
             db.execute("INSERT INTO location_comparison_jobs VALUES(?,?)", (identity, parent))
 
     def _check_job(self, db: sqlite3.Connection, row: sqlite3.Row) -> None:
+        if (
+            not self._location_time_labels_enabled
+            and db.execute(
+                "SELECT 1 FROM child_safety_jobs WHERE job_id=? AND parent_id=? "
+                "AND json_extract(context,"
+                "'$.source_review.location_comparison.presentation_version')=2",
+                (row["job_id"], row["parent_id"]),
+            ).fetchone()
+        ):
+            raise ParentChatError("location_time_labels_disabled", 503)
         if (
             not self._location_comparisons_enabled
             and db.execute(
@@ -85,6 +111,19 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
         self._check_job(db, row)
 
     async def claim_next(self, now: datetime) -> SafetyJob | None:
+        if not self._location_time_labels_enabled:
+
+            def stop_time_labels() -> None:
+                with self._transaction() as db:
+                    db.execute(
+                        "UPDATE child_safety_jobs SET status='failed',reserved=0,"
+                        "error_code='location_time_labels_disabled',updated_at=? "
+                        "WHERE status='queued' AND json_extract(context,"
+                        "'$.source_review.location_comparison.presentation_version')=2",
+                        (self._utc(now).isoformat(),),
+                    )
+
+            await asyncio.to_thread(stop_time_labels)
         if not self._location_comparisons_enabled:
 
             def stop() -> None:
@@ -101,6 +140,12 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
         return await super().claim_next(now)
 
     def _suppress_comparison_notices(self, db: sqlite3.Connection) -> None:
+        if not self._location_time_labels_enabled:
+            db.execute(
+                "UPDATE family_notices SET status='cancelled' "
+                "WHERE status IN ('queued','deferred') "
+                "AND json_extract(payload,'$.location_comparison.presentation_version')=2"
+            )
         if not self._location_comparisons_enabled:
             db.execute(
                 "UPDATE family_notices SET status='cancelled' "
@@ -120,7 +165,7 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
         return super()._admit_extra_context(connection, request, turn_id, selected, now)
 
     async def next_delivery(self, now: datetime) -> ParentTouchDeliveryRequest | None:
-        if not self._location_comparisons_enabled:
+        if not self._location_comparisons_enabled or not self._location_time_labels_enabled:
 
             def stop() -> None:
                 with self._transaction() as db:
@@ -145,6 +190,19 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
         super()._validate_chat_submission(db, turn, now)
         if not self._location_comparisons_enabled and self._turn_has_comparison(db, turn):
             raise ParentChatError("location_comparisons_disabled", 503)
+        if not self._location_time_labels_enabled and self._time_view(db, turn) is not None:
+            raise ParentChatError("location_time_labels_disabled", 503)
+
+    def _time_view(
+        self, db: sqlite3.Connection, turn: StoredChatTurn
+    ) -> LocationComparisonView | None:
+        row = db.execute(
+            "SELECT json_extract(payload,'$.notice.location_comparison') "
+            "FROM family_touch_evidence WHERE parent_id=? AND turn_id=? "
+            "AND json_extract(payload,'$.notice.location_comparison.presentation_version')=2",
+            (turn.parent_id, turn.turn_id),
+        ).fetchone()
+        return LocationComparisonView.model_validate_json(row[0]) if row else None
 
     def _valid_decision(
         self,
@@ -153,9 +211,19 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
         receipt: ChatModelReceipt,
         now: datetime,
     ) -> bool:
-        return not (
-            not self._location_comparisons_enabled and self._turn_has_comparison(connection, turn)
-        ) and super()._valid_decision(connection, turn, receipt, now)
+        if not self._location_comparisons_enabled and self._turn_has_comparison(connection, turn):
+            return False
+        view = self._time_view(connection, turn)
+        if view is not None:
+            if not self._location_time_labels_enabled:
+                return False
+            if receipt.notice_id is not None and not all(
+                label in (receipt.answer or "")
+                for label in (view.previous_measurement_label, view.current_measurement_label)
+                if label is not None
+            ):
+                return False
+        return super()._valid_decision(connection, turn, receipt, now)
 
     def _push_delivery_ready(
         self, connection: sqlite3.Connection, row: sqlite3.Row, now: datetime
@@ -165,6 +233,15 @@ class SqliteLocationComparisonSafetyStore(SqliteCompactParentPublicationStore):
             and connection.execute(
                 "SELECT 1 FROM family_notices WHERE parent_id=? AND delivered_turn_id=? "
                 "AND json_type(payload,'$.location_comparison') IS NOT NULL",
+                (row["parent_id"], row["turn_id"]),
+            ).fetchone()
+        ):
+            return False
+        if (
+            not self._location_time_labels_enabled
+            and connection.execute(
+                "SELECT 1 FROM family_notices WHERE parent_id=? AND delivered_turn_id=? "
+                "AND json_extract(payload,'$.location_comparison.presentation_version')=2",
                 (row["parent_id"], row["turn_id"]),
             ).fetchone()
         ):

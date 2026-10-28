@@ -43,7 +43,8 @@ class LabComparisonLocationSource:
 
 
 def location_comparison_text(view: LocationComparisonView, *, uzbek: bool = False) -> str:
-    previous, current = view.previous.observed_at, view.current.observed_at
+    previous = view.previous_measurement_label or view.previous.observed_at
+    current = view.current_measurement_label or view.current.observed_at
     return (
         f"Saqlangan GPS yozuvlari: {previous} va {current}. "
         "Ikki yozuv yo‘nalish, haqiqiy harakat yoki xavfni tasdiqlamaydi."

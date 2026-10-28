@@ -1224,3 +1224,32 @@ its artificial clock cannot be used with real providers/models. Do not migrate
 or reset existing lab directories just to retry a scenario. The new paid UZ
 fictional workflow has a retained negative date/wording review, so this document
 makes no broad real-model, source/fleet or production-readiness claim.
+
+
+## 48. Saved-only observations and tariff refinements (local; not released)
+
+The existing message POST, status GET and history GET remain sufficient.
+No additional mobile endpoint or parent chat is introduced. See
+[the exact scope and negative model evidence](mana-saved-observation-workspace.md).
+
+- `MANA_FAMILY_SAVED_OBSERVATIONS_ENABLED` captures a new private saved-only
+  native tool. It inspects an existing authorized fresh source snapshot without
+  refreshing Firebase. The existing profile source still verifies ownership.
+  Missing/stale/stopped snapshots never trigger an automatic provider fallback.
+- `MANA_UPSELL_FOLLOWUPS_ENABLED` freezes an earlier same-parent quoted request
+  and terms for an explicit refinement. Current catalog/ownership checks still
+  apply. Earlier prices grant no actions or eligibility. Both initial and
+  follow-up model calls count against the same2000 raw daily parent allowance.
+- `MANA_FAMILY_LOCATION_TIME_LABELS_ENABLED` captures exact measurement UTC
+  labels only on new physical source admissions; old tasks never upgrade.
+
+All flags remain false by default. Family38/39 and source10 require their current
+compatible readers; never downgrade populated databases or restore old history
+on top of new messages. The separate model-free workspace is
+`make chat-lab-agents CHAT_LAB_PORT=8116`.
+
+**Do not enable this as a production-ready complete chat flow:** the actual-source
+saved review and the real-model two-enquiry conversation both stopped at unchanged
+raw token limits. Their costs and original tasks are retained. New compact-source
+and literal-refinement increments remain necessary; no retry/reset is authorized
+by reading status or reconnecting.

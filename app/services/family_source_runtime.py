@@ -31,6 +31,7 @@ from app.services.inventory_tariff_store import SqliteInventoryTariffStore
 from app.services.location_collection_store import SqliteLocationCollectionStore
 from app.services.location_comparison_cache import SqliteLocationComparisonCache
 from app.services.location_source_cache import SqliteLocationSourceCache
+from app.services.location_time_cache import SqliteLocationTimeCache
 from app.services.manakids_child_usage import ManakidsChildUsageSource, ManakidsReadToken
 from app.services.manakids_family_day_usage import ManakidsFamilyDayUsageSource
 from app.services.manakids_family_inventory import ManakidsFamilyInventory
@@ -84,19 +85,21 @@ async def family_source_runtime(
         else SqliteSourceSafetyStore
     )
     source_version = await collection_storage_version(settings.mana_family_source_database_path)
-    location_reader = settings.mana_family_location_enabled or source_version in {7, 8, 9}
+    location_reader = settings.mana_family_location_enabled or source_version in {7, 8, 9, 10}
     day_review_reader = (
         settings.mana_family_day_reviews_enabled
-        or source_version in {6, 7, 8, 9}
+        or source_version in {6, 7, 8, 9, 10}
         or location_reader
     )
-    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6, 7, 8, 9}
+    day_reader = settings.mana_family_day_usage_enabled or source_version in {5, 6, 7, 8, 9, 10}
     store = (
         (
-            SqliteLocationComparisonCache
-            if settings.mana_family_location_comparisons_enabled or source_version == 9
+            SqliteLocationTimeCache
+            if settings.mana_family_location_time_labels_enabled or source_version == 10
+            else SqliteLocationComparisonCache
+            if settings.mana_family_location_comparisons_enabled or source_version in {9, 10}
             else SqliteUsageComparisonCache
-            if settings.mana_family_usage_comparisons_enabled or source_version in {8, 9}
+            if settings.mana_family_usage_comparisons_enabled or source_version in {8, 9, 10}
             else SqliteLocationSourceCache
             if location_reader
             else SqliteDayReviewCache
@@ -116,13 +119,18 @@ async def family_source_runtime(
             and settings.mana_family_source_reviews_enabled,
             review_policy=settings.mana_family_source_review_policy,
             **(
+                {"location_time_labels_enabled": settings.mana_family_location_time_labels_enabled}
+                if settings.mana_family_location_time_labels_enabled or source_version == 10
+                else {}
+            ),
+            **(
                 {"location_comparisons_enabled": settings.mana_family_location_comparisons_enabled}
-                if settings.mana_family_location_comparisons_enabled or source_version == 9
+                if settings.mana_family_location_comparisons_enabled or source_version in {9, 10}
                 else {}
             ),
             **(
                 {"comparisons_enabled": settings.mana_family_usage_comparisons_enabled}
-                if settings.mana_family_usage_comparisons_enabled or source_version in {8, 9}
+                if settings.mana_family_usage_comparisons_enabled or source_version in {8, 9, 10}
                 else {}
             ),
             **(

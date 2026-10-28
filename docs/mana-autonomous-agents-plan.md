@@ -1,5 +1,12 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The [saved-observation workspace](mana-saved-observation-workspace.md) connects
+native4 saved-only inspection, contextual tariff refinements and exact GPS UTC
+labels. Its two new actual-model full conversations stop on the preserved raw
+token ceilings; these are retained negative acceptance findings, not readiness.
+The next work targets input overhead and strict zero-inference literal changes,
+without shrinking tasks, changing models, clearing holds or raising budgets.
+
 The [parallel specialist increment](mana-parallel-specialists.md) adds parent-controlled
 Retention resumption, shared in-flight Upsell catalog observation and captured
 same-child saved GPS comparison through Child-Safety/Parent-Touch. It is local;

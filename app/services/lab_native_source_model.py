@@ -50,11 +50,14 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
         )
         wants_usage = any(word in text for word in ("приложен", "ilova", "app usage"))
         wants_location = any(word in text for word in ("где", "местополож", "qayer", "location"))
+        wants_saved = any(word in text for word in ("сохран", "saqlangan", "saved"))
         if results:
             tool_result = json.loads(results[-1]["output"])
             facts = tool_result["facts"]
             summary = (
-                f"Запрос за {tool_result['query_calendar_day']}: "
+                "Сохранённая запись недоступна; данные неизвестны. Источник не обновлялся."
+                if facts is None and tool_result.get("saved_observation") is not None
+                else f"Запрос за {tool_result['query_calendar_day']}: "
                 "ребёнка нет в странице; использование неизвестно."
                 if facts is None
                 else "Частичная страница счётчиков приложений; период/часовой пояс неизвестны, "
@@ -83,13 +86,21 @@ class LabNativeSourceModel(OpenAIChildSourceModel):
                 and payload["tools"][0]["name"] == "read_child_observation"
             )
         ):
-            tool_name = payload["tools"][0]["name"]
+            tool = next(
+                (
+                    t
+                    for t in payload["tools"]
+                    if wants_saved and t["name"] == "inspect_saved_child_observation"
+                ),
+                payload["tools"][0],
+            )
+            tool_name = tool["name"]
             arguments: dict[str, str | None] = {"child_alias": children[0]["alias"]}
-            if tool_name == "read_child_observation":
+            if tool_name in {"read_child_observation", "inspect_saved_child_observation"}:
                 arguments["kind"] = "app_usage" if wants_usage else "battery"
                 if wants_location:
                     arguments["kind"] = "location"
-                if "calendar_day" in payload["tools"][0]["parameters"]["properties"]:
+                if "calendar_day" in tool["parameters"]["properties"]:
                     arguments["calendar_day"] = None
                     if wants_usage:
                         explicit = re.search(r"\d{4}-\d{2}-\d{2}", text)

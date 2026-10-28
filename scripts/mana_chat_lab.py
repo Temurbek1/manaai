@@ -975,3 +975,30 @@ def create_location_comparison_app() -> FastAPI:
             usage_comparisons=False,
         )
     )
+
+
+def create_agent_workspace_app() -> FastAPI:
+    """Latest isolated fake family workspace; historical labs retain their own modes."""
+    from dataclasses import replace
+
+    from app.services.lab_location_comparison import LabLocationComparisonClock
+    from app.services.lab_workspace import workspace_options
+
+    root = Path(__file__).resolve().parents[1]
+    options = workspace_options(
+        root / "data/chat-lab/agent-workspace-v39-simulation", clock=LabLocationComparisonClock()
+    )
+    return create_app(
+        options=replace(
+            options,
+            tariff_handoff=True,
+            compact_inputs=True,
+            compact_publication=True,
+            compact_manager=True,
+            location_comparisons=True,
+            location_time_labels=True,
+            saved_observations=True,
+            tariff_followups=True,
+            usage_comparisons=False,
+        )
+    )

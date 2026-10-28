@@ -1,5 +1,16 @@
 # AGENTS.md
 
+- Local saved-observation/native4 (family38), tariff refinement/publication6
+  (family39) and GPS time labels2 (source10) are documented in
+  `docs/mana-saved-observation-workspace.md`. Preserve old captures, exact full
+  words/provenance, original cloud ledgers, raw charges and unknown holds. New
+  SQL inspection limits of1000 globally/20 perparent/day grant no Firebase refresh. The
+  new actual-source/native4 case FAILED continuation budget (1319Safety used;
+  nextinput1143 >681remaining); the real two-price case FAILED second admission
+  (1118+128 >1157remaining after843used). Never reset/replay those parties or
+  call fake passes full readiness. Next compact-source/literal work must capture
+  new protocols. All flags defaultoff, no deployment/source schedule follows.
+
 - The parallel specialist increment adds explicit Retention-only resume commands,
   SQL-only waiting on the exact in-flight shared catalog receipt, and default-off
   `MANA_FAMILY_LOCATION_COMPARISONS_ENABLED` (source9/family37). Read

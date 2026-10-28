@@ -344,3 +344,7 @@ audit-verify: verify audit-focused audit-security audit-schema audit-migrations 
 .PHONY: chat-lab-location-comparison
 chat-lab-location-comparison:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_location_comparison_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+.PHONY: chat-lab-agents
+chat-lab-agents:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_agent_workspace_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

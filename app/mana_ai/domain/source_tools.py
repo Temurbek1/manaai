@@ -59,11 +59,14 @@ class SourceToolScope(ChatContract):
     parent_id: ParentChatId
     invocation_id: UUID
     children: tuple[SourceToolChild, ...] = Field(max_length=20)
-    protocol: Literal[1, 2, 3] = 1
+    protocol: Literal[1, 2, 3, 4] = 1
     calendar_today: date | None = Field(default=None, exclude_if=lambda v: v is None)
     location_enabled: Literal[True] | None = Field(default=None, exclude_if=lambda v: v is None)
     location_prompt_version: Literal[2] | None = Field(default=None, exclude_if=lambda v: v is None)
     input_presentation: Literal[1] | None = Field(default=None, exclude_if=lambda v: v is None)
+    saved_observations_enabled: Literal[True] | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
 
     @model_serializer(mode="wrap")
     def original_scope(self, handler: SerializerFunctionWrapHandler) -> object:
@@ -79,24 +82,31 @@ class SourceToolScope(ChatContract):
             or len({child.child_id for child in self.children}) != len(self.children)
         ):
             raise ValueError("Invalid native source family scope")
-        if (self.protocol == 3) != (self.calendar_today is not None):
+        if (self.protocol in {3, 4}) != (self.calendar_today is not None):
             raise ValueError("Only dated source scopes freeze their query-calendar date")
-        if self.location_enabled is not None and self.protocol != 3:
+        if self.location_enabled is not None and self.protocol not in {3, 4}:
             raise ValueError("Location tools require the new captured dated-source profile")
         if self.location_prompt_version is not None and self.location_enabled is not True:
             raise ValueError("A location prompt version requires its original source capture")
+        if (self.protocol == 4) != (self.saved_observations_enabled is True):
+            raise ValueError("Saved SQL inspection requires its new captured source protocol")
         return self
 
     def validate_call(
         self, call: "BatterySourceCall | ObservationSourceCall | DatedObservationCall"
     ) -> None:
-        expected = {1: BatterySourceCall, 2: ObservationSourceCall, 3: DatedObservationCall}[
-            self.protocol
-        ]
+        expected = {
+            1: BatterySourceCall,
+            2: ObservationSourceCall,
+            3: DatedObservationCall,
+            4: DatedObservationCall,
+        }[self.protocol]
         if not isinstance(call, expected) or source_call_alias(call) not in {
             c.alias for c in self.children
         }:
             raise ValueError("The exact captured source protocol and child are required")
+        if isinstance(call, SavedObservationCall) and self.saved_observations_enabled is not True:
+            raise ValueError("Saved inspection was not captured in this source scope")
         day = source_call_day(call)
         if source_call_key(call) == "firebase.child_location.v1" and not self.location_enabled:
             raise ValueError("Location was not captured in this source scope")
@@ -109,7 +119,15 @@ class SourceToolScope(ChatContract):
         self, call: "BatterySourceCall | ObservationSourceCall | DatedObservationCall"
     ) -> UUID:
         identity = hashlib.sha256(call.model_dump_json().encode()).hexdigest()
-        return uuid5(self.invocation_id, "native-source-read-v1:" + identity)
+        return uuid5(
+            self.invocation_id,
+            (
+                "native-saved-inspection-v1:"
+                if isinstance(call, SavedObservationCall)
+                else "native-source-read-v1:"
+            )
+            + identity,
+        )
 
 
 class BatterySourceCall(ChatContract):
@@ -147,6 +165,10 @@ class DatedObservationCall(ObservationSourceCall):
     def valid_arguments(self) -> "DatedObservationCall":
         dated_arguments(self.arguments)
         return self
+
+
+class SavedObservationCall(DatedObservationCall):
+    name: Literal["inspect_saved_child_observation"] = "inspect_saved_child_observation"  # type: ignore[assignment]
 
 
 def dated_arguments(value: str) -> DatedObservationArguments:
@@ -205,10 +227,14 @@ class EncryptedSourceReasoning(ChatContract):
 
 
 class SourceToolContinuation(ChatContract):
-    version: Literal[1, 2, 3] = 1
+    version: Literal[1, 2, 3, 4] = 1
     input_digest: str = Field(pattern=r"^[a-f0-9]{64}$", strict=True)
     items: tuple[
-        BatterySourceCall | DatedObservationCall | ObservationSourceCall | EncryptedSourceReasoning,
+        BatterySourceCall
+        | SavedObservationCall
+        | DatedObservationCall
+        | ObservationSourceCall
+        | EncryptedSourceReasoning,
         ...,
     ] = Field(min_length=1, max_length=5)
 
@@ -219,9 +245,12 @@ class SourceToolContinuation(ChatContract):
             != 1
             or any(
                 type(item)
-                is not {1: BatterySourceCall, 2: ObservationSourceCall, 3: DatedObservationCall}[
-                    self.version
-                ]
+                not in {
+                    1: (BatterySourceCall,),
+                    2: (ObservationSourceCall,),
+                    3: (DatedObservationCall,),
+                    4: (DatedObservationCall, SavedObservationCall),
+                }[self.version]
                 for item in self.items
                 if isinstance(item, BatterySourceCall | ObservationSourceCall)
             )

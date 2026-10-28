@@ -15,6 +15,7 @@ from app.mana_ai.domain.child_location import (
     ChildLocationFacts,
     LocationComparisonView,
     LocationObservationView,
+    location_measurement_label,
 )
 from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, day_child_fingerprint
 from app.mana_ai.domain.family_sources import (
@@ -78,6 +79,9 @@ class SavedLocationComparison(ChatContract):
     current_snapshot_id: UUID
     current_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     previous: SourceReviewSnapshot
+    presentation_version: Literal[2] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ReportedCounterChange(ChatContract):
@@ -248,6 +252,17 @@ def location_comparison_view(bundle: SourceReviewBundle) -> LocationComparisonVi
     return LocationComparisonView(
         previous=project(previous),
         current=project(current),
+        presentation_version=comparison.presentation_version,
+        previous_measurement_label=(
+            location_measurement_label(previous.observed_at)
+            if comparison.presentation_version == 2
+            else None
+        ),
+        current_measurement_label=(
+            location_measurement_label(current.observed_at)
+            if comparison.presentation_version == 2
+            else None
+        ),
         chronology=chronology,
         stored_point_relation=(
             "same" if previous.position_fingerprint == current.position_fingerprint else "different"

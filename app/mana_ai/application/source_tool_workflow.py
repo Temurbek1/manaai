@@ -21,11 +21,13 @@ from app.mana_ai.application.day_usage_service import FamilyDayUsageService
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.input_presentation import compact_native_host_messages
 from app.mana_ai.application.ports import Clock
+from app.mana_ai.application.saved_observations import SavedObservationService
 from app.mana_ai.application.source_tool_ports import SourceToolModel, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens, ParentChildContext
 from app.mana_ai.domain.child_safety import ChildSafetyLimits, SafetyJob, SafetyJobView
 from app.mana_ai.domain.family_day_usage import DayUsageReceipt, DayUsageTarget
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
+from app.mana_ai.domain.saved_observations import SavedObservationReceipt, SavedObservationTarget
 from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
     SourceToolChild,
@@ -39,7 +41,7 @@ from app.mana_ai.domain.source_tools import (
 class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     async def source_review_owner(self, job: SafetyJob) -> SourceAnalysisOwner | None: ...
     async def native_captured(self, job: SafetyJob) -> bool: ...
-    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3]: ...
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3, 4]: ...
     async def native_location_enabled(self, job: SafetyJob) -> bool: ...
     async def native_location_prompt_version(self, job: SafetyJob) -> Literal[2] | None: ...
     async def native_input_presentation(self, job: SafetyJob) -> Literal[1] | None: ...
@@ -58,9 +60,12 @@ class SourceToolSafetyStore(ChildSafetyStore, Protocol):
     ) -> int | None: ...
     async def claim_native_source(
         self, job: SafetyJob, continuation: SourceToolContinuation, now: "datetime"
-    ) -> FamilySourceTarget | DayUsageTarget: ...
+    ) -> FamilySourceTarget | DayUsageTarget | SavedObservationTarget: ...
     async def record_native_source(
-        self, job: SafetyJob, receipt: FamilySourceReceipt | DayUsageReceipt, now: "datetime"
+        self,
+        job: SafetyJob,
+        receipt: FamilySourceReceipt | DayUsageReceipt | SavedObservationReceipt,
+        now: "datetime",
     ) -> bool: ...
     async def finalize_native_without_source(self, job: SafetyJob, now: "datetime") -> None: ...
 
@@ -122,6 +127,7 @@ class SourceToolWorkflow:
         limits: ChildSafetyLimits,
         max_output_tokens: int,
         day_usage: FamilyDayUsageService | None = None,
+        saved_observations: SavedObservationService | None = None,
     ) -> None:
         if not 32 <= max_output_tokens < limits.job_tokens:
             raise ValueError("Native source output must fit inside the captured job budget")
@@ -129,6 +135,7 @@ class SourceToolWorkflow:
         self._prompts, self._sources, self._clock = prompts, sources, clock
         self._limits, self._output = limits, max_output_tokens
         self._day_usage = day_usage
+        self._saved_observations = saved_observations
 
     async def captured(self, job: SafetyJob) -> bool:
         return await self._store.native_captured(job)
@@ -196,6 +203,23 @@ class SourceToolWorkflow:
                         instructions=safety_prompt.input.instructions + "\n" + LOCATION_GUIDANCE,
                     ),
                 )
+            if protocol == 4:
+                safety_prompt = replace(
+                    safety_prompt,
+                    input=replace(
+                        safety_prompt.input,
+                        instructions=safety_prompt.input.instructions
+                        + (
+                            "\nYou may instead choose inspect_saved_child_observation to inspect "
+                            "existing same-child SQL evidence without refreshing any provider. "
+                            "Prefer that tool when saved observations answer the actual request. "
+                            "At most one total tool choice: unavailable or stale saved evidence "
+                            "must be explained, never followed by a provider read or retry. "
+                            "Preserve its original measurement/collection/provider-check dates; "
+                            "inspection time is not a new measurement or source refresh."
+                        ),
+                    ),
+                )
             if input_presentation == 1:
                 safety_prompt = replace(
                     safety_prompt,
@@ -211,8 +235,9 @@ class SourceToolWorkflow:
                 location_enabled=True if location else None,
                 location_prompt_version=location_prompt_version,
                 input_presentation=input_presentation,
+                saved_observations_enabled=True if protocol == 4 else None,
                 calendar_today=context.collected_at.astimezone(ZoneInfo("Asia/Tashkent")).date()
-                if protocol == 3
+                if protocol in {3, 4}
                 else None,
                 children=tuple(
                     SourceToolChild(alias=c.alias, child_id=c.child_id)
@@ -257,13 +282,18 @@ class SourceToolWorkflow:
                 target = await self._store.claim_native_source(
                     job, receipt.continuation, self._clock.now()
                 )
-                owner = await self._store.source_review_owner(job)
-                source: FamilySourceReceipt | DayUsageReceipt
-                if isinstance(target, DayUsageTarget):
+                source: FamilySourceReceipt | DayUsageReceipt | SavedObservationReceipt
+                if isinstance(target, SavedObservationTarget):
+                    if self._saved_observations is None:
+                        raise ParentChatError("saved_observations_disabled", 503)
+                    source = await self._saved_observations.inspect(target)
+                elif isinstance(target, DayUsageTarget):
+                    owner = await self._store.source_review_owner(job)
                     if self._day_usage is None:
                         raise ParentChatError("family_day_usage_not_enabled", 503)
                     source = await self._day_usage.read_for_analysis(target, owner)
                 else:
+                    owner = await self._store.source_review_owner(job)
                     source = (
                         await self._sources.read_for_analysis(target, owner)
                         if owner is not None
@@ -290,6 +320,14 @@ class SourceToolWorkflow:
                             f"Query calendar label {source.requested_day.isoformat()}, "
                             "not a verified measurement day/period. "
                             if isinstance(source, DayUsageReceipt)
+                            else ""
+                        )
+                        + (
+                            "Saved SQL inspection only; provider not refreshed; "
+                            f"original provider check {source.provider_checked_at}, "
+                            f"inspection {source.inspected_at.isoformat()}, "
+                            f"unavailable reason {source.reason}. "
+                            if isinstance(source, SavedObservationReceipt)
                             else ""
                         )
                         + "This is source context, not a complete protective assessment."

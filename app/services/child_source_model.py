@@ -3,10 +3,12 @@
 import asyncio
 import hashlib
 import json
+from dataclasses import replace
 from typing import cast
 
 from openai import APIStatusError
 from openai.types.responses import ResponseInputParam, ToolParam
+from openai.types.responses.function_tool_param import FunctionToolParam
 from openai.types.responses.response_text_config_param import ResponseTextConfigParam
 from pydantic import ValidationError
 
@@ -15,11 +17,13 @@ from app.mana_ai.application.input_presentation import without_schema_titles
 from app.mana_ai.application.source_tool_ports import SourceModelReceipt, SourceToolPrompt
 from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.family_day_usage import DayUsageReceipt
+from app.mana_ai.domain.saved_observations import SavedObservationReceipt
 from app.mana_ai.domain.source_tools import (
     BatterySourceCall,
     DatedObservationCall,
     EncryptedSourceReasoning,
     ObservationSourceCall,
+    SavedObservationCall,
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolScope,
@@ -51,6 +55,34 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
     def _tools(self, prompt: SourceToolPrompt) -> list[ToolParam]:
         if not prompt.scope.children:
             return []
+        if prompt.scope.protocol == 4:
+            original = self._tools(
+                replace(
+                    prompt,
+                    scope=prompt.scope.model_copy(
+                        update={
+                            "protocol": 3,
+                            "saved_observations_enabled": None,
+                        }
+                    ),
+                )
+            )
+            live = original[0]
+            if live["type"] != "function":
+                raise ValueError("A saved inspection requires its exact observation schema")
+            saved: FunctionToolParam = {
+                "type": "function",
+                "name": "inspect_saved_child_observation",
+                "parameters": live["parameters"],
+                "strict": True,
+                "description": (
+                    "Inspect existing own-child saved SQL evidence. No provider read, "
+                    "refresh or fallback. Preserve original observation/collection/provider-check "
+                    "dates and this inspection date. Missing/stale evidence stays unavailable."
+                ),
+            }
+            return [live, saved]
+
         if prompt.scope.protocol in {2, 3}:
             return [
                 {
@@ -154,7 +186,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         # V3 keeps the original advertised schema in its immutable input digest,
         # but its final-only request has no callable tools. V1/v2 remain exact.
         if prompt.continuation is not None and (
-            prompt.scope.protocol == 3 or prompt.scope.input_presentation == 1
+            prompt.scope.protocol in {3, 4} or prompt.scope.input_presentation == 1
         ):
             return []
         return self._tools(prompt)
@@ -186,14 +218,21 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             or receipt.status
             not in (
                 {"completed", "unavailable"}
-                if isinstance(receipt, DayUsageReceipt)
+                if isinstance(receipt, DayUsageReceipt | SavedObservationReceipt)
                 else {"completed"}
             )
-            or (receipt.facts is None and not isinstance(receipt, DayUsageReceipt))
+            or (
+                receipt.facts is None
+                and not isinstance(receipt, DayUsageReceipt | SavedObservationReceipt)
+            )
+            or (
+                isinstance(call, SavedObservationCall)
+                != isinstance(receipt, SavedObservationReceipt)
+            )
             or receipt.source != source_call_key(call)
             or continuation.version != prompt.scope.protocol
             or (
-                isinstance(receipt, DayUsageReceipt)
+                isinstance(receipt, DayUsageReceipt | SavedObservationReceipt)
                 and receipt.requested_day != source_call_day(call)
             )
         ):
@@ -207,7 +246,11 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
         tool_result: dict[str, object] = {
             "child_alias": alias,
             "source": receipt.source,
-            "cache_hit": receipt.cache_hit,
+            **(
+                {}
+                if isinstance(receipt, SavedObservationReceipt)
+                else {"cache_hit": receipt.cache_hit}
+            ),
             "facts": receipt.facts.model_dump(
                 mode="json", exclude={"child_id", "position_fingerprint"}
             )
@@ -223,6 +266,19 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 qualification=(
                     "API-filter label only; incomplete counters, unknown measurement "
                     "period/timezone; absent row is not zero use."
+                ),
+            )
+        elif isinstance(receipt, SavedObservationReceipt):
+            tool_result.update(
+                saved_observation=receipt.provenance().model_dump(mode="json"),
+                status=receipt.status,
+                reason=receipt.reason,
+                query_calendar_day=receipt.requested_day.isoformat()
+                if receipt.requested_day
+                else None,
+                qualification=(
+                    "Saved SQL evidence only; provider was not refreshed. Preserve original "
+                    "dates, unknown periods and partial coverage; unavailable is not zero."
                 ),
             )
         items.append(
@@ -348,6 +404,7 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
             BatterySourceCall
             | ObservationSourceCall
             | DatedObservationCall
+            | SavedObservationCall
             | EncryptedSourceReasoning
         ] = []
         for item in output:
@@ -358,10 +415,13 @@ class OpenAIChildSourceModel(OpenAIChildSafetyModel):
                 raise ValueError("A provisional item cannot authorize a source call")
             if kind == "function_call":
                 call = (
-                    BatterySourceCall
+                    SavedObservationCall
+                    if prompt.scope.protocol == 4
+                    and item.get("name") == "inspect_saved_child_observation"
+                    else BatterySourceCall
                     if prompt.scope.protocol == 1
                     else DatedObservationCall
-                    if prompt.scope.protocol == 3
+                    if prompt.scope.protocol in {3, 4}
                     else ObservationSourceCall
                 ).model_validate({key: value for key, value in item.items() if key != "status"})
                 prompt.scope.validate_call(call)

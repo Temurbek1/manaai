@@ -90,6 +90,7 @@ from app.mana_ai.domain.parent_touch_manager import ManagerTarget, ParentTouchMa
 from app.mana_ai.domain.proactive_parent import ParentContactContext
 from app.mana_ai.domain.responses import FindingDraft, ModelAnalysis, SafetyMonitorDetails
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy, RetentionTariffFact
+from app.mana_ai.domain.saved_observations import SavedObservationLimits
 from app.mana_ai.domain.source_reviews import (
     CounterComparisonView,
     SourceReviewPolicy,
@@ -119,6 +120,7 @@ from app.services.lab_location_comparison import (
     location_comparison_text,
 )
 from app.services.lab_native_source_model import LabNativeSourceModel
+from app.services.lab_tariff_followup import simulated_tariff_refinement
 from app.services.lab_trial_action_store import LabTrialActionExecutor, SqliteLabTrialActionStore
 from app.services.lab_trial_end import LabTrialEndClock
 from app.services.lab_trial_period import LabTrialGrantGateway, LabTrialProfiles, seed_trial_history
@@ -127,6 +129,7 @@ from app.services.location_comparison_cache import SqliteLocationComparisonCache
 from app.services.location_comparison_safety_store import SqliteLocationComparisonSafetyStore
 from app.services.location_safety_store import SqliteLocationSafetyStore
 from app.services.location_source_cache import SqliteLocationSourceCache
+from app.services.location_time_cache import SqliteLocationTimeCache
 from app.services.mana_ai_openai_gateway import SystemManaAIClock
 from app.services.multi_family_source_store import SqliteMultiFamilySourceStore
 from app.services.parent_chat_model import OpenAIParentChatModel
@@ -136,6 +139,8 @@ from app.services.parent_support_question_store import SqliteParentSupportQuesti
 from app.services.parent_touch_manager_store import SqliteParentTouchManagerStore
 from app.services.retention_expiry_store import SqliteRetentionExpiryStore
 from app.services.safety_remainder_store import SqliteSafetyRemainderStore
+from app.services.saved_observation_runtime import saved_observation_service
+from app.services.saved_observation_safety_store import SqliteSavedObservationSafetyStore
 from app.services.shared_conversion_profile_store import SqliteSharedConversionProfileStore
 from app.services.source_review_cache import SqliteSourceReviewCache
 from app.services.source_review_safety_store import SqliteSourceReviewSafetyStore
@@ -145,6 +150,7 @@ from app.services.source_tool_safety_store import (
     SqliteObservationToolSafetyStore,
     SqliteSourceToolSafetyStore,
 )
+from app.services.tariff_followup_store import SqliteTariffFollowupStore
 from app.services.tariff_handoff_store import SqliteTariffHandoffStore
 from app.services.trial_end_store import SqliteTrialEndStore
 from app.services.trial_period_store import SqliteTrialPeriodStore
@@ -400,8 +406,13 @@ class SimulatedModel:
                         else "Проверьте разрешение уведомлений MANA в настройках телефона."
                     ),
                 )
+            refinement = simulated_tariff_refinement(
+                json.loads(prompt.messages[0][1]), prompt.messages[-1][1]
+            )
             target: ManagerTarget | None = (
-                "reminder"
+                "upsell"
+                if refinement is not None
+                else "reminder"
                 if any(t in text for t in ("напомни", "eslat", "remind"))
                 else "upsell"
                 if any(
@@ -411,7 +422,7 @@ class SimulatedModel:
                 if any(t in text for t in ("привет", "спасибо", "hello", "salom", "rahmat"))
                 else "child_safety"
             )
-            enquiry = (
+            enquiry = refinement or (
                 self._tariff_enquiry(prompt.messages[-1][1])
                 if target == "upsell"
                 and prompt.manager_scope.tariff_handoff_enabled
@@ -588,7 +599,26 @@ class SimulatedModel:
             uzbek = prompt.response_language == "uz-Latn"
             if prompt.upsell_scope is not None:
                 latest = prompt.messages[-1][1]
-                if prompt.upsell_scope.protocol == "catalog-currency-v2":
+                if (
+                    prompt.upsell_scope.protocol == "catalog-currency-v2"
+                    and prompt.question is None
+                    and (prompt.notice is None or prompt.notice.kind != "urgent")
+                    and any(
+                        word in latest.casefold()
+                        for word in (
+                            "тариф",
+                            "tarif",
+                            "цен",
+                            "narx",
+                            "price",
+                            "стоимост",
+                            "сколько стоит",
+                            "дешев",
+                            "arzon",
+                            "cheap",
+                        )
+                    )
+                ):
                     enquiry = self._tariff_enquiry(latest)
                     currency = enquiry.currency
                     return ChatModelReceipt(
@@ -874,6 +904,10 @@ class LabOptions:
     trial_periods: bool = False
     location: bool = False
     location_comparisons: bool = False
+    location_time_labels: bool = False
+    saved_observations: bool = False
+    saved_observation_limits: SavedObservationLimits = field(default_factory=SavedObservationLimits)
+    tariff_followups: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
@@ -893,6 +927,12 @@ class LabOptions:
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.location_time_labels and not options.location_comparisons:
+            raise ValueError("Location time labels need the captured comparison lab")
+        if options.saved_observations and not (options.compact_manager and options.location):
+            raise ValueError("Saved observation lab needs compact manager and location cache")
+        if options.tariff_followups and not options.compact_manager:
+            raise ValueError("Tariff follow-ups need the compact tariff manager")
         if options.location_comparisons and not (options.location and options.compact_publication):
             raise ValueError("Location comparison lab requires captured location publication")
         if options.compact_manager and not options.compact_publication:
@@ -1043,6 +1083,15 @@ class ChatLab:
             expected["location"] = True
         if self.options.location_comparisons:
             expected["location_comparisons"] = True
+        if self.options.location_time_labels:
+            expected["location_time_labels"] = True
+        if self.options.saved_observations:
+            expected["saved_observations"] = True
+            expected["saved_observation_limits"] = (
+                self.options.saved_observation_limits.model_dump()
+            )
+        if self.options.tariff_followups:
+            expected["tariff_followups"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
@@ -1193,7 +1242,11 @@ class ChatLab:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteLocationComparisonSafetyStore
+                SqliteTariffFollowupStore
+                if self.options.tariff_followups
+                else SqliteSavedObservationSafetyStore
+                if self.options.saved_observations
+                else SqliteLocationComparisonSafetyStore
                 if self.options.location_comparisons
                 else SqliteCompactParentPublicationStore
                 if self.options.compact_publication
@@ -1298,6 +1351,13 @@ class ChatLab:
                 reminder_options["location_enabled"] = True
             if self.options.location_comparisons:
                 reminder_options["location_comparisons_enabled"] = True
+            if self.options.location_time_labels:
+                reminder_options["location_time_labels_enabled"] = True
+            if self.options.saved_observations:
+                reminder_options["saved_observations_enabled"] = True
+                reminder_options["saved_observation_limits"] = self.options.saved_observation_limits
+            if self.options.tariff_followups:
+                reminder_options["tariff_followups_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -1390,7 +1450,9 @@ class ChatLab:
         )
         self.source_store = (
             (
-                SqliteLocationComparisonCache
+                SqliteLocationTimeCache
+                if self.options.location_time_labels
+                else SqliteLocationComparisonCache
                 if self.options.location_comparisons
                 else SqliteUsageComparisonCache
                 if self.options.usage_comparisons
@@ -1414,6 +1476,11 @@ class ChatLab:
                 **(
                     {"location_comparisons_enabled": True}
                     if self.options.location_comparisons
+                    else {}
+                ),
+                **(
+                    {"location_time_labels_enabled": True}
+                    if self.options.location_time_labels
                     else {}
                 ),
                 **({"location_enabled": True} if self.options.location else {}),
@@ -1468,6 +1535,19 @@ class ChatLab:
                 prompts=SourceToolPromptBuilder(),
                 sources=self.sources,
                 day_usage=self.day_usage,
+                saved_observations=saved_observation_service(
+                    path=directory / "sources.sqlite3",
+                    binding="fake-lab-mana-battery-v1",
+                    source_limits=FamilySourceLimits(),
+                    children=profiles,
+                    clock=self.options.clock.now,
+                    maximum_age_seconds=policy.maximum_age_seconds,
+                    app_usage=self.options.native_observations,
+                    location=self.options.location,
+                    day_usage=self.options.day_usage,
+                )
+                if self.options.saved_observations
+                else None,
                 clock=self.options.clock,
                 limits=limits,
                 max_output_tokens=512,
@@ -1491,6 +1571,9 @@ class ChatLab:
             manager=self.store if isinstance(self.store, SqliteParentTouchManagerStore) else None,
             parent_publications=self.store
             if isinstance(self.store, SqliteCompactParentPublicationStore)
+            else None,
+            tariff_followups=self.store
+            if isinstance(self.store, SqliteTariffFollowupStore)
             else None,
             input_presentations=self.store
             if isinstance(self.store, SqliteCompactFamilyInputStore)

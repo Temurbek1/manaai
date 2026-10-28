@@ -18,6 +18,7 @@ from app.mana_ai.domain.family_sources import FamilySourceLimits
 from app.mana_ai.domain.inventory_tariffs import InventoryTariffPolicy
 from app.mana_ai.domain.parent_reminders import ReminderPolicy
 from app.mana_ai.domain.retention_expiry import RetentionExpiryPolicy
+from app.mana_ai.domain.saved_observations import SavedObservationLimits
 from app.mana_ai.domain.shared_conversion_profile import SharedConversionProfilePolicy
 from app.mana_ai.domain.source_reviews import SourceReviewPolicy
 from app.mana_ai.domain.trial_end import TrialEndPolicy
@@ -110,6 +111,12 @@ class Settings(BaseSettings):
     mana_conversion_trial_periods_enabled: bool = False
     mana_family_location_enabled: bool = False
     mana_family_location_comparisons_enabled: bool = False
+    mana_family_location_time_labels_enabled: bool = False
+    mana_family_saved_observations_enabled: bool = False
+    mana_family_saved_observation_limits: SavedObservationLimits = Field(
+        default_factory=SavedObservationLimits
+    )
+    mana_upsell_followups_enabled: bool = False
     mana_retention_trial_end_enabled: bool = False
     mana_retention_trial_end_policy: TrialEndPolicy = Field(default_factory=TrialEndPolicy)
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
@@ -483,6 +490,20 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if self.mana_family_saved_observations_enabled and not (
+            self.mana_parent_touch_compact_manager_enabled and self.mana_family_location_enabled
+        ):
+            raise ValueError(
+                "Saved observations require captured manager and location cache runtimes"
+            )
+        if self.mana_upsell_followups_enabled and not (
+            self.mana_parent_touch_compact_manager_enabled and self.mana_client_upsell_enabled
+        ):
+            raise ValueError("Tariff follow-ups require the compact governed tariff manager")
+        if self.mana_family_location_time_labels_enabled and not (
+            self.mana_family_location_comparisons_enabled
+        ):
+            raise ValueError("Location time labels require captured saved-point comparisons")
         if self.mana_family_location_comparisons_enabled and not (
             self.mana_family_location_enabled and self.mana_parent_touch_compact_publication_enabled
         ):

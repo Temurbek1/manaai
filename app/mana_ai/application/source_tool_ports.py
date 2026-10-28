@@ -7,6 +7,7 @@ from app.mana_ai.application.chat_ports import ChatPrompt
 from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.family_day_usage import DayUsageReceipt
 from app.mana_ai.domain.family_sources import FamilySourceReceipt
+from app.mana_ai.domain.saved_observations import SavedObservationReceipt
 from app.mana_ai.domain.source_tools import (
     SourceToolContinuation,
     SourceToolModelProfile,
@@ -19,7 +20,7 @@ class SourceToolPrompt:
     input: ChatPrompt
     scope: SourceToolScope
     continuation: SourceToolContinuation | None = None
-    source_result: FamilySourceReceipt | DayUsageReceipt | None = None
+    source_result: FamilySourceReceipt | DayUsageReceipt | SavedObservationReceipt | None = None
 
 
 @dataclass(frozen=True)

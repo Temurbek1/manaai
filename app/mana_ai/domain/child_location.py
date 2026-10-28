@@ -1,6 +1,7 @@
 """Minimized location evidence: no coordinates, address, route or present-danger claim."""
 
 import hashlib
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import AwareDatetime, Field, model_validator
@@ -81,6 +82,14 @@ class LocationObservationView(ChatContract):
     accuracy_reported: bool = Field(strict=True)
 
 
+def location_measurement_label(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.utcoffset() is None:
+        raise ValueError("A measurement label requires a timezone-aware observation")
+    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
 class LocationComparisonView(ChatContract):
     previous: LocationObservationView
     current: LocationObservationView
@@ -94,6 +103,15 @@ class LocationComparisonView(ChatContract):
     stored_point_relation: Literal["same", "different", "not_comparable"]
     verified_movement: Literal[False] = False
     route_reconstructed: Literal[False] = False
+    presentation_version: Literal[2] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    previous_measurement_label: str | None = Field(
+        default=None, max_length=64, exclude_if=lambda value: value is None
+    )
+    current_measurement_label: str | None = Field(
+        default=None, max_length=64, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def qualified_relation(self) -> "LocationComparisonView":
@@ -115,7 +133,29 @@ class LocationComparisonView(ChatContract):
             (self.stored_point_relation != "not_comparable") != (expected == "ordered_measurements")
         ):
             raise ValueError("A point relation requires strictly ordered measurement dates")
+        expected_labels = (
+            (
+                location_measurement_label(previous.observed_at),
+                location_measurement_label(current.observed_at),
+            )
+            if self.presentation_version == 2
+            else (None, None)
+        )
+        if (self.previous_measurement_label, self.current_measurement_label) != expected_labels:
+            raise ValueError("Measurement labels must exactly preserve their own UTC instants")
         return self
+
+
+LOCATION_TIME_LABEL_QUALIFICATION = (
+    "This comparison uses frozen host measurement labels. State both non-null "
+    "previous_measurement_label and current_measurement_label exactly, including time and UTC. "
+    "A UTC day can differ from the parent's local day; never omit the zone or silently convert. "
+    "A null label means unknown measurement time, never a source-update or collection date. "
+    "There are two saved observations, not just one. Translate quality into ordinary words; "
+    "never quote internal labels such as 'dated' or 'unknown_measurement_time'. "
+    "Use ordinary words in the parent's language, no field names, bureaucratic opening or "
+    "claim of current position. Keep useful qualifications and a practical next step."
+)
 
 
 LOCATION_COMPARISON_QUALIFICATION = (

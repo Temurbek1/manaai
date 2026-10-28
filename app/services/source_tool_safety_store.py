@@ -17,8 +17,10 @@ from app.mana_ai.domain.conversion_accounts import ConversionAccountReadLimits
 from app.mana_ai.domain.family_agents import ParentTouchReviewedTurn, ParentTouchReviewGuidance
 from app.mana_ai.domain.family_day_usage import DAY_USAGE_SOURCE, DayUsageReceipt, DayUsageTarget
 from app.mana_ai.domain.family_sources import FamilySourceReceipt, FamilySourceTarget
+from app.mana_ai.domain.saved_observations import SavedObservationReceipt, SavedObservationTarget
 from app.mana_ai.domain.source_reviews import SourceAnalysisOwner
 from app.mana_ai.domain.source_tools import (
+    SavedObservationCall,
     SourceToolContinuation,
     SourceToolModelProfile,
     SourceToolPreparedInput,
@@ -34,29 +36,41 @@ from app.services.conversion_account_store import (
 _TABLES = {"source_tool_turns", "source_tool_jobs", "source_tool_receipts"}
 
 
-def _target(payload: str) -> FamilySourceTarget | DayUsageTarget:
+def _target(payload: str) -> FamilySourceTarget | DayUsageTarget | SavedObservationTarget:
     return (
-        DayUsageTarget
+        SavedObservationTarget
+        if json.loads(payload).get("operation") == "saved_observation_inspection"
+        else DayUsageTarget
         if json.loads(payload).get("source") == DAY_USAGE_SOURCE
         else FamilySourceTarget
     ).model_validate_json(payload)
 
 
-def _receipt(payload: str) -> FamilySourceReceipt | DayUsageReceipt:
+def _receipt(payload: str) -> FamilySourceReceipt | DayUsageReceipt | SavedObservationReceipt:
     return (
-        DayUsageReceipt
+        SavedObservationReceipt
+        if json.loads(payload).get("operation") == "saved_observation_inspection"
+        else DayUsageReceipt
         if json.loads(payload).get("source") == DAY_USAGE_SOURCE
         else FamilySourceReceipt
     ).model_validate_json(payload)
 
 
 def _matches(
-    receipt: FamilySourceReceipt | DayUsageReceipt, target: FamilySourceTarget | DayUsageTarget
+    receipt: FamilySourceReceipt | DayUsageReceipt | SavedObservationReceipt,
+    target: FamilySourceTarget | DayUsageTarget | SavedObservationTarget,
 ) -> bool:
-    return all(
-        getattr(receipt, key) == getattr(target, key)
-        for key in ("parent_id", "child_id", "request_id", "source")
-    ) and (getattr(receipt, "requested_day", None) == getattr(target, "requested_day", None))
+    return (
+        all(
+            getattr(receipt, key) == getattr(target, key)
+            for key in ("parent_id", "child_id", "request_id", "source")
+        )
+        and (getattr(receipt, "requested_day", None) == getattr(target, "requested_day", None))
+        and (
+            isinstance(receipt, SavedObservationReceipt)
+            == isinstance(target, SavedObservationTarget)
+        )
+    )
 
 
 def _hash(value: str) -> str:
@@ -257,8 +271,8 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             return 3
         raise ParentChatError("native_source_preparation_denied", 409)
 
-    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3]:
-        def read() -> Literal[1, 2, 3]:
+    async def native_protocol(self, job: SafetyJob) -> Literal[1, 2, 3, 4]:
+        def read() -> Literal[1, 2, 3, 4]:
             with self._connect() as connection:
                 row = connection.execute(
                     "SELECT profile FROM source_tool_turns WHERE parent_id=? AND turn_id=?",
@@ -266,7 +280,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 ).fetchone()
                 if row is None:
                     raise ParentChatError("native_source_preparation_denied", 409)
-                return cast(Literal[1, 2, 3], self._captured_protocol(row[0]))
+                return cast(Literal[1, 2, 3, 4], self._captured_protocol(row[0]))
 
         return await asyncio.to_thread(read)
 
@@ -304,7 +318,7 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                     receipt.status
                     not in (
                         {"completed", "unavailable"}
-                        if isinstance(receipt, DayUsageReceipt)
+                        if isinstance(receipt, DayUsageReceipt | SavedObservationReceipt)
                         else {"completed"}
                     )
                     or receipt.child_id not in connected
@@ -314,9 +328,18 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 updates: dict[str, object] = {
                     "source_observations": (receipt.facts,) if receipt.facts is not None else ()
                 }
-                if isinstance(receipt, DayUsageReceipt):
+                if isinstance(receipt, SavedObservationReceipt):
+                    updates["saved_observation"] = receipt.provenance()
+                if isinstance(receipt, DayUsageReceipt) or (
+                    isinstance(receipt, SavedObservationReceipt)
+                    and receipt.requested_day is not None
+                ):
                     updates["day_usage_query"] = receipt.requested_day
-                    updates["day_usage_child_returned"] = receipt.child_returned
+                    updates["day_usage_child_returned"] = (
+                        receipt.child_returned
+                        if isinstance(receipt, DayUsageReceipt)
+                        else receipt.status == "completed"
+                    )
                 return guidance.model_copy(update=updates)
 
         return await asyncio.to_thread(source)
@@ -422,6 +445,10 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
             )
             if (
                 child is None
+                or (
+                    isinstance(choice.call, SavedObservationCall)
+                    != isinstance(target, SavedObservationTarget)
+                )
                 or target.parent_id != prepared.scope.parent_id
                 or target.child_id != child.child_id
                 or choice.input_digest != prepared.input_digest
@@ -628,10 +655,28 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
 
         return await asyncio.to_thread(record)
 
+    def _claim_saved_observation(
+        self,
+        connection: sqlite3.Connection,
+        job: SafetyJob,
+        target: SavedObservationTarget,
+        now: datetime,
+    ) -> None:
+        raise ParentChatError("saved_observations_disabled", 503)
+
+    def _record_saved_observation(
+        self,
+        connection: sqlite3.Connection,
+        job: SafetyJob,
+        receipt: SavedObservationReceipt,
+        now: datetime,
+    ) -> None:
+        raise ParentChatError("saved_observations_disabled", 503)
+
     async def claim_native_source(
         self, job: SafetyJob, continuation: SourceToolContinuation, now: datetime
-    ) -> FamilySourceTarget | DayUsageTarget:
-        def claim() -> FamilySourceTarget | DayUsageTarget:
+    ) -> FamilySourceTarget | DayUsageTarget | SavedObservationTarget:
+        def claim() -> FamilySourceTarget | DayUsageTarget | SavedObservationTarget:
             with self._transaction() as connection:
                 row, native = self._claimed(connection, job), self._native(connection, job)
                 if (
@@ -660,10 +705,14 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                 )
                 day = source_call_day(choice.call)
                 target = (
-                    DayUsageTarget.model_validate(data | {"requested_day": day})
+                    SavedObservationTarget.model_validate(data | {"requested_day": day})
+                    if isinstance(choice.call, SavedObservationCall)
+                    else DayUsageTarget.model_validate(data | {"requested_day": day})
                     if day is not None
                     else FamilySourceTarget.model_validate(data)
                 )
+                if isinstance(target, SavedObservationTarget):
+                    self._claim_saved_observation(connection, job, target, self._utc(now))
                 payload = choice.model_dump_json()
                 connection.execute(
                     "UPDATE source_tool_jobs SET phase='source_submitting',continuation=?,"
@@ -675,7 +724,10 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
         return await asyncio.to_thread(claim)
 
     async def record_native_source(
-        self, job: SafetyJob, receipt: FamilySourceReceipt | DayUsageReceipt, now: datetime
+        self,
+        job: SafetyJob,
+        receipt: FamilySourceReceipt | DayUsageReceipt | SavedObservationReceipt,
+        now: datetime,
     ) -> bool:
         def record() -> bool:
             with self._transaction() as connection:
@@ -690,12 +742,14 @@ class SqliteSourceToolSafetyStore(SqliteConversionAccountStore):
                     checked.status
                     in (
                         {"completed", "unavailable"}
-                        if isinstance(checked, DayUsageReceipt)
+                        if isinstance(checked, DayUsageReceipt | SavedObservationReceipt)
                         else {"completed"}
                     )
                     and row["status"] == "preparing"
                     and row["lease_expires_at"] > self._utc(now).isoformat()
                 )
+                if isinstance(checked, SavedObservationReceipt):
+                    self._record_saved_observation(connection, job, checked, self._utc(now))
                 payload = checked.model_dump_json()
                 connection.execute(
                     "UPDATE source_tool_jobs SET phase=?,source_result=?,source_result_hash=? "

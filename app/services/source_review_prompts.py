@@ -9,6 +9,7 @@ from app.mana_ai.domain.child_location import (
     LOCATION_COMPARISON_QUALIFICATION,
     LOCATION_QUALIFICATION,
     LOCATION_SOURCE,
+    LOCATION_TIME_LABEL_QUALIFICATION,
 )
 from app.mana_ai.domain.child_safety import SafetyJob
 from app.mana_ai.domain.source_reviews import counter_comparison_view, location_comparison_view
@@ -80,6 +81,7 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
             + (
                 "\n" + LOCATION_QUALIFICATION
                 if any(s.source == LOCATION_SOURCE for s in bundle.snapshots)
+                and (location is None or location.presentation_version != 2)
                 else ""
             )
             + (
@@ -101,7 +103,12 @@ def source_review_prompt(job: SafetyJob, context: ParentChildContext) -> SafetyP
                 if bundle.usage_comparison is not None
                 else ""
             )
-            + ("\n" + LOCATION_COMPARISON_QUALIFICATION if location is not None else ""),
+            + ("\n" + LOCATION_COMPARISON_QUALIFICATION if location is not None else "")
+            + (
+                "\n" + LOCATION_TIME_LABEL_QUALIFICATION
+                if location is not None and location.presentation_version == 2
+                else ""
+            ),
             (("user", json.dumps(payload, ensure_ascii=False)),),
             safety_source_review=True,
         ),

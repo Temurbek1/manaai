@@ -32,6 +32,7 @@ from app.mana_ai.domain.parent_reminders import (
     ReminderCandidate,
     ReminderConfirmation,
 )
+from app.mana_ai.domain.saved_observations import SavedObservationProvenance
 from app.mana_ai.domain.source_reviews import CounterComparisonView
 
 FamilyAgentId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{1,63}$", strict=True)]
@@ -139,6 +140,9 @@ class ParentTouchReviewedTurn(ParentTouchRequest):
 
 
 class ParentTouchReviewGuidance(ChatContract):
+    saved_observation: SavedObservationProvenance | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     summary: str = Field(min_length=1, max_length=1500)
     reviewed_at: AwareDatetime
     parent_message_at: AwareDatetime
