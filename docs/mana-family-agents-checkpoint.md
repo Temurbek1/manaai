@@ -2,6 +2,60 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+
+### Direct reminders / native manager checkpoint — local, 2026-10-28
+
+Feature **a41f3c2** is pushed to `feat/mana-conversion-agent-20261021` in
+`/mnt/ssd2/mana-conversion-agent-20261021`. Read
+[the native decision checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-compact-manager-decisions.md),
+[direct reminder routing](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-direct-reminder-routing.md)
+and English integration sections52–53. Family43/44 flags remain default disabled;
+production stays **4018971**, family41/source10. The full goal remains active.
+
+A complete literal reminder selects the existing strong owning review without a
+separate routing model call. It never schedules from syntax: the entire task,
+frozen date/timezone, semantic model review, exact human confirmation and fresh
+ownership check remain. New manager turns use one strict nested v2 native decision
+for reply/clarification/owning handoff. Old v1/unmarked turns never upgrade.
+Paired proofs and minimized rejection audits fence new work/publication after a
+stop or lost proof, retaining known late costs and unknown holds.
+
+Full `make verify` exited0: **2257 backend /26 admin /23 lab**, mypy524 files,
+format/Ruff/lint/types/build and configured high-severity audit; one backend skip,
+two opt-in live exclusions and five existing low dev findings remain. OpenAPI and
+clean-index secret/quality scans pass. The fake browser retains eight messages,
+one confirmed scheduled reminder and600 simulated parent/150 Safety tokens after
+reload, with no390px overflow/page errors. Browser/server are closed.
+
+Clean image `0e8c6cd66f25…` matches all325 application/lockfile hashes and the
+committed326-entry build manifest on actual Python3.12.15/OpenAI2.53.0. Ten native
+v1/v2 valid/malformed MockTransport cases pass. A historical41 fixture migrates
+through the actual factory to44 with all86 old tables/cells exact and10 new tables;
+worker start is suppressed, no HTTP occurs. Closed44 preserves the actual v1/v2
+negative ledgers and a612-token unknown-v1 hold across midnight. Historical42
+fixtures remain42 under their existing closed reader. Two attempted active42
+probes correctly refuse different setup/expiry source bindings; **active42 upgrade
+is not accepted**. All original DB/WAL/SHM bytes remain unchanged.
+
+Actual-model quality is still **negative**. The first new party rejects a priced
+native v1 decision, using1452 parent tokens with no Safety/source call. A separately
+captured v2 party prepares/confirms/delivers the same reminder, correctly routes the
+full backpack-independence follow-up, and obtains useful qualified Safety guidance.
+It uses1323 parent/1107 global Safety tokens, leaving677 parent tokens. Final
+publication counts702 plus the unchanged128 output floor, so no final answer is
+generated. Both parties have zero unknown holds; their generation estimates total
+$0.0123415, not an invoice or count-fee statement. Preserve every earlier negative;
+no replay, reset, smaller task, model downgrade or allowance increase follows.
+
+Next work should reduce redundant owning/publishing envelopes while retaining
+strong semantic review, full requests and human confirmation. A host-bound complete
+literal reminder proposal with a newly captured prepare/reply review is only a
+future design, not implemented permission. The archived Glazok linking source is
+not proven current MANA guidance; keep screen/device clarification honest. Referral
+remains deferred. Main/audio, OPERATION, UI, SSH, keys, cloud data, bulk schedules,
+push/grants and2000/2000 limits were not changed. Public health and canonical Swagger
+return200; `/docs/` correctly redirects302 to `/docs`.
+
 ### Source-backed setup support checkpoint — local, 2026-10-28
 
 Feature branch `feat/mana-conversion-agent-20261021` adds **19f99b8**, family42 /
