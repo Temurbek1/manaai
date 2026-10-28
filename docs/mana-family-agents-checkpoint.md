@@ -2,6 +2,51 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Compact observation and literal tariff workspace — local checkpoint, 2026-10-28
+
+Feature worktree `/mnt/ssd2/mana-conversion-agent-20261021`, **`4018971`**.
+Read [the exact scope and acceptance](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-compact-agent-workspace.md)
+and English integration section49. Three user-requested subagents completed
+native5/family41, literal tariff changes/family40 and independent shared-chat
+review in parallel. All flags default disabled; older captures never upgrade.
+
+Native5 exposes one typed observation tool with explicit saved-only/live access,
+full original words/facts, exact call/receipt pairing and hash-bound duplicate
+projection. Literal tariff changes preserve constraints and use the same owner
+catalog lifecycle with zero new inference; no currency reinterpretation or
+financial/source authority is inferred. Latest41 RU/UZ mixed tests preserve
+Retention question -> urgent Safety -> exact answers and tariff cancellation.
+
+A new independent actual-model/fake-source party completes a natural Uzbek
+saved-only answer in a six-child scope (one requested child analyzed): **1885
+parent /1832 global Safety tokens**, no unknown holds, zero source-ledger change.
+Russian initial quote plus three literal refinements uses **843** parent tokens
+and one fake catalog read. Five generations/five counts; known uncached generation
+estimate **$0.010734**, not an invoice. Independent content/SQL review qualifies
+both cases. All previous actual-family failures remain unchanged; this is not
+fleet capacity or sustained dialogue (only168 global Safety tokens remain).
+
+Final `make verify` exits0: **1913 backend**, **26 admin /23 lab** cases, mypy
+**499 files**, format/lint/typecheck/build. Five LOW dev-dependency findings
+remain; required high-severity audit and OpenAPI sync pass.27-owned-file secret
+scan passes. Final image `b9e3dec5cce9…` attests313 export/310 app files; actual
+networkless production-copy v6 ->41 retains every original cell in16 tables,
+two messages and exact legacy replay. Closed41 preserves all86 paid-test tables,
+known1885/1832 costs and a separate fake1850 unknown hold across restart/day.
+Original DB/WAL/SHM hashes are preserved; this is not active old-image rollback.
+
+Owned390px browser verifies four quotes, GPS2 timestamps, native saved inspection
+and qualified missing-data reply; physical restart preserves full REST state and
+all86 family/31 source table fingerprints. Final15 messages,750 simulated
+parent/Safety tokens, no JS errors or page overflow; own browser/8117 closed.
+Production, SSH/keys, source schedules, real contacts/grants/payments unchanged.
+The full goal remains active. Next independent acceptance includes the complete
+parent-assistant reminder -> exact confirmation -> due delivery -> natural reply,
+real-family/source and verified contact preferences, commercial eligibility,
+route history, fleet budgets/coverage and separately scoped release. Referral is
+still deferred pending its actual contract; Technical Reliability stays last.
+
+
 ### Saved-only native tools and tariff context — local checkpoint, 2026-10-28
 
 Feature worktree `/mnt/ssd2/mana-conversion-agent-20261021`, **`62a463d`**. Read
