@@ -1284,3 +1284,22 @@ lab. The independent actual-model/synthetic-source party completes one Uzbek
 saved-only answer and one Russian four-quote conversation; it is not real-family,
 fleet/day capacity or production acceptance. Full evidence and rollout limits:
 [mana-compact-agent-workspace.md](mana-compact-agent-workspace.md).
+
+## 50. Production release on 28 October
+
+Application `4018971` is active in the isolated MANA parent-chat service. The
+minimal message/status/history API is unchanged. Compact saved/live source
+selection and literal tariff changes are enabled only for new eligible captures.
+Bulk collection, push dispatch and free-tariff grants remain disabled. Existing
+2000-token parent/global Safety limits still apply; check the returned quota.
+
+Swagger: <https://ai.360rec.uz/docs#/mana-chat>. Use only the existing isolated
+backend credential, with an explicit application user agent such as
+`User-Agent: MANA-Backend/1.0`. The existing edge filter rejects the default
+Python-urllib user agent; a403 HTML response there is different from an API JSON
+error. The named backend user agent was verified through public HTTPS.
+
+A real production90-day quote and180-day literal follow-up completed for the
+previously designated test parent4, using861 then0 tokens. Exact replay uses0.
+Full release scope, preserved negative results, backup and compatible closure:
+[mana-family-production-20261028.md](mana-family-production-20261028.md).

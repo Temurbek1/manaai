@@ -1,5 +1,10 @@
 # MANA autonomous single-chat agents — active objective, 2026-10-24
 
+The [scoped production release](mana-family-production-20261028.md) activates
+application4018971 family41/source10 in the isolated parent-chat sidecar. A real
+test-parent tariff enquiry/refinement uses861+0 tokens; bulk reads, push and
+grants remain disabled. This is not completion of the full scope below.
+
 The [full reminder-dialogue diagnostic](mana-reminder-dialogue-budget.md) confirms
 draft, exact confirmation, restart and one due delivery, then fails the same
 parent’s substantive follow-up at1326/2000 tokens (749input+128floor >674remaining).

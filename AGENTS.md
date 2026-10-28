@@ -1,5 +1,14 @@
 # AGENTS.md
 
+- Scoped production now runs application4018971 family41/source10; read
+  `docs/mana-family-production-20261028.md`. Only the parent sidecar/staticSwagger
+  changed, models and2000/2000raw ceilings retained. Targeted reads100/200units
+  perrollingday, sixhourcooldown; bulkcollection/push/grants disabled. Newnative
+  timeout30/lease360 is explicit; oldcaptures and unknownholds neverupgrade.
+  Keep the initial configuration/directory403 failures and closed recovery;
+  oldschema6 is not a rollback reader for41. Realparent4tariff smoke861+0 tokens
+  passes, not broaderchild/fleet readiness. Uncommitted42setup remains local.
+
 - The new whole reminder-dialogue diagnostic FAILED the substantive follow-up
   admission after a correctly confirmed/delivered reminder:1326parent tokens
   used,749input+128minimum exceeds674remaining. Read
