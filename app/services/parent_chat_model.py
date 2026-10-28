@@ -17,11 +17,19 @@ from app.mana_ai.application.chat_ports import (
     ChatModelRejected,
     ChatPrompt,
 )
+from app.mana_ai.application.compact_manager_decision import (
+    compact_manager_decision_tools,
+    parse_compact_manager_decision,
+)
 from app.mana_ai.application.input_presentation import without_schema_titles
 from app.mana_ai.application.parent_languages import language_name, parent_language
 from app.mana_ai.application.upsell_text import TARIFF_HANDOFF_PLACEHOLDER
 from app.mana_ai.domain.chat import ChatTokens
 from app.mana_ai.domain.client_upsell import UpsellChoice
+from app.mana_ai.domain.compact_manager_decision import (
+    COMPACT_MANAGER_DECISION_TOOL,
+    CompactManagerInvocation,
+)
 from app.mana_ai.domain.family_agents import (
     ParentTouchCurrencyReply,
     ParentTouchEvidenceReply,
@@ -73,6 +81,10 @@ class OpenAIParentChatModel:
     def _base_text(self, prompt: ChatPrompt) -> ResponseTextConfigParam:
         if prompt.safety_parent_review or prompt.safety_source_review:
             raise ValueError("A parent-chat adapter cannot inherit a specialist review protocol")
+        if prompt.manager_scope and prompt.manager_scope.compact_decision_protocol in {1, 2}:
+            if prompt.manager_scope.stage != "route":
+                raise ValueError("A compact native decision belongs only to initial routing")
+            return {"verbosity": self._verbosity}
         text: ResponseTextConfigParam = {"verbosity": self._verbosity}
         if prompt.manager_scope and prompt.manager_scope.stage == "route":
             if not prompt.structured_reply:
@@ -179,6 +191,8 @@ class OpenAIParentChatModel:
         scope = prompt.manager_scope
         if scope is None or scope.stage != "route":
             return {}
+        if scope.compact_decision_protocol in {1, 2}:
+            return compact_manager_decision_tools(scope)
         descriptions = [
             (CHILD_REVIEW_TOOL, "Ask Child-Safety to analyse this parent's child request.")
         ]
@@ -218,6 +232,8 @@ class OpenAIParentChatModel:
         scope = prompt.manager_scope
         if scope is None or scope.stage != "route":
             return None
+        if scope.compact_decision_protocol in {1, 2}:
+            return self._compact_manager_receipt(prompt, payload, usage, output_cap)
         output = payload.get("output")
         calls = (
             [
@@ -285,6 +301,93 @@ class OpenAIParentChatModel:
             completed=handoff is not None,
             failure_code=None if handoff else "reply_schema_invalid",
             manager_handoff=handoff,
+        )
+
+    def _compact_manager_receipt(
+        self, prompt: ChatPrompt, payload: dict[str, Any], usage: ChatTokens, output_cap: int
+    ) -> ChatModelReceipt:
+        scope = prompt.manager_scope
+        assert scope is not None
+        raw_model = payload.get("model")
+        valid_model = (
+            isinstance(raw_model, str) and 0 < len(raw_model) <= 128 and raw_model.isascii()
+        )
+        model = raw_model if isinstance(raw_model, str) and valid_model else self._model
+        invocation = None
+        answer = None
+        handoff = None
+        question = None
+        failure: ChatDecisionFailure = "reply_schema_invalid"
+        try:
+            output = payload.get("output")
+            if (
+                payload.get("status") != "completed"
+                or not valid_model
+                or usage.output_tokens > output_cap
+                or not isinstance(output, list)
+                or any(
+                    not isinstance(item, dict)
+                    or item.get("type") not in {"function_call", "reasoning", "message"}
+                    for item in output
+                )
+            ):
+                raise ValueError("Invalid compact manager terminal output")
+            calls = [item for item in output if item.get("type") == "function_call"]
+            if len(calls) != 1:
+                raise ValueError("One paired native decision is required")
+            call = calls[0]
+            arguments = call.get("arguments")
+            if (
+                call.get("name") != COMPACT_MANAGER_DECISION_TOOL
+                or call.get("status") not in {None, "completed"}
+                or not isinstance(arguments, str)
+                or len(arguments) > 32768
+            ):
+                raise ValueError("Unadmitted compact manager function")
+            decision = parse_compact_manager_decision(json.loads(arguments), scope)
+            for value in (
+                decision.body,
+                decision.question,
+                decision.enquiry.parent_quote if decision.enquiry else None,
+            ):
+                if value is not None:
+                    value.encode("utf-8")
+            invocation = CompactManagerInvocation(call_id=call.get("call_id"), decision=decision)
+            if decision.kind == "reply":
+                if prompt.response_language and any(
+                    detected is not None and detected != prompt.response_language
+                    for detected in (
+                        parent_language(decision.body or ""),
+                        parent_language(decision.question or ""),
+                    )
+                ):
+                    failure = "reply_language_mismatch"
+                    raise ValueError("The native reply used another presentation language")
+                question = decision.question
+                answer = "\n\n".join(
+                    part for part in ((decision.body or "").strip(), question) if part
+                )
+            else:
+                handoff = ParentTouchManagerHandoff(
+                    target=decision.kind,
+                    call_id=invocation.call_id,
+                    tariff_enquiry=decision.enquiry,
+                )
+                answer = TARIFF_HANDOFF_PLACEHOLDER if decision.enquiry is not None else None
+        except (ValueError, TypeError, ValidationError, RecursionError):
+            invocation = None
+            answer = None
+            handoff = None
+            question = None
+        return ChatModelReceipt(
+            usage=usage,
+            model=model,
+            answer=answer,
+            completed=invocation is not None,
+            failure_code=None if invocation is not None else failure,
+            manager_handoff=handoff,
+            clarification_question=question,
+            native_manager_invocation=invocation,
         )
 
     async def count_input(self, prompt: ChatPrompt) -> int:

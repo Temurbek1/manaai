@@ -28,6 +28,7 @@ from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.client_upsell import ClientUpsellService
 from app.mana_ai.application.conversion import ConversionService
 from app.mana_ai.application.day_usage_service import FamilyDayUsageService
+from app.mana_ai.application.direct_reminders import direct_reminder_request
 from app.mana_ai.application.family_sources import FamilySourceService
 from app.mana_ai.application.parent_reminders import ParentReminderService
 from app.mana_ai.application.parent_setup import ParentSetupService, SetupProfileSource
@@ -105,16 +106,19 @@ from app.services.client_retention_store import SqliteClientRetentionStore
 from app.services.client_upsell_store import SqliteClientUpsellStore
 from app.services.commercial_conversation_store import SqliteCommercialConversationStore
 from app.services.compact_family_input_store import SqliteCompactFamilyInputStore
+from app.services.compact_manager_decision_store import SqliteCompactManagerDecisionStore
 from app.services.compact_parent_publication_store import SqliteCompactParentPublicationStore
 from app.services.compact_source_tool_store import SqliteCompactSourceToolStore
 from app.services.dated_review_safety_store import SqliteDatedReviewSafetyStore
 from app.services.dated_source_safety_store import SqliteDatedSourceSafetyStore
 from app.services.day_review_cache import SqliteDayReviewCache
 from app.services.day_usage_cache import SqliteDayUsageCache
+from app.services.direct_reminder_store import SqliteDirectReminderStore
 from app.services.family_agent_worker import FamilyAgentWorker
 from app.services.inline_upsell_store import SqliteInlineUpsellStore
 from app.services.lab_chat_action_store import SimulatedChatActionExecutor, SqliteLabChatActionStore
 from app.services.lab_collection import LabCollection, LabCollectionClock, lab_collection_store
+from app.services.lab_compact_manager_decision import LabCompactManagerModel
 from app.services.lab_location import LabLocationSource
 from app.services.lab_location_comparison import (
     LabComparisonLocationSource,
@@ -357,8 +361,11 @@ class LabBatterySource:
 class SimulatedModel:
     """Deterministic protocol demonstration, not an actual neural-network answer."""
 
-    def __init__(self, role: Literal["speaker", "safety"]) -> None:
+    def __init__(
+        self, role: Literal["speaker", "safety"], *, direct_reminders: bool = False
+    ) -> None:
         self.role = role
+        self._direct_reminders = direct_reminders
 
     async def count_input(self, prompt: ChatPrompt) -> int:
         return 100
@@ -376,6 +383,26 @@ class SimulatedModel:
         )
 
     async def respond(self, prompt: ChatPrompt, *, max_output_tokens: int) -> ChatModelReceipt:
+        if (
+            self._direct_reminders
+            and prompt.manager_scope
+            and prompt.manager_scope.stage == "reminder"
+        ):
+            data = json.loads(prompt.messages[0][1])["assistant_reminders"]
+            parsed = direct_reminder_request(
+                prompt.messages[-1][1],
+                now=datetime.fromisoformat(data["now_local"]),
+                timezone=data["default_timezone"],
+                timezone_basis="application_default_requires_confirmation",
+            )
+            if parsed is not None:
+                return ChatModelReceipt(
+                    usage=ChatTokens(input_tokens=100, output_tokens=50),
+                    model="lab-simulated-not-billed",
+                    completed=True,
+                    answer="Reminder draft pending host validation.",
+                    reminder_candidate=parsed.candidate,
+                )
         if (
             self.role == "speaker"
             and prompt.manager_scope
@@ -969,6 +996,8 @@ class LabOptions:
     literal_tariff_followups: bool = False
     compact_source_tools: bool = False
     parent_setup: bool = False
+    direct_reminders: bool = False
+    compact_decisions: bool = False
     action_cards: bool = False
     trial_action_cards: bool = False
     trial_end: bool = False
@@ -988,6 +1017,10 @@ class LabOptions:
 
 class ChatLab:
     def __init__(self, options: LabOptions) -> None:
+        if options.compact_decisions and not options.compact_source_tools:
+            raise ValueError("Compact decisions require the full governed manager lab")
+        if options.direct_reminders and not options.compact_source_tools:
+            raise ValueError("Direct reminders need the current governed family profile")
         if options.parent_setup and not (
             options.compact_source_tools and options.parent_support_questions
         ):
@@ -1167,6 +1200,10 @@ class ChatLab:
             expected["compact_source_tools"] = True
         if self.options.parent_setup:
             expected["parent_setup"] = True
+        if self.options.direct_reminders:
+            expected["direct_reminders"] = True
+        if self.options.compact_decisions:
+            expected["compact_decisions"] = True
         if self.options.action_cards:
             expected["action_cards"] = True
         if self.options.trial_action_cards:
@@ -1309,15 +1346,24 @@ class ChatLab:
                 )
             )
         else:
-            speaker, specialist = SimulatedModel("speaker"), SimulatedModel("safety")
+            speaker, specialist = (
+                SimulatedModel("speaker", direct_reminders=self.options.direct_reminders),
+                SimulatedModel("safety"),
+            )
             if self.options.native_sources:
                 specialist = LabNativeSourceModel(specialist)
+        if self.options.compact_decisions and not self.options.real_model:
+            speaker = LabCompactManagerModel(speaker)
         self._models = [speaker, specialist]
         if self.options.native_sources:
             assert isinstance(specialist, OpenAIChildSourceModel)
             profile = specialist.source_profile
             native_store_class = (
-                SqliteParentSetupStore
+                SqliteCompactManagerDecisionStore
+                if self.options.compact_decisions
+                else SqliteDirectReminderStore
+                if self.options.direct_reminders
+                else SqliteParentSetupStore
                 if self.options.parent_setup
                 else SqliteCompactSourceToolStore
                 if self.options.compact_source_tools
@@ -1443,10 +1489,19 @@ class ChatLab:
                 reminder_options["literal_tariff_followups_enabled"] = True
             if self.options.compact_source_tools:
                 reminder_options["compact_source_tools_enabled"] = True
-            if self.options.parent_setup:
+            if (
+                self.options.parent_setup
+                or self.options.direct_reminders
+                or self.options.compact_decisions
+            ):
                 reminder_options.update(
-                    parent_setup_enabled=True, setup_binding="fictional-mana-profile-v1"
+                    parent_setup_enabled=self.options.parent_setup,
+                    setup_binding="fictional-mana-profile-v1",
                 )
+            if self.options.direct_reminders:
+                reminder_options["direct_reminders_enabled"] = True
+            if self.options.compact_decisions:
+                reminder_options["compact_decisions_enabled"] = True
             if self.options.manager:
                 manager_model = (
                     (settings.mana_parent_touch_model or settings.openai_model)
@@ -1690,6 +1745,9 @@ class ChatLab:
             else None,
             expiry=RetentionExpiryService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteRetentionExpiryStore)
+            else None,
+            direct_reminders=self.store
+            if isinstance(self.store, SqliteDirectReminderStore)
             else None,
             setup=ParentSetupService(self.store, clock=self.options.clock.now)
             if isinstance(self.store, SqliteParentSetupStore) and self.options.parent_setup

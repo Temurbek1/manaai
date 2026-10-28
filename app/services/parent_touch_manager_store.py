@@ -35,6 +35,26 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
     def _direct_manager_result(self, receipt: ChatModelReceipt) -> bool:
         return False
 
+    def _valid_manager_handoff(
+        self,
+        db: sqlite3.Connection,
+        turn: StoredChatTurn,
+        receipt: ChatModelReceipt,
+        now: datetime,
+    ) -> bool:
+        """Validate an additional captured native protocol after raw usage is charged."""
+        return True
+
+    def _on_manager_handoff_settled(
+        self,
+        db: sqlite3.Connection,
+        turn: StoredChatTurn,
+        receipt: ChatModelReceipt,
+        *,
+        valid: bool,
+    ) -> None:
+        """Optional private decision audit inside the same owning transaction."""
+
     def __init__(
         self,
         path: Path,
@@ -348,6 +368,8 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
                 ("UPDATE parent_chat_quota SET used=used+? WHERE parent_id=? AND day=?"),
                 (receipt.usage.total, turn.parent_id, root["day"]),
             )
+            if not self._valid_manager_handoff(db, turn, receipt, now):
+                code = "parent_manager_decision_invalid"
             handoff = None
             try:
                 assert receipt.manager_handoff is not None
@@ -469,6 +491,7 @@ class SqliteParentTouchManagerStore(SqliteSharedConversionProfileStore):
                         ),
                         (turn.turn_id, turn.parent_id, root["created_at"], manager["context"]),
                     )
+            self._on_manager_handoff_settled(db, turn, receipt, valid=code is None)
         if code:
             raise ParentChatError(code, 503)
 

@@ -8,6 +8,14 @@ ADMIN_IMAGE_TAG ?= manaai-admin-nextjs:verify
 CHAT_LAB_PORT ?= 8092
 CHAT_LAB_ENV_FILE ?=
 
+.PHONY: chat-lab-compact-decisions
+chat-lab-compact-decisions:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_compact_decisions_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
+.PHONY: chat-lab-direct-reminders
+chat-lab-direct-reminders:
+	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_direct_reminders_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)
+
 .PHONY: chat-lab-compact-manager
 chat-lab-compact-manager:
 	PYTHONPATH=. $(PYTHON) -m uvicorn scripts.mana_chat_lab:create_compact_manager_app --factory --host 127.0.0.1 --port $(CHAT_LAB_PORT)

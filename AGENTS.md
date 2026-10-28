@@ -1,5 +1,16 @@
 # AGENTS.md
 
+- Local family43/44 direct reminders and unified native manager decisions remain
+  default disabled. Read `docs/mana-direct-reminder-routing.md` and
+  `docs/mana-compact-manager-decisions.md`. New44 admissions capture nested v2;
+  old v1/unmarked requests never upgrade. Preserve paired proofs, strict native
+  parsing, minimized rejection audits, known late costs and cross-day unknown
+  holds. Full2257-case gate passes, but two new actual-model whole dialogues are
+  negative (invalid v1 routing; v2 final publication budget). Do not replay/reset
+  them or claim semantic/cost/production readiness. Production stays4018971;
+  only current closed44 is the supported reader for populated44 state. No cloud
+  activation, schedule, push, grant, payment or quota change follows.
+
 - Local default-disabled `MANA_PARENT_SETUP_ENABLED` adds family42 / collection5.
   Read `docs/mana-parent-setup-support.md` and integration section51. Reuse only
   already acquired, explicitly complete MANA linkage facts; missing child counts

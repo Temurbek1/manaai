@@ -1325,3 +1325,36 @@ a two-reply actual-model completion do not establish full setup quality: the
 model still speculated about an unsupplied pairing flow and used1918/2000 tokens.
 Contracts, preserved negative parties and compatible closure:
 [mana-parent-setup-support.md](mana-parent-setup-support.md).
+
+## 52. Explicitly dated reminder routing (local work in progress)
+
+Default-disabled `MANA_PARENT_TOUCH_DIRECT_REMINDERS_ENABLED` can send a complete
+literal reminder request directly to its existing owning model review, saving
+the separate model call that only chooses the owner. It does not schedule a
+reminder from syntax. The full request still gets strong-model review, then the
+same exact parent confirmation and fresh ownership check before delivery.
+
+The mobile API is unchanged: use ordinary message/status/history and the returned
+`reply_to_confirmation_id`. Unsupported or ambiguous grammar keeps the general
+router. Do not add another chat, synthesize a confirmation, or treat a selected
+date as permission. Existing daily limits and raw usage accounting remain.
+
+This is not in production4018971. The new actual-model loop still fails final
+Parent-Touch publication after the substantive follow-up, despite preparing and
+delivering the reminder. Full evidence, preserved costs and remaining work:
+[mana-direct-reminder-routing.md](mana-direct-reminder-routing.md).
+
+## 53. Unified manager decision (local work in progress)
+
+`MANA_PARENT_TOUCH_COMPACT_DECISIONS_ENABLED` captures a mandatory typed native
+reply/clarification/handoff decision on new eligible turns only. Existing mobile
+message/status/history requests do not change. Parent-Touch remains the only
+speaker; selected specialists still use their existing independent policies,
+budgets, fresh ownership and confirmation contracts. The2000/2000 raw limits,
+strong models and full original task remain unchanged.
+
+This is not in production4018971. Use the separately marked fictional lab:
+`make chat-lab-compact-decisions CHAT_LAB_PORT=8120`. Known malformed terminal
+responses retain their verified cost and never fall back to accompanying prose.
+Historical turns never acquire the new protocol. Current evidence and remaining
+acceptance: [mana-compact-manager-decisions.md](mana-compact-manager-decisions.md).

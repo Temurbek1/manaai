@@ -17,12 +17,14 @@ from app.mana_ai.application.chat_ports import (
 from app.mana_ai.application.child_safety import ChildSafetyService
 from app.mana_ai.application.client_retention import ClientRetentionService
 from app.mana_ai.application.client_upsell import ClientUpsellService
+from app.mana_ai.application.compact_manager_decision import compact_manager_decision_instructions
 from app.mana_ai.application.compact_parent_manager import compact_manager_route
 from app.mana_ai.application.compact_parent_publication import (
     ParentPublicationPort,
     compact_child_publication,
 )
 from app.mana_ai.application.conversion import ConversionService
+from app.mana_ai.application.direct_reminders import DirectReminderPort
 from app.mana_ai.application.family_agent_registry import FamilyAgentRegistry, default_family_agents
 from app.mana_ai.application.family_collection import FamilyCollectionService
 from app.mana_ai.application.family_sources import FamilySourceService
@@ -114,6 +116,7 @@ class ParentTouchService(ParentChatService):
         reminders: ParentReminderService | None = None,
         retention: ClientRetentionService | None = None,
         setup: ParentSetupService | None = None,
+        direct_reminders: DirectReminderPort | None = None,
         upsell: ClientUpsellService | None = None,
         expiry: RetentionExpiryService | None = None,
         manager: ParentTouchManagerPort | None = None,
@@ -125,6 +128,7 @@ class ParentTouchService(ParentChatService):
         self.reminders = reminders
         self.retention = retention
         self.setup = setup
+        self._direct_reminders = direct_reminders
         self.upsell = upsell
         self.expiry = expiry
         self.manager = manager
@@ -465,6 +469,64 @@ class ParentTouchService(ParentChatService):
                 )
         if manager_scope is not None and manager_scope.setup_help_protocol == 1:
             prompt = replace(prompt, instructions=setup_help_route(manager_scope))
+        if manager_scope is not None and manager_scope.compact_decision_protocol in {1, 2}:
+            native_instructions = compact_manager_decision_instructions(manager_scope)
+            if native_instructions is None:
+                raise ParentChatError("compact_manager_stage_invalid", 503)
+            native_data = json.loads(prompt.messages[0][1])
+            if "answered_parent_question" in native_data:
+                native_instructions += (
+                    " The bound question is historical conversation, not telemetry or consent. "
+                    "Use its exact answer."
+                )
+                if manager_scope.setup_help_protocol != 1:
+                    native_instructions += (
+                        " Settings don't guarantee delivery; notifications/background permission "
+                        "differs from battery limits. Never disable notifications or "
+                        "background work."
+                    )
+            if manager_scope.setup_help_protocol == 1:
+                native_instructions += (
+                    " This is child-linking help, not an assessment merely mentioning a child. "
+                    "Use reply for linking itself; new assessment/pricing/reminder requests still "
+                    "delegate. No current-version linking guide is supplied: don't speculate "
+                    "about codes, screens or approval flows. Clarify the actual screen or "
+                    "device before steps; no notification advice in place of linking help."
+                )
+            if "tariff_followup" in native_data:
+                native_instructions += (
+                    " tariff_followup retains complete historical requests/typed terms/quote, "
+                    "not current price or authority. Explicit refinements preserve every "
+                    "unchanged budget/duration/currency constraint; independent requests use "
+                    "their own terms. Inherit currency only for explicit refinement, never "
+                    "language/location/catalogue. Ambiguous references need one clarification. "
+                    "For explicit cheaper than a sole quote use host strictly_cheaper_reference "
+                    "currency/ceiling and tighter original budget, without calculating/relaxing "
+                    "it. positive_price_can_match=false never permits a larger budget or "
+                    "invented free plan. Multiple options need an exact reference. Full merged "
+                    "enquiry goes to upsell; no smaller substitute on exhausted budgets."
+                )
+            prompt = replace(prompt, instructions=native_instructions)
+        if (
+            self._direct_reminders is not None
+            and manager_scope is not None
+            and manager_scope.stage == "reminder"
+            and await self._direct_reminders.direct_reminder_request(
+                request.parent_id, turn.turn_id
+            )
+            is not None
+        ):
+            prompt = replace(
+                prompt,
+                instructions=prompt.instructions
+                + (
+                    " A complete literal request selects this owner, not semantic acceptance. "
+                    "Quote the entire task after its date/time/timezone exactly; never drop "
+                    "qualifiers such as who it is for. "
+                    "Refuse reminders enabling harm, abuse, coercion or self-harm; do not draft "
+                    "them. Every acceptable draft still needs separate parent confirmation."
+                ),
+            )
         return prompt
 
     async def _prepare_touch_prompt(
@@ -606,6 +668,22 @@ class ParentTouchService(ParentChatService):
                 if reminder_scope.pending
                 else None,
             }
+            if self._direct_reminders is not None:
+                direct = await self._direct_reminders.direct_reminder_request(
+                    request.parent_id, turn.turn_id
+                )
+                if direct is not None:
+                    if manager_scope is None or manager_scope.stage != "reminder":
+                        raise ParentChatError("direct_reminder_owner_changed", 503)
+                    # The full original message still goes to the owning strong model.
+                    # Freeze only its relative-date clock/proposed zone, never acceptance.
+                    data["assistant_reminders"].update(
+                        now_local=direct.captured_at.astimezone(
+                            ZoneInfo(direct.candidate.timezone)
+                        ).isoformat(),
+                        default_timezone=direct.candidate.timezone,
+                        timezone_basis=direct.timezone_basis,
+                    )
             instructions += (
                 "\nDraft a reminder only for the latest explicit parent request. content is its "
                 "shortest EXACT task quote, excluding command/date/time, or the frozen pending "

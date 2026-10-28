@@ -135,7 +135,7 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
             or manager is None
             or capture[0] != 1
             or capture[1] != hashlib.sha256(native[0].encode()).hexdigest()
-            or capture[2] != manager[0]
+            or self._publication_manager_binding(db, parent, turn, capture[2]) != manager[0]
         ):
             raise ParentChatError("parent_publication_capture_invalid", 409)
         if marker in {5, 6} and not self._compact_manager_enabled:
@@ -143,6 +143,12 @@ class SqliteCompactParentPublicationStore(SqliteCompactFamilyInputStore):
         if not self._compact_publication_enabled:
             raise ParentChatError("parent_publication_disabled", 503)
         return marker
+
+    def _publication_manager_binding(
+        self, db: sqlite3.Connection, parent: str, turn: int | None, binding: str
+    ) -> str:
+        """An owning captured extension may bind a new private decision protocol."""
+        return binding
 
     def _presentation(
         self, db: sqlite3.Connection, parent: str, turn: int | None

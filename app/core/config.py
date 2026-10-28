@@ -122,6 +122,8 @@ class Settings(BaseSettings):
     mana_family_compact_source_tools_enabled: bool = False
     mana_parent_setup_enabled: bool = False
     mana_parent_setup_policy: ParentSetupPolicy = Field(default_factory=ParentSetupPolicy)
+    mana_parent_touch_direct_reminders_enabled: bool = False
+    mana_parent_touch_compact_decisions_enabled: bool = False
     mana_retention_trial_end_enabled: bool = False
     mana_retention_trial_end_policy: TrialEndPolicy = Field(default_factory=TrialEndPolicy)
     mana_conversion_shared_profile_policy: SharedConversionProfilePolicy = Field(
@@ -495,6 +497,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_family_source_configuration(self) -> "Settings":
+        if (
+            self.mana_parent_touch_compact_decisions_enabled
+            and not self.mana_family_compact_source_tools_enabled
+        ):
+            raise ValueError(
+                "Compact native decisions require the complete captured manager runtime"
+            )
+        if self.mana_parent_touch_direct_reminders_enabled and not (
+            self.mana_family_compact_source_tools_enabled and self.mana_parent_reminders_enabled
+        ):
+            raise ValueError("Direct reminders require the complete captured reminder runtime")
         if self.mana_parent_setup_enabled and not (
             self.mana_family_compact_source_tools_enabled
             and self.mana_parent_support_questions_enabled

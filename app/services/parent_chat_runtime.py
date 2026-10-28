@@ -41,6 +41,10 @@ from app.services.compact_family_input_store import (
     SqliteClosedCompactFamilyInputStore,
     SqliteCompactFamilyInputStore,
 )
+from app.services.compact_manager_decision_store import (
+    SqliteClosedCompactManagerDecisionStore,
+    SqliteCompactManagerDecisionStore,
+)
 from app.services.compact_parent_publication_store import (
     SqliteClosedCompactParentPublicationStore,
     SqliteCompactParentPublicationStore,
@@ -61,6 +65,10 @@ from app.services.dated_review_safety_store import (
 from app.services.dated_source_safety_store import (
     SqliteClosedDatedSourceSafetyStore,
     SqliteDatedSourceSafetyStore,
+)
+from app.services.direct_reminder_store import (
+    SqliteClosedDirectReminderStore,
+    SqliteDirectReminderStore,
 )
 from app.services.family_agent_store import SqliteFamilyAgentStore
 from app.services.family_agent_worker import FamilyAgentWorker
@@ -208,6 +216,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }
         and settings.mana_child_safety_enabled
         and not settings.mana_client_upsell_enabled
@@ -273,24 +283,45 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             **store_arguments,
         )
         profile_options: dict[str, Any] = {}
-        if settings.mana_parent_setup_enabled or version == 42:
+        if (
+            settings.mana_parent_setup_enabled
+            or settings.mana_parent_touch_direct_reminders_enabled
+            or settings.mana_parent_touch_compact_decisions_enabled
+            or version in {42, 43, 44}
+        ):
             profile_options.update(
                 parent_setup_enabled=settings.mana_parent_setup_enabled,
                 parent_setup_policy=settings.mana_parent_setup_policy,
                 setup_binding=settings.manakids_api_base_url
                 + "/api/v1/admin-panel-parent/parent-list/",
             )
-        if settings.mana_family_compact_source_tools_enabled or version in {41, 42}:
+        if settings.mana_parent_touch_compact_decisions_enabled or version == 44:
+            profile_options["compact_decisions_enabled"] = (
+                settings.mana_parent_touch_compact_decisions_enabled
+            )
+        if settings.mana_parent_touch_direct_reminders_enabled or version in {43, 44}:
+            profile_options["direct_reminders_enabled"] = (
+                settings.mana_parent_touch_direct_reminders_enabled
+            )
+        if settings.mana_family_compact_source_tools_enabled or version in {41, 42, 43, 44}:
             profile_options["compact_source_tools_enabled"] = (
                 settings.mana_family_compact_source_tools_enabled
             )
-        if settings.mana_upsell_literal_followups_enabled or version in {40, 41, 42}:
+        if settings.mana_upsell_literal_followups_enabled or version in {40, 41, 42, 43, 44}:
             profile_options["literal_tariff_followups_enabled"] = (
                 settings.mana_upsell_literal_followups_enabled
             )
-        if settings.mana_upsell_followups_enabled or version in {39, 40, 41, 42}:
+        if settings.mana_upsell_followups_enabled or version in {39, 40, 41, 42, 43, 44}:
             profile_options["tariff_followups_enabled"] = settings.mana_upsell_followups_enabled
-        if settings.mana_family_saved_observations_enabled or version in {38, 39, 40, 41, 42}:
+        if settings.mana_family_saved_observations_enabled or version in {
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+        }:
             profile_options["saved_observations_enabled"] = (
                 settings.mana_family_saved_observations_enabled
             )
@@ -301,7 +332,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             settings.mana_family_location_comparisons_enabled
             or settings.mana_family_saved_observations_enabled
             or settings.mana_upsell_followups_enabled
-            or version in {37, 38, 39, 40, 41, 42}
+            or version in {37, 38, 39, 40, 41, 42, 43, 44}
         ):
             profile_options["location_time_labels_enabled"] = (
                 settings.mana_family_location_time_labels_enabled
@@ -318,6 +349,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["compact_manager_enabled"] = (
                 settings.mana_parent_touch_compact_manager_enabled
@@ -334,6 +367,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["compact_inputs_enabled"] = settings.mana_family_compact_inputs_enabled
         if settings.mana_parent_touch_tariff_handoff_enabled or version in {
@@ -347,6 +382,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["tariff_handoff_enabled"] = (
                 settings.mana_parent_touch_tariff_handoff_enabled
@@ -363,6 +400,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["inline_enabled"] = settings.mana_upsell_inline_results_enabled
         if settings.mana_client_upsell_currency_enabled or version in {
@@ -378,6 +417,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["currency_enabled"] = settings.mana_client_upsell_currency_enabled
         if settings.mana_family_usage_comparisons_enabled or version in {
@@ -394,6 +435,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["comparisons_enabled"] = settings.mana_family_usage_comparisons_enabled
         if settings.mana_parent_touch_clarifications_enabled or version in {
@@ -411,6 +454,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["clarifications_enabled"] = (
                 settings.mana_parent_touch_clarifications_enabled
@@ -431,6 +476,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["parent_questions_enabled"] = (
                 settings.mana_parent_support_questions_enabled
@@ -452,6 +499,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options.update(
                 remainder_enabled=settings.mana_child_safety_remainder_enabled,
@@ -474,6 +523,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options.update(
                 trial_end_enabled=settings.mana_retention_trial_end_enabled,
@@ -498,13 +549,15 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["location_enabled"] = settings.mana_family_location_enabled
         if (
             settings.mana_conversion_trial_periods_enabled
             or settings.mana_family_location_enabled
             or version
-            in {22, 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+            in {22, 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
         ):
             profile_options["trial_periods_enabled"] = (
                 settings.mana_conversion_trial_periods_enabled
@@ -530,6 +583,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             model_name = settings.mana_parent_touch_model or settings.openai_model
             profile_options.update(
@@ -547,7 +602,31 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             settings.mana_conversion_shared_profile_enabled
             or settings.mana_parent_touch_manager_enabled
             or version
-            in {20, 21, 22, 23, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+            in {
+                20,
+                21,
+                22,
+                23,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+            }
         ):
             profile_options.update(
                 shared_profile_enabled=settings.mana_conversion_shared_profile_enabled,
@@ -577,6 +656,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["day_tools_enabled"] = settings.mana_family_day_usage_enabled
         if settings.mana_family_day_reviews_enabled or version in {
@@ -602,11 +683,17 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             40,
             41,
             42,
+            43,
+            44,
         }:
             profile_options["dated_reviews_enabled"] = settings.mana_family_day_reviews_enabled
         native_store = (
             (
-                SqliteParentSetupStore
+                SqliteCompactManagerDecisionStore
+                if settings.mana_parent_touch_compact_decisions_enabled or version == 44
+                else SqliteDirectReminderStore
+                if settings.mana_parent_touch_direct_reminders_enabled or version == 43
+                else SqliteParentSetupStore
                 if settings.mana_parent_setup_enabled or version == 42
                 else SqliteCompactSourceToolStore
                 if settings.mana_family_compact_source_tools_enabled or version == 41
@@ -622,10 +709,10 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 if settings.mana_parent_touch_compact_publication_enabled or version == 36
                 else SqliteCompactFamilyInputStore
                 if settings.mana_family_compact_inputs_enabled
-                or version in {35, 36, 37, 38, 39, 40, 41, 42}
+                or version in {35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
                 else SqliteTariffHandoffStore
                 if settings.mana_parent_touch_tariff_handoff_enabled
-                or version in {33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+                or version in {33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
                 else SqliteInlineUpsellStore
                 if settings.mana_upsell_inline_results_enabled or version == 32
                 else SqliteUpsellCurrencyStore
@@ -634,16 +721,18 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 if settings.mana_family_usage_comparisons_enabled or version == 30
                 else SqliteParentClarificationStore
                 if settings.mana_parent_touch_clarifications_enabled
-                or version in {29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+                or version in {29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
                 else SqliteParentSupportQuestionStore
                 if settings.mana_parent_support_questions_enabled
-                or version in {28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+                or version in {28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
                 else SqliteSafetyRemainderStore
                 if settings.mana_child_safety_remainder_enabled
-                or version in {27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+                or version
+                in {27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
                 else SqliteTrialEndStore
                 if settings.mana_retention_trial_end_enabled
-                or version in {26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+                or version
+                in {26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
                 else SqliteLocationSafetyStore
                 if settings.mana_family_location_enabled or version == 23
                 else SqliteTrialPeriodStore
@@ -697,6 +786,8 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                 40,
                 41,
                 42,
+                43,
+                44,
             }
             else SqliteClientUpsellStore(
                 settings.mana_parent_chat_database_path,
@@ -754,11 +845,17 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
         40,
         41,
         42,
+        43,
+        44,
     }:
         if settings.mana_child_safety_enabled:
             raise RuntimeError("V11 safety execution requires its captured native source runtime")
         closed_class = (
-            SqliteClosedParentSetupStore
+            SqliteClosedCompactManagerDecisionStore
+            if version == 44
+            else SqliteClosedDirectReminderStore
+            if version == 43
+            else SqliteClosedParentSetupStore
             if version == 42
             else SqliteClosedCompactSourceToolStore
             if version == 41
@@ -775,7 +872,7 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else SqliteClosedCompactFamilyInputStore
             if version == 35
             else SqliteClosedTariffHandoffStore
-            if version in {33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+            if version in {33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
             else SqliteClosedInlineUpsellStore
             if version == 32
             else SqliteClosedUpsellCurrencyStore
@@ -783,11 +880,11 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
             else SqliteClosedUsageComparisonSafetyStore
             if version == 30
             else SqliteClosedParentClarificationStore
-            if version in {29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+            if version in {29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
             else SqliteClosedParentSupportQuestionStore
-            if version in {28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+            if version in {28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
             else SqliteClosedSafetyRemainderStore
-            if version in {27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+            if version in {27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44}
             else SqliteClosedTrialEndStore
             if version == 26
             else SqliteClosedLocationSafetyStore
@@ -1153,6 +1250,9 @@ async def parent_chat_runtime(settings: Settings) -> AsyncIterator[ParentChatSer
                     expiry=RetentionExpiryService(store, clock=lambda: datetime.now(UTC))
                     if isinstance(store, SqliteRetentionExpiryStore)
                     and settings.mana_retention_expiry_enabled
+                    else None,
+                    direct_reminders=store
+                    if isinstance(store, SqliteDirectReminderStore)
                     else None,
                     setup=ParentSetupService(store, clock=lambda: datetime.now(UTC))
                     if isinstance(store, SqliteParentSetupStore)
