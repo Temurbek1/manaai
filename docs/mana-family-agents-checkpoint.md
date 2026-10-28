@@ -2,14 +2,59 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Source-backed setup support checkpoint — local, 2026-10-28
+
+Feature branch `feat/mana-conversion-agent-20261021` adds **19f99b8**, family42 /
+collection5, default disabled. Read
+[the checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-setup-support.md)
+and English integration section51. A complete, freshly acquired MANA parent
+profile with no linked child may produce one dated Parent-Touch invitation and
+one bound question. Missing child counts remain unknown; no fake inactivity,
+churn or trial eligibility is inferred. Existing profile/page acquisition is
+shared without another provider read, timer, cloud listener or source activation.
+Consent, quiet hours, opt-out, Safety priority and2000/2000 raw limits remain.
+
+Full `make verify` exited0:1946 backend tests,26 admin tests and23 lab tests;
+format/Ruff, mypy509 files, types/build and high-severity audit passed, with five
+existing low dev findings. Fake browser first contact/replies use300 simulated
+parent tokens/0 Safety; physical restart retains all92 table fingerprints.
+The initial evening browser run correctly vetoes outreach during quiet hours.
+Its separate daytime fictional timezone fixture changes no consent flags.
+
+Packaged image `68424bcff52f…` verifies317 app hashes plus the lockfile on actual
+Python3.12.15/OpenAI2.53.0. The existing historical production6->41 rehearsal
+upgrades to42 while retaining all86 prior table/cell fingerprints; authenticated
+history and legacy replay200, unauthenticated401, zero external requests. Current
+42 closed reading preserves the paid941-used/1059-held and1918-used/0-held
+histories exactly. Collection4->5 retains13 old tables and never backfills old
+page captures. Initial metadata/WAL/access-time harness failures are retained;
+the final snapshot includes DB/WAL/SHM and verifies unchanged original bytes.
+
+Actual-model quality is **not complete**. The first new party wrongly routes
+setup help to Child-Safety, uses941 tokens and remains pending; never replay or
+reset it. A new typed-help capture fixes routing for two replies using1918 tokens,
+but the model repeats a step and speculates about an unsupplied code/confirmation
+flow. Final input uses the established bounded-history resize, retaining the exact
+bound answer, not full recent history. That is a technical completion with a
+negative manual quality review, not finished setup, sustained dialogue or fleet
+capacity. Known-generation estimates total$0.01046, not an invoice. Next work
+needs source-backed app instructions and the complete useful dialogue within the
+unchanged allowance. Referral remains deferred; the full goal stays active.
+
+Production remains **4018971**, family41/source10, as documented below. New42 is
+not deployed or enabled. Main/audio, OPERATION, UI, SSH, keys, cloud data, source
+ceilings, bulk collection, push and grant settings were not changed. Populated42
+requires the current closed42 reader; production41 is not a rollback reader.
+
 ### Scoped production release completed — 2026-10-28
 
 The owner requested releasing verified work. Isolated parent-chat application
 **4018971** now runs family41/source10; source/doc checkpoint b0330f5 and release
 record **dcbd446** are pushed to `feat/mana-conversion-agent-20261021` by samango1.
 Read [the release record](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-production-20261028.md)
-and English integration section50. Dirty family42/collection5 setup help remains
-local and was not included in the image or GitHub push. The full goal stays active.
+and English integration section50. Family42/collection5 was absent from that
+release image; its later local branch checkpoint is described above. The full
+goal stays active.
 
 Server image `1f978e9051bf…` has the exact local `b9e3dec5cce9…` filesystem layers,
 nonempty runtime configuration and310 application hashes. The initial active
