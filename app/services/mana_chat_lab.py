@@ -1559,7 +1559,7 @@ class ChatLab:
                 conversion_policy=ConversionPolicy(),
                 conversion_offers=(offer,),
                 limits=limits,
-                daily_limit=2000,
+                daily_limit=5000,
                 timezone="Asia/Samarkand",
                 proactive_enabled=True,
                 conversation_enabled=True,
@@ -1572,7 +1572,7 @@ class ChatLab:
                 conversion_policy=ConversionPolicy(),
                 conversion_offers=(offer,),
                 limits=limits,
-                daily_limit=2000,
+                daily_limit=5000,
                 timezone="Asia/Samarkand",
                 push_enabled=False,
             )

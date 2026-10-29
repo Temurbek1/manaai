@@ -395,6 +395,42 @@ async def test_missing_model_receipt_after_restart_does_not_expire_like_preparat
     assert other_model.calls == other_children.calls == 0
 
 
+async def test_quota_increase_preserves_spend_history_and_exact_replay(tmp_path: Path) -> None:
+    path = tmp_path / "chat.db"
+    old, _, _ = await make_service(path)
+    request = message()
+    original = await old.send(request)
+    assert original.quota.daily_limit == 2000
+    upgraded, model, children = await make_service(path, limit=5000)
+    quota = await upgraded.store.quota("123", NOW)
+    assert (quota.daily_limit, quota.used_tokens, quota.remaining_tokens) == (5000, 150, 4850)
+    assert await upgraded.send(request) == original
+    assert model.calls == children.calls == 0
+    following = await upgraded.send(message())
+    assert following.quota.daily_limit == 5000
+    assert following.quota.used_tokens == 300
+    assert following.quota.remaining_tokens == 4700
+    assert len((await upgraded.store.history("123", before=None, limit=30, now=NOW)).messages) == 4
+
+
+async def test_quota_increase_never_releases_unknown_receipt(tmp_path: Path) -> None:
+    path = tmp_path / "chat.db"
+    old, _, _ = await make_service(path)
+    turn = await old.store.admit(message(), NOW)
+    await old.store.submit(turn, reserved_tokens=612, now=NOW)
+    upgraded, model, children = await make_service(path, limit=5000)
+    quota = await upgraded.store.quota("123", NOW)
+    assert quota.daily_limit == 5000
+    assert quota.reserved_tokens == 612
+    assert quota.remaining_tokens == 4388
+    assert quota.blocked_by_unresolved_request
+    with pytest.raises(ParentChatError, match="previous_request_unresolved"):
+        await upgraded.send(message())
+    tomorrow = await upgraded.store.quota("123", NOW + timedelta(days=1))
+    assert tomorrow.blocked_by_unresolved_request
+    assert model.calls == children.calls == 0
+
+
 async def test_expired_preparation_cannot_submit_even_without_another_reader(
     tmp_path: Path,
 ) -> None:

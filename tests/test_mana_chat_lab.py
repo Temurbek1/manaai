@@ -100,7 +100,7 @@ async def test_default_lab_uses_no_deployment_settings_provider_or_live_write(
         headers = await session(client)
         state = await observed_state(client)
         assert state["mode"] == "simulation"
-        assert state["history"]["quota"]["daily_limit"] == 2000
+        assert state["history"]["quota"]["daily_limit"] == 5000
         assert state["safety_budget"]["server_daily_limit"] == 2000
         lab = app.state.chat_lab
         assert lab.touch.conversion.grants is None

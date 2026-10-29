@@ -71,3 +71,4 @@ def test_family_quality_defaults_are_inactive_and_do_not_replace_the_existing_mo
     assert config.mana_child_safety_model == "gpt-5.4-mini"
     assert not config.mana_parent_touch_enabled and not config.mana_child_safety_enabled
     assert config.openai_model == "gpt-5.4-nano"
+    assert config.mana_parent_chat_daily_tokens == 5000

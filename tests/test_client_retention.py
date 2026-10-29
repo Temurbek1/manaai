@@ -419,7 +419,7 @@ async def test_retention_does_not_gain_inference_when_parent_quota_is_exhausted(
             day, _ = lab.store._period(lab.options.clock.now())
             db.execute(
                 "INSERT OR REPLACE INTO parent_chat_quota(parent_id,day,used,attempts) "
-                "VALUES(?,?,2000,0)",
+                "VALUES(?,?,5000,0)",
                 (LAB_PARENT, day),
             )
         assert await lab.touch.process_retention()
@@ -431,7 +431,7 @@ async def test_retention_does_not_gain_inference_when_parent_quota_is_exhausted(
             )
         )
         assert stop.response and stop.response.answer == "I will stop initiating chat check-ins."
-        assert (await lab.state()).history.quota.used_tokens == 2000
+        assert (await lab.state()).history.quota.used_tokens == 5000
     finally:
         await lab.close()
 

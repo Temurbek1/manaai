@@ -298,14 +298,19 @@ typed contracts and policies, not impersonation of Child-Safety or a fictional
 
 ## 8. Limits and errors
 
-Current production limits:
+Current limits (Parent-Touch increased on 29 October; historical checkpoint sections
+below retain their original 2000-token diagnostic conditions):
 
-- Parent-Touch: **2000 input + output tokens per parent per day**, including system
+- Parent-Touch: **5000 input + output tokens per parent per day**, including system
   context and assistant deliveries, not only visible text.
 - Child-Safety: **2000 tokens per day across all parents combined**. With a
   2000-token reservation per task, this generally permits about one short analysis
   per day.
 - The daily boundary is midnight in `Asia/Tashkent`, Uzbekistan local time.
+
+The 29 October production configuration update and unchanged-history checks are
+recorded in [the quota release note](mana-parent-chat-quota-5000.md). Exact replay
+keeps the original quota snapshot; history GET returns the current allowance.
 
 The small shared Child-Safety budget may prevent a new response even when
 Parent-Touch has remaining tokens. Review-first does not bypass a refused review

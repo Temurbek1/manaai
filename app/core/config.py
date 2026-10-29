@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     )
     mana_parent_chat_enabled: bool = False
     mana_parent_chat_database_path: Path = Path("data/mana-parent-chat.sqlite3")
-    mana_parent_chat_daily_tokens: int = Field(default=2000, ge=256, le=100_000)
+    mana_parent_chat_daily_tokens: int = Field(default=5000, ge=256, le=100_000)
     mana_parent_chat_timezone: str = "Asia/Tashkent"
     mana_parent_chat_max_output_tokens: int = Field(default=512, ge=32, le=4096)
     mana_parent_chat_history_turns: int = Field(default=2, ge=0, le=10)

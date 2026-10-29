@@ -338,7 +338,7 @@ async def deferred_delivery_smoke(
     queued = await client.post(PREFIX + "/parent-touch/requests", json=intent, headers=HEADERS)
     assert queued.status_code == 201
     with service.store._transaction() as connection:
-        connection.execute("UPDATE parent_chat_quota SET used=1750 WHERE parent_id='323'")
+        connection.execute("UPDATE parent_chat_quota SET used=4750 WHERE parent_id='323'")
     original = {"parent_id": "323", "request_id": str(uuid4())}
     refused = await client.post(PREFIX + "/parent-touch/deliver", json=original, headers=HEADERS)
     assert refused.status_code == 429

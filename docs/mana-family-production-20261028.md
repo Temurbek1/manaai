@@ -1,5 +1,10 @@
 # Family-agent production release — 2026-10-28
 
+**29 October amendment:** the owner increased only Parent-Touch to 5000 raw
+tokens per parent/day. The same application image/family 41 remains deployed;
+Child-Safety stays at 2000 globally/day. Historical figures below describe the
+original release. See [the verified quota update](mana-parent-chat-quota-5000.md).
+
 The owner explicitly requested releasing the already verified work. Application
 **40189716022791f0f60db1c5989f14feb0930246**, source/docs **b0330f5**, replaces
 only the isolated parent-chat sidecar. The unfinished zero-linked-child setup

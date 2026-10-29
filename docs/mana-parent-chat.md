@@ -116,10 +116,10 @@ Backend может дополнительно передать `child_observatio
 
 ## Квоты, повторы и ошибки
 
-- По умолчанию **2000 входных + выходных токенов на родителя в сутки**. Системная
+- По умолчанию **5000 входных + выходных токенов на родителя в сутки**. Системная
   инструкция, данные ребёнка и предыдущие сообщения тоже входят в расход;
   cached input учитывается полностью, reasoning уже входит в output. Это не
-  2000 символов, не 2000 токенов ответов и не фиксированное число сообщений.
+  2000 символов, не 5000 токенов ответов и не фиксированное число сообщений.
 - Сброс в полночь `Asia/Tashkent`, часовой пояс настраивается. GET возвращает
   точное `resets_at`. Максимум ответа — 512 токенов, уменьшается под остаток.
 - Перед генерацией вызывается официальный input-token count с теми же моделью,
@@ -164,7 +164,7 @@ Backend может дополнительно передать `child_observatio
 ```dotenv
 MANA_PARENT_CHAT_ENABLED=true
 MANA_PARENT_CHAT_DATABASE_PATH=data/mana-parent-chat.sqlite3
-MANA_PARENT_CHAT_DAILY_TOKENS=2000
+MANA_PARENT_CHAT_DAILY_TOKENS=5000
 MANA_PARENT_CHAT_TIMEZONE=Asia/Tashkent
 MANA_PARENT_CHAT_MAX_OUTPUT_TOKENS=512
 MANA_PARENT_CHAT_HISTORY_TURNS=2
