@@ -2,6 +2,33 @@
 
 ## Subsequent conversion / proactive increment — local, not deployed
 
+### Owner-approved parent allowance — production, 2026-10-29
+
+The latest owner instruction supersedes the earlier 2000-parent-token constraint:
+Parent-Touch now has **5000 raw input/output tokens per parent/day**. Child-Safety
+retains its separate **2000 tokens globally/day**. The owner also explicitly asked
+to finish useful functional scenarios rather than continue polishing one route.
+Earlier 2000-token diagnostic failures remain unchanged historical evidence.
+
+The production change updates only the existing isolated parent-chat environment.
+Application 4018971/family 41/image remains unchanged, all 86 table/cell fingerprints
+are retained, and authenticated internal/public history returns daily_limit 5000.
+The recreated sidecar is healthy; the other five containers/configurations/start
+times remain exact. There is no source refresh, model diagnostic, push, grant,
+schedule, main/audio, OPERATION, UI, SSH or key change. Source/semantic reminder/
+owner-first WIP is not released with this configuration update.
+
+Feature source and English integration:
+[the quota checkpoint](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-parent-chat-quota-5000.md).
+Feature commit **8f3b63f** contains only the allowance/configuration/docs/tests
+increment; unfinished routing changes remain unstaged. Final full gate passes
+2576 backend/26 admin/23 lab, mypy 536, formatting/lint/types/
+build; one skip, two live exclusions and five existing low dev findings remain.
+A separate clean quota-only export passes 45 relevant cases. Used costs, exact
+historical replay and 612-token unknown holds survive the allowance change; unknown
+receipts continue to block across midnight. The full AI KOMANDA objective remains
+active; next work proceeds to substantive agent scenarios under the new allowance.
+
 
 ### Bound semantic reminder review — local, 2026-10-29
 
