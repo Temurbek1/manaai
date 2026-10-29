@@ -191,6 +191,16 @@ class SqliteTrialEndStore(SqliteLocationSafetyStore):
             return True
         return await super().publish_expiry(now)
 
+    def _on_commercial_refusal(self, db: sqlite3.Connection, parent: str, now: datetime) -> None:
+        super()._on_commercial_refusal(db, parent, now)
+        db.execute(
+            "UPDATE parent_push_outbox SET status='suppressed',"
+            "error_code='parent_push_marketing_opted_out',updated_at=? "
+            "WHERE parent_id=? AND purpose='retention' AND status='queued' "
+            "AND turn_id IN(SELECT turn_id FROM trial_end_notices WHERE parent_id=?)",
+            (now.isoformat(), parent, parent),
+        )
+
     def _publish_trial_end(self, now: datetime) -> bool:
         if not self._trial_end_enabled or not self._expiry_enabled:
             return False
@@ -229,6 +239,7 @@ class SqliteTrialEndStore(SqliteLocationSafetyStore):
                 parent = row["parent_id"]
                 if (
                     not self._contact_ready(db, parent, now)
+                    or self._commercial_contact_blocked(db, parent)
                     or not self._expiry_parent_ready(db, parent, now)
                     or self._manager_priority(db, parent, 0, now)
                     or self._retention_recent(db, parent, now)
@@ -298,6 +309,7 @@ class SqliteTrialEndStore(SqliteLocationSafetyStore):
                 event["intent_id"] != notice["action_id"]
                 or row["purpose"] != "retention"
                 or not self._trial_end_enabled
+                or self._commercial_contact_blocked(db, row["parent_id"])
                 or not self._trial_end_open(db)
                 or not self._expiry_open(db)
             ):

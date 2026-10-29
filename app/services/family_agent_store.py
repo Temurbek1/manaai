@@ -21,6 +21,8 @@ from app.mana_ai.domain.family_agents import (
     ParentTouchDeliveryTurn,
     ParentTouchEvidence,
     ParentTouchHistory,
+    ParentTouchMessageRequest,
+    ParentTouchMessageState,
     ParentTouchNotice,
     ParentTouchQuestion,
     ParentTouchRequest,
@@ -33,6 +35,12 @@ class SqliteFamilyAgentStore(SqliteParentChatStore):
     """Opt-in family reader. Older readers must refuse, never downgrade, its schema."""
 
     _schema_version = 3
+
+    async def commercial_preference_control(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState | None:
+        """Legacy readers have no host-command or commercial preference contract."""
+        return None
 
     def _supported_versions(self) -> set[int]:
         return super()._supported_versions() | {2}

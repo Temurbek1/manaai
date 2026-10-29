@@ -27,6 +27,8 @@ from app.mana_ai.domain.family_agents import (
     FamilyQuestion,
     ParentTouchEvidence,
     ParentTouchHistory,
+    ParentTouchMessageRequest,
+    ParentTouchMessageState,
     ParentTouchNotice,
     ParentTouchQuestion,
 )
@@ -141,6 +143,10 @@ class ParentChatStore(Protocol):
 
 
 class ParentTouchStore(ParentChatStore, Protocol):
+    async def commercial_preference_control(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState | None: ...
+
     async def answered_parent_question(self, parent_id: str, turn_id: int) -> str | None: ...
     async def commercial_context(
         self, parent_id: str, turn_id: int

@@ -187,6 +187,9 @@ class ParentTouchService(ParentChatService):
         return await self.conversion.communicate(render_parent_offer)
 
     async def admit_message(self, request: ParentTouchMessageRequest) -> ParentTouchMessageState:
+        preference = await self._touch_store.commercial_preference_control(request, self._clock())
+        if preference is not None:
+            return preference
         if self.upsell is not None:
             controlled_currency = await self.upsell.control(request)
             if controlled_currency is not None:

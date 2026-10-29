@@ -169,7 +169,8 @@ async def test_explicit_offer_opt_out_cancels_only_an_unclaimed_card(tmp_path: P
                 parent_id=LAB_PARENT, request_id=uuid4(), message="не присылайте предложения"
             )
         )
-        assert state.phase in {"awaiting_review", "responding"}
+        assert state.phase == "completed" and state.response
+        assert state.response.usage.input_tokens == state.response.usage.output_tokens == 0
         assert (await lab.action_cards.read(LAB_PARENT, card.card_id)).status == "cancelled"
         assert lab.trial_gateway.calls == 0
         with lab.store._connect() as db:

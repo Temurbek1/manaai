@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from app.mana_ai.application.contact_preferences import commercial_refusal_language
 from app.mana_ai.application.conversion_accounts import ConversionAccountVerifier
 from app.mana_ai.application.conversion_grants import TrialGrantService
 from app.mana_ai.domain.chat import ParentChatRequest, ResponseLanguage
@@ -67,24 +68,7 @@ class ConversionService:
     async def observe_parent_message(self, request: ParentChatRequest) -> None:
         # A conservative exact negative preference, never a purchase/positive
         # consent inferred by a model. Works even when the paid chat quota is full.
-        normalized = request.message.strip().strip(".!? ").casefold().replace("’", "'")
-        if normalized in {
-            "не присылай предложения",
-            "не присылайте предложения",
-            "не хочу рекламу",
-            "не присылай рекламу",
-            "отпиши от предложений",
-            "отписаться от предложений",
-            "stop offers",
-            "no more offers",
-            "unsubscribe",
-            "stop promotions",
-            "taklif yubormang",
-            "takliflarni yubormang",
-            "reklama yubormang",
-            "таклиф юборманг",
-            "реклама юборманг",
-        }:
+        if commercial_refusal_language(request.message) is not None:
             await self._store.suppress_from_message(request, self._clock())
 
     async def outcome(self, outcome: ConversionOutcome) -> ConversionProposal:

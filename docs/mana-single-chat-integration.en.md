@@ -1379,3 +1379,19 @@ or quota increase follows. Use the separate fictional lab:
 reminder/follow-up party still fails final publication under2000 tokens; it is not
 released or represented as lower cost. Evidence and compatibility scope:
 [mana-bound-reminder-review.md](mana-bound-reminder-review.md).
+
+## 55. Stop unsolicited commercial messages
+
+Use the existing message POST with a new UUID and `message="Stop offers"`,
+`Не присылай предложения`, `Taklif yubormang` or `Таклиф юборманг`. Parent-Touch
+returns a completed zero-token acknowledgement. This works without a running
+Conversion service and even at the daily token limit. No extra mobile payload
+or user-visible agent chat is required.
+
+Queued commercial offers and unsubmitted tariff invitation notifications stop;
+saved history and submitted/unknown outcomes remain. Explicitly requested prices,
+safety messages and confirmed reminders remain independent. An existing question
+is not answered by this control. Exact replay remains SQL-only and never clears
+an unknown model hold. There is no automatic resubscription or payment.
+
+Read [the implementation evidence and release boundary](mana-commercial-chat-preferences.md).

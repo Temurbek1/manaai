@@ -11,6 +11,10 @@ from uuid import UUID, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
 from app.mana_ai.application.chat_ports import ChatModelReceipt, ParentChatError
+from app.mana_ai.application.contact_preferences import (
+    commercial_refusal_language,
+    commercial_refusal_reply,
+)
 from app.mana_ai.application.reminder_dates import reminder_date_answer
 from app.mana_ai.application.reminder_text import (
     reminder_ack,
@@ -554,6 +558,46 @@ class SqliteParentReminderStore(SqliteSourceReviewSafetyStore):
         self, request: ParentTouchMessageRequest, now: datetime
     ) -> ParentTouchMessageState | None:
         return await asyncio.to_thread(self._control, request, self._utc(now))
+
+    async def commercial_preference_control(
+        self, request: ParentTouchMessageRequest, now: datetime
+    ) -> ParentTouchMessageState | None:
+        language = commercial_refusal_language(request.message)
+        if language is None:
+            return None
+
+        def stop() -> ParentTouchMessageState | None:
+            with self._transaction() as db:
+                prior = db.execute(
+                    "SELECT request_digest FROM parent_chat_turns WHERE parent_id=? "
+                    "AND request_id=?",
+                    (request.parent_id, str(request.request_id)),
+                ).fetchone()
+                if prior:
+                    if prior[0] != self._digest(ParentTouchReviewedTurn(**request.model_dump())):
+                        raise ParentChatError("request_id_conflict", 409)
+                    return None
+                self._opt_out(db, request.parent_id, self._utc(now))
+                db.execute(
+                    "UPDATE parent_push_outbox SET status='suppressed',"
+                    "error_code='parent_push_marketing_opted_out',updated_at=? "
+                    "WHERE parent_id=? AND purpose='marketing' AND status='queued'",
+                    (self._utc(now).isoformat(), request.parent_id),
+                )
+                self._on_commercial_refusal(db, request.parent_id, self._utc(now))
+                return self._host_reply(
+                    db,
+                    request,
+                    request.parent_id,
+                    request.request_id,
+                    commercial_refusal_reply(language),
+                    self._utc(now),
+                )
+
+        return await asyncio.to_thread(stop)
+
+    def _on_commercial_refusal(self, db: sqlite3.Connection, parent: str, now: datetime) -> None:
+        """Owning consumers may suppress only their still-unsubmitted offers."""
 
     def _control(
         self, request: ParentTouchMessageRequest, now: datetime

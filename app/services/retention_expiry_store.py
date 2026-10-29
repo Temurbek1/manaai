@@ -291,10 +291,27 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
             return None
         return _text(fact.valid_until, language, timezone)
 
+    @staticmethod
+    def _commercial_contact_blocked(db: sqlite3.Connection, parent: str) -> bool:
+        return (
+            db.execute("SELECT 1 FROM conversion_opt_outs WHERE parent_id=?", (parent,)).fetchone()
+            is not None
+        )
+
     def _on_expiry_published(
         self, db: sqlite3.Connection, fact: RetentionTariffFact, turn_id: int, now: datetime
     ) -> None:
         """A private companion may bind its own verified period in this transaction."""
+
+    def _on_commercial_refusal(self, db: sqlite3.Connection, parent: str, now: datetime) -> None:
+        super()._on_commercial_refusal(db, parent, now)
+        db.execute(
+            "UPDATE parent_push_outbox SET status='suppressed',"
+            "error_code='parent_push_marketing_opted_out',updated_at=? "
+            "WHERE parent_id=? AND purpose='retention' AND status='queued' "
+            "AND turn_id IN(SELECT turn_id FROM retention_expiry_notices WHERE parent_id=?)",
+            (now.isoformat(), parent, parent),
+        )
 
     def _publish_expiry(self, now: datetime) -> bool:
         if not self._expiry_enabled:
@@ -323,6 +340,7 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
                 parent = row["parent_id"]
                 if (
                     not self._contact_ready(db, parent, now)
+                    or self._commercial_contact_blocked(db, parent)
                     or not self._expiry_parent_ready(db, parent, now)
                     or self._priority_waiting(db, parent, now)
                     or self._retention_recent(db, parent, now)
@@ -404,6 +422,7 @@ class SqliteRetentionExpiryStore(SqliteClientUpsellStore):
         ).fetchone()
         if notice is not None and (
             not self._expiry_enabled
+            or self._commercial_contact_blocked(db, row["parent_id"])
             or not self._expiry_open(db)
             or notice["current_digest"] != notice["digest"]
             or datetime.fromisoformat(notice["deadline"]) <= now
