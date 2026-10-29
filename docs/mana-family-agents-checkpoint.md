@@ -1,6 +1,49 @@
 # Parent-Touch / Child-Safety — production handoff, 2026-10-20
 
-## Subsequent conversion / proactive increment — local, not deployed
+## Subsequent family-agent checkpoints
+
+### Shared commercial refusal — production, 2026-10-29
+
+Application **ebcfa88** is pushed and deployed only to the isolated parent-chat
+sidecar. The latest owner instruction remains **5000 parent raw tokens/day** and
+**2000 Safety raw tokens globally/day**. Owner-first routing WIP stays undeployed;
+work proceeds through functional agent scenarios rather than more prompt tuning.
+
+Parent-Touch now acknowledges exact RU/Uzbek Latin/Cyrillic/EN offer refusals at
+zero model cost, even with Conversion/Retention services disabled or exhausted
+quota. Existing queued commercial proposals and unsubmitted tariff invitations
+stop across owners; direct requested prices, Safety and confirmed reminders stay
+independent. Unknown model/push holds, unrelated questions and saved messages are
+preserved. There is no new mobile API, schema, permission, payment or grant.
+
+Clean release `make verify` passes **2434 backend/26 admin/23 lab**, mypy508,
+format/lint/types/build, with one skip/two live exclusions/five existing low dev
+findings. The old baseline's four refusal regressions fail before the fix.
+A genuine-model fictional first-contact/currency/90-day-price/refusal/requested
+180-day-price/child-help conversation completes with **4069 parent/1223 Safety**
+tokens and zero holds. Its final fingerprint helper fails after saving the chat;
+an independently named SQL-only copied-state correction preserves all11 messages,
+original files/costs and exact replay without another model/source call. No party
+is replayed or retroactively treated as live customer/campaign acceptance.
+
+The clean image verifies all329 app/lock hashes on local/server Python3.12.15/
+SDK2.53.0. Factory6→41 migration retains every cell in16 original tables, and
+closed-image observation preserves the full paid-case history and a separate612
+unknown hold after midnight. The mobile-width fake browser preserves five messages
+and150 simulated tokens across reload; browser/server are closed.
+
+Production is healthy, family41; all86 original table fingerprints survive startup,
+and the other five containers retain identities/configurations/start times. A
+public HTTPS refusal for designated test parent4 returns202/completed/0 tokens
+with Conversion off. Replay/status are exact; history adds only two messages and
+the source cache/quota remain unchanged. Bulk schedules, pushes, grants, main/audio,
+OPERATION, UI, SSH and keys remain unchanged. The full goal stays active.
+
+See [the current release](/mnt/ssd2/mana-conversion-agent-20261021/docs/mana-family-production-20261029.md)
+and English integration section55. Protected server kit:
+`/opt/manaai-releases/commercial-preferences-ebcfa88-20261029/`.
+Use only its new same-image closure helper; old active images do not implement
+the shared preference fence. Never restore old SQL over new messages.
 
 ### Owner-approved parent allowance — production, 2026-10-29
 
