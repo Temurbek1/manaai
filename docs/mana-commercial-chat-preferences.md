@@ -1,5 +1,9 @@
 # Commercial preferences in the single parent chat
 
+Released as **ebcfa88** in the isolated parent-chat service. Production test parent
+4 confirms completed zero-token refusal and exact replay with Conversion disabled.
+Read [the scoped release record](mana-family-production-20261029.md).
+
 Parent-Touch now handles an explicit offer refusal before model, source, currency
 and specialist admission. It works even when Conversion/Retention services are
 disabled, the parent has exhausted their 5000-token allowance, or a previous
@@ -70,3 +74,9 @@ Local evidence: `output/commercial-preferences-*.log`,
 `output/proactive-commercial-sql-recovery-20261029/`. Clean image/factory evidence
 is under `/mnt/ssd2/mana-commercial-preferences-20261029/`. No source refresh,
 push dispatch, grant campaign or OPERATION deployment follows from this feature.
+
+The owned 390px browser completes assistant-first expiry contact, refusal and an
+explicit catalogue enquiry, preserving all five messages and 150 simulated parent
+tokens after reload. No page overflow/errors occur. Two initial observation
+expressions used invalid browser-evaluation syntax; corrected GET observations
+repeat no scenario POST. The browser and its owned loopback server are closed.

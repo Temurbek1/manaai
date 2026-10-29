@@ -1,5 +1,10 @@
 # Family-agent production release — 2026-10-28
 
+**Later 29 October release:** application **ebcfa88** replaces the isolated
+parent-chat image with shared commercial refusals, retaining family41 and the
+5000/2000 allowances. Read [the current release](mana-family-production-20261029.md).
+The image/container identifiers below are the historical 28 October state.
+
 **29 October amendment:** the owner increased only Parent-Touch to 5000 raw
 tokens per parent/day. The same application image/family 41 remains deployed;
 Child-Safety stays at 2000 globally/day. Historical figures below describe the
