@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
 
 from app.api.routes.mana_ai import router
+from app.api.routes.mana_ai_chat import router as parent_chat_router
 from app.api.security import require_bearer_token
 from app.core.openapi import SWAGGER_UI_PARAMETERS
 
@@ -21,8 +22,11 @@ def build_schema() -> dict[str, Any]:
         title="MANA AI",
         version="0.1.0",
         description=(
-            "Read-only product inference. Send application evidence and receive a typed analysis. "
-            "Authorize with APP_API_KEY; proposed actions are not executed. "
+            "Product inference and optional persistent parent chat. "
+            "Send application evidence and receive a typed analysis. "
+            "Authorize inference with APP_API_KEY. The isolated parent chat uses its "
+            "separate MANA backend token; never distribute it to mobile clients. "
+            "Proposed actions are not executed. "
             "Executing an analysis uses the configured paid model."
         ),
         docs_url=None,
@@ -35,18 +39,22 @@ def build_schema() -> dict[str, Any]:
         tags=["mana-ai"],
         dependencies=[Depends(require_bearer_token)],
     )
+    app.include_router(parent_chat_router, prefix="/api/v1/mana-ai", tags=["mana-ai"])
     schema = app.openapi()
     schema["servers"] = [{"url": "/", "description": "Same-origin production API"}]
     return schema
 
 
-def build_html() -> bytes:
+def build_html(asset_revision: str | None = None) -> bytes:
+    if asset_revision is not None and not re.fullmatch(r"[a-f0-9]{12}", asset_revision):
+        raise ValueError("Asset revision must be a twelve-character image digest")
+    asset_version = SWAGGER_UI_VERSION + (f"-{asset_revision}" if asset_revision else "")
     html = bytes(
         get_swagger_ui_html(
             openapi_url="/openapi.json",
             title="MANA AI — Swagger",
-            swagger_js_url=f"/docs-assets/swagger-ui-bundle.js?v={SWAGGER_UI_VERSION}-utf8",
-            swagger_css_url=f"/docs-assets/swagger-ui.css?v={SWAGGER_UI_VERSION}-utf8",
+            swagger_js_url=f"/docs-assets/swagger-ui-bundle.js?v={asset_version}-utf8",
+            swagger_css_url=f"/docs-assets/swagger-ui.css?v={asset_version}-utf8",
             swagger_favicon_url="data:,",
             swagger_ui_parameters={
                 **SWAGGER_UI_PARAMETERS,
@@ -73,7 +81,7 @@ def main() -> None:
         json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    (args.output_dir / "index.html").write_bytes(build_html())
+    (args.output_dir / "index.html").write_bytes(build_html(args.runtime_image[7:19]))
     (args.output_dir / "manifest.json").write_text(
         json.dumps(
             {

@@ -15,6 +15,7 @@ MANA_AI_FORBIDDEN_PREFIXES = (
     "fastapi",
     "openai",
     "redis",
+    "sqlite3",
     "sqlalchemy",
 )
 PRODUCT_AI_RUNTIME_FORBIDDEN_PREFIXES = (

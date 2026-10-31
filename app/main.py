@@ -183,6 +183,7 @@ from app.services.marketing_repository import MarketingRepository
 from app.services.marketing_sync_service import MarketingSyncService
 from app.services.meta_marketing_client import MetaMarketingClient
 from app.services.openai_service import OpenAIService
+from app.services.parent_chat_runtime import parent_chat_runtime
 
 
 @asynccontextmanager
@@ -904,7 +905,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         operation_scheduler.start()
     audio_moderation_runtime.start()
     try:
-        yield
+        async with parent_chat_runtime(settings) as parent_chat_service:
+            app.state.parent_chat_service = parent_chat_service
+            yield
     finally:
         await goal_worker.stop()
         await goal_model.close()

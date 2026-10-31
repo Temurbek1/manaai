@@ -48,6 +48,7 @@ services:
     environment:
       APP_ENV: production
       MARKETING_DATABASE_PATH: /data/manaai.db
+      MANA_PARENT_CHAT_DATABASE_PATH: /data/mana-parent-chat.sqlite3
       OPERATION_AUTO_CREATE_SCHEMA: "false"
       OPERATION_SCHEDULER_ENABLED: "false"
       OPERATION_DRY_RUN: "true"

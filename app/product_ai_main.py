@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import audio_moderation, health, mana_ai
+from app.api.routes import audio_moderation, health, mana_ai, mana_ai_chat
 from app.api.security import require_bearer_token
 from app.core.auth_rate_limiter import AuthenticationRateLimiter
 from app.core.config import get_settings
@@ -20,6 +20,7 @@ from app.mana_ai.application.service import ManaAIAnalysisService
 from app.services.audio_moderation_service import build_audio_moderation_runtime
 from app.services.mana_ai_openai_gateway import ManaAIOpenAIModelGateway, SystemManaAIClock
 from app.services.openai_service import OpenAIService
+from app.services.parent_chat_runtime import parent_chat_runtime
 
 
 @asynccontextmanager
@@ -38,7 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     audio_moderation_runtime.start()
     try:
-        yield
+        async with parent_chat_runtime(settings) as chat_service:
+            app.state.parent_chat_service = chat_service
+            yield
     finally:
         await audio_moderation_runtime.stop()
         await openai_service.close()
@@ -61,7 +64,7 @@ def create_app() -> FastAPI:
     )
     app = FastAPI(
         title=f"{settings.app_name} MANA AI",
-        summary="Read-only request/response AI API for the MANA application.",
+        summary="Product inference and optional persistent parent chat for MANA.",
         description=API_DESCRIPTION,
         version=settings.app_version,
         contact={"name": "ManaAI API maintainers"},
@@ -105,6 +108,7 @@ def create_app() -> FastAPI:
     )
 
     api_router = APIRouter()
+    api_router.include_router(mana_ai_chat.router, prefix="/mana-ai", tags=["mana-ai"])
     api_router.include_router(health.router, prefix="/health", tags=["health"])
     api_router.include_router(
         audio_moderation.router,

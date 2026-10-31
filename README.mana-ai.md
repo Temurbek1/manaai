@@ -9,17 +9,21 @@ document requires it.
 
 ## What this layer is
 
-The application sends minimized evidence, this API returns a typed analysis. That is the whole
-contract.
+The eleven analysis endpoints return typed results from minimized application evidence.
+The separate opt-in parent chat additionally stores one conversation and a daily token
+allowance per parent. See [the parent chat integration](docs/mana-parent-chat.md).
 
-- **No application database.** The 11 request/response capabilities remain stateless. Optional
+- **No operational database.** The 11 request/response capabilities remain stateless. Optional
   audio moderation uses bounded in-process workers while 360REC owns durable state and retry.
+  The opt-in MANA parent chat uses its own private SQLite history/quota database and one
+  ownership-filtered Parent API read per new message, not bulk Firebase/GA4 reads.
 - **Application actions remain outside this service.** The ordinary capabilities only propose
   actions. Audio moderation performs one narrowly scoped, authenticated verdict callback that the
   360REC backend applies to its own visibility state.
 - **11 independent capabilities**, each its own endpoint with its own typed request and response.
   There is deliberately no generic `/analyze` endpoint with a capability discriminator.
-- **Provider dependencies:** OpenAI for inference; when audio moderation is enabled, private object
+- **Provider dependencies:** OpenAI for inference; opt-in parent chat also uses the filtered
+  MANA Parent API. When audio moderation is enabled, private object
   download and the scoped 360REC callback are also required.
 
 The import boundary is enforced by tests: `app/mana_ai` may not import repositories, ORM models,
@@ -27,7 +31,8 @@ Meta integrations, or the operation platform, and may not import FastAPI.
 
 ### Endpoints
 
-15 total when audio moderation is enabled. `GET /api/v1/mana-ai/capabilities` returns the exact
+The additional GET/POST `/api/v1/mana-ai/chat` routes are documented separately below.
+`GET /api/v1/mana-ai/capabilities` returns the exact
 method and path of the 11 synchronous request/response capabilities. The asynchronous 360REC
 integration has a separate fixed contract described below.
 
@@ -39,6 +44,8 @@ integration has a separate fixed contract described below.
 | GET | `/api/v1/health/ready` | Reports whether configured dependencies (OpenAI credentials) are usable. No auth. |
 | GET | `/api/v1/mana-ai/capabilities` | Machine-readable index: method and path of all 11 capabilities. Requires auth. Read this instead of hardcoding paths. |
 | POST | `/api/v1/audio-moderation/jobs` | Accepts a private 360REC recording, analyzes child-safety risk asynchronously, and calls the supplied one-time callback. Uses its own bearer token. |
+| GET | `/api/v1/mana-ai/chat?parent_id=123` | Read the parent's single chat, request status and current daily token allowance. Backend-only auth, no model/source calls. |
+| POST | `/api/v1/mana-ai/chat` | Save a message and return a same-language reply using ownership-checked child context. Backend-only auth, exact request-ID replay, default 2000 input/output tokens/day. |
 
 #### The 11 capabilities
 
@@ -92,7 +99,8 @@ envelope, evidence rules, and every field — lives in [docs/mana-ai-api.md](doc
 
 ## Local setup
 
-Requires Python 3.12+. Nothing else — no Node, no Docker, no database.
+Requires Python 3.12+. No Node, Docker or external database is required. Enabling
+parent chat requires a writable durable local volume for its private SQLite file.
 
 ```bash
 python -m venv .venv

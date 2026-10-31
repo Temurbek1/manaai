@@ -9,6 +9,22 @@
   Preparation-admission work remains local and is not a production
   release; resuming the goal does not approve real contacts or a contact deployment.
 - Work in English for code, comments, commit messages, and identifiers.
+- The separate MANA parent application chat is enabled on production through the
+  isolated `mana-ai-parent-chat:f2c023f` sidecar and exact `/api/v1/mana-ai/chat`
+  ingress. Its clean source is `release/mana-parent-chat-20261016`, based on actual
+  main/audio `e73c10a`, not this paused-workspace dirty tree. It has its own backend
+  key and private volume; the shared inference key must not read personal history.
+  See `docs/mana-parent-chat-release.md`. That separate release resumed no OPERATION
+  AGENTS work, activated no source refresh, rotated no old key and restarted no
+  existing production container.
+- The separate application-facing `/mana-ai/chat` is a single durable chat per
+  canonical MANA profile/Firebase parent ID, called by the trusted application backend,
+  never the operational-agent workspace. Keep its history/quota SQLite adapter outside
+  `app/mana_ai` and isolated from operation/marketing databases. Always enforce server
+  authentication, fresh ownership-filtered child profiles and explicit observation dates.
+  Backend-supplied observations grant no tool/write authority. Raw terminal input/output
+  tokens count against the shared daily allowance; unknown submitted receipts retain
+  durable holds, and idempotent replay must never re-infer or reread sources.
 - User-facing documentation may be Russian when the product audience is Russian.
 - Preserve Russian and Uzbek Latin interface support. Response language is presentation,
   never a source/action grant. Freeze it on chat admission and preserve exact Goal objectives,
